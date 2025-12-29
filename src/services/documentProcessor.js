@@ -420,14 +420,43 @@ async function saveExtractedData(extractedData, userId) {
       if (genomicData.microsatelliteStatus || genomicData.biomarkers?.microsatelliteInstability?.status) {
         genomicProfile.microsatelliteStatus = genomicData.microsatelliteStatus || genomicData.biomarkers?.microsatelliteInstability?.status;
       }
-      if (genomicData.hrdScore !== undefined || genomicData.biomarkers?.hrdScore?.value !== undefined) {
-        genomicProfile.hrdScore = genomicData.hrdScore || genomicData.biomarkers?.hrdScore?.value;
+      // Prefer explicit checks to avoid treating valid falsy values (e.g. 0) as missing.
+      if (genomicData.hrdScore !== undefined && genomicData.hrdScore !== null) {
+        genomicProfile.hrdScore = genomicData.hrdScore;
+      } else if (genomicData.biomarkers?.hrdScore?.value !== undefined && genomicData.biomarkers?.hrdScore?.value !== null) {
+        genomicProfile.hrdScore = genomicData.biomarkers.hrdScore.value;
       }
       if (genomicData.additionalFindings) {
         genomicProfile.additionalFindings = genomicData.additionalFindings;
       }
 
-      await genomicProfileService.saveGenomicProfile(userId, genomicProfile);
+      // Remove any undefined fields (Firestore rejects undefined values).
+      function removeUndefinedFields(obj) {
+        if (obj === null || typeof obj !== 'object') return obj;
+        if (Array.isArray(obj)) return obj.map(removeUndefinedFields);
+        const out = {};
+        for (const [k, v] of Object.entries(obj)) {
+          if (v === undefined) continue;
+          if (v === null) {
+            out[k] = null;
+            continue;
+          }
+          if (typeof v === 'object') {
+            const cleaned = removeUndefinedFields(v);
+            // Only include objects/arrays that are not empty
+            if (cleaned !== undefined && (typeof cleaned !== 'object' || (Array.isArray(cleaned) ? cleaned.length > 0 : Object.keys(cleaned).length > 0) )) {
+              out[k] = cleaned;
+            }
+          } else {
+            out[k] = v;
+          }
+        }
+        return out;
+      }
+
+      const sanitizedGenomicProfile = removeUndefinedFields(genomicProfile);
+
+      await genomicProfileService.saveGenomicProfile(userId, sanitizedGenomicProfile);
 
       savedData.genomic = genomicData;
     }

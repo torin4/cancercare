@@ -149,6 +149,12 @@ export default function CancerCareApp() {
     }]);
   };
 
+  // Helper to open the document upload onboarding with debugging log
+  const openDocumentOnboarding = (docType = null) => {
+    console.log('openDocumentOnboarding called, hasUploadedDocument=', hasUploadedDocument, 'docType=', docType);
+    setShowDocumentOnboarding(true);
+  };
+
   const isMedicationTaken = (medId, scheduledTime) => {
     const today = new Date().toDateString();
     return medicationLog.some(log => {
@@ -1120,7 +1126,7 @@ export default function CancerCareApp() {
                   <button
                     onClick={() => {
                       if (!hasUploadedDocument) {
-                        setShowDocumentOnboarding(true);
+                        openDocumentOnboarding('labs');
                       } else {
                         setActiveTab('files');
                       }
@@ -1170,7 +1176,7 @@ export default function CancerCareApp() {
                     <button
                       onClick={() => {
                         if (!hasUploadedDocument) {
-                          setShowDocumentOnboarding(true);
+                          openDocumentOnboarding('genomic');
                         } else {
                           setActiveTab('files');
                         }
@@ -2382,7 +2388,7 @@ export default function CancerCareApp() {
                 <button
                   onClick={() => {
                     if (!hasUploadedDocument) {
-                      setShowDocumentOnboarding(true);
+                      openDocumentOnboarding('general');
                     } else {
                       simulateDocumentUpload('general');
                     }
@@ -2543,7 +2549,7 @@ export default function CancerCareApp() {
                   <button
                     onClick={() => {
                       if (!hasUploadedDocument) {
-                        setShowDocumentOnboarding(true);
+                        openDocumentOnboarding('genomic');
                       } else {
                         setActiveTab('files');
                       }
@@ -2914,7 +2920,7 @@ export default function CancerCareApp() {
               onClick={() => {
                 setShowFabMenu(false);
                 if (!hasUploadedDocument) {
-                  setShowDocumentOnboarding(true);
+                  openDocumentOnboarding('general');
                 } else {
                   simulateDocumentUpload('general');
                 }
