@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { uploadDocument } from './firebase/storage';
+import { documentService } from './firebase/services';
 import { auth } from './firebase/config';
 import Login from './components/Login';
 
@@ -497,6 +498,22 @@ export default function CancerCareApp() {
 
     return () => unsubscribe();
   }, []);
+
+  // Load documents from Firestore when user logs in
+  useEffect(() => {
+    const loadDocuments = async () => {
+      if (user) {
+        try {
+          const docs = await documentService.getDocuments(user.uid);
+          setDocuments(docs);
+        } catch (error) {
+          console.error('Error loading documents:', error);
+        }
+      }
+    };
+
+    loadDocuments();
+  }, [user]);
 
   // Manage FAB animations
   useEffect(() => {
@@ -1677,7 +1694,7 @@ export default function CancerCareApp() {
                         const iconConfig = getIconConfig(doc.type);
                         
                         return (
-                          <div key={doc.id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition cursor-pointer">
+                          <div key={doc.id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition">
                             <div className={`w-10 h-10 ${iconConfig.bgColor} rounded-lg flex items-center justify-center flex-shrink-0`}>
                               <div className={iconConfig.iconColor}>
                                 {iconConfig.icon}
@@ -1689,11 +1706,23 @@ export default function CancerCareApp() {
                                 {new Date(doc.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} • {doc.type}
                               </p>
                             </div>
-                            <div className="flex-shrink-0">
-                              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                              </svg>
-                            </div>
+                            {doc.fileUrl ? (
+                              <a
+                                href={doc.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-shrink-0 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                View
+                              </a>
+                            ) : (
+                              <div className="flex-shrink-0">
+                                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
