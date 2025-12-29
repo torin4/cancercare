@@ -55,6 +55,12 @@ async function analyzeDocument(base64Data, mimeType) {
 
   const prompt = `You are a medical document processing AI. Analyze this medical document and extract all relevant information.
 
+CRITICAL DATE EXTRACTION RULE:
+- ALWAYS look for and extract the ACTUAL test date, specimen collection date, or report date from the document
+- Look for labels like: "Collection Date", "Test Date", "Specimen Date", "Date Collected", "Date of Service", "Report Date"
+- Use the date format YYYY-MM-DD (e.g., "2024-12-14")
+- If no date is found anywhere in the document, only then use today's date: ${new Date().toISOString().split('T')[0]}
+
 DOCUMENT TYPES TO IDENTIFY:
 1. Lab Results - Blood work, tumor markers (CA-125, CEA, etc.), chemistry panels
 2. Imaging/Scan - CT, MRI, PET scans, X-rays, ultrasounds
@@ -77,8 +83,8 @@ Return a JSON object with this EXACT structure:
         "label": "CA-125",
         "value": 68,
         "unit": "U/mL",
-        "date": "2024-12-29",
-        "normalRange": "0-35",
+        "date": "2024-12-14",  // USE ACTUAL TEST/COLLECTION DATE FROM DOCUMENT
+        "normalRange": "0-35",  // If not shown, omit this field entirely
         "status": "high|normal|low"
       }
     ],
@@ -90,8 +96,8 @@ Return a JSON object with this EXACT structure:
         "label": "Blood Pressure",
         "value": "125/80",
         "unit": "mmHg",
-        "date": "2024-12-29",
-        "normalRange": "90-120/60-80"
+        "date": "2024-12-14",  // USE ACTUAL MEASUREMENT DATE FROM DOCUMENT
+        "normalRange": "90-120/60-80"  // If not shown, omit this field entirely
       }
     ],
 
@@ -254,7 +260,9 @@ GENERAL RULES:
 - Extract ALL numerical values with proper units
 - Use standardized field names (ca125, wbc, bp, BRCA1, TP53, etc.)
 - Return ONLY valid JSON, no markdown or explanations
-- If a field is not present, omit it entirely`;
+- If a field is not present, omit it entirely (DO NOT include fields with null or undefined values)
+- CRITICAL: For normalRange field - only include if explicitly shown in the document. If not shown, DO NOT include the field at all
+- CRITICAL: For date fields - ALWAYS extract the actual test/collection/report date from the document. Look carefully for date labels`;
 
   const result = await model.generateContent([
     {
@@ -293,21 +301,28 @@ async function saveExtractedData(extractedData, userId) {
     // Save Lab Results
     if (extractedData.data?.labs) {
       for (const lab of extractedData.data.labs) {
-        const labId = await labService.saveLab({
+        // Ensure all fields have defined values (Firestore doesn't accept undefined)
+        const labData = {
           patientId: userId,
-          labType: lab.labType,
-          label: lab.label,
+          labType: lab.labType || 'other',
+          label: lab.label || 'Unknown Lab',
           currentValue: lab.value,
-          unit: lab.unit,
-          normalRange: lab.normalRange,
-          status: lab.status,
-          createdAt: new Date(lab.date)
-        });
+          unit: lab.unit || '',
+          status: lab.status || 'unknown',
+          createdAt: lab.date ? new Date(lab.date) : new Date()
+        };
+
+        // Only include normalRange if it's defined
+        if (lab.normalRange !== undefined && lab.normalRange !== null) {
+          labData.normalRange = lab.normalRange;
+        }
+
+        const labId = await labService.saveLab(labData);
 
         // Also save as a lab value entry
         await labService.addLabValue(labId, {
           value: lab.value,
-          date: new Date(lab.date),
+          date: lab.date ? new Date(lab.date) : new Date(),
           notes: `Extracted from document`
         });
 
@@ -318,20 +333,27 @@ async function saveExtractedData(extractedData, userId) {
     // Save Vitals
     if (extractedData.data?.vitals) {
       for (const vital of extractedData.data.vitals) {
-        const vitalId = await vitalService.saveVital({
+        // Ensure all fields have defined values (Firestore doesn't accept undefined)
+        const vitalData = {
           patientId: userId,
-          vitalType: vital.vitalType,
-          label: vital.label,
+          vitalType: vital.vitalType || 'other',
+          label: vital.label || 'Unknown Vital',
           currentValue: vital.value,
-          unit: vital.unit,
-          normalRange: vital.normalRange,
-          createdAt: new Date(vital.date)
-        });
+          unit: vital.unit || '',
+          createdAt: vital.date ? new Date(vital.date) : new Date()
+        };
+
+        // Only include normalRange if it's defined
+        if (vital.normalRange !== undefined && vital.normalRange !== null) {
+          vitalData.normalRange = vital.normalRange;
+        }
+
+        const vitalId = await vitalService.saveVital(vitalData);
 
         // Also save as a vital value entry
         await vitalService.addVitalValue(vitalId, {
           value: vital.value,
-          date: new Date(vital.date),
+          date: vital.date ? new Date(vital.date) : new Date(),
           notes: `Extracted from document`
         });
 
