@@ -5,9 +5,11 @@
   "scripts": {
     "dev": "react-scripts start",
     "build": "react-scripts build",
-    "start": "react-scripts start"
+    "start": "react-scripts start",
+    "start:proxy": "node server/proxy.js"
   },
   "dependencies": {
+    "express": "^4.18.2",
     "@google/generative-ai": "^0.24.1",
     "axios": "^1.13.2",
     "firebase": "^10.14.1",
