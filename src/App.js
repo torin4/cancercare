@@ -660,6 +660,71 @@ export default function CancerCareApp() {
     return 0;
   };
 
+  // Calculate detailed status with color coding based on normal range
+  const getLabStatus = (value, normalRange) => {
+    if (!normalRange || typeof value !== 'number') {
+      return { status: 'unknown', color: 'gray', label: 'Unknown' };
+    }
+
+    // Parse different normal range formats
+    const rangeMatch = normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+    if (rangeMatch) {
+      const min = parseFloat(rangeMatch[1]);
+      const max = parseFloat(rangeMatch[2]);
+      const range = max - min;
+      const warningThreshold = range * 0.1; // 10% buffer zone
+
+      if (value < min) {
+        // Below normal range
+        if (value >= min - warningThreshold) {
+          return { status: 'warning-low', color: 'yellow', label: 'Slightly Low' };
+        }
+        return { status: 'abnormal-low', color: 'red', label: 'Low' };
+      } else if (value > max) {
+        // Above normal range
+        if (value <= max + warningThreshold) {
+          return { status: 'warning-high', color: 'yellow', label: 'Slightly High' };
+        }
+        return { status: 'abnormal-high', color: 'red', label: 'High' };
+      } else {
+        // Within normal range
+        return { status: 'normal', color: 'green', label: 'Normal' };
+      }
+    }
+
+    // Handle "< X" format (e.g., D-dimer: "< 0.5")
+    const lessThanMatch = normalRange.match(/<\s*(\d+\.?\d*)/);
+    if (lessThanMatch) {
+      const threshold = parseFloat(lessThanMatch[1]);
+      const warningThreshold = threshold * 0.1;
+
+      if (value < threshold) {
+        return { status: 'normal', color: 'green', label: 'Normal' };
+      } else if (value < threshold + warningThreshold) {
+        return { status: 'warning-high', color: 'yellow', label: 'Slightly High' };
+      } else {
+        return { status: 'abnormal-high', color: 'red', label: 'High' };
+      }
+    }
+
+    // Handle "> X" format (e.g., eGFR: "> 60")
+    const greaterThanMatch = normalRange.match(/>\s*(\d+\.?\d*)/);
+    if (greaterThanMatch) {
+      const threshold = parseFloat(greaterThanMatch[1]);
+      const warningThreshold = threshold * 0.1;
+
+      if (value > threshold) {
+        return { status: 'normal', color: 'green', label: 'Normal' };
+      } else if (value > threshold - warningThreshold) {
+        return { status: 'warning-low', color: 'yellow', label: 'Slightly Low' };
+      } else {
+        return { status: 'abnormal-low', color: 'red', label: 'Low' };
+      }
+    }
+
+    return { status: 'unknown', color: 'gray', label: 'Unknown' };
+  };
+
   const transformLabsData = (labs) => {
     const grouped = {};
 
@@ -827,6 +892,9 @@ export default function CancerCareApp() {
     }
 
     try {
+      // Ensure we're on the chat tab before starting
+      setActiveTab('chat');
+
       // Show loading overlay
       setIsUploading(true);
       setUploadProgress('Reading document...');
@@ -1627,23 +1695,40 @@ export default function CancerCareApp() {
 
                             return labsToShow.map(([key, lab]) => (
                               lab.isNumeric ? (
-                                // Numeric lab values - show as cards with trend
-                                <button
-                                  key={key}
-                                  onClick={() => setSelectedLab(key)}
-                                  className={`bg-white rounded-lg shadow p-3 text-left transition-all hover:shadow-md ${selectedLab === key ? 'ring-2 ring-blue-500 shadow-md' : ''
-                                    }`}
-                                >
-                                  <div className="flex items-center justify-between mb-1">
-                                    <p className="text-xs text-gray-600 font-medium">{lab.name}</p>
-                                    <span className={`text-xs font-medium ${lab.status === 'warning' ? 'text-red-600' : 'text-green-600'
-                                      }`}>
-                                      {lab.trend === 'up' ? '↑' : lab.trend === 'down' ? '↓' : '→'}
-                                    </span>
-                                  </div>
-                                  <p className="text-lg font-bold text-gray-800">{lab.current}</p>
-                                  <p className="text-xs text-gray-500">{lab.unit}</p>
-                                </button>
+                                // Numeric lab values - show as cards with trend and status indicator
+                                (() => {
+                                  const labStatus = getLabStatus(lab.current, lab.normalRange);
+                                  const statusColors = {
+                                    green: { dot: 'bg-green-500', text: 'text-green-700' },
+                                    yellow: { dot: 'bg-yellow-500', text: 'text-yellow-700' },
+                                    red: { dot: 'bg-red-500', text: 'text-red-700' },
+                                    gray: { dot: 'bg-gray-400', text: 'text-gray-600' }
+                                  };
+                                  const colors = statusColors[labStatus.color];
+
+                                  return (
+                                    <button
+                                      key={key}
+                                      onClick={() => setSelectedLab(key)}
+                                      className={`relative bg-white rounded-lg shadow p-3 text-left transition-all hover:shadow-md ${selectedLab === key ? 'ring-2 ring-blue-500 shadow-md' : ''
+                                        }`}
+                                    >
+                                      {/* Status indicator dot */}
+                                      <div className={`absolute top-2 right-2 w-2 h-2 ${colors.dot} rounded-full`}></div>
+
+                                      <div className="flex items-center justify-between mb-1">
+                                        <p className="text-xs text-gray-600 font-medium pr-3">{lab.name}</p>
+                                        <span className={`text-xs font-medium ${lab.trend === 'up' ? 'text-blue-600' : lab.trend === 'down' ? 'text-blue-600' : 'text-gray-500'
+                                          }`}>
+                                          {lab.trend === 'up' ? '↑' : lab.trend === 'down' ? '↓' : '→'}
+                                        </span>
+                                      </div>
+                                      <p className="text-lg font-bold text-gray-800">{lab.current}</p>
+                                      <p className="text-xs text-gray-500">{lab.unit}</p>
+                                      <p className={`text-xs ${colors.text} font-medium mt-1`}>{labStatus.label}</p>
+                                    </button>
+                                  );
+                                })()
                               ) : (
                                 // Non-numeric values (color, appearance, etc.) - show as info cards
                                 <div
