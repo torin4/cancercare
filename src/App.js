@@ -1210,10 +1210,23 @@ export default function CancerCareApp() {
                             <div className="flex flex-col justify-between text-xs text-gray-600 font-medium py-2" style={{ paddingBottom: '1.5rem' }}>
                               {(() => {
                                 const values = currentLab.data.map(d => d.value);
-                                const minVal = Math.min(...values);
-                                const maxVal = Math.max(...values);
+                                let minVal = Math.min(...values);
+                                let maxVal = Math.max(...values);
+
+                                // Parse normal range if available (formats: "0-35", "24.0-34.0", "90-120/60-80")
+                                if (currentLab.normalRange) {
+                                  const rangeMatch = currentLab.normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+                                  if (rangeMatch) {
+                                    const normMin = parseFloat(rangeMatch[1]);
+                                    const normMax = parseFloat(rangeMatch[2]);
+                                    // Include normal range in Y-axis bounds for better context
+                                    minVal = Math.min(minVal, normMin);
+                                    maxVal = Math.max(maxVal, normMax);
+                                  }
+                                }
+
                                 const range = maxVal - minVal;
-                                const padding = range * 0.2;
+                                const padding = range * 0.2 || 10; // Fallback if range is 0
                                 const yMin = Math.floor(minVal - padding);
                                 const yMax = Math.ceil(maxVal + padding);
                                 const step = (yMax - yMin) / 4;
@@ -1239,8 +1252,21 @@ export default function CancerCareApp() {
                                 {/* SVG Graph */}
                                 {(() => {
                                   const values = currentLab.data.map(d => d.value);
-                                  const minVal = Math.min(...values);
-                                  const maxVal = Math.max(...values);
+                                  let minVal = Math.min(...values);
+                                  let maxVal = Math.max(...values);
+
+                                  // Parse normal range if available (formats: "0-35", "24.0-34.0", "90-120/60-80")
+                                  if (currentLab.normalRange) {
+                                    const rangeMatch = currentLab.normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+                                    if (rangeMatch) {
+                                      const normMin = parseFloat(rangeMatch[1]);
+                                      const normMax = parseFloat(rangeMatch[2]);
+                                      // Include normal range in Y-axis bounds for better context
+                                      minVal = Math.min(minVal, normMin);
+                                      maxVal = Math.max(maxVal, normMax);
+                                    }
+                                  }
+
                                   const range = maxVal - minVal;
                                   const padding = range * 0.2 || 10; // Fallback if range is 0
                                   const yMin = Math.floor(minVal - padding);
@@ -1256,6 +1282,34 @@ export default function CancerCareApp() {
                                             <stop offset="100%" stopColor={currentLab.status === 'warning' ? '#f97316' : '#10b981'} stopOpacity="0.05" />
                                           </linearGradient>
                                         </defs>
+
+                                        {/* Normal range boundaries (if available) */}
+                                        {currentLab.normalRange && (() => {
+                                          const rangeMatch = currentLab.normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+                                          if (rangeMatch) {
+                                            const normMin = parseFloat(rangeMatch[1]);
+                                            const normMax = parseFloat(rangeMatch[2]);
+                                            const normMinY = 160 - ((normMin - yMin) / yRange) * 160;
+                                            const normMaxY = 160 - ((normMax - yMin) / yRange) * 160;
+                                            return (
+                                              <>
+                                                {/* Normal range shaded area */}
+                                                <rect
+                                                  x="0"
+                                                  y={normMaxY}
+                                                  width="400"
+                                                  height={normMinY - normMaxY}
+                                                  fill="#10b981"
+                                                  opacity="0.08"
+                                                />
+                                                {/* Normal range boundary lines */}
+                                                <line x1="0" y1={normMinY} x2="400" y2={normMinY} stroke="#10b981" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                <line x1="0" y1={normMaxY} x2="400" y2={normMaxY} stroke="#10b981" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                              </>
+                                            );
+                                          }
+                                          return null;
+                                        })()}
 
                                         {/* Area under line */}
                                         <polygon
