@@ -1,7 +1,19 @@
 import axios from 'axios';
 
-// JRCT API Base URL (proxied through serverless function to avoid TLS/CORS issues)
-const JRCT_API_BASE = '/api/jrct-proxy/api/2.0';
+// JRCT API Base URL (proxied). Use env override or localhost proxy in development.
+const DEFAULT_PROXY_PATH = '/api/jrct-proxy/api/2.0';
+const JRCT_API_BASE = (function() {
+  // Allow explicit override via environment variable
+  if (process.env.REACT_APP_JRCT_PROXY_URL) return process.env.REACT_APP_JRCT_PROXY_URL.replace(/\/$/, '');
+
+  // If running in development on localhost, use local proxy server if available
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    return 'http://localhost:4000' + DEFAULT_PROXY_PATH;
+  }
+
+  // Production: assume same-origin serverless function at /api/jrct-proxy
+  return DEFAULT_PROXY_PATH;
+})();
 
 /**
  * Search JRCT (Japan Registry of Clinical Trials) for matching trials
@@ -51,7 +63,23 @@ export async function searchJRCT(params) {
   } catch (error) {
     console.error('Error searching JRCT:', error);
 
-    // Return empty results on error
+    // Try WHO ICTRP as first fallback
+    try {
+      const who = await searchWHO(params);
+      if (who.success && who.trials.length > 0) return who;
+    } catch (e) {
+      console.warn('WHO fallback failed:', e?.message || e);
+    }
+
+    // Then try ClinicalTrials.gov
+    try {
+      const ct = await searchCTGov(params);
+      if (ct.success && ct.trials.length > 0) return ct;
+    } catch (e) {
+      console.warn('ClinicalTrials.gov fallback failed:', e?.message || e);
+    }
+
+    // Return empty results if all sources fail
     return {
       success: false,
       source: 'JRCT',
@@ -59,6 +87,78 @@ export async function searchJRCT(params) {
       trials: [],
       error: error.message
     };
+  }
+}
+
+/**
+ * Search ClinicalTrials.gov as a fallback source
+ */
+export async function searchCTGov(params) {
+  try {
+    const { condition, age, gender } = params;
+
+    // Build expression (simple: condition + age + gender)
+    let expr = '';
+    if (condition) expr += condition;
+    if (gender) expr += ` AND ${gender}`;
+    if (age) expr += ` AND ${age}`;
+
+    const fields = [
+      'NCTId', 'BriefTitle', 'Condition', 'OverallStatus', 'Phase', 'BriefSummary', 'LocationCity', 'LocationCountry'
+    ].join(',');
+
+    const url = `https://clinicaltrials.gov/api/query/study_fields?expr=${encodeURIComponent(expr)}&fields=${fields}&min_rnk=1&max_rnk=50&fmt=json`;
+
+    const res = await axios.get(url, { timeout: 15000 });
+    const studies = res.data.StudyFieldsResponse?.Study || [];
+
+    const trials = studies.map(s => ({
+      id: s.NCTId?.[0] || null,
+      source: 'ClinicalTrials.gov',
+      title: s.BriefTitle?.[0] || '',
+      conditions: s.Condition || [],
+      status: s.OverallStatus?.[0] || '',
+      phase: s.Phase?.[0] || '',
+      summary: s.BriefSummary?.[0] || '',
+      locations: (s.LocationCity || []).map((city, idx) => ({ city, country: s.LocationCountry?.[idx] || '' })),
+      url: s.NCTId?.[0] ? `https://clinicaltrials.gov/study/${s.NCTId[0]}` : null
+    }));
+
+    return { success: true, source: 'ClinicalTrials.gov', totalResults: trials.length, trials };
+  } catch (error) {
+    console.error('Error searching ClinicalTrials.gov:', error?.message || error);
+    return { success: false, source: 'ClinicalTrials.gov', totalResults: 0, trials: [], error: error.message };
+  }
+}
+
+/**
+ * Placeholder: attempt WHO ICTRP search. The ICTRP public API/endpoint may vary.
+ * We attempt a best-effort call and gracefully fail back to ClinicalTrials.gov.
+ */
+export async function searchWHO(params) {
+  try {
+    const { condition } = params;
+    // WHO TrialSearch API (trialsearch.who.int) - best-effort path
+    const url = `https://trialsearch.who.int/api/v1/trials?search=${encodeURIComponent(condition || '')}&pageSize=50`;
+    const res = await axios.get(url, { timeout: 15000 });
+    const items = res.data?.items || res.data?.trials || [];
+
+    const trials = items.map(item => ({
+      id: item.trial_id || item.id || null,
+      source: 'WHO-ICTRP',
+      title: item.title || item.brief_title || '',
+      conditions: item.conditions || item.condition || [],
+      status: item.status || item.recruitment_status || '',
+      phase: item.phase || '',
+      summary: item.summary || item.brief_summary || '',
+      locations: item.locations || [],
+      url: item.url || item.link || null
+    }));
+
+    return { success: true, source: 'WHO-ICTRP', totalResults: trials.length, trials };
+  } catch (error) {
+    console.error('Error searching WHO ICTRP:', error?.message || error);
+    return { success: false, source: 'WHO-ICTRP', totalResults: 0, trials: [], error: error.message };
   }
 }
 
