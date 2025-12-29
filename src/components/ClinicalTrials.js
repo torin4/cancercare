@@ -308,7 +308,7 @@ const ClinicalTrials = () => {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Clinical Trials</h1>
-        <p className="text-gray-600">Search and save clinical trials from JRCT (Japan Registry)</p>
+        <p className="text-gray-600">Search and save clinical trials from WHO ICTRP and ClinicalTrials.gov</p>
       </div>
 
       {/* Tabs */}
@@ -357,16 +357,16 @@ const ClinicalTrials = () => {
             disabled={searching || !patientProfile?.diagnosis}
             className="w-full bg-green-600 text-white px-6 py-4 rounded-lg hover:bg-green-700 transition font-medium text-lg mb-6 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            {searching ? '🔍 Searching JRCT...' : '🔍 Search Clinical Trials'}
+            {searching ? '🔍 Searching sources...' : '🔍 Search Clinical Trials'}
           </button>
-
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 mb-6">
-              {error}
-            </div>
-          )}
-
+            <a
+              href={trial.url || trial.urlJa}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition text-sm font-medium text-center"
+            >
+              View on source
+            </a>
           {/* Search Results */}
           {searchResults.length > 0 && (
             <div>
@@ -471,7 +471,7 @@ const ClinicalTrials = () => {
                   rel="noopener noreferrer"
                   className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-center font-medium"
                 >
-                  View on JRCT
+                  View on source
                 </a>
                 <button
                   onClick={() => setSelectedTrial(null)}

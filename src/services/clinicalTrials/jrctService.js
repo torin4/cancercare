@@ -1,18 +1,9 @@
 import axios from 'axios';
 
-// JRCT API Base URL (proxied). Use env override or localhost proxy in development.
-const DEFAULT_PROXY_PATH = '/api/jrct-proxy/api/2.0';
-const JRCT_API_BASE = (function() {
-  // Allow explicit override via environment variable
-  if (process.env.REACT_APP_JRCT_PROXY_URL) return process.env.REACT_APP_JRCT_PROXY_URL.replace(/\/$/, '');
-
-  // If running in development on localhost, use local proxy server if available
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-    return 'http://localhost:4000' + DEFAULT_PROXY_PATH;
-  }
-
-  // Production: assume same-origin serverless function at /api/jrct-proxy
-  return DEFAULT_PROXY_PATH;
+// Proxy base (serverless proxy added to repo). Calls are routed to `/api/trials-proxy`.
+const PROXY_BASE = (function() {
+  if (process.env.REACT_APP_TRIALS_PROXY_URL) return process.env.REACT_APP_TRIALS_PROXY_URL.replace(/\/$/, '');
+  return '/api/trials-proxy';
 })();
 
 // In-memory cache for geocoding results to avoid repeated requests
@@ -127,101 +118,45 @@ async function applyLocationFilters(trials, params) {
  * @returns {Promise<Object>} - Search results with normalized trial data
  */
 export async function searchJRCT(params) {
-  const {
-    condition,        // Cancer type (e.g., "Ovarian Cancer", "乳癌")
-    intervention,     // Drug/therapy name
-    phase,           // Trial phase (1, 2, 3, 4)
-    status,          // recruiting, active, completed
-    age,             // Patient age
-    gender,          // male, female
-    gene,            // Gene mutation (BRCA1, TP53, etc.)
-    biomarker        // Biomarker (TMB-high, MSI-H, HRD-positive)
-  } = params;
-
+  // Legacy function name retained for compatibility.
+  // This implementation aggregates WHO and ClinicalTrials.gov results only.
   const attempted = [];
   const onProgress = params?.onProgress;
 
+  // Helper to query WHO via proxy first
   try {
-    // Build search parameters
-    const searchParams = new URLSearchParams();
-
-    if (condition) searchParams.append('condition', condition);
-    if (intervention) searchParams.append('intervention', intervention);
-    if (phase) searchParams.append('phase', phase);
-    if (status) searchParams.append('status', status || 'recruiting');
-    if (age) searchParams.append('age', age);
-    if (gender) searchParams.append('gender', gender);
-    if (gene) searchParams.append('gene', gene);
-    if (biomarker) searchParams.append('biomarker', biomarker);
-
-    if (typeof onProgress === 'function') onProgress('Querying JRCT');
-    const response = await axios.get(`${JRCT_API_BASE}/trials?${searchParams.toString()}`, {
-      headers: {
-        'Accept': 'application/json',
-        'Accept-Language': 'en,ja'
-      },
-      timeout: 15000
-    });
-
-    let trials = response.data.trials ? response.data.trials.map(trial => normalizeJRCTTrial(trial)) : [];
-
-    // Apply location filters (country and optional radius)
-    trials = await applyLocationFilters(trials, params);
-
-    attempted.push('JRCT');
-    if (typeof onProgress === 'function') onProgress('JRCT returned results');
-
-    return {
-      success: true,
-      source: 'JRCT',
-      attemptedSources: attempted,
-      totalResults: trials.length,
-      trials
-    };
-
-  } catch (error) {
-    console.error('Error searching JRCT:', error);
-
-    // JRCT failed; record attempt
-    attempted.push('JRCT');
-    if (typeof onProgress === 'function') onProgress('JRCT failed — trying WHO');
-
-    // Try WHO ICTRP as first fallback
-    try {
-      attempted.push('WHO-ICTRP');
-      if (typeof onProgress === 'function') onProgress('Querying WHO-ICTRP');
-      const who = await searchWHO(params);
-      if (who.success && who.trials.length > 0) {
+    if (typeof onProgress === 'function') onProgress('Querying WHO-ICTRP');
+    attempted.push('WHO-ICTRP');
+    // Use proxy to avoid browser CORS where configured
+    const whoRes = await axios.get(`${PROXY_BASE}?source=who&search=${encodeURIComponent(params.condition || '')}`, { timeout: 15000 }).then(r => r.data).catch(() => null);
+    if (whoRes) {
+      const whoResult = await searchWHO(params, whoRes);
+      if (whoResult.success && whoResult.trials.length > 0) {
         if (typeof onProgress === 'function') onProgress('WHO-ICTRP returned results');
-        return { ...who, attemptedSources: attempted };
+        return { ...whoResult, attemptedSources: attempted };
       }
-    } catch (e) {
-      console.warn('WHO fallback failed:', e?.message || e);
     }
-
-    // Then try ClinicalTrials.gov
-    try {
-      attempted.push('ClinicalTrials.gov');
-      if (typeof onProgress === 'function') onProgress('Querying ClinicalTrials.gov');
-      const ct = await searchCTGov(params);
-      if (ct.success && ct.trials.length > 0) {
-        if (typeof onProgress === 'function') onProgress('ClinicalTrials.gov returned results');
-        return { ...ct, attemptedSources: attempted };
-      }
-    } catch (e) {
-      console.warn('ClinicalTrials.gov fallback failed:', e?.message || e);
-    }
-
-    // Return empty results if all sources fail
-    return {
-      success: false,
-      source: 'JRCT',
-      attemptedSources: attempted,
-      totalResults: 0,
-      trials: [],
-      error: error.message
-    };
+  } catch (e) {
+    console.warn('WHO query failed:', e?.message || e);
   }
+
+  // Next, try ClinicalTrials.gov
+  try {
+    if (typeof onProgress === 'function') onProgress('Querying ClinicalTrials.gov');
+    attempted.push('ClinicalTrials.gov');
+    const ctRaw = await axios.get(`${PROXY_BASE}?source=ctgov&expr=${encodeURIComponent(buildCTGovExpr(params))}&fields=${encodeURIComponent(['NCTId', 'BriefTitle', 'Condition', 'OverallStatus', 'Phase', 'BriefSummary', 'LocationCity', 'LocationCountry'].join(','))}&min_rnk=1&max_rnk=50&fmt=json`, { timeout: 15000 }).then(r => r.data).catch(() => null);
+    if (ctRaw) {
+      const ctResult = await searchCTGov({ ...params, _rawCTGovResponse: ctRaw });
+      if (ctResult.success && ctResult.trials.length > 0) {
+        if (typeof onProgress === 'function') onProgress('ClinicalTrials.gov returned results');
+        return { ...ctResult, attemptedSources: attempted };
+      }
+    }
+  } catch (e) {
+    console.warn('ClinicalTrials.gov query failed:', e?.message || e);
+  }
+
+  return { success: false, source: 'Aggregated', attemptedSources: attempted, totalResults: 0, trials: [] };
 }
 
 /**
@@ -229,22 +164,25 @@ export async function searchJRCT(params) {
  */
 export async function searchCTGov(params) {
   try {
-    const { condition, age, gender } = params;
-
-    // Build expression (simple: condition + age + gender)
-    let expr = '';
-    if (condition) expr += condition;
-    if (gender) expr += ` AND ${gender}`;
-    if (age) expr += ` AND ${age}`;
-
-    const fields = [
-      'NCTId', 'BriefTitle', 'Condition', 'OverallStatus', 'Phase', 'BriefSummary', 'LocationCity', 'LocationCountry'
-    ].join(',');
-
-    const url = `https://clinicaltrials.gov/api/query/study_fields?expr=${encodeURIComponent(expr)}&fields=${fields}&min_rnk=1&max_rnk=50&fmt=json`;
-
-    const res = await axios.get(url, { timeout: 15000 });
-    const studies = res.data.StudyFieldsResponse?.Study || [];
+    // If a raw response was provided (via proxy), normalize it; otherwise attempt direct call
+    const raw = params && params._rawCTGovResponse;
+    let studies = [];
+    if (raw && raw.StudyFieldsResponse) {
+      studies = raw.StudyFieldsResponse.Study || [];
+    } else if (raw && Array.isArray(raw)) {
+      studies = raw;
+    } else {
+      // Build expression
+      const { condition, age, gender } = params;
+      let expr = '';
+      if (condition) expr += condition;
+      if (gender) expr += ` AND ${gender}`;
+      if (age) expr += ` AND ${age}`;
+      const fields = ['NCTId', 'BriefTitle', 'Condition', 'OverallStatus', 'Phase', 'BriefSummary', 'LocationCity', 'LocationCountry'].join(',');
+      const url = `https://clinicaltrials.gov/api/query/study_fields?expr=${encodeURIComponent(expr)}&fields=${fields}&min_rnk=1&max_rnk=50&fmt=json`;
+      const res = await axios.get(url, { timeout: 15000 });
+      studies = res.data.StudyFieldsResponse?.Study || [];
+    }
 
     let trials = studies.map(s => ({
       id: s.NCTId?.[0] || null,
@@ -268,34 +206,45 @@ export async function searchCTGov(params) {
   }
 }
 
+function buildCTGovExpr(params) {
+  const { condition, age, gender } = params || {};
+  let expr = '';
+  if (condition) expr += condition;
+  if (gender) expr += ` AND ${gender}`;
+  if (age) expr += ` AND ${age}`;
+  return expr;
+}
+
 /**
  * Placeholder: attempt WHO ICTRP search. The ICTRP public API/endpoint may vary.
  * We attempt a best-effort call and gracefully fail back to ClinicalTrials.gov.
  */
-export async function searchWHO(params) {
+export async function searchWHO(params, rawResponse) {
   try {
-    const { condition } = params;
-    // WHO TrialSearch API (trialsearch.who.int) - best-effort path
-    const url = `https://trialsearch.who.int/api/v1/trials?search=${encodeURIComponent(condition || '')}&pageSize=50`;
-    const res = await axios.get(url, { timeout: 15000 });
-    const items = res.data?.items || res.data?.trials || [];
+    const { condition } = params || {};
+    let items = [];
+    if (rawResponse && (rawResponse.items || rawResponse.trials)) {
+      items = rawResponse.items || rawResponse.trials;
+    } else {
+      const url = `https://trialsearch.who.int/api/v1/trials?search=${encodeURIComponent(condition || '')}&pageSize=50`;
+      const res = await axios.get(url, { timeout: 15000 }).catch(() => null);
+      items = res?.data?.items || res?.data?.trials || [];
+    }
 
-    let trials = items.map(item => ({
+    const trials = (items || []).map(item => ({
       id: item.trial_id || item.id || null,
       source: 'WHO-ICTRP',
-      title: item.title || item.brief_title || '',
+      title: item.title || item.brief_title || item.name || '',
       conditions: item.conditions || item.condition || [],
       status: item.status || item.recruitment_status || '',
       phase: item.phase || '',
-      summary: item.summary || item.brief_summary || '',
-      locations: item.locations || [],
+      summary: item.summary || item.brief_summary || item.description || '',
+      locations: item.locations || item.location || item.countries || [],
       url: item.url || item.link || null
     }));
 
-    // Apply location filters if provided
-    trials = await applyLocationFilters(trials, params);
-
-    return { success: true, source: 'WHO-ICTRP', totalResults: trials.length, trials };
+    const filtered = await applyLocationFilters(trials, params || {});
+    return { success: true, source: 'WHO-ICTRP', totalResults: filtered.length, trials: filtered };
   } catch (error) {
     console.error('Error searching WHO ICTRP:', error?.message || error);
     return { success: false, source: 'WHO-ICTRP', totalResults: 0, trials: [], error: error.message };
@@ -308,27 +257,8 @@ export async function searchWHO(params) {
  * @returns {Promise<Object>} - Detailed trial information
  */
 export async function getJRCTTrial(trialId) {
-  try {
-    const response = await axios.get(`${JRCT_API_BASE}/trials/${trialId}`, {
-      headers: {
-        'Accept': 'application/json',
-        'Accept-Language': 'en,ja'
-      },
-      timeout: 10000
-    });
-
-    return {
-      success: true,
-      trial: normalizeJRCTTrial(response.data)
-    };
-
-  } catch (error) {
-    console.error('Error fetching JRCT trial:', error);
-    return {
-      success: false,
-      error: error.message
-    };
-  }
+  // JRCT is no longer supported; return not-implemented style response
+  return { success: false, error: 'JRCT trial lookup is deprecated. Use WHO or ClinicalTrials.gov.' };
 }
 
 /**
@@ -349,19 +279,18 @@ export async function searchJRCTByGenomicProfile(genomicProfile, patientProfile,
 
     if (brcaMutations && brcaMutations.length > 0) {
     const baseParams = {
-      gene: 'BRCA',
       condition: patientProfile.diagnosis,
       age: patientProfile.age,
-      gender: patientProfile.gender,
-      status: 'recruiting'
+      gender: patientProfile.gender
     };
-    if (trialLocation) {
-      baseParams.country = trialLocation.country;
-      baseParams.city = trialLocation.city;
-      baseParams.searchRadius = trialLocation.searchRadius;
-      baseParams.includeAllLocations = trialLocation.includeAllLocations;
-    }
-    if (typeof onProgress === 'function') onProgress('Searching for BRCA-related trials');
+    if (trialLocation) Object.assign(baseParams, {
+      country: trialLocation.country,
+      city: trialLocation.city,
+      searchRadius: trialLocation.searchRadius,
+      includeAllLocations: trialLocation.includeAllLocations
+    });
+    if (typeof onProgress === 'function') onProgress('Searching for BRCA-related trials (WHO + ClinicalTrials.gov)');
+    // Query WHO and CT.gov in parallel for this genomic signal
     searchPromises.push(searchJRCT(baseParams));
     attempted.push('BRCA');
   }
@@ -382,7 +311,7 @@ export async function searchJRCTByGenomicProfile(genomicProfile, patientProfile,
       searchRadius: trialLocation.searchRadius,
       includeAllLocations: trialLocation.includeAllLocations
     });
-    if (typeof onProgress === 'function') onProgress('Searching for TMB-high trials');
+    if (typeof onProgress === 'function') onProgress('Searching for TMB-high trials (WHO + ClinicalTrials.gov)');
     searchPromises.push(searchJRCT(baseParamsTMB));
     attempted.push('TMB');
   }
@@ -403,7 +332,7 @@ export async function searchJRCTByGenomicProfile(genomicProfile, patientProfile,
       searchRadius: trialLocation.searchRadius,
       includeAllLocations: trialLocation.includeAllLocations
     });
-    if (typeof onProgress === 'function') onProgress('Searching for MSI-H trials');
+    if (typeof onProgress === 'function') onProgress('Searching for MSI-H trials (WHO + ClinicalTrials.gov)');
     searchPromises.push(searchJRCT(baseParamsMSI));
     attempted.push('MSI-H');
   }
@@ -424,7 +353,7 @@ export async function searchJRCTByGenomicProfile(genomicProfile, patientProfile,
       searchRadius: trialLocation.searchRadius,
       includeAllLocations: trialLocation.includeAllLocations
     });
-    if (typeof onProgress === 'function') onProgress('Searching for HRD-positive trials');
+    if (typeof onProgress === 'function') onProgress('Searching for HRD-positive trials (WHO + ClinicalTrials.gov)');
     searchPromises.push(searchJRCT(baseParamsHRD));
     attempted.push('HRD');
   }
@@ -451,7 +380,7 @@ export async function searchJRCTByGenomicProfile(genomicProfile, patientProfile,
         searchRadius: trialLocation.searchRadius,
         includeAllLocations: trialLocation.includeAllLocations
       });
-      if (typeof onProgress === 'function') onProgress(`Searching for gene ${mutation.gene} trials`);
+      if (typeof onProgress === 'function') onProgress(`Searching for gene ${mutation.gene} trials (WHO + ClinicalTrials.gov)`);
       searchPromises.push(searchJRCT(gp));
       attempted.add && attempted.add(mutation.gene);
     });
@@ -470,7 +399,7 @@ export async function searchJRCTByGenomicProfile(genomicProfile, patientProfile,
     searchRadius: trialLocation.searchRadius,
     includeAllLocations: trialLocation.includeAllLocations
   });
-  if (typeof onProgress === 'function') onProgress('Performing general diagnosis search');
+  if (typeof onProgress === 'function') onProgress('Performing general diagnosis search (WHO + ClinicalTrials.gov)');
   searchPromises.push(searchJRCT(generalParams));
   attempted.push('general');
 

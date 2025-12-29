@@ -753,7 +753,8 @@ export const accountService = {
 
 // ==================== ADVANCED CLINICAL TRIAL SERVICES ====================
 // Import advanced trial services (JRCT integration, matching, etc.)
-export { default as jrctService } from '../services/clinicalTrials/jrctService';
+// JRCT integration removed — expose the trial aggregation service instead
+export { default as trialAggregator } from '../services/clinicalTrials/jrctService';
 export { default as trialMatcher } from '../services/clinicalTrials/trialMatcher';
 export { default as clinicalTrialsService } from '../services/clinicalTrials/clinicalTrialsService';
 
