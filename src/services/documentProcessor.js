@@ -58,7 +58,9 @@ async function analyzeDocument(base64Data, mimeType) {
 CRITICAL DATE EXTRACTION RULE:
 - ALWAYS look for and extract the ACTUAL test date, specimen collection date, or report date from the document
 - Look for labels like: "Collection Date", "Test Date", "Specimen Date", "Date Collected", "Date of Service", "Report Date"
-- Use the date format YYYY-MM-DD (e.g., "2024-12-14")
+- Also check document headers for dates labeled: "採取日時", "検査日", "報告日", or dates in the format YYYY/MM/DD or YYYY-MM-DD
+- CONVERT the extracted date to YYYY-MM-DD format (e.g., if you see "2025/12/25 11:09:48", convert to "2025-12-25")
+- Japanese lab reports often have the date in the top-right header area - CHECK THERE FIRST
 - If no date is found anywhere in the document, only then use today's date: ${new Date().toISOString().split('T')[0]}
 
 DOCUMENT TYPES TO IDENTIFY:
@@ -83,11 +85,16 @@ Return a JSON object with this EXACT structure:
         "label": "CA-125",
         "value": 68,
         "unit": "U/mL",
-        "date": "2024-12-14",  // USE ACTUAL TEST/COLLECTION DATE FROM DOCUMENT
+        "date": "2024-12-14",  // CRITICAL: Extract the ACTUAL collection/test date from document header (採取日時/検査日)
         "normalRange": "0-35",  // If not shown, omit this field entirely
         "status": "high|normal|low"
       }
     ],
+
+    IMPORTANT FOR ALL LAB VALUES:
+    - ALL lab values in the "labs" array MUST use the SAME date - the collection/test date from the document header
+    - Do NOT use different dates for different lab values from the same report
+    - Example: If document shows "採取日時: 2025/12/25", ALL labs should have "date": "2025-12-25"
 
     // For Vitals:
     "vitals": [
