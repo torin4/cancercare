@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight } from 'lucide-react';
 import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
 import { uploadDocument, deleteUserDirectory } from './firebase/storage';
-import { documentService, labService, vitalService, patientService, accountService } from './firebase/services';
+import { documentService, labService, vitalService, patientService, accountService, genomicProfileService } from './firebase/services';
 import { processDocument, generateExtractionSummary } from './services/documentProcessor';
 import { processChatMessage, generateChatExtractionSummary } from './services/chatProcessor';
 import { auth } from './firebase/config';
@@ -455,17 +455,7 @@ export default function CancerCareApp() {
     { date: 'Dec 26', type: 'Nausea', severity: 'Mild', notes: 'After meals' }
   ];
 
-  const genomicProfile = {
-    brca1: 'Positive',
-    brca2: 'Negative',
-    tp53: 'Wild-type',
-    pik3ca: 'Wild-type',
-    arid1a: 'Mutated',
-    pten: 'Loss detected',
-    hrd: 'HRD Positive (Score: 45)',
-    msi: 'MSS (Microsatellite Stable)',
-    tmb: 'Low (3 mutations/Mb)'
-  };
+  const [genomicProfile, setGenomicProfile] = useState(null);
 
   // Mock data removed - app now uses real data from Firestore and JRCT API
 
@@ -668,6 +658,10 @@ export default function CancerCareApp() {
           const transformedVitals = transformVitalsData(vitals);
           setVitalsData(transformedVitals);
           setHasRealVitalData(vitals.length > 0);
+
+          // Load genomic profile
+          const genomic = await genomicProfileService.getGenomicProfile(user.uid);
+          setGenomicProfile(genomic);
 
           // Check if user has uploaded documents
           const docs = await documentService.getDocuments(user.uid);
@@ -1042,31 +1036,44 @@ export default function CancerCareApp() {
                   </svg>
                   Genomic Profile
                 </h3>
-                <div className="flex flex-wrap gap-2">
-                  <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">BRCA1 Pathogenic</span>
-                  <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">HRD Score: 68</span>
-                  <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">TP53 WT</span>
-                  <span className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">ARID1A Mut</span>
-                  <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">TMB-High</span>
-                </div>
-                <button
-                  onClick={() => setActiveTab('profile')}
-                  className="text-purple-600 text-sm font-medium mt-3 hover:underline"
-                >
-                  View Full Profile →
-                </button>
-              </div>
-
-              {/* Upcoming Appointment */}
-              <div className="bg-white rounded-lg shadow p-4">
-                <h3 className="font-semibold text-gray-800 mb-3">Next Appointment</h3>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Dr. Chen - Oncology</p>
-                    <p className="text-sm text-gray-600">Jan 15, 2025 at 10:30 AM</p>
+                {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 ? (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      {genomicProfile.mutations.slice(0, 5).map((mutation, idx) => (
+                        <span key={idx} className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                          {mutation.gene} {mutation.variant || mutation.type}
+                        </span>
+                      ))}
+                      {genomicProfile.tmb && (
+                        <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                          TMB: {genomicProfile.tmb}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setActiveTab('profile')}
+                      className="text-purple-600 text-sm font-medium mt-3 hover:underline"
+                    >
+                      View Full Profile →
+                    </button>
+                  </>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500 text-sm mb-3">No genomic data yet</p>
+                    <button
+                      onClick={() => {
+                        if (!hasUploadedDocument) {
+                          setShowDocumentOnboarding(true);
+                        } else {
+                          setActiveTab('files');
+                        }
+                      }}
+                      className="text-blue-600 text-sm font-medium hover:underline"
+                    >
+                      Upload Genomic Report →
+                    </button>
                   </div>
-                  <span className="text-blue-600 font-medium text-sm">18 days</span>
-                </div>
+                )}
               </div>
             </div>
 
@@ -2159,18 +2166,46 @@ export default function CancerCareApp() {
               </div>
 
               {/* Summary View - Always Visible */}
-              <div className="bg-white rounded-lg p-3 mb-3">
-                <div className="flex flex-wrap gap-2">
-                  <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">BRCA1 Pathogenic</span>
-                  <span className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">ARID1A Mut</span>
-                  <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">TP53 WT</span>
-                  <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">HRD: 68</span>
-                  <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">TMB-High</span>
+              {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 ? (
+                <div className="bg-white rounded-lg p-3 mb-3">
+                  <div className="flex flex-wrap gap-2">
+                    {genomicProfile.mutations.slice(0, 5).map((mutation, idx) => (
+                      <span key={idx} className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                        {mutation.gene} {mutation.variant || mutation.type}
+                      </span>
+                    ))}
+                    {genomicProfile.tmb && (
+                      <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                        TMB: {genomicProfile.tmb}
+                      </span>
+                    )}
+                    {genomicProfile.msi && (
+                      <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                        MSI: {genomicProfile.msi}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="bg-white rounded-lg p-6 text-center">
+                  <p className="text-gray-500 mb-4">No genomic profile data available</p>
+                  <button
+                    onClick={() => {
+                      if (!hasUploadedDocument) {
+                        setShowDocumentOnboarding(true);
+                      } else {
+                        setActiveTab('files');
+                      }
+                    }}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                  >
+                    Upload Genomic Test Report
+                  </button>
+                </div>
+              )}
 
               {/* Expanded Details */}
-              {genomicExpanded && (
+              {genomicExpanded && genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 && (
                 <div className="space-y-3 animate-fade-scale">
                   {/* Key Mutations */}
                   <div className="bg-white rounded-lg p-4">
@@ -2181,47 +2216,24 @@ export default function CancerCareApp() {
                       Germline & Somatic Mutations
                     </h3>
                     <div className="space-y-2">
-                      <div className="flex items-start justify-between p-2 bg-red-50 border border-red-200 rounded">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-900 text-sm">BRCA1</span>
-                            <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded text-xs font-medium">Pathogenic</span>
+                      {genomicProfile.mutations.map((mutation, idx) => (
+                        <div key={idx} className="flex items-start justify-between p-2 bg-purple-50 border border-purple-200 rounded">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-gray-900 text-sm">{mutation.gene}</span>
+                              <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded text-xs font-medium">
+                                {mutation.type || mutation.variant}
+                              </span>
+                            </div>
+                            {mutation.variant && (
+                              <p className="text-xs text-gray-700 mt-1">{mutation.variant}</p>
+                            )}
+                            {mutation.significance && (
+                              <p className="text-xs text-gray-600 mt-1">{mutation.significance}</p>
+                            )}
                           </div>
-                          <p className="text-xs text-gray-700 mt-1">c.5266dupC (p.Gln1756Profs*74)</p>
-                          <p className="text-xs text-gray-600 mt-1">Germline variant • Increased PARP inhibitor sensitivity</p>
                         </div>
-                      </div>
-
-                      <div className="flex items-start justify-between p-2 bg-orange-50 border border-orange-200 rounded">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-900 text-sm">ARID1A</span>
-                            <span className="px-2 py-0.5 bg-orange-100 text-orange-800 rounded text-xs font-medium">Mutated</span>
-                          </div>
-                          <p className="text-xs text-gray-700 mt-1">c.3760C{'>'}T (p.Arg1254*)</p>
-                          <p className="text-xs text-gray-600 mt-1">Somatic • Common in clear cell ovarian cancer</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start justify-between p-2 bg-green-50 border border-green-200 rounded">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-900 text-sm">TP53</span>
-                            <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded text-xs font-medium">Wild-type</span>
-                          </div>
-                          <p className="text-xs text-gray-600 mt-1">No pathogenic variants detected</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start justify-between p-2 bg-green-50 border border-green-200 rounded">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-900 text-sm">PIK3CA</span>
-                            <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded text-xs font-medium">Wild-type</span>
-                          </div>
-                          <p className="text-xs text-gray-600 mt-1">No pathogenic variants detected</p>
-                        </div>
-                      </div>
+                      ))}
                     </div>
                   </div>
 
@@ -2234,54 +2246,76 @@ export default function CancerCareApp() {
                       Biomarkers
                     </h3>
                     <div className="grid grid-cols-2 gap-2">
-                      <div className="p-2 bg-purple-50 border border-purple-200 rounded">
-                        <p className="text-xs text-gray-600 mb-1">HRD Score</p>
-                        <p className="text-lg font-bold text-purple-900">68</p>
-                        <p className="text-xs text-purple-700 font-medium">Positive (≥42)</p>
-                      </div>
+                      {genomicProfile.hrd && (
+                        <div className="p-2 bg-purple-50 border border-purple-200 rounded">
+                          <p className="text-xs text-gray-600 mb-1">HRD Score</p>
+                          <p className="text-lg font-bold text-purple-900">{genomicProfile.hrd}</p>
+                          <p className="text-xs text-purple-700 font-medium">
+                            {genomicProfile.hrd >= 42 ? 'Positive (≥42)' : 'Negative (<42)'}
+                          </p>
+                        </div>
+                      )}
 
-                      <div className="p-2 bg-blue-50 border border-blue-200 rounded">
-                        <p className="text-xs text-gray-600 mb-1">TMB</p>
-                        <p className="text-lg font-bold text-blue-900">15.2</p>
-                        <p className="text-xs text-blue-700 font-medium">High ({'>'}10 mut/Mb)</p>
-                      </div>
+                      {genomicProfile.tmb && (
+                        <div className="p-2 bg-blue-50 border border-blue-200 rounded">
+                          <p className="text-xs text-gray-600 mb-1">TMB</p>
+                          <p className="text-lg font-bold text-blue-900">{genomicProfile.tmb}</p>
+                          <p className="text-xs text-blue-700 font-medium">
+                            {parseFloat(genomicProfile.tmb) >= 10 ? 'High (≥10 mut/Mb)' : 'Low (<10 mut/Mb)'}
+                          </p>
+                        </div>
+                      )}
 
-                      <div className="p-2 bg-green-50 border border-green-200 rounded">
-                        <p className="text-xs text-gray-600 mb-1">MSI Status</p>
-                        <p className="text-sm font-bold text-green-900">MS-Stable</p>
-                        <p className="text-xs text-green-700 font-medium">Microsatellite stable</p>
-                      </div>
+                      {genomicProfile.msi && (
+                        <div className="p-2 bg-green-50 border border-green-200 rounded">
+                          <p className="text-xs text-gray-600 mb-1">MSI Status</p>
+                          <p className="text-sm font-bold text-green-900">{genomicProfile.msi}</p>
+                          <p className="text-xs text-green-700 font-medium">Microsatellite status</p>
+                        </div>
+                      )}
 
-                      <div className="p-2 bg-teal-50 border border-teal-200 rounded">
-                        <p className="text-xs text-gray-600 mb-1">PD-L1</p>
-                        <p className="text-sm font-bold text-teal-900">8% TPS</p>
-                        <p className="text-xs text-teal-700 font-medium">Low expression</p>
-                      </div>
+                      {genomicProfile.pdl1 && (
+                        <div className="p-2 bg-teal-50 border border-teal-200 rounded">
+                          <p className="text-xs text-gray-600 mb-1">PD-L1</p>
+                          <p className="text-sm font-bold text-teal-900">{genomicProfile.pdl1}</p>
+                          <p className="text-xs text-teal-700 font-medium">Expression level</p>
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   {/* Test Information */}
-                  <div className="bg-white rounded-lg p-3">
-                    <h3 className="font-semibold text-gray-800 mb-2 text-sm">Test Information</h3>
-                    <div className="space-y-1 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Test Type:</span>
-                        <span className="font-medium text-gray-900">FoundationOne CDx</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Sample:</span>
-                        <span className="font-medium text-gray-900">Tumor tissue (surgical)</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Test Date:</span>
-                        <span className="font-medium text-gray-900">Nov 10, 2024</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Genes Analyzed:</span>
-                        <span className="font-medium text-gray-900">324 genes</span>
+                  {(genomicProfile.testType || genomicProfile.testDate || genomicProfile.sampleType) && (
+                    <div className="bg-white rounded-lg p-3">
+                      <h3 className="font-semibold text-gray-800 mb-2 text-sm">Test Information</h3>
+                      <div className="space-y-1 text-xs">
+                        {genomicProfile.testType && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Test Type:</span>
+                            <span className="font-medium text-gray-900">{genomicProfile.testType}</span>
+                          </div>
+                        )}
+                        {genomicProfile.sampleType && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Sample:</span>
+                            <span className="font-medium text-gray-900">{genomicProfile.sampleType}</span>
+                          </div>
+                        )}
+                        {genomicProfile.testDate && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Test Date:</span>
+                            <span className="font-medium text-gray-900">{genomicProfile.testDate}</span>
+                          </div>
+                        )}
+                        {genomicProfile.genesAnalyzed && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Genes Analyzed:</span>
+                            <span className="font-medium text-gray-900">{genomicProfile.genesAnalyzed}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Treatment Implications */}
                   <div className="bg-purple-100 border border-purple-300 rounded-lg p-3">
