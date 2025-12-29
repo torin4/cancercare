@@ -63,10 +63,19 @@ Extract any medical data and return a JSON object with this structure:
 
 IMPORTANT:
 - Only include sections with actual extracted data (omit empty sections)
-- Use today's date if not specified: ${new Date().toISOString().split('T')[0]}
+- CAREFULLY extract the date from the user's message (e.g., "on December 14", "two weeks ago", "last Monday", "yesterday")
+- Calculate dates relative to today if needed: ${new Date().toISOString().split('T')[0]}
+- If NO date is mentioned at all, use today's date
 - Be conversational and supportive in your response
 - If no medical data is mentioned, just respond conversationally
 - Return ONLY valid JSON
+
+DATE RECOGNITION EXAMPLES:
+- "My CA-125 on December 14 was 70" → use "2024-12-14"
+- "Two weeks ago my CA-125 was 70" → calculate date 14 days before today
+- "Last Monday my CA-125 was 70" → calculate the date of last Monday
+- "Yesterday my CA-125 was 70" → use yesterday's date
+- "My CA-125 was 70" (no date mentioned) → use today's date
 
 CONVERSATION CONTEXT:
 ${conversationHistory.slice(-5).map(msg => `${msg.role}: ${msg.content}`).join('\n')}`;
