@@ -98,6 +98,8 @@ export default function CancerCareApp() {
   const [showEditContacts, setShowEditContacts] = useState(false);
   const [showEditLocation, setShowEditLocation] = useState(false);
   const [showDeletionConfirm, setShowDeletionConfirm] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
   const [deletionType, setDeletionType] = useState(null); // 'data' or 'account'
   const [isDeleting, setIsDeleting] = useState(false);
   const [profileImage, setProfileImage] = useState(null);
@@ -772,6 +774,10 @@ export default function CancerCareApp() {
     }
 
     try {
+      // Show loading overlay
+      setIsUploading(true);
+      setUploadProgress('Reading document...');
+
       // Show processing message
       setMessages([...messages,
       { type: 'user', text: `Uploading: ${file.name}`, isUpload: true },
@@ -779,16 +785,20 @@ export default function CancerCareApp() {
       ]);
 
       // Step 1: Process document with AI to extract medical data
+      setUploadProgress('Analyzing document with AI...');
       const processingResult = await processDocument(file, user.uid);
       console.log('Document processing result:', processingResult);
 
       // Step 2: Upload file to Firebase Storage
+      setUploadProgress('Uploading to secure storage...');
       const uploadResult = await uploadDocument(file, user.uid, {
         category: processingResult.documentType || docType,
         documentType: processingResult.documentType || docType
       });
 
       console.log('File uploaded successfully:', uploadResult);
+
+      setUploadProgress('Saving extracted data...');
 
       // Step 3: Add to local documents state
       const newDoc = {
@@ -820,10 +830,13 @@ export default function CancerCareApp() {
       ]);
 
       // Reload health data to show new values
+      setUploadProgress('Refreshing your health data...');
       await reloadHealthData();
 
       setShowUploadDemo(false);
       setActiveTab('chat');
+      setIsUploading(false);
+      setUploadProgress('');
     } catch (error) {
       console.error('Upload error:', error);
 
@@ -835,6 +848,9 @@ export default function CancerCareApp() {
           text: `❌ Failed to process document: ${error.message}\n\nThe file was not uploaded. Please try again or contact support if the issue persists.`
         }
       ]);
+
+      setIsUploading(false);
+      setUploadProgress('');
     }
   };
 
@@ -4056,6 +4072,57 @@ export default function CancerCareApp() {
                 >
                   Sign Out
                 </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* Upload Progress Overlay */}
+      {
+        isUploading && (
+          <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 animate-fade-scale">
+              <div className="text-center">
+                {/* Animated spinner */}
+                <div className="inline-flex items-center justify-center w-20 h-20 mb-6">
+                  <div className="relative">
+                    <div className="w-20 h-20 border-4 border-blue-200 rounded-full"></div>
+                    <div className="w-20 h-20 border-4 border-blue-600 rounded-full absolute top-0 left-0 animate-spin border-t-transparent"></div>
+                  </div>
+                </div>
+
+                {/* Progress text */}
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Processing Document</h3>
+                <p className="text-gray-600 mb-6">{uploadProgress}</p>
+
+                {/* Progress steps */}
+                <div className="space-y-2 text-left bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-center gap-3 text-sm">
+                    <div className={`w-2 h-2 rounded-full ${uploadProgress.includes('Reading') ? 'bg-blue-600 animate-pulse' : uploadProgress.includes('Analyzing') || uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? 'bg-green-600' : 'bg-gray-300'}`}></div>
+                    <span className={uploadProgress.includes('Reading') || uploadProgress.includes('Analyzing') || uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? 'text-gray-900' : 'text-gray-500'}>Reading document</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <div className={`w-2 h-2 rounded-full ${uploadProgress.includes('Analyzing') ? 'bg-blue-600 animate-pulse' : uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? 'bg-green-600' : 'bg-gray-300'}`}></div>
+                    <span className={uploadProgress.includes('Analyzing') || uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? 'text-gray-900' : 'text-gray-500'}>Analyzing with AI</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <div className={`w-2 h-2 rounded-full ${uploadProgress.includes('Uploading') ? 'bg-blue-600 animate-pulse' : uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? 'bg-green-600' : 'bg-gray-300'}`}></div>
+                    <span className={uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? 'text-gray-900' : 'text-gray-500'}>Uploading to storage</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <div className={`w-2 h-2 rounded-full ${uploadProgress.includes('Saving') ? 'bg-blue-600 animate-pulse' : uploadProgress.includes('Refreshing') ? 'bg-green-600' : 'bg-gray-300'}`}></div>
+                    <span className={uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? 'text-gray-900' : 'text-gray-500'}>Saving extracted data</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <div className={`w-2 h-2 rounded-full ${uploadProgress.includes('Refreshing') ? 'bg-blue-600 animate-pulse' : 'bg-gray-300'}`}></div>
+                    <span className={uploadProgress.includes('Refreshing') ? 'text-gray-900' : 'text-gray-500'}>Updating dashboard</span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-gray-500 mt-4">
+                  Please don't close this window
+                </p>
               </div>
             </div>
           </div>
