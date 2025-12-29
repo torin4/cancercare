@@ -3,6 +3,7 @@ import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircl
 import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
 import { uploadDocument, deleteUserDirectory } from './firebase/storage';
 import { documentService, labService, vitalService, patientService, accountService, genomicProfileService, emergencyContactService, medicationService, symptomService } from './firebase/services';
+import { IMPORTANT_GENES } from './config/importantGenes';
 import { processDocument, generateExtractionSummary } from './services/documentProcessor';
 import { processChatMessage, generateChatExtractionSummary } from './services/chatProcessor';
 import { auth } from './firebase/config';
@@ -78,6 +79,16 @@ export default function CancerCareApp() {
   const [selectedLab, setSelectedLab] = useState('ca125');
   const [selectedDate, setSelectedDate] = useState(null);
   const [showAddMedication, setShowAddMedication] = useState(false);
+  // Helper: extract DNA and protein change from mutation strings
+  const parseMutation = (mutation) => {
+    const raw = (mutation.variant || '') + ' ' + (mutation.type || '');
+    const dnaMatch = raw.match(/c\.[^\s,;)]*/i);
+    const proteinMatch = raw.match(/p\.[^\s,;)]*/i);
+    const dna = mutation.dna || mutation.dnaChange || (dnaMatch ? dnaMatch[0] : null);
+    const protein = mutation.protein || mutation.aminoAcidChange || (proteinMatch ? proteinMatch[0] : null);
+    const kind = mutation.type || (mutation.germline ? 'Germline' : mutation.somatic ? 'Somatic' : null);
+    return { dna, protein, kind };
+  };
   const [genomicExpanded, setGenomicExpanded] = useState(false);
   const [labViewMode, setLabViewMode] = useState('labs'); // 'labs' or 'vitals'
   const [selectedVital, setSelectedVital] = useState('bp');
@@ -170,6 +181,7 @@ export default function CancerCareApp() {
 
   const [documents, setDocuments] = useState([]);
   const [emergencyContacts, setEmergencyContacts] = useState([]);
+  const [editContacts, setEditContacts] = useState([]);
 
   const [medications, setMedications] = useState([]);
 
@@ -1215,10 +1227,10 @@ export default function CancerCareApp() {
               </div>
             )}
 
-            {/* Two Column Layout on larger screens */}
+          {/* Two Column Layout on larger screens */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Genomic Profile Card */}
-              <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg shadow p-4 border border-purple-200">
+              <div className="w-full bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg shadow p-4 border border-purple-200 lg:col-span-2">
                 <h3 className="font-semibold text-gray-800 mb-3 flex items-center">
                   <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -1228,11 +1240,15 @@ export default function CancerCareApp() {
                 {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 ? (
                   <>
                     <div className="flex flex-wrap gap-2">
-                      {genomicProfile.mutations.slice(0, 5).map((mutation, idx) => (
-                        <span key={idx} className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
-                          {mutation.gene} {mutation.variant || mutation.type}
-                        </span>
-                      ))}
+                      {genomicProfile.mutations.slice(0, 5).map((mutation, idx) => {
+                        const { dna, protein, kind } = parseMutation(mutation);
+                        return (
+                          <span key={idx} className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                            <span className="font-semibold mr-1">{mutation.gene}</span>
+                            <span>{dna || protein || kind || mutation.type}</span>
+                          </span>
+                        );
+                      })}
                       {genomicProfile.tmb && (
                         <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
                           TMB: {genomicProfile.tmb}
@@ -2526,12 +2542,7 @@ export default function CancerCareApp() {
                   <h2 className="font-bold text-lg">{patientProfile.name || user?.displayName || 'Patient'}</h2>
                   <p className="text-sm text-gray-600">Age: {patientProfile.age || '--'}</p>
                   <p className="text-sm text-gray-600">DOB: {patientProfile.dateOfBirth ? new Date(patientProfile.dateOfBirth).toLocaleDateString() : '--'}</p>
-                  {patientProfile.diagnosis && (
-                    <p className="text-sm text-gray-600">Diagnosis: {patientProfile.diagnosis}</p>
-                  )}
-                  {patientProfile.stage && (
-                    <p className="text-sm text-gray-600">Stage: {patientProfile.stage}</p>
-                  )}
+                  {/* Diagnosis and Stage removed from this Information block — shown under Current Status */}
                   <button
                     onClick={() => setShowEditInfo(true)}
                     className="text-blue-600 text-sm font-medium mt-1 hover:underline"
@@ -2556,7 +2567,7 @@ export default function CancerCareApp() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Diagnosis:</span>
-                  <span className="font-medium">{user?.diagnosis || 'No diagnosis yet'}</span>
+                  <span className="font-medium">{patientProfile?.diagnosis || 'No diagnosis yet'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Treatment Status:</span>
@@ -2650,24 +2661,33 @@ export default function CancerCareApp() {
                       Germline & Somatic Mutations
                     </h3>
                     <div className="space-y-2">
-                      {genomicProfile.mutations.map((mutation, idx) => (
-                        <div key={idx} className="flex items-start justify-between p-2 bg-purple-50 border border-purple-200 rounded">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-gray-900 text-sm">{mutation.gene}</span>
-                              <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded text-xs font-medium">
-                                {mutation.type || mutation.variant}
-                              </span>
+                      {genomicProfile.mutations.map((mutation, idx) => {
+                        const { dna, protein, kind } = parseMutation(mutation);
+                        return (
+                          <div key={idx} className="flex items-start justify-between p-2 bg-purple-50 border border-purple-200 rounded">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                  <span className={`font-semibold text-gray-900 text-sm ${IMPORTANT_GENES.includes((mutation.gene||'').toUpperCase()) ? 'text-yellow-700' : ''}`}>{mutation.gene}</span>
+                                <span className={`px-2 py-0.5 ${IMPORTANT_GENES.includes((mutation.gene||'').toUpperCase()) ? 'bg-yellow-100 text-yellow-800' : 'bg-purple-100 text-purple-800'} rounded text-xs font-medium`}>
+                                  {kind || mutation.type || 'Mutation'}
+                                </span>
+                              </div>
+                              {dna && (
+                                <p className="text-xs text-gray-700 mt-1"><span className="font-medium">DNA:</span> {dna}</p>
+                              )}
+                              {protein && (
+                                <p className="text-xs text-gray-700 mt-1"><span className="font-medium">Protein:</span> {protein}</p>
+                              )}
+                              {!dna && !protein && mutation.variant && (
+                                <p className="text-xs text-gray-700 mt-1">{mutation.variant}</p>
+                              )}
+                              {mutation.significance && (
+                                <p className="text-xs text-gray-600 mt-1">{mutation.significance}</p>
+                              )}
                             </div>
-                            {mutation.variant && (
-                              <p className="text-xs text-gray-700 mt-1">{mutation.variant}</p>
-                            )}
-                            {mutation.significance && (
-                              <p className="text-xs text-gray-600 mt-1">{mutation.significance}</p>
-                            )}
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -2797,7 +2817,7 @@ export default function CancerCareApp() {
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold text-gray-800">Emergency Contacts</h2>
                 <button
-                  onClick={() => setShowEditContacts(true)}
+                  onClick={() => { setEditContacts(emergencyContacts.length ? emergencyContacts : []); setShowEditContacts(true); }}
                   className="text-blue-600 hover:text-blue-700"
                 >
                   <Edit2 size={18} />
@@ -2828,7 +2848,7 @@ export default function CancerCareApp() {
                   <User className="w-12 h-12 text-gray-300 mx-auto mb-2" />
                   <p className="text-gray-500 text-sm mb-3">No emergency contacts added</p>
                   <button
-                    onClick={() => setShowEditContacts(true)}
+                    onClick={() => { setEditContacts(emergencyContacts.length ? emergencyContacts : [{ contactType: 'Emergency', name: '', relationship: '', phone: '', email: '' }]); setShowEditContacts(true); }}
                     className="text-blue-600 text-sm font-medium hover:underline"
                   >
                     Add Emergency Contact
@@ -3997,6 +4017,17 @@ export default function CancerCareApp() {
                           diagnosis: patientProfile.diagnosis,
                           stage: patientProfile.stage
                         });
+                        // Ensure UI reflects saved values
+                        setPatientProfile(prev => ({
+                          ...prev,
+                          name: patientProfile.name,
+                          age: parseInt(patientProfile.age) || '',
+                          dateOfBirth: patientProfile.dateOfBirth,
+                          weight: patientProfile.weight,
+                          height: patientProfile.height,
+                          diagnosis: patientProfile.diagnosis,
+                          stage: patientProfile.stage
+                        }));
                         setShowEditInfo(false);
                         setMessages(prev => [...prev, {
                           type: 'ai',
@@ -4312,99 +4343,61 @@ export default function CancerCareApp() {
                   </div>
                 </div>
 
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
-                    <User size={18} className="mr-2 text-blue-600" />
-                    Oncologist
-                  </h4>
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      defaultValue="Dr. Sarah Chen"
-                      placeholder="Doctor's name"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="tel"
-                      defaultValue="(206) 555-0123"
-                      placeholder="Phone number"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
+                <div className="space-y-3">
+                  {editContacts.map((c, i) => (
+                    <div key={i} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold text-gray-800 mb-0 flex items-center">
+                          <User size={18} className="mr-2 text-blue-600" />
+                          <span className="capitalize">{c.contactType || 'Contact'}</span>
+                        </h4>
+                        <button
+                          onClick={() => setEditContacts(prev => prev.filter((_, idx) => idx !== i))}
+                          className="text-sm text-red-600 hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          value={c.name || ''}
+                          onChange={(e) => setEditContacts(prev => prev.map((item, idx) => idx === i ? { ...item, name: e.target.value } : item))}
+                          placeholder="Contact name"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                        />
+                        <input
+                          type="text"
+                          value={c.relationship || ''}
+                          onChange={(e) => setEditContacts(prev => prev.map((item, idx) => idx === i ? { ...item, relationship: e.target.value } : item))}
+                          placeholder="Relationship"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                        />
+                        <input
+                          type="tel"
+                          value={c.phone || ''}
+                          onChange={(e) => setEditContacts(prev => prev.map((item, idx) => idx === i ? { ...item, phone: e.target.value } : item))}
+                          placeholder="Phone number"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                        />
+                        <input
+                          type="email"
+                          value={c.email || ''}
+                          onChange={(e) => setEditContacts(prev => prev.map((item, idx) => idx === i ? { ...item, email: e.target.value } : item))}
+                          placeholder="Email (optional)"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                  ))}
 
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
-                    <User size={18} className="mr-2 text-green-600" />
-                    Primary Care
-                  </h4>
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      defaultValue="Dr. Michael Ross"
-                      placeholder="Doctor's name"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="tel"
-                      defaultValue="(206) 555-0156"
-                      placeholder="Phone number"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
-                    <Home size={18} className="mr-2 text-red-600" />
-                    Hospital
-                  </h4>
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      defaultValue="Seattle Cancer Center"
-                      placeholder="Hospital name"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="text"
-                      defaultValue="1234 Medical Plaza, Seattle, WA"
-                      placeholder="Address"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="tel"
-                      defaultValue="(206) 555-0199"
-                      placeholder="Main phone"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
-                    <User size={18} className="mr-2 text-orange-600" />
-                    Emergency Contact
-                  </h4>
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      defaultValue="John (Husband)"
-                      placeholder="Contact name"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="text"
-                      defaultValue="Spouse"
-                      placeholder="Relationship"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="tel"
-                      defaultValue="(206) 555-0142"
-                      placeholder="Phone number"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-                    />
+                  <div>
+                    <button
+                      onClick={() => setEditContacts(prev => [...prev, { contactType: 'Emergency', name: '', relationship: '', phone: '', email: '' }])}
+                      className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm"
+                    >
+                      + Add Contact
+                    </button>
                   </div>
                 </div>
               </div>
@@ -4418,9 +4411,27 @@ export default function CancerCareApp() {
                     Cancel
                   </button>
                   <button
-                    onClick={() => {
-                      setShowEditContacts(false);
-                      alert('Emergency contacts updated!');
+                    onClick={async () => {
+                      try {
+                        // Save each contact via service
+                        const savedIds = [];
+                        for (const c of editContacts) {
+                          const toSave = {
+                            ...c,
+                            patientId: user.uid
+                          };
+                          const id = await emergencyContactService.saveEmergencyContact(toSave);
+                          savedIds.push(id);
+                        }
+                        // Reload contacts
+                        const contacts = await emergencyContactService.getEmergencyContacts(user.uid);
+                        setEmergencyContacts(contacts);
+                        setShowEditContacts(false);
+                        alert('Emergency contacts updated!');
+                      } catch (err) {
+                        console.error('Failed to save emergency contacts', err);
+                        alert('Failed to save emergency contacts.');
+                      }
                     }}
                     className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"
                   >

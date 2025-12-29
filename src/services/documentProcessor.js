@@ -377,7 +377,10 @@ async function saveExtractedData(extractedData, userId) {
         // Mutations (detailed array)
         mutations: genomicData.mutations || [],
 
-        // Copy Number Variants
+        // Copy Number Variants (normalized to `cnvs` for storage)
+        cnvs: (genomicData.copyNumberVariants || []).map(c => ({ gene: c.gene || c.symbol, copyNumber: c.copyNumber || c.cn || c.value, type: c.type || 'amplification', significance: c.significance })),
+
+        // Also keep legacy field if present
         copyNumberVariants: genomicData.copyNumberVariants || [],
 
         // Gene Fusions
@@ -414,17 +417,38 @@ async function saveExtractedData(extractedData, userId) {
       }
 
       // Only include legacy fields if they have values
-      if (genomicData.tumorMutationalBurden || genomicData.biomarkers?.tumorMutationalBurden?.interpretation) {
-        genomicProfile.tumorMutationalBurden = genomicData.tumorMutationalBurden || genomicData.biomarkers?.tumorMutationalBurden?.interpretation;
+      // Normalize biomarkers into top-level fields for compatibility with normalization
+      if (genomicData.biomarkers?.tumorMutationalBurden?.value !== undefined) {
+        genomicProfile.tmbValue = genomicData.biomarkers.tumorMutationalBurden.value;
+        genomicProfile.tmb = genomicData.biomarkers.tumorMutationalBurden.interpretation || null;
+      } else if (genomicData.tumorMutationalBurden !== undefined) {
+        // legacy string
+        genomicProfile.tmb = genomicData.tumorMutationalBurden;
+        const numMatch = String(genomicData.tumorMutationalBurden).match(/[0-9.]+/);
+        if (numMatch) genomicProfile.tmbValue = parseFloat(numMatch[0]);
       }
-      if (genomicData.microsatelliteStatus || genomicData.biomarkers?.microsatelliteInstability?.status) {
-        genomicProfile.microsatelliteStatus = genomicData.microsatelliteStatus || genomicData.biomarkers?.microsatelliteInstability?.status;
+
+      if (genomicData.biomarkers?.microsatelliteInstability?.status) {
+        genomicProfile.msi = genomicData.biomarkers.microsatelliteInstability.status;
+      } else if (genomicData.microsatelliteStatus) {
+        genomicProfile.msi = genomicData.microsatelliteStatus;
       }
       // Prefer explicit checks to avoid treating valid falsy values (e.g. 0) as missing.
       if (genomicData.hrdScore !== undefined && genomicData.hrdScore !== null) {
         genomicProfile.hrdScore = genomicData.hrdScore;
       } else if (genomicData.biomarkers?.hrdScore?.value !== undefined && genomicData.biomarkers?.hrdScore?.value !== null) {
         genomicProfile.hrdScore = genomicData.biomarkers.hrdScore.value;
+      }
+      // PD-L1
+      if (genomicData.biomarkers?.pdl1Expression?.value !== undefined) {
+        genomicProfile.pdl1 = genomicData.biomarkers.pdl1Expression.value;
+      } else if (genomicData.pdl1 !== undefined) {
+        genomicProfile.pdl1 = genomicData.pdl1;
+      }
+
+      // If the extractor provided a copyNumberMap, include it
+      if (genomicData.copyNumberMap && typeof genomicData.copyNumberMap === 'object') {
+        genomicProfile.copyNumberMap = genomicData.copyNumberMap;
       }
       if (genomicData.additionalFindings) {
         genomicProfile.additionalFindings = genomicData.additionalFindings;
