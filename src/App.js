@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight } from 'lucide-react';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { uploadDocument } from './firebase/storage';
+import { auth } from './firebase/config';
+import Login from './components/Login';
 
 const styles = `
   @keyframes slide-up {
@@ -58,6 +62,8 @@ const styles = `
 `;
 
 export default function CancerCareApp() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showQuickLog, setShowQuickLog] = useState(false);
   const [showFabMenu, setShowFabMenu] = useState(false);
@@ -482,6 +488,16 @@ export default function CancerCareApp() {
     }
   ];
 
+  // Monitor authentication state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setAuthLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // Manage FAB animations
   useEffect(() => {
     if (activeTab === 'dashboard') {
@@ -548,54 +564,90 @@ export default function CancerCareApp() {
     }
   };
 
+  const handleRealFileUpload = async (file, docType) => {
+    if (!user) {
+      alert('Please log in to upload files');
+      return;
+    }
+
+    try {
+      // Upload to Firebase Storage
+      const result = await uploadDocument(file, user.uid, {
+        category: docType,
+        documentType: docType
+      });
+
+      console.log('File uploaded successfully:', result);
+
+      // Add to local documents state
+      const newDoc = {
+        id: result.id,
+        name: file.name,
+        type: docType,
+        date: new Date().toISOString().split('T')[0],
+        fileUrl: result.fileUrl,
+        storagePath: result.storagePath,
+        icon: docType.toLowerCase()
+      };
+
+      setDocuments([newDoc, ...documents]);
+      setMessages([...messages,
+        { type: 'user', text: `Uploaded: ${file.name}`, isUpload: true },
+        { type: 'ai', text: `Document uploaded successfully to Firebase Storage. File is securely stored and accessible.`, isAnalysis: true }
+      ]);
+      setShowUploadDemo(false);
+      setActiveTab('chat');
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Failed to upload file: ' + error.message);
+    }
+  };
+
   const simulateDocumentUpload = (docType) => {
-    const docExamples = {
-      Lab: {
-        name: 'Lab Results - Dec 29, 2024',
-        data: 'CA-125: 68 U/mL (↑ from 62), WBC: 5.5, Platelets: 238',
-        aiResponse: 'Lab results processed. I extracted and logged:\n• CA-125: 68 U/mL (increased from 62)\n• WBC: 5.5 K/μL (normal range)\n• Platelets: 238 K/μL (normal)\n\nCA-125 trend shows 10% increase. Added to your lab tracking.',
-        icon: 'lab'
-      },
-      Scan: {
-        name: 'CT Scan - Abdomen & Pelvis - Dec 29',
-        data: 'Peritoneal implants stable, no new lesions',
-        aiResponse: 'CT scan shows stable disease. No progression detected. Added to your medical records.',
-        icon: 'scan'
-      },
-      Report: {
-        name: 'Progress Note - Dr. Chen - Dec 29',
-        data: 'Patient continues on current regimen, ECOG 1. Vitals: BP 125/80, HR 70, Temp 98.1°F',
-        aiResponse: 'Progress note reviewed. Extracted vitals:\n• Blood Pressure: 125/80 mmHg (normal)\n• Heart Rate: 70 BPM (normal)\n• Temperature: 98.1°F (normal)\n\nTreatment plan continues as scheduled. All vitals within normal range.',
-        icon: 'report'
-      },
-      Genomic: {
-        name: 'Genomic Analysis - Dec 29',
-        data: 'HRD score confirmed, TMB-high',
-        aiResponse: 'Genomic data processed. Found 3 new matching clinical trials based on your profile.',
-        icon: 'genomic'
+    // Create a file input element
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx';
+
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        await handleRealFileUpload(file, docType);
       }
     };
 
-    const doc = docExamples[docType] || docExamples.Lab;
-    const newDoc = {
-      id: documents.length + 1,
-      name: doc.name,
-      type: docType,
-      date: new Date().toISOString().split('T')[0],
-      data: doc.data,
-      icon: doc.icon
-    };
-
-    setDocuments([newDoc, ...documents]);
-    setMessages([...messages,
-      { type: 'user', text: `Uploaded: ${doc.name}`, isUpload: true },
-      { type: 'ai', text: doc.aiResponse, isAnalysis: true }
-    ]);
-    setShowUploadDemo(false);
-    setActiveTab('chat');
+    input.click();
   };
 
   const currentLab = allLabData[selectedLab];
+
+  // Handle sign out
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      setUser(null);
+    } catch (error) {
+      console.error('Sign out error:', error);
+      alert('Failed to sign out: ' + error.message);
+    }
+  };
+
+  // Show loading screen while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Activity className="w-12 h-12 text-green-600 animate-pulse mx-auto mb-4" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login screen if not authenticated
+  if (!user) {
+    return <Login onLoginSuccess={() => setUser(auth.currentUser)} />;
+  }
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -3620,6 +3672,26 @@ export default function CancerCareApp() {
                     Save Changes
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Sign Out Section in Profile */}
+        {activeTab === 'profile' && user && (
+          <div className="p-4">
+            <div className="bg-white rounded-lg shadow p-4 border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Signed in as</p>
+                  <p className="text-sm font-medium text-gray-900">{user.email}</p>
+                </div>
+                <button
+                  onClick={handleSignOut}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition"
+                >
+                  Sign Out
+                </button>
               </div>
             </div>
           </div>
