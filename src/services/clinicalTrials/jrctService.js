@@ -122,25 +122,7 @@ export async function searchJRCT(params) {
   // This implementation aggregates WHO and ClinicalTrials.gov results only.
   const attempted = [];
   const onProgress = params?.onProgress;
-
-  // Helper to query WHO via proxy first
-  try {
-    if (typeof onProgress === 'function') onProgress('Querying WHO-ICTRP');
-    attempted.push('WHO-ICTRP');
-    // Use proxy to avoid browser CORS where configured
-    const whoRes = await axios.get(`${PROXY_BASE}?source=who&search=${encodeURIComponent(params.condition || '')}`, { timeout: 15000 }).then(r => r.data).catch(() => null);
-    if (whoRes) {
-      const whoResult = await searchWHO(params, whoRes);
-      if (whoResult.success && whoResult.trials.length > 0) {
-        if (typeof onProgress === 'function') onProgress('WHO-ICTRP returned results');
-        return { ...whoResult, attemptedSources: attempted };
-      }
-    }
-  } catch (e) {
-    console.warn('WHO query failed:', e?.message || e);
-  }
-
-  // Next, try ClinicalTrials.gov
+  // Only query ClinicalTrials.gov (WHO removed)
   try {
     if (typeof onProgress === 'function') onProgress('Querying ClinicalTrials.gov');
     attempted.push('ClinicalTrials.gov');

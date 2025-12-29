@@ -190,10 +190,13 @@ module.exports = async (req, res) => {
           }
         }
       }
+      // Not a ctgov/WHO fallback or fallback failed — return an error response
+      if (err && err.response) {
+        res.status(err.response.status).json({ error: err.message, details: err.response.data });
+        return;
       }
-
-      // Not a ctgov fallback or fallback failed — rethrow to outer catch
-      throw err;
+      res.status(502).json({ error: 'Upstream request failed', message: err?.message || String(err) });
+      return;
     }
 
   } catch (error) {
