@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight } from 'lucide-react';
 import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
 import { uploadDocument, deleteUserDirectory } from './firebase/storage';
-import { documentService, labService, vitalService, patientService, accountService, genomicProfileService } from './firebase/services';
+import { documentService, labService, vitalService, patientService, accountService, genomicProfileService, emergencyContactService } from './firebase/services';
 import { processDocument, generateExtractionSummary } from './services/documentProcessor';
 import { processChatMessage, generateChatExtractionSummary } from './services/chatProcessor';
 import { auth } from './firebase/config';
@@ -122,6 +122,7 @@ export default function CancerCareApp() {
   const [hasRealVitalData, setHasRealVitalData] = useState(false);
 
   const [documents, setDocuments] = useState([]);
+  const [emergencyContacts, setEmergencyContacts] = useState([]);
 
   const [medications, setMedications] = useState([
     {
@@ -663,6 +664,10 @@ export default function CancerCareApp() {
           const genomic = await genomicProfileService.getGenomicProfile(user.uid);
           setGenomicProfile(genomic);
 
+          // Load emergency contacts
+          const contacts = await emergencyContactService.getEmergencyContacts(user.uid);
+          setEmergencyContacts(contacts);
+
           // Check if user has uploaded documents
           const docs = await documentService.getDocuments(user.uid);
           setHasUploadedDocument(docs.length > 0);
@@ -988,43 +993,53 @@ export default function CancerCareApp() {
             </div>
 
             {/* Quick Stats - Responsive Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 border border-gray-200">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs sm:text-sm text-gray-600">CA-125</span>
-                  <TrendingUp className="w-4 h-4 text-orange-500" />
-                </div>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900">62</p>
-                <p className="text-xs text-orange-600 mt-1">Above normal</p>
+            {hasRealLabData || hasRealVitalData ? (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                {/* Show real lab/vital data from Firestore */}
+                {Object.keys(labsData).slice(0, 4).map((labKey) => {
+                  const lab = labsData[labKey];
+                  const latestValue = lab.history[lab.history.length - 1]?.value;
+                  return (
+                    <div key={labKey} className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 border border-gray-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs sm:text-sm text-gray-600">{lab.name}</span>
+                        <Activity className={`w-4 h-4 ${lab.status === 'warning' ? 'text-orange-500' : lab.status === 'danger' ? 'text-red-500' : 'text-green-500'}`} />
+                      </div>
+                      <p className="text-xl sm:text-2xl font-bold text-gray-900">{latestValue}</p>
+                      <p className={`text-xs mt-1 ${lab.status === 'warning' ? 'text-orange-600' : lab.status === 'danger' ? 'text-red-600' : 'text-green-600'}`}>
+                        {lab.status === 'normal' ? 'Normal range' : lab.status === 'warning' ? 'Above normal' : 'High'}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
-
-              <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 border border-gray-200">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs sm:text-sm text-gray-600">WBC</span>
-                  <Activity className="w-4 h-4 text-green-500" />
+            ) : (
+              <div className="bg-white rounded-lg p-6 text-center border-2 border-dashed border-gray-300">
+                <Activity className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-600 mb-2 font-medium">No health data tracked yet</p>
+                <p className="text-sm text-gray-500 mb-4">Start by uploading lab results or chatting with the AI assistant</p>
+                <div className="flex gap-3 justify-center">
+                  <button
+                    onClick={() => setActiveTab('chat')}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+                  >
+                    Chat with AI
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!hasUploadedDocument) {
+                        setShowDocumentOnboarding(true);
+                      } else {
+                        setActiveTab('files');
+                      }
+                    }}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm"
+                  >
+                    Upload Labs
+                  </button>
                 </div>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900">5.8</p>
-                <p className="text-xs text-green-600 mt-1">Normal range</p>
               </div>
-
-              <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 border border-gray-200">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs sm:text-sm text-gray-600">Energy</span>
-                  <Activity className="w-4 h-4 text-blue-500" />
-                </div>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900">6/10</p>
-                <p className="text-xs text-gray-600 mt-1">Today</p>
-              </div>
-
-              <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 border border-gray-200">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs sm:text-sm text-gray-600">Treatment</span>
-                  <Activity className="w-4 h-4 text-purple-500" />
-                </div>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900">Day 12</p>
-                <p className="text-xs text-gray-600 mt-1">Cycle 3</p>
-              </div>
-            </div>
+            )}
 
             {/* Two Column Layout on larger screens */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -2369,42 +2384,38 @@ export default function CancerCareApp() {
                   <Edit2 size={18} />
                 </button>
               </div>
-              <div className="space-y-2">
-                <div className="bg-blue-50 rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <User size={14} className="text-blue-600" />
-                    <p className="text-xs text-gray-600 font-medium">Oncologist</p>
-                  </div>
-                  <p className="text-sm font-semibold text-gray-900">Dr. Sarah Chen</p>
-                  <p className="text-xs text-gray-600 mt-0.5">(206) 555-0123</p>
+              {emergencyContacts.length > 0 ? (
+                <div className="space-y-2">
+                  {emergencyContacts.map((contact, idx) => {
+                    const colors = ['blue', 'green', 'purple', 'orange'];
+                    const color = colors[idx % colors.length];
+                    return (
+                      <div key={contact.id} className={`bg-${color}-50 rounded-lg p-3`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <User size={14} className={`text-${color}-600`} />
+                          <p className="text-xs text-gray-600 font-medium">{contact.relationship}</p>
+                        </div>
+                        <p className="text-sm font-semibold text-gray-900">{contact.name}</p>
+                        <p className="text-xs text-gray-600 mt-0.5">{contact.phone}</p>
+                        {contact.email && (
+                          <p className="text-xs text-gray-600">{contact.email}</p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-
-                <div className="bg-green-50 rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <User size={14} className="text-green-600" />
-                    <p className="text-xs text-gray-600 font-medium">Primary Care</p>
-                  </div>
-                  <p className="text-sm font-semibold text-gray-900">Dr. Michael Ross</p>
-                  <p className="text-xs text-gray-600 mt-0.5">(206) 555-0156</p>
+              ) : (
+                <div className="text-center py-6">
+                  <User className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                  <p className="text-gray-500 text-sm mb-3">No emergency contacts added</p>
+                  <button
+                    onClick={() => setShowEditContacts(true)}
+                    className="text-blue-600 text-sm font-medium hover:underline"
+                  >
+                    Add Emergency Contact
+                  </button>
                 </div>
-
-                <div className="bg-red-50 rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Home size={14} className="text-red-600" />
-                    <p className="text-xs text-gray-600 font-medium">Hospital</p>
-                  </div>
-                  <p className="text-sm font-semibold text-gray-900">Seattle Cancer Center</p>
-                  <p className="text-xs text-gray-600 mt-0.5">1234 Medical Plaza, Seattle, WA</p>
-                  <p className="text-xs text-gray-600">(206) 555-0199</p>
-                </div>
-
-                <div className="bg-orange-50 rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <User size={14} className="text-orange-600" />
-                    <p className="text-xs text-gray-600 font-medium">Emergency Contact</p>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Account Privacy & Deletion */}
