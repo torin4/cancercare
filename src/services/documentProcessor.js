@@ -372,14 +372,8 @@ async function saveExtractedData(extractedData, userId) {
     if (extractedData.data?.genomic) {
       const genomicData = extractedData.data.genomic;
 
-      await genomicProfileService.saveGenomicProfile(userId, {
-        // Test Information
-        testName: genomicData.testInfo?.testName,
-        testDate: genomicData.testInfo?.testDate ? new Date(genomicData.testInfo.testDate) : null,
-        laboratoryName: genomicData.testInfo?.laboratoryName,
-        specimenType: genomicData.testInfo?.specimenType,
-        tumorPurity: genomicData.testInfo?.tumorPurity,
-
+      // Build genomic profile object, only including defined fields
+      const genomicProfile = {
         // Mutations (detailed array)
         mutations: genomicData.mutations || [],
 
@@ -399,14 +393,41 @@ async function saveExtractedData(extractedData, userId) {
         fdaApprovedTherapies: genomicData.fdaApprovedTherapies || [],
         clinicalTrialEligible: genomicData.clinicalTrialEligible || false,
 
-        // Legacy fields (for backward compatibility)
-        tumorMutationalBurden: genomicData.tumorMutationalBurden || genomicData.biomarkers?.tumorMutationalBurden?.interpretation,
-        microsatelliteStatus: genomicData.microsatelliteStatus || genomicData.biomarkers?.microsatelliteInstability?.status,
-        hrdScore: genomicData.hrdScore || genomicData.biomarkers?.hrdScore?.value,
-        additionalFindings: genomicData.additionalFindings,
-
         lastUpdated: new Date()
-      });
+      };
+
+      // Only include test info fields if they have defined values
+      if (genomicData.testInfo?.testName) {
+        genomicProfile.testName = genomicData.testInfo.testName;
+      }
+      if (genomicData.testInfo?.testDate) {
+        genomicProfile.testDate = new Date(genomicData.testInfo.testDate);
+      }
+      if (genomicData.testInfo?.laboratoryName) {
+        genomicProfile.laboratoryName = genomicData.testInfo.laboratoryName;
+      }
+      if (genomicData.testInfo?.specimenType) {
+        genomicProfile.specimenType = genomicData.testInfo.specimenType;
+      }
+      if (genomicData.testInfo?.tumorPurity !== undefined && genomicData.testInfo?.tumorPurity !== null) {
+        genomicProfile.tumorPurity = genomicData.testInfo.tumorPurity;
+      }
+
+      // Only include legacy fields if they have values
+      if (genomicData.tumorMutationalBurden || genomicData.biomarkers?.tumorMutationalBurden?.interpretation) {
+        genomicProfile.tumorMutationalBurden = genomicData.tumorMutationalBurden || genomicData.biomarkers?.tumorMutationalBurden?.interpretation;
+      }
+      if (genomicData.microsatelliteStatus || genomicData.biomarkers?.microsatelliteInstability?.status) {
+        genomicProfile.microsatelliteStatus = genomicData.microsatelliteStatus || genomicData.biomarkers?.microsatelliteInstability?.status;
+      }
+      if (genomicData.hrdScore !== undefined || genomicData.biomarkers?.hrdScore?.value !== undefined) {
+        genomicProfile.hrdScore = genomicData.hrdScore || genomicData.biomarkers?.hrdScore?.value;
+      }
+      if (genomicData.additionalFindings) {
+        genomicProfile.additionalFindings = genomicData.additionalFindings;
+      }
+
+      await genomicProfileService.saveGenomicProfile(userId, genomicProfile);
 
       savedData.genomic = genomicData;
     }

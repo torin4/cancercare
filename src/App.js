@@ -738,6 +738,20 @@ export default function CancerCareApp() {
     }
   };
 
+  // Auto-select first numeric lab when data loads
+  useEffect(() => {
+    if (Object.keys(labsData).length > 0) {
+      // Check if current selection is valid
+      if (!labsData[selectedLab] || !labsData[selectedLab].isNumeric) {
+        // Find first numeric lab
+        const firstNumericLab = Object.keys(labsData).find(key => labsData[key].isNumeric);
+        if (firstNumericLab) {
+          setSelectedLab(firstNumericLab);
+        }
+      }
+    }
+  }, [labsData]);
+
   // Manage FAB animations
   useEffect(() => {
     if (activeTab === 'dashboard') {
@@ -908,7 +922,17 @@ export default function CancerCareApp() {
     input.click();
   };
 
-  const currentLab = allLabData[selectedLab];
+  // Get current lab, ensuring it exists and defaulting to first numeric lab if not
+  const currentLab = allLabData[selectedLab] || Object.values(allLabData).find(lab => lab.isNumeric) || Object.values(allLabData)[0] || {
+    name: 'No Data',
+    current: '--',
+    unit: '',
+    status: 'normal',
+    trend: 'stable',
+    normalRange: '--',
+    isNumeric: false,
+    data: []
+  };
 
   // Handle sign out
   const handleSignOut = async () => {
@@ -1221,22 +1245,23 @@ export default function CancerCareApp() {
                     {(hasRealLabData || Object.keys(labsData).length > 0) && (
                       <>
 
-                        {/* Lab Trend Chart */}
-                        <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200">
-                          <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-base sm:text-lg font-semibold text-gray-900">Lab Trends</h2>
-                            <select
-                              value={selectedLab}
-                              onChange={(e) => setSelectedLab(e.target.value)}
-                              className="text-sm border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 focus:ring-2 focus:ring-green-500"
-                            >
-                              {Object.keys(allLabData).filter(key => allLabData[key].isNumeric).map(key => (
-                                <option key={key} value={key}>{allLabData[key].name}</option>
-                              ))}
-                            </select>
-                          </div>
+                        {/* Lab Trend Chart - only show if we have numeric labs */}
+                        {Object.values(allLabData).some(lab => lab.isNumeric) && (
+                          <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200">
+                            <div className="flex items-center justify-between mb-4">
+                              <h2 className="text-base sm:text-lg font-semibold text-gray-900">Lab Trends</h2>
+                              <select
+                                value={selectedLab}
+                                onChange={(e) => setSelectedLab(e.target.value)}
+                                className="text-sm border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 focus:ring-2 focus:ring-green-500"
+                              >
+                                {Object.keys(allLabData).filter(key => allLabData[key].isNumeric).map(key => (
+                                  <option key={key} value={key}>{allLabData[key].name}</option>
+                                ))}
+                              </select>
+                            </div>
 
-                          {currentLab.isNumeric ? (
+                            {currentLab && currentLab.isNumeric ? (
                             <>
                               <div className="mb-4">
                                 <div className="flex items-baseline gap-2 mb-1">
@@ -1496,7 +1521,8 @@ export default function CancerCareApp() {
                               </p>
                             </div>
                           )}
-                        </div>
+                          </div>
+                        )}
 
                         {/* Lab Value Cards */}
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
