@@ -1076,15 +1076,15 @@ export default function CancerCareApp() {
                 <TrendingUp size={18} className="mr-2" />
                 Top Trial Matches
               </h3>
-              {trials.slice(0, 2).map((trial, idx) => (
-                <div key={idx} className="mb-3 last:mb-0 pb-3 last:pb-0 border-b last:border-0">
-                  <div className="flex items-start justify-between mb-1">
-                    <p className="font-medium text-sm flex-1">{trial.name}</p>
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium ml-2">{trial.match}</span>
-                  </div>
-                  <p className="text-xs text-gray-600">{trial.location} • {trial.distance}</p>
-                </div>
-              ))}
+              <div className="text-center py-6">
+                <p className="text-gray-500 text-sm mb-3">No clinical trials matched yet</p>
+                <button
+                  onClick={() => setActiveTab('trials')}
+                  className="text-blue-600 text-sm font-medium hover:underline"
+                >
+                  Search Clinical Trials →
+                </button>
+              </div>
             </div>
           </div>
         )}
