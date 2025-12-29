@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight } from 'lucide-react';
 import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
 import { uploadDocument, deleteUserDirectory } from './firebase/storage';
-import { documentService, labService, vitalService, patientService, accountService, genomicProfileService, emergencyContactService } from './firebase/services';
+import { documentService, labService, vitalService, patientService, accountService, genomicProfileService, emergencyContactService, medicationService, symptomService } from './firebase/services';
 import { processDocument, generateExtractionSummary } from './services/documentProcessor';
 import { processChatMessage, generateChatExtractionSummary } from './services/chatProcessor';
 import { auth } from './firebase/config';
@@ -124,74 +124,9 @@ export default function CancerCareApp() {
   const [documents, setDocuments] = useState([]);
   const [emergencyContacts, setEmergencyContacts] = useState([]);
 
-  const [medications, setMedications] = useState([
-    {
-      id: 1,
-      name: 'Paclitaxel',
-      dosage: '175 mg/m²',
-      frequency: 'Every 3 weeks',
-      schedule: 'IV infusion',
-      purpose: 'Chemotherapy',
-      nextDose: '2025-01-05',
-      color: 'purple',
-      instructions: 'Administered at infusion center',
-      active: true
-    },
-    {
-      id: 2,
-      name: 'Bevacizumab',
-      dosage: '15 mg/kg',
-      frequency: 'Every 3 weeks',
-      schedule: 'IV infusion',
-      purpose: 'Targeted therapy',
-      nextDose: '2025-01-05',
-      color: 'blue',
-      instructions: 'Given with Paclitaxel',
-      active: true
-    },
-    {
-      id: 3,
-      name: 'Ondansetron',
-      dosage: '8 mg',
-      frequency: 'Twice daily',
-      schedule: '8:00 AM, 8:00 PM',
-      purpose: 'Anti-nausea',
-      nextDose: '2024-12-28 8:00 PM',
-      color: 'green',
-      instructions: 'Take with or without food',
-      active: true
-    },
-    {
-      id: 4,
-      name: 'Dexamethasone',
-      dosage: '4 mg',
-      frequency: 'Daily',
-      schedule: '9:00 AM',
-      purpose: 'Anti-inflammatory',
-      nextDose: '2024-12-29 9:00 AM',
-      color: 'orange',
-      instructions: 'Take with food to reduce stomach upset',
-      active: true
-    },
-    {
-      id: 5,
-      name: 'Omeprazole',
-      dosage: '20 mg',
-      frequency: 'Daily',
-      schedule: '8:00 AM',
-      purpose: 'Stomach protection',
-      nextDose: '2024-12-29 8:00 AM',
-      color: 'teal',
-      instructions: 'Take 30 minutes before breakfast',
-      active: true
-    }
-  ]);
+  const [medications, setMedications] = useState([]);
 
-  const [medicationLog, setMedicationLog] = useState([
-    { medId: 3, scheduledTime: '8:00 AM', takenAt: '2024-12-28T08:05:00' },
-    { medId: 5, scheduledTime: '8:00 AM', takenAt: '2024-12-28T08:03:00' },
-    { medId: 4, scheduledTime: '9:00 AM', takenAt: '2024-12-28T09:02:00' },
-  ]);
+  const [medicationLog, setMedicationLog] = useState([]);
 
   const markMedicationTaken = (medId, scheduledTime) => {
     const now = new Date().toISOString();
@@ -450,11 +385,7 @@ export default function CancerCareApp() {
   // Use real data from Firestore only
   const allVitalsData = vitalsData;
 
-  const symptoms = [
-    { date: 'Dec 28', type: 'Fatigue', severity: 'Moderate', notes: 'Energy 3/10' },
-    { date: 'Dec 27', type: 'Pain', severity: 'Mild', notes: 'Lower back' },
-    { date: 'Dec 26', type: 'Nausea', severity: 'Mild', notes: 'After meals' }
-  ];
+  const [symptoms, setSymptoms] = useState([]);
 
   const [genomicProfile, setGenomicProfile] = useState(null);
 
@@ -667,6 +598,14 @@ export default function CancerCareApp() {
           // Load emergency contacts
           const contacts = await emergencyContactService.getEmergencyContacts(user.uid);
           setEmergencyContacts(contacts);
+
+          // Load medications
+          const meds = await medicationService.getMedications(user.uid);
+          setMedications(meds);
+
+          // Load symptoms
+          const symps = await symptomService.getSymptoms(user.uid);
+          setSymptoms(symps);
 
           // Check if user has uploaded documents
           const docs = await documentService.getDocuments(user.uid);
