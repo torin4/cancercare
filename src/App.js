@@ -2554,11 +2554,7 @@ export default function CancerCareApp() {
                   <p className="text-gray-500 mb-4">No genomic profile data available</p>
                   <button
                     onClick={() => {
-                      if (!hasUploadedDocument) {
-                        openDocumentOnboarding('genomic');
-                      } else {
-                        setActiveTab('files');
-                      }
+                      openDocumentOnboarding('genomic');
                     }}
                     className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
                   >
