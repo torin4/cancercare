@@ -12,6 +12,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { searchJRCTByGenomicProfile, matchesJRCTEligibility } from './jrctService';
+import { trialLocationService } from '../../firebase/services';
 import { calculateTrialMatchScore, sortTrialsByMatch } from './trialMatcher';
 
 /**
@@ -48,6 +49,7 @@ export async function saveMatchedTrial(userId, trialData) {
 
       // Metadata
       savedAt: serverTimestamp(),
+      attemptedSources: trialData.attemptedSources || [],
       isFavorite: false,
       notes: ''
     });
@@ -163,22 +165,39 @@ export async function removeSavedTrial(trialDocId) {
  * @param {Object} genomicProfile - Patient's genomic profile (optional)
  * @returns {Promise<Object>} - Search results with matched trials
  */
-export async function searchAndMatchTrials(userId, patientProfile, genomicProfile = null) {
+export async function searchAndMatchTrials(userId, patientProfile, genomicProfile = null, onProgress = null) {
   try {
     let searchResults;
 
-    // If genomic profile exists, use genomic-based search
+    // Determine trial location preferences (if saved for this patient)
+    let trialLocation = null;
+    try {
+      trialLocation = await trialLocationService.getTrialLocation(userId);
+    } catch (e) {
+      console.warn('Could not load trial location for user:', e?.message || e);
+    }
+
+    // If genomic profile exists, use genomic-based search and include location
     if (genomicProfile) {
-      searchResults = await searchJRCTByGenomicProfile(genomicProfile, patientProfile);
+      const tl = trialLocation ? { ...trialLocation, onProgress } : { onProgress };
+      searchResults = await searchJRCTByGenomicProfile(genomicProfile, patientProfile, tl);
     } else {
-      // Otherwise, search by diagnosis only
+      // Otherwise, search by diagnosis only and include location
       const { searchJRCT } = await import('./jrctService');
-      searchResults = await searchJRCT({
+      const params = {
         condition: patientProfile.diagnosis,
         age: patientProfile.age,
         gender: patientProfile.gender,
-        status: 'recruiting'
-      });
+        status: 'recruiting',
+        onProgress
+      };
+      if (trialLocation) {
+        params.country = trialLocation.country;
+        params.city = trialLocation.city;
+        params.searchRadius = trialLocation.searchRadius;
+        params.includeAllLocations = trialLocation.includeAllLocations;
+      }
+      searchResults = await searchJRCT(params);
     }
 
     if (!searchResults.success || !searchResults.trials) {
@@ -186,6 +205,7 @@ export async function searchAndMatchTrials(userId, patientProfile, genomicProfil
         success: false,
         totalResults: 0,
         trials: [],
+        searchSources: searchResults.attemptedSources || [],
         error: searchResults.error || 'No trials found'
       };
     }
@@ -207,6 +227,7 @@ export async function searchAndMatchTrials(userId, patientProfile, genomicProfil
       success: true,
       totalResults: sortedTrials.length,
       trials: sortedTrials,
+      searchSources: searchResults.attemptedSources || [],
       searchCriteria: {
         diagnosis: patientProfile.diagnosis,
         age: patientProfile.age,

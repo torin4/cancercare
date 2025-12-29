@@ -120,6 +120,41 @@ export default function CancerCareApp() {
     searchRadius: '100',
     includeAllLocations: false
   });
+
+  // Helpers for country-specific address labels/placeholders
+  const getStateLabel = (country) => {
+    if (!country) return 'State/Region';
+    const c = country.toLowerCase();
+    if (c.includes('japan')) return 'Prefecture';
+    if (c.includes('canada') || c.includes('australia')) return 'Province/State';
+    if (c.includes('united kingdom') || c.includes('uk')) return 'County/Region';
+    return 'State/Region';
+  };
+
+  const getStatePlaceholder = (country) => {
+    if (!country) return '';
+    const c = country.toLowerCase();
+    if (c.includes('japan')) return 'Tokyo';
+    if (c.includes('canada')) return 'BC';
+    if (c.includes('united states') || c.includes('united states of america')) return 'WA';
+    return '';
+  };
+
+  const getPostalLabel = (country) => {
+    if (!country) return 'Postal Code';
+    const c = country.toLowerCase();
+    if (c.includes('united states')) return 'ZIP Code';
+    return 'Postal Code';
+  };
+
+  const getPostalPlaceholder = (country) => {
+    if (!country) return '';
+    const c = country.toLowerCase();
+    if (c.includes('japan')) return '100-0001';
+    if (c.includes('united states')) return '98109';
+    if (c.includes('canada')) return 'V6B 1A1';
+    return '';
+  };
   const [newLabData, setNewLabData] = useState({
     label: '',
     normalRange: '',
@@ -3714,10 +3749,21 @@ export default function CancerCareApp() {
                         <option value="United States">United States</option>
                         <option value="Canada">Canada</option>
                         <option value="United Kingdom">United Kingdom</option>
+                        <option value="Japan">Japan</option>
+                        <option value="Australia">Australia</option>
+                        <option value="Germany">Germany</option>
+                        <option value="France">France</option>
+                        <option value="China">China</option>
+                        <option value="India">India</option>
+                        <option value="South Korea">South Korea</option>
+                        <option value="Italy">Italy</option>
+                        <option value="Spain">Spain</option>
+                        <option value="Netherlands">Netherlands</option>
+                        <option value="Brazil">Brazil</option>
                       </select>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
                         <input
@@ -3729,15 +3775,28 @@ export default function CancerCareApp() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">{getStateLabel(trialLocation.country)}</label>
                         <input
                           type="text"
                           value={trialLocation.state}
+                          placeholder={getStatePlaceholder(trialLocation.country)}
                           onChange={(e) => setTrialLocation({ ...trialLocation, state: e.target.value })}
                           disabled={trialLocation.includeAllLocations}
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
                         />
                       </div>
+                    </div>
+
+                    <div className="mt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{getPostalLabel(trialLocation.country)}</label>
+                      <input
+                        type="text"
+                        value={trialLocation.zip}
+                        placeholder={getPostalPlaceholder(trialLocation.country)}
+                        onChange={(e) => setTrialLocation({ ...trialLocation, zip: e.target.value })}
+                        disabled={trialLocation.includeAllLocations}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+                      />
                     </div>
                   </div>
                 </div>

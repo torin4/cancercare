@@ -15,6 +15,112 @@ const JRCT_API_BASE = (function() {
   return DEFAULT_PROXY_PATH;
 })();
 
+// In-memory cache for geocoding results to avoid repeated requests
+const geocodeCache = new Map();
+
+// Haversine distance (miles)
+function distanceMiles(lat1, lon1, lat2, lon2) {
+  const toRad = (v) => (v * Math.PI) / 180;
+  const R = 3958.8; // miles
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+async function geocodeAddress(query) {
+  if (!query) return null;
+  const key = String(query).trim();
+  if (geocodeCache.has(key)) return geocodeCache.get(key);
+
+  try {
+    const res = await axios.get('https://nominatim.openstreetmap.org/search', {
+      params: { q: key, format: 'json', limit: 1 },
+      headers: { 'User-Agent': 'CancerCare/1.0 (contact@example.com)' },
+      timeout: 10000
+    });
+
+    const item = res.data && res.data[0];
+    if (!item) {
+      geocodeCache.set(key, null);
+      return null;
+    }
+
+    const lat = parseFloat(item.lat);
+    const lon = parseFloat(item.lon);
+    const out = { lat, lon };
+    geocodeCache.set(key, out);
+    return out;
+  } catch (e) {
+    console.warn('Geocode failed for', key, e?.message || e);
+    geocodeCache.set(key, null);
+    return null;
+  }
+}
+
+function locationToQuery(loc) {
+  // loc can be string or {city,country}
+  if (!loc) return null;
+  if (typeof loc === 'string') return loc;
+  if (loc.city && loc.country) return `${loc.city}, ${loc.country}`;
+  if (loc.city && loc.state) return `${loc.city}, ${loc.state}`;
+  if (loc.country) return loc.country;
+  return JSON.stringify(loc);
+}
+
+async function applyLocationFilters(trials, params) {
+  if (!params) return trials;
+
+  let out = trials || [];
+
+  // Country filter (simple string match) when includeAllLocations is false
+  if (params.country && !params.includeAllLocations) {
+    const countryLower = String(params.country).toLowerCase();
+    out = out.filter(t => (t.country || '').toLowerCase().includes(countryLower) ||
+      (t.locations || []).some(loc => {
+        const q = typeof loc === 'string' ? loc.toLowerCase() : ((loc.country || '') + ' ' + (loc.city || '')).toLowerCase();
+        return q.includes(countryLower);
+      })
+    );
+  }
+
+  // Radius filter (requires geocoding) — params.searchRadius in miles and params.city/country or params.zip
+  if (params.searchRadius && !params.includeAllLocations) {
+    // Build user location query from provided fields
+    const userParts = [];
+    if (params.city) userParts.push(params.city);
+    if (params.state) userParts.push(params.state);
+    if (params.zip) userParts.push(params.zip);
+    if (params.country) userParts.push(params.country);
+    const userQuery = userParts.join(', ');
+    const userGeo = await geocodeAddress(userQuery);
+    if (!userGeo) return out; // can't apply radius
+
+    const radius = Number(params.searchRadius) || 0;
+    const filtered = [];
+
+    // For each trial, see if any location geocodes within radius
+    for (const trial of out) {
+      const locs = trial.locations || [];
+      let keep = false;
+      for (const loc of locs) {
+        const q = locationToQuery(loc);
+        if (!q) continue;
+        const geo = await geocodeAddress(q);
+        if (!geo) continue;
+        const d = distanceMiles(userGeo.lat, userGeo.lon, geo.lat, geo.lon);
+        if (d <= radius) { keep = true; break; }
+      }
+      if (keep) filtered.push(trial);
+    }
+
+    return filtered;
+  }
+
+  return out;
+}
+
 /**
  * Search JRCT (Japan Registry of Clinical Trials) for matching trials
  * @param {Object} params - Search parameters
@@ -32,6 +138,9 @@ export async function searchJRCT(params) {
     biomarker        // Biomarker (TMB-high, MSI-H, HRD-positive)
   } = params;
 
+  const attempted = [];
+  const onProgress = params?.onProgress;
+
   try {
     // Build search parameters
     const searchParams = new URLSearchParams();
@@ -45,6 +154,7 @@ export async function searchJRCT(params) {
     if (gene) searchParams.append('gene', gene);
     if (biomarker) searchParams.append('biomarker', biomarker);
 
+    if (typeof onProgress === 'function') onProgress('Querying JRCT');
     const response = await axios.get(`${JRCT_API_BASE}/trials?${searchParams.toString()}`, {
       headers: {
         'Accept': 'application/json',
@@ -53,28 +163,51 @@ export async function searchJRCT(params) {
       timeout: 15000
     });
 
+    let trials = response.data.trials ? response.data.trials.map(trial => normalizeJRCTTrial(trial)) : [];
+
+    // Apply location filters (country and optional radius)
+    trials = await applyLocationFilters(trials, params);
+
+    attempted.push('JRCT');
+    if (typeof onProgress === 'function') onProgress('JRCT returned results');
+
     return {
       success: true,
       source: 'JRCT',
-      totalResults: response.data.totalCount || response.data.trials?.length || 0,
-      trials: response.data.trials ? response.data.trials.map(trial => normalizeJRCTTrial(trial)) : []
+      attemptedSources: attempted,
+      totalResults: trials.length,
+      trials
     };
 
   } catch (error) {
     console.error('Error searching JRCT:', error);
 
+    // JRCT failed; record attempt
+    attempted.push('JRCT');
+    if (typeof onProgress === 'function') onProgress('JRCT failed — trying WHO');
+
     // Try WHO ICTRP as first fallback
     try {
+      attempted.push('WHO-ICTRP');
+      if (typeof onProgress === 'function') onProgress('Querying WHO-ICTRP');
       const who = await searchWHO(params);
-      if (who.success && who.trials.length > 0) return who;
+      if (who.success && who.trials.length > 0) {
+        if (typeof onProgress === 'function') onProgress('WHO-ICTRP returned results');
+        return { ...who, attemptedSources: attempted };
+      }
     } catch (e) {
       console.warn('WHO fallback failed:', e?.message || e);
     }
 
     // Then try ClinicalTrials.gov
     try {
+      attempted.push('ClinicalTrials.gov');
+      if (typeof onProgress === 'function') onProgress('Querying ClinicalTrials.gov');
       const ct = await searchCTGov(params);
-      if (ct.success && ct.trials.length > 0) return ct;
+      if (ct.success && ct.trials.length > 0) {
+        if (typeof onProgress === 'function') onProgress('ClinicalTrials.gov returned results');
+        return { ...ct, attemptedSources: attempted };
+      }
     } catch (e) {
       console.warn('ClinicalTrials.gov fallback failed:', e?.message || e);
     }
@@ -83,6 +216,7 @@ export async function searchJRCT(params) {
     return {
       success: false,
       source: 'JRCT',
+      attemptedSources: attempted,
       totalResults: 0,
       trials: [],
       error: error.message
@@ -112,7 +246,7 @@ export async function searchCTGov(params) {
     const res = await axios.get(url, { timeout: 15000 });
     const studies = res.data.StudyFieldsResponse?.Study || [];
 
-    const trials = studies.map(s => ({
+    let trials = studies.map(s => ({
       id: s.NCTId?.[0] || null,
       source: 'ClinicalTrials.gov',
       title: s.BriefTitle?.[0] || '',
@@ -123,6 +257,9 @@ export async function searchCTGov(params) {
       locations: (s.LocationCity || []).map((city, idx) => ({ city, country: s.LocationCountry?.[idx] || '' })),
       url: s.NCTId?.[0] ? `https://clinicaltrials.gov/study/${s.NCTId[0]}` : null
     }));
+
+    // Apply location filters if provided
+    trials = await applyLocationFilters(trials, params);
 
     return { success: true, source: 'ClinicalTrials.gov', totalResults: trials.length, trials };
   } catch (error) {
@@ -143,7 +280,7 @@ export async function searchWHO(params) {
     const res = await axios.get(url, { timeout: 15000 });
     const items = res.data?.items || res.data?.trials || [];
 
-    const trials = items.map(item => ({
+    let trials = items.map(item => ({
       id: item.trial_id || item.id || null,
       source: 'WHO-ICTRP',
       title: item.title || item.brief_title || '',
@@ -154,6 +291,9 @@ export async function searchWHO(params) {
       locations: item.locations || [],
       url: item.url || item.link || null
     }));
+
+    // Apply location filters if provided
+    trials = await applyLocationFilters(trials, params);
 
     return { success: true, source: 'WHO-ICTRP', totalResults: trials.length, trials };
   } catch (error) {
@@ -197,66 +337,96 @@ export async function getJRCTTrial(trialId) {
  * @param {Object} patientProfile - Patient demographics
  * @returns {Promise<Object>} - Matching trials
  */
-export async function searchJRCTByGenomicProfile(genomicProfile, patientProfile) {
+export async function searchJRCTByGenomicProfile(genomicProfile, patientProfile, trialLocation) {
   const searchPromises = [];
+  const attempted = [];
+  const onProgress = (trialLocation && trialLocation.onProgress) || null;
 
   // Search for BRCA-related trials
   const brcaMutations = genomicProfile.mutations?.filter(
     m => m.gene === 'BRCA1' || m.gene === 'BRCA2'
   );
 
-  if (brcaMutations && brcaMutations.length > 0) {
-    searchPromises.push(
-      searchJRCT({
-        gene: 'BRCA',
-        condition: patientProfile.diagnosis,
-        age: patientProfile.age,
-        gender: patientProfile.gender,
-        status: 'recruiting'
-      })
-    );
+    if (brcaMutations && brcaMutations.length > 0) {
+    const baseParams = {
+      gene: 'BRCA',
+      condition: patientProfile.diagnosis,
+      age: patientProfile.age,
+      gender: patientProfile.gender,
+      status: 'recruiting'
+    };
+    if (trialLocation) {
+      baseParams.country = trialLocation.country;
+      baseParams.city = trialLocation.city;
+      baseParams.searchRadius = trialLocation.searchRadius;
+      baseParams.includeAllLocations = trialLocation.includeAllLocations;
+    }
+    if (typeof onProgress === 'function') onProgress('Searching for BRCA-related trials');
+    searchPromises.push(searchJRCT(baseParams));
+    attempted.push('BRCA');
   }
 
   // Search for TMB-high trials (immunotherapy)
-  if (genomicProfile.biomarkers?.tumorMutationalBurden?.interpretation === 'high') {
-    searchPromises.push(
-      searchJRCT({
-        biomarker: 'TMB-high',
-        condition: patientProfile.diagnosis,
-        intervention: 'pembrolizumab OR nivolumab OR immunotherapy',
-        age: patientProfile.age,
-        gender: patientProfile.gender,
-        status: 'recruiting'
-      })
-    );
+    if (genomicProfile.biomarkers?.tumorMutationalBurden?.interpretation === 'high') {
+    const baseParamsTMB = {
+      biomarker: 'TMB-high',
+      condition: patientProfile.diagnosis,
+      intervention: 'pembrolizumab OR nivolumab OR immunotherapy',
+      age: patientProfile.age,
+      gender: patientProfile.gender,
+      status: 'recruiting'
+    };
+    if (trialLocation) Object.assign(baseParamsTMB, {
+      country: trialLocation.country,
+      city: trialLocation.city,
+      searchRadius: trialLocation.searchRadius,
+      includeAllLocations: trialLocation.includeAllLocations
+    });
+    if (typeof onProgress === 'function') onProgress('Searching for TMB-high trials');
+    searchPromises.push(searchJRCT(baseParamsTMB));
+    attempted.push('TMB');
   }
 
   // Search for MSI-H trials
-  if (genomicProfile.biomarkers?.microsatelliteInstability?.status === 'MSI-H') {
-    searchPromises.push(
-      searchJRCT({
-        biomarker: 'MSI-H',
-        condition: patientProfile.diagnosis,
-        intervention: 'pembrolizumab',
-        age: patientProfile.age,
-        gender: patientProfile.gender,
-        status: 'recruiting'
-      })
-    );
+    if (genomicProfile.biomarkers?.microsatelliteInstability?.status === 'MSI-H') {
+    const baseParamsMSI = {
+      biomarker: 'MSI-H',
+      condition: patientProfile.diagnosis,
+      intervention: 'pembrolizumab',
+      age: patientProfile.age,
+      gender: patientProfile.gender,
+      status: 'recruiting'
+    };
+    if (trialLocation) Object.assign(baseParamsMSI, {
+      country: trialLocation.country,
+      city: trialLocation.city,
+      searchRadius: trialLocation.searchRadius,
+      includeAllLocations: trialLocation.includeAllLocations
+    });
+    if (typeof onProgress === 'function') onProgress('Searching for MSI-H trials');
+    searchPromises.push(searchJRCT(baseParamsMSI));
+    attempted.push('MSI-H');
   }
 
   // Search for HRD-positive trials (PARP inhibitors)
-  if (genomicProfile.biomarkers?.hrdScore?.interpretation === 'HRD-positive') {
-    searchPromises.push(
-      searchJRCT({
-        biomarker: 'HRD-positive',
-        condition: patientProfile.diagnosis,
-        intervention: 'olaparib OR rucaparib OR niraparib OR PARP inhibitor',
-        age: patientProfile.age,
-        gender: patientProfile.gender,
-        status: 'recruiting'
-      })
-    );
+    if (genomicProfile.biomarkers?.hrdScore?.interpretation === 'HRD-positive') {
+    const baseParamsHRD = {
+      biomarker: 'HRD-positive',
+      condition: patientProfile.diagnosis,
+      intervention: 'olaparib OR rucaparib OR niraparib OR PARP inhibitor',
+      age: patientProfile.age,
+      gender: patientProfile.gender,
+      status: 'recruiting'
+    };
+    if (trialLocation) Object.assign(baseParamsHRD, {
+      country: trialLocation.country,
+      city: trialLocation.city,
+      searchRadius: trialLocation.searchRadius,
+      includeAllLocations: trialLocation.includeAllLocations
+    });
+    if (typeof onProgress === 'function') onProgress('Searching for HRD-positive trials');
+    searchPromises.push(searchJRCT(baseParamsHRD));
+    attempted.push('HRD');
   }
 
   // Search for other significant mutations
@@ -264,31 +434,45 @@ export async function searchJRCTByGenomicProfile(genomicProfile, patientProfile)
     m => m.significance === 'pathogenic' && m.gene !== 'BRCA1' && m.gene !== 'BRCA2'
   );
 
-  if (otherMutations && otherMutations.length > 0) {
+    if (otherMutations && otherMutations.length > 0) {
     // Search for trials targeting specific genes
     const topGenes = otherMutations.slice(0, 3); // Limit to top 3 mutations
     topGenes.forEach(mutation => {
-      searchPromises.push(
-        searchJRCT({
-          gene: mutation.gene,
-          condition: patientProfile.diagnosis,
-          age: patientProfile.age,
-          gender: patientProfile.gender,
-          status: 'recruiting'
-        })
-      );
+      const gp = {
+        gene: mutation.gene,
+        condition: patientProfile.diagnosis,
+        age: patientProfile.age,
+        gender: patientProfile.gender,
+        status: 'recruiting'
+      };
+      if (trialLocation) Object.assign(gp, {
+        country: trialLocation.country,
+        city: trialLocation.city,
+        searchRadius: trialLocation.searchRadius,
+        includeAllLocations: trialLocation.includeAllLocations
+      });
+      if (typeof onProgress === 'function') onProgress(`Searching for gene ${mutation.gene} trials`);
+      searchPromises.push(searchJRCT(gp));
+      attempted.add && attempted.add(mutation.gene);
     });
   }
 
   // General search by diagnosis
-  searchPromises.push(
-    searchJRCT({
-      condition: patientProfile.diagnosis,
-      age: patientProfile.age,
-      gender: patientProfile.gender,
-      status: 'recruiting'
-    })
-  );
+  const generalParams = {
+    condition: patientProfile.diagnosis,
+    age: patientProfile.age,
+    gender: patientProfile.gender,
+    status: 'recruiting'
+  };
+  if (trialLocation) Object.assign(generalParams, {
+    country: trialLocation.country,
+    city: trialLocation.city,
+    searchRadius: trialLocation.searchRadius,
+    includeAllLocations: trialLocation.includeAllLocations
+  });
+  if (typeof onProgress === 'function') onProgress('Performing general diagnosis search');
+  searchPromises.push(searchJRCT(generalParams));
+  attempted.push('general');
 
   // Execute all searches in parallel
   const results = await Promise.all(searchPromises);
@@ -296,8 +480,15 @@ export async function searchJRCTByGenomicProfile(genomicProfile, patientProfile)
   // Combine and deduplicate trials
   const allTrials = [];
   const seenIds = new Set();
+  const attemptedSet = new Set();
 
   results.forEach(result => {
+    // Collect attempted sources info
+    if (result?.attemptedSources && Array.isArray(result.attemptedSources)) {
+      result.attemptedSources.forEach(s => attemptedSet.add(s));
+    } else if (result?.source) {
+      attemptedSet.add(result.source);
+    }
     if (result.success && result.trials) {
       result.trials.forEach(trial => {
         if (!seenIds.has(trial.id)) {
@@ -311,6 +502,7 @@ export async function searchJRCTByGenomicProfile(genomicProfile, patientProfile)
   return {
     success: true,
     source: 'JRCT',
+    attemptedSources: Array.from(attemptedSet),
     totalResults: allTrials.length,
     trials: allTrials
   };

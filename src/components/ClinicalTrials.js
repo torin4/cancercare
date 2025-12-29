@@ -8,6 +8,8 @@ const ClinicalTrials = () => {
   const [activeTab, setActiveTab] = useState('search'); // 'search' or 'saved'
 
   const [searchResults, setSearchResults] = useState([]);
+  const [searchSources, setSearchSources] = useState([]);
+  const [searchProgress, setSearchProgress] = useState(null);
   const [savedTrials, setSavedTrials] = useState([]);
   const [selectedTrial, setSelectedTrial] = useState(null);
 
@@ -61,21 +63,30 @@ const ClinicalTrials = () => {
       const userId = auth.currentUser?.uid;
       if (!userId) return;
 
+      setSearchProgress('Starting trial search');
       const results = await clinicalTrialsService.searchAndMatchTrials(
         userId,
         patientProfile,
-        genomicProfile
+        genomicProfile,
+        (msg) => setSearchProgress(msg)
       );
 
       if (results.success) {
         setSearchResults(results.trials);
+        // prefer explicit searchSources from service, fallback to trial.source
+        const sources = results.searchSources && results.searchSources.length > 0
+          ? results.searchSources
+          : Array.from(new Set((results.trials || []).map(t => t.source || t.sourceName).filter(Boolean)));
+        setSearchSources(sources);
       } else {
         setError(results.error || 'No trials found');
+        setSearchSources(results.searchSources || []);
       }
     } catch (error) {
       console.error('Error searching trials:', error);
       setError('Failed to search trials');
     } finally {
+      setTimeout(() => setSearchProgress(null), 600);
       setSearching(false);
     }
   };
@@ -92,7 +103,9 @@ const ClinicalTrials = () => {
         return;
       }
 
-      await clinicalTrialsService.saveMatchedTrial(userId, trial);
+      // include search-level source attribution when saving
+      const trialToSave = { ...trial, attemptedSources: searchSources || [] };
+      await clinicalTrialsService.saveMatchedTrial(userId, trialToSave);
       alert('Trial saved successfully!');
 
       // Reload saved trials if on saved tab
@@ -145,7 +158,12 @@ const ClinicalTrials = () => {
         {/* Header */}
         <div className="flex justify-between items-start mb-3">
           <div className="flex-1">
-            <h3 className="text-lg font-bold text-gray-900 mb-1">{trial.title || trial.titleJa}</h3>
+            <div className="flex items-center gap-3">
+              <h3 className="text-lg font-bold text-gray-900 mb-1">{trial.title || trial.titleJa}</h3>
+              {trial.source && (
+                <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full">{trial.source}</span>
+              )}
+            </div>
             {trial.titleJa && trial.title !== trial.titleJa && (
               <p className="text-sm text-gray-600 mb-2">{trial.titleJa}</p>
             )}
@@ -352,6 +370,18 @@ const ClinicalTrials = () => {
           {/* Search Results */}
           {searchResults.length > 0 && (
             <div>
+              {searchSources && searchSources.length > 0 && (
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="text-sm text-gray-600">Sources used:</span>
+                  {searchSources.map((s, idx) => (
+                    <span key={idx} className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full">{s}</span>
+                  ))}
+                </div>
+              )}
+              {searchProgress && (
+                <div className="mb-2 text-sm text-gray-500">{searchProgress}</div>
+              )}
+
               <h2 className="text-xl font-bold text-gray-900 mb-4">
                 Found {searchResults.length} Matching Trials
               </h2>

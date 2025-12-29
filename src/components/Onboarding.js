@@ -124,6 +124,7 @@ export default function Onboarding({ onComplete }) {
     city: '',
     state: '',
     zip: '',
+    country: 'United States',
 
     // Medical Info
     diagnosis: '',
@@ -141,6 +142,41 @@ export default function Onboarding({ onComplete }) {
 
   const updateField = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Helpers for country-specific address labels/placeholders
+  const getStateLabel = (country) => {
+    if (!country) return 'State/Region';
+    const c = country.toLowerCase();
+    if (c.includes('japan')) return 'Prefecture';
+    if (c.includes('canada') || c.includes('australia')) return 'Province/State';
+    if (c.includes('united kingdom') || c.includes('uk')) return 'County/Region';
+    return 'State/Region';
+  };
+
+  const getStatePlaceholder = (country) => {
+    if (!country) return '';
+    const c = country.toLowerCase();
+    if (c.includes('japan')) return 'Tokyo';
+    if (c.includes('canada')) return 'BC';
+    if (c.includes('united states') || c.includes('united states of america')) return 'WA';
+    return '';
+  };
+
+  const getPostalLabel = (country) => {
+    if (!country) return 'Postal Code';
+    const c = country.toLowerCase();
+    if (c.includes('united states')) return 'ZIP Code';
+    return 'Postal Code';
+  };
+
+  const getPostalPlaceholder = (country) => {
+    if (!country) return '';
+    const c = country.toLowerCase();
+    if (c.includes('japan')) return '100-0001';
+    if (c.includes('united states')) return '98109';
+    if (c.includes('canada')) return 'V6B 1A1';
+    return '';
   };
 
   const handleNext = () => {
@@ -409,32 +445,64 @@ export default function Onboarding({ onComplete }) {
 
                 {/* Searchable Dropdown */}
                 <div className="relative">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      value={diagnosisSearch}
-                      onChange={(e) => {
-                        setDiagnosisSearch(e.target.value);
-                        setShowDiagnosisDropdown(true);
-                        // If user types freely, save it as custom diagnosis
-                        if (e.target.value && !CANCER_TYPES.includes(e.target.value)) {
-                          updateField('diagnosis', e.target.value);
-                        }
-                      }}
-                      onFocus={() => setShowDiagnosisDropdown(true)}
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      placeholder="Search for cancer type or type custom..."
-                    />
-                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                    <select
+                      value={formData.country}
+                      onChange={(e) => updateField('country', e.target.value)}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    >
+                      <option value="United States">United States</option>
+                      <option value="Canada">Canada</option>
+                      <option value="United Kingdom">United Kingdom</option>
+                      <option value="Japan">Japan</option>
+                      <option value="Australia">Australia</option>
+                      <option value="Germany">Germany</option>
+                      <option value="France">France</option>
+                      <option value="China">China</option>
+                      <option value="India">India</option>
+                      <option value="South Korea">South Korea</option>
+                      <option value="Italy">Italy</option>
+                      <option value="Spain">Spain</option>
+                      <option value="Netherlands">Netherlands</option>
+                      <option value="Brazil">Brazil</option>
+                    </select>
 
-                  {/* Dropdown List */}
-                  {showDiagnosisDropdown && filteredCancerTypes.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-                      {filteredCancerTypes.map((cancer, index) => (
-                        <button
-                          key={index}
-                          type="button"
+                    <div className="grid grid-cols-2 gap-4 mt-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
+                        <input
+                          type="text"
+                          value={formData.city}
+                          onChange={(e) => updateField('city', e.target.value)}
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          placeholder="Seattle"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">{getStateLabel(formData.country)} *</label>
+                        <input
+                          type="text"
+                          value={formData.state}
+                          onChange={(e) => updateField('state', e.target.value)}
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          placeholder={getStatePlaceholder(formData.country)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{getPostalLabel(formData.country)}</label>
+                      <input
+                        type="text"
+                        value={formData.zip}
+                        onChange={(e) => updateField('zip', e.target.value)}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder={getPostalPlaceholder(formData.country)}
+                      />
+                    </div>
+                  </div>
                           onClick={() => handleDiagnosisSelect(cancer)}
                           className="w-full text-left px-4 py-2.5 hover:bg-green-50 focus:bg-green-50 focus:outline-none transition text-sm text-gray-700"
                         >
