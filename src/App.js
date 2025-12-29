@@ -155,6 +155,11 @@ export default function CancerCareApp() {
     setShowDocumentOnboarding(true);
   };
 
+  // Log when onboarding modal visibility changes
+  useEffect(() => {
+    console.log('showDocumentOnboarding changed:', showDocumentOnboarding);
+  }, [showDocumentOnboarding]);
+
   const isMedicationTaken = (medId, scheduledTime) => {
     const today = new Date().toDateString();
     return medicationLog.some(log => {
@@ -892,6 +897,7 @@ export default function CancerCareApp() {
   };
 
   const handleRealFileUpload = async (file, docType) => {
+    console.log('handleRealFileUpload called', file?.name, docType);
     if (!user) {
       alert('Please log in to upload files');
       return;
@@ -981,6 +987,7 @@ export default function CancerCareApp() {
   };
 
   const simulateDocumentUpload = (docType) => {
+    console.log('simulateDocumentUpload called, docType=', docType);
     // Create a file input element
     const input = document.createElement('input');
     input.type = 'file';
@@ -989,6 +996,7 @@ export default function CancerCareApp() {
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (file) {
+        console.log('simulateDocumentUpload - file selected:', file.name, 'docType=', docType);
         await handleRealFileUpload(file, docType);
       }
     };
