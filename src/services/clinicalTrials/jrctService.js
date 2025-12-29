@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// JRCT API Base URL
-const JRCT_API_BASE = 'https://jrct.niph.go.jp/api/2.0';
+// JRCT API Base URL (proxied through serverless function to avoid TLS/CORS issues)
+const JRCT_API_BASE = '/api/jrct-proxy/api/2.0';
 
 /**
  * Search JRCT (Japan Registry of Clinical Trials) for matching trials
