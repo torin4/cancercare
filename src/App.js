@@ -937,6 +937,7 @@ export default function CancerCareApp() {
                 {/* Show real lab/vital data from Firestore */}
                 {Object.keys(labsData).slice(0, 4).map((labKey) => {
                   const lab = labsData[labKey];
+                  if (!lab || !lab.history || lab.history.length === 0) return null;
                   const latestValue = lab.history[lab.history.length - 1]?.value;
                   return (
                     <div key={labKey} className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 border border-gray-200">
@@ -950,7 +951,7 @@ export default function CancerCareApp() {
                       </p>
                     </div>
                   );
-                })}
+                }).filter(Boolean)}
               </div>
             ) : (
               <div className="bg-white rounded-lg p-6 text-center border-2 border-dashed border-gray-300">
