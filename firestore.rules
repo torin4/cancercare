@@ -1,0 +1,158 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if user owns the resource
+    function isOwner(patientId) {
+      return request.auth != null && request.auth.uid == patientId;
+    }
+
+    // Helper function to check if the document being created/updated has correct patientId
+    function hasValidPatientId() {
+      return request.resource.data.patientId == request.auth.uid;
+    }
+
+    // Patients collection - users can only access their own patient data
+    match /patients/{patientId} {
+      allow read: if isOwner(patientId);
+      allow create, update: if isOwner(patientId) && request.resource.data.id == patientId;
+      allow delete: if isOwner(patientId);
+    }
+
+    // Labs - users can only access labs associated with their patientId
+    match /labs/{labId} {
+      allow read: if request.auth != null &&
+                     resource.data.patientId == request.auth.uid;
+      allow create: if request.auth != null && hasValidPatientId();
+      allow update: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid &&
+                       hasValidPatientId();
+      allow delete: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid;
+
+      // Lab values subcollection
+      match /values/{valueId} {
+        allow read, write: if request.auth != null &&
+                              get(/databases/$(database)/documents/labs/$(labId)).data.patientId == request.auth.uid;
+      }
+    }
+
+    // Vitals - users can only access vitals associated with their patientId
+    match /vitals/{vitalId} {
+      allow read: if request.auth != null &&
+                     resource.data.patientId == request.auth.uid;
+      allow create: if request.auth != null && hasValidPatientId();
+      allow update: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid &&
+                       hasValidPatientId();
+      allow delete: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid;
+
+      // Vital values subcollection
+      match /values/{valueId} {
+        allow read, write: if request.auth != null &&
+                              get(/databases/$(database)/documents/vitals/$(vitalId)).data.patientId == request.auth.uid;
+      }
+    }
+
+    // Medications - users can only access their own medications
+    match /medications/{medId} {
+      allow read: if request.auth != null &&
+                     resource.data.patientId == request.auth.uid;
+      allow create: if request.auth != null && hasValidPatientId();
+      allow update: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid &&
+                       hasValidPatientId();
+      allow delete: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid;
+    }
+
+    // Medication Logs - users can only access their own logs
+    match /medicationLogs/{logId} {
+      allow read: if request.auth != null &&
+                     resource.data.patientId == request.auth.uid;
+      allow create: if request.auth != null && hasValidPatientId();
+      allow update: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid &&
+                       hasValidPatientId();
+      allow delete: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid;
+    }
+
+    // Documents - users can only access their own documents
+    match /documents/{docId} {
+      allow read: if request.auth != null &&
+                     resource.data.patientId == request.auth.uid;
+      allow create: if request.auth != null && hasValidPatientId();
+      allow update: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid &&
+                       hasValidPatientId();
+      allow delete: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid;
+    }
+
+    // Messages - users can only access their own messages
+    match /messages/{messageId} {
+      allow read: if request.auth != null &&
+                     resource.data.patientId == request.auth.uid;
+      allow create: if request.auth != null && hasValidPatientId();
+      allow update: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid &&
+                       hasValidPatientId();
+      allow delete: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid;
+    }
+
+    // Symptoms - users can only access their own symptoms
+    match /symptoms/{symptomId} {
+      allow read: if request.auth != null &&
+                     resource.data.patientId == request.auth.uid;
+      allow create: if request.auth != null && hasValidPatientId();
+      allow update: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid &&
+                       hasValidPatientId();
+      allow delete: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid;
+    }
+
+    // Genomic Profiles - document ID is the patientId
+    match /genomicProfiles/{profileId} {
+      allow read: if isOwner(profileId);
+      allow create, update: if isOwner(profileId) &&
+                               request.resource.data.patientId == profileId;
+      allow delete: if isOwner(profileId);
+    }
+
+    // Emergency Contacts - users can only access their own contacts
+    match /emergencyContacts/{contactId} {
+      allow read: if request.auth != null &&
+                     resource.data.patientId == request.auth.uid;
+      allow create: if request.auth != null && hasValidPatientId();
+      allow update: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid &&
+                       hasValidPatientId();
+      allow delete: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid;
+    }
+
+    // Clinical Trials - users can only access their own trials
+    match /clinicalTrials/{trialId} {
+      allow read: if request.auth != null &&
+                     resource.data.patientId == request.auth.uid;
+      allow create: if request.auth != null && hasValidPatientId();
+      allow update: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid &&
+                       hasValidPatientId();
+      allow delete: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid;
+    }
+
+    // Trial Locations - document ID is the patientId
+    match /trialLocations/{locationId} {
+      allow read: if isOwner(locationId);
+      allow create, update: if isOwner(locationId) &&
+                               request.resource.data.patientId == locationId;
+      allow delete: if isOwner(locationId);
+    }
+  }
+}
