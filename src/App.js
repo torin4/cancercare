@@ -3973,27 +3973,6 @@ export default function CancerCareApp() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis</label>
-                    <input
-                      type="text"
-                      value={patientProfile.diagnosis}
-                      onChange={(e) => setPatientProfile({ ...patientProfile, diagnosis: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="e.g., Ovarian Cancer"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Stage</label>
-                    <input
-                      type="text"
-                      value={patientProfile.stage}
-                      onChange={(e) => setPatientProfile({ ...patientProfile, stage: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="e.g., Stage IIIC"
-                    />
-                  </div>
                 </div>
               </div>
 
@@ -4013,9 +3992,7 @@ export default function CancerCareApp() {
                           age: parseInt(patientProfile.age) || null,
                           dateOfBirth: patientProfile.dateOfBirth,
                           weight: parseFloat(patientProfile.weight) || null,
-                          height: parseFloat(patientProfile.height) || null,
-                          diagnosis: patientProfile.diagnosis,
-                          stage: patientProfile.stage
+                          height: parseFloat(patientProfile.height) || null
                         });
                         // Ensure UI reflects saved values
                         setPatientProfile(prev => ({
@@ -4024,9 +4001,7 @@ export default function CancerCareApp() {
                           age: parseInt(patientProfile.age) || '',
                           dateOfBirth: patientProfile.dateOfBirth,
                           weight: patientProfile.weight,
-                          height: patientProfile.height,
-                          diagnosis: patientProfile.diagnosis,
-                          stage: patientProfile.stage
+                          height: patientProfile.height
                         }));
                         setShowEditInfo(false);
                         setMessages(prev => [...prev, {
