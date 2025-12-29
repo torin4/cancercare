@@ -1,4 +1,4 @@
-# Mary's Care - AI-Powered Cancer Care Tracking
+# CancerCare - AI-Powered Cancer Care Tracking
 
 An intelligent health tracking application for cancer patients, powered by Google's Gemini AI.
 
@@ -16,6 +16,7 @@ An intelligent health tracking application for cancer patients, powered by Googl
 
 - Node.js 16+ installed
 - Gemini API key (get free at https://makersuite.google.com/app/apikey)
+- Firebase account (free at https://firebase.google.com) - **Required for data persistence**
 - Vercel account (free at https://vercel.com)
 
 ## Local Development
@@ -25,13 +26,25 @@ An intelligent health tracking application for cancer patients, powered by Googl
 npm install
 ```
 
-2. **Set up environment variables**
+2. **Set up Firebase** (Required for data storage)
+   - Follow the detailed guide in [FIREBASE_SETUP.md](./FIREBASE_SETUP.md)
+   - Create a Firebase project and enable Firestore Database
+   - Get your Firebase configuration values
+
+3. **Set up environment variables**
 ```bash
 cp .env.example .env
-# Edit .env and add your GEMINI_API_KEY
+# Edit .env and add:
+# - Your GEMINI_API_KEY
+# - Your Firebase configuration (REACT_APP_FIREBASE_*)
 ```
 
-3. **Run locally**
+4. **Install Firebase SDK** (if not already installed)
+```bash
+npm install firebase
+```
+
+5. **Run locally**
 ```bash
 npm start
 ```
@@ -65,7 +78,7 @@ vercel
 git init
 git add .
 git commit -m "Initial commit"
-git remote add origin https://github.com/yourusername/marys-care.git
+git remote add origin https://github.com/yourusername/cancercare.git
 git push -u origin main
 ```
 
@@ -108,33 +121,43 @@ Upload lab reports, clinic notes, or imaging results:
 
 - **Frontend**: React 18, Tailwind CSS (via inline styles), Lucide Icons
 - **AI**: Google Gemini Pro API
+- **Database**: Firebase Firestore (for data persistence)
+- **Storage**: Firebase Storage (for document uploads)
 - **Backend**: Vercel Serverless Functions
 - **Deployment**: Vercel
 
 ## Project Structure
 
 ```
-marys-care/
+cancercare/
 ├── api/
 │   └── gemini.js          # Serverless function for Gemini API
 ├── public/
 │   └── index.html         # HTML template
 ├── src/
+│   ├── firebase/
+│   │   ├── config.js      # Firebase configuration
+│   │   ├── collections.js # Firestore collection schemas
+│   │   ├── services.js    # Firebase service functions
+│   │   ├── hooks.js       # React hooks for Firebase data
+│   │   └── initData.js    # Data initialization utilities
 │   ├── App.js             # Main React component
 │   └── index.js           # React entry point
 ├── .env.example           # Environment variables template
 ├── .gitignore             # Git ignore rules
 ├── package.json           # Dependencies
 ├── vercel.json            # Vercel configuration
+├── FIREBASE_SETUP.md      # Firebase setup guide
 └── README.md              # This file
 ```
 
 ## Security Notes
 
-- **Never commit your `.env` file** - it contains your API key
-- API key is stored securely in Vercel environment variables
+- **Never commit your `.env` file** - it contains your API keys
+- API keys are stored securely in Vercel environment variables
 - All AI requests go through your serverless function (keeps key server-side)
 - No API keys are exposed to the browser
+- Firebase security rules protect your Firestore data (see FIREBASE_SETUP.md)
 
 ## Customization
 

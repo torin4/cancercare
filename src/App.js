@@ -609,7 +609,7 @@ export default function CancerCareApp() {
                 <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
               </div>
               <div>
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900">Mary's Care</h1>
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900">CancerCare</h1>
                 <p className="text-xs sm:text-sm text-gray-600">Ovarian Cancer • Stage IIIC</p>
               </div>
             </div>

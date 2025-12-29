@@ -27,7 +27,7 @@ module.exports = async (req, res) => {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     // Build conversation context
-    const context = `You are Mary's AI health assistant. Mary has Stage IIIC ovarian cancer and is undergoing treatment.
+    const context = `You are CancerCare's AI health assistant. You're helping track Mary's health. Mary has Stage IIIC ovarian cancer and is undergoing treatment.
 
 Your role:
 - Help track her labs, vitals, medications, and symptoms

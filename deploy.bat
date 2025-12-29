@@ -1,6 +1,6 @@
 @echo off
 echo.
-echo Mary's Care - Deployment Setup
+echo CancerCare - Deployment Setup
 echo.
 
 REM Check if Node.js is installed
