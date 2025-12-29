@@ -1504,19 +1504,37 @@ export default function CancerCareApp() {
 
             {healthSection === 'symptoms' && (
               <>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-semibold text-blue-900">AI Pattern Detection</p>
-                      <p className="text-xs text-blue-700 mt-1">
-                        Fatigue symptoms correlate with rising CA-125, suggesting progression.
-                      </p>
-                    </div>
+                {symptoms.length === 0 ? (
+                  <div className="bg-white rounded-lg shadow p-8 text-center">
+                    <AlertCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Symptoms Tracked Yet</h3>
+                    <p className="text-gray-600 mb-6">
+                      Start logging symptoms through the AI chat to track patterns and correlations with your health data.
+                    </p>
+                    <button
+                      onClick={() => setActiveTab('chat')}
+                      className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                    >
+                      Log Symptoms with AI
+                    </button>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    {symptoms.length > 5 && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-semibold text-blue-900">AI Pattern Detection</p>
+                            <p className="text-xs text-blue-700 mt-1">
+                              Track more symptoms to enable pattern detection and correlations with your lab values.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
-                {/* Symptom Calendar */}
+                    {/* Symptom Calendar */}
                 <div className="bg-white rounded-lg shadow p-4">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-gray-800">December 2024</h3>
@@ -1547,48 +1565,20 @@ export default function CancerCareApp() {
                       const firstDayOfWeek = 0; // Sunday
                       const calendar = [];
 
-                      // Symptom data mapped to dates
-                      const symptomsByDate = {
-                        '26': [
-                          { type: 'Nausea', severity: 'Mild', time: '2:00 PM' },
-                        ],
-                        '27': [
-                          { type: 'Pain', severity: 'Mild', time: '9:00 AM' },
-                          { type: 'Fatigue', severity: 'Moderate', time: '3:00 PM' },
-                        ],
-                        '28': [
-                          { type: 'Fatigue', severity: 'Moderate', time: '10:00 AM' },
-                          { type: 'Nausea', severity: 'Mild', time: '1:00 PM' },
-                        ],
-                        '24': [
-                          { type: 'Pain', severity: 'Moderate', time: '8:00 AM' },
-                        ],
-                        '23': [
-                          { type: 'Fatigue', severity: 'Severe', time: '11:00 AM' },
-                        ],
-                        '20': [
-                          { type: 'Nausea', severity: 'Moderate', time: '4:00 PM' },
-                          { type: 'Headache', severity: 'Mild', time: '6:00 PM' },
-                        ],
-                        '18': [
-                          { type: 'Fatigue', severity: 'Mild', time: '2:00 PM' },
-                        ],
-                        '15': [
-                          { type: 'Pain', severity: 'Mild', time: '7:00 AM' },
-                        ],
-                        '12': [
-                          { type: 'Nausea', severity: 'Severe', time: '12:00 PM' },
-                        ],
-                        '10': [
-                          { type: 'Fatigue', severity: 'Moderate', time: '9:00 AM' },
-                        ],
-                        '8': [
-                          { type: 'Headache', severity: 'Mild', time: '5:00 PM' },
-                        ],
-                        '5': [
-                          { type: 'Pain', severity: 'Moderate', time: '10:00 AM' },
-                        ],
-                      };
+                      // Map real symptoms to dates
+                      const symptomsByDate = {};
+                      symptoms.forEach(symptom => {
+                        const date = new Date(symptom.date);
+                        const day = date.getDate().toString();
+                        if (!symptomsByDate[day]) {
+                          symptomsByDate[day] = [];
+                        }
+                        symptomsByDate[day].push({
+                          type: symptom.name || symptom.type,
+                          severity: symptom.severity,
+                          time: symptom.time || new Date(symptom.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+                        });
+                      });
 
                       // Symptom type colors
                       const symptomColors = {
@@ -1703,25 +1693,27 @@ export default function CancerCareApp() {
                   </div>
                 </div>
 
-                {/* Legend */}
-                <div className="bg-white rounded-lg shadow p-4">
-                  <h4 className="font-semibold text-gray-800 mb-3 text-sm">Symptom Types</h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {[
-                      { type: 'Fatigue', color: 'bg-blue-500' },
-                      { type: 'Pain', color: 'bg-red-500' },
-                      { type: 'Nausea', color: 'bg-green-500' },
-                      { type: 'Headache', color: 'bg-purple-500' },
-                      { type: 'Dizziness', color: 'bg-yellow-500' },
-                      { type: 'Other', color: 'bg-gray-500' },
-                    ].map(item => (
-                      <div key={item.type} className="flex items-center gap-2">
-                        <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
-                        <span className="text-xs text-gray-700">{item.type}</span>
+                    {/* Legend */}
+                    <div className="bg-white rounded-lg shadow p-4">
+                      <h4 className="font-semibold text-gray-800 mb-3 text-sm">Symptom Types</h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {[
+                          { type: 'Fatigue', color: 'bg-blue-500' },
+                          { type: 'Pain', color: 'bg-red-500' },
+                          { type: 'Nausea', color: 'bg-green-500' },
+                          { type: 'Headache', color: 'bg-purple-500' },
+                          { type: 'Dizziness', color: 'bg-yellow-500' },
+                          { type: 'Other', color: 'bg-gray-500' },
+                        ].map(item => (
+                          <div key={item.type} className="flex items-center gap-2">
+                            <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
+                            <span className="text-xs text-gray-700">{item.type}</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    </div>
+                  </>
+                )}
               </>
             )}
 
