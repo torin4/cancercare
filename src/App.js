@@ -130,6 +130,7 @@ export default function CancerCareApp() {
   const [vitalsData, setVitalsData] = useState({});
   const [hasRealLabData, setHasRealLabData] = useState(false);
   const [hasRealVitalData, setHasRealVitalData] = useState(false);
+  const [showAllLabs, setShowAllLabs] = useState(false);
 
   const [documents, setDocuments] = useState([]);
   const [emergencyContacts, setEmergencyContacts] = useState([]);
@@ -645,6 +646,20 @@ export default function CancerCareApp() {
   }, [user]);
 
   // Transform Firestore labs data to UI format
+  // Cancer-relevant lab categorization
+  const cancerRelevantLabs = {
+    critical: ['cea', 'ca125', 'ca199', 'afp', 'psa', 'ca153', 'ca2729', 'tumor_markers', 'wbc', 'hemoglobin', 'platelets', 'neutrophils', 'lymphocytes', 'anc'],
+    important: ['alt', 'ast', 'creatinine', 'egfr', 'bilirubin', 'albumin', 'alp', 'ldh', 'd-dimer'],
+    monitoring: ['glucose', 'sodium', 'potassium', 'calcium', 'magnesium', 'phosphate']
+  };
+
+  const getCancerRelevanceScore = (labType) => {
+    if (cancerRelevantLabs.critical.includes(labType.toLowerCase())) return 3;
+    if (cancerRelevantLabs.important.includes(labType.toLowerCase())) return 2;
+    if (cancerRelevantLabs.monitoring.includes(labType.toLowerCase())) return 1;
+    return 0;
+  };
+
   const transformLabsData = (labs) => {
     const grouped = {};
 
@@ -659,6 +674,8 @@ export default function CancerCareApp() {
           status: lab.status || 'normal',
           trend: 'stable',
           normalRange: lab.normalRange,
+          isNumeric: typeof lab.currentValue === 'number',
+          relevanceScore: getCancerRelevanceScore(labType),
           data: []
         };
       }
@@ -1213,30 +1230,40 @@ export default function CancerCareApp() {
                               onChange={(e) => setSelectedLab(e.target.value)}
                               className="text-sm border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 focus:ring-2 focus:ring-green-500"
                             >
-                              {Object.keys(allLabData).map(key => (
+                              {Object.keys(allLabData).filter(key => allLabData[key].isNumeric).map(key => (
                                 <option key={key} value={key}>{allLabData[key].name}</option>
                               ))}
                             </select>
                           </div>
 
-                          <div className="mb-4">
-                            <div className="flex items-baseline gap-2 mb-1">
-                              <span className="text-2xl sm:text-3xl font-bold text-gray-900">{currentLab.current}</span>
-                              <span className="text-sm text-gray-600">{currentLab.unit}</span>
-                              <span className={`ml-auto text-xs px-2 py-1 rounded-full ${currentLab.status === 'warning' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
-                                }`}>
-                                {currentLab.status === 'warning' ? 'High' : 'Normal'}
-                              </span>
-                            </div>
-                            <p className="text-xs sm:text-sm text-gray-600">Normal range: {currentLab.normalRange} {currentLab.unit}</p>
-                          </div>
+                          {currentLab.isNumeric ? (
+                            <>
+                              <div className="mb-4">
+                                <div className="flex items-baseline gap-2 mb-1">
+                                  <span className="text-2xl sm:text-3xl font-bold text-gray-900">{currentLab.current}</span>
+                                  <span className="text-sm text-gray-600">{currentLab.unit}</span>
+                                  <span className={`ml-auto text-xs px-2 py-1 rounded-full ${currentLab.status === 'warning' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
+                                    }`}>
+                                    {currentLab.status === 'warning' ? 'High' : 'Normal'}
+                                  </span>
+                                </div>
+                                <p className="text-xs sm:text-sm text-gray-600">Normal range: {currentLab.normalRange} {currentLab.unit}</p>
+                              </div>
 
-                          {/* Chart - Responsive with Y-axis and hover tooltips */}
-                          <div className="flex gap-3">
+                              {/* Chart - Responsive with Y-axis and hover tooltips */}
+                              <div className="flex gap-3">
                             {/* Y-axis labels */}
                             <div className="flex flex-col justify-between text-xs text-gray-600 font-medium py-2" style={{ paddingBottom: '1.5rem' }}>
                               {(() => {
-                                const values = currentLab.data.map(d => d.value);
+                                // Filter out non-numeric values and ensure we have valid numbers
+                                const values = currentLab.data
+                                  .map(d => parseFloat(d.value))
+                                  .filter(v => !isNaN(v) && isFinite(v));
+
+                                if (values.length === 0) {
+                                  return <div className="text-right pr-2 w-10">--</div>;
+                                }
+
                                 let minVal = Math.min(...values);
                                 let maxVal = Math.max(...values);
 
@@ -1246,9 +1273,11 @@ export default function CancerCareApp() {
                                   if (rangeMatch) {
                                     const normMin = parseFloat(rangeMatch[1]);
                                     const normMax = parseFloat(rangeMatch[2]);
-                                    // Include normal range in Y-axis bounds for better context
-                                    minVal = Math.min(minVal, normMin);
-                                    maxVal = Math.max(maxVal, normMax);
+                                    if (!isNaN(normMin) && !isNaN(normMax)) {
+                                      // Include normal range in Y-axis bounds for better context
+                                      minVal = Math.min(minVal, normMin);
+                                      maxVal = Math.max(maxVal, normMax);
+                                    }
                                   }
                                 }
 
@@ -1278,7 +1307,19 @@ export default function CancerCareApp() {
 
                                 {/* SVG Graph */}
                                 {(() => {
-                                  const values = currentLab.data.map(d => d.value);
+                                  // Filter out non-numeric values and ensure we have valid numbers
+                                  const values = currentLab.data
+                                    .map(d => parseFloat(d.value))
+                                    .filter(v => !isNaN(v) && isFinite(v));
+
+                                  if (values.length === 0) {
+                                    return (
+                                      <div className="flex items-center justify-center h-full text-gray-400">
+                                        <p>No numeric data available for charting</p>
+                                      </div>
+                                    );
+                                  }
+
                                   let minVal = Math.min(...values);
                                   let maxVal = Math.max(...values);
 
@@ -1288,9 +1329,11 @@ export default function CancerCareApp() {
                                     if (rangeMatch) {
                                       const normMin = parseFloat(rangeMatch[1]);
                                       const normMax = parseFloat(rangeMatch[2]);
-                                      // Include normal range in Y-axis bounds for better context
-                                      minVal = Math.min(minVal, normMin);
-                                      maxVal = Math.max(maxVal, normMax);
+                                      if (!isNaN(normMin) && !isNaN(normMax)) {
+                                        // Include normal range in Y-axis bounds for better context
+                                        minVal = Math.min(minVal, normMin);
+                                        maxVal = Math.max(maxVal, normMax);
+                                      }
                                     }
                                   }
 
@@ -1316,24 +1359,26 @@ export default function CancerCareApp() {
                                           if (rangeMatch) {
                                             const normMin = parseFloat(rangeMatch[1]);
                                             const normMax = parseFloat(rangeMatch[2]);
-                                            const normMinY = 160 - ((normMin - yMin) / yRange) * 160;
-                                            const normMaxY = 160 - ((normMax - yMin) / yRange) * 160;
-                                            return (
-                                              <>
-                                                {/* Normal range shaded area */}
-                                                <rect
-                                                  x="0"
-                                                  y={normMaxY}
-                                                  width="400"
-                                                  height={normMinY - normMaxY}
-                                                  fill="#10b981"
-                                                  opacity="0.08"
-                                                />
-                                                {/* Normal range boundary lines */}
-                                                <line x1="0" y1={normMinY} x2="400" y2={normMinY} stroke="#10b981" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
-                                                <line x1="0" y1={normMaxY} x2="400" y2={normMaxY} stroke="#10b981" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
-                                              </>
-                                            );
+                                            if (!isNaN(normMin) && !isNaN(normMax) && isFinite(normMin) && isFinite(normMax)) {
+                                              const normMinY = 160 - ((normMin - yMin) / yRange) * 160;
+                                              const normMaxY = 160 - ((normMax - yMin) / yRange) * 160;
+                                              return (
+                                                <>
+                                                  {/* Normal range shaded area */}
+                                                  <rect
+                                                    x="0"
+                                                    y={normMaxY}
+                                                    width="400"
+                                                    height={normMinY - normMaxY}
+                                                    fill="#10b981"
+                                                    opacity="0.08"
+                                                  />
+                                                  {/* Normal range boundary lines */}
+                                                  <line x1="0" y1={normMinY} x2="400" y2={normMinY} stroke="#10b981" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                  <line x1="0" y1={normMaxY} x2="400" y2={normMaxY} stroke="#10b981" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                </>
+                                              );
+                                            }
                                           }
                                           return null;
                                         })()}
@@ -1440,29 +1485,80 @@ export default function CancerCareApp() {
                               </div>
                             </div>
                           </div>
+                            </>
+                          ) : (
+                            // Non-numeric lab - show text info instead of chart
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+                              <p className="text-sm text-blue-700 mb-2">This lab value contains non-numeric data</p>
+                              <p className="text-2xl font-bold text-blue-900 mb-2">{currentLab.current}</p>
+                              <p className="text-xs text-blue-600">
+                                Most recent: {currentLab.data[currentLab.data.length - 1]?.date}
+                              </p>
+                            </div>
+                          )}
                         </div>
 
                         {/* Lab Value Cards */}
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-                          {Object.entries(allLabData).map(([key, lab]) => (
-                            <button
-                              key={key}
-                              onClick={() => setSelectedLab(key)}
-                              className={`bg-white rounded-lg shadow p-3 text-left transition-all hover:shadow-md ${selectedLab === key ? 'ring-2 ring-blue-500 shadow-md' : ''
-                                }`}
-                            >
-                              <div className="flex items-center justify-between mb-1">
-                                <p className="text-xs text-gray-600 font-medium">{lab.name}</p>
-                                <span className={`text-xs font-medium ${lab.status === 'warning' ? 'text-red-600' : 'text-green-600'
-                                  }`}>
-                                  {lab.trend === 'up' ? '↑' : lab.trend === 'down' ? '↓' : '→'}
-                                </span>
-                              </div>
-                              <p className="text-lg font-bold text-gray-800">{lab.current}</p>
-                              <p className="text-xs text-gray-500">{lab.unit}</p>
-                            </button>
-                          ))}
+                          {(() => {
+                            // Sort labs by cancer relevance, then alphabetically
+                            const sortedLabs = Object.entries(allLabData).sort(([keyA, labA], [keyB, labB]) => {
+                              const scoreA = labA.relevanceScore || 0;
+                              const scoreB = labB.relevanceScore || 0;
+                              if (scoreB !== scoreA) return scoreB - scoreA;
+                              return labA.name.localeCompare(labB.name);
+                            });
+
+                            // Show top 6 by default, or all if expanded
+                            const labsToShow = showAllLabs ? sortedLabs : sortedLabs.slice(0, 6);
+
+                            return labsToShow.map(([key, lab]) => (
+                              lab.isNumeric ? (
+                                // Numeric lab values - show as cards with trend
+                                <button
+                                  key={key}
+                                  onClick={() => setSelectedLab(key)}
+                                  className={`bg-white rounded-lg shadow p-3 text-left transition-all hover:shadow-md ${selectedLab === key ? 'ring-2 ring-blue-500 shadow-md' : ''
+                                    }`}
+                                >
+                                  <div className="flex items-center justify-between mb-1">
+                                    <p className="text-xs text-gray-600 font-medium">{lab.name}</p>
+                                    <span className={`text-xs font-medium ${lab.status === 'warning' ? 'text-red-600' : 'text-green-600'
+                                      }`}>
+                                      {lab.trend === 'up' ? '↑' : lab.trend === 'down' ? '↓' : '→'}
+                                    </span>
+                                  </div>
+                                  <p className="text-lg font-bold text-gray-800">{lab.current}</p>
+                                  <p className="text-xs text-gray-500">{lab.unit}</p>
+                                </button>
+                              ) : (
+                                // Non-numeric values (color, appearance, etc.) - show as info cards
+                                <div
+                                  key={key}
+                                  className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-left"
+                                >
+                                  <div className="flex items-center justify-between mb-1">
+                                    <p className="text-xs text-blue-700 font-medium">{lab.name}</p>
+                                  </div>
+                                  <p className="text-sm font-semibold text-blue-900">{lab.current}</p>
+                                  <p className="text-xs text-blue-600 mt-1">
+                                    {new Date(lab.data[lab.data.length - 1]?.date || Date.now()).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              )
+                            ));
+                          })()}
                         </div>
+
+                        {/* Show More/Less Button */}
+                        {Object.keys(allLabData).length > 6 && (
+                          <button
+                            onClick={() => setShowAllLabs(!showAllLabs)}
+                            className="w-full py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-200 transition font-medium text-sm"
+                          >
+                            {showAllLabs ? '− Show Less Labs' : `+ Show All Labs (${Object.keys(allLabData).length})`}
+                          </button>
+                        )}
 
                         <button
                           onClick={() => setShowAddLab(true)}
