@@ -728,4 +728,3 @@ export { default as trialMatcher } from '../services/clinicalTrials/trialMatcher
 export { default as clinicalTrialsService } from '../services/clinicalTrials/clinicalTrialsService';
 
 
-
