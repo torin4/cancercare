@@ -106,3 +106,30 @@ export const getFileUrl = async (storagePath) => {
     throw error;
   }
 };
+/**
+ * Delete all files in a user's directory in Storage
+ * 
+ * @param {string} userId - The user's ID
+ */
+export const deleteUserDirectory = async (userId) => {
+  try {
+    const listRef = ref(storage, `documents/${userId}`);
+    const result = await listAll(listRef);
+
+    const deletePromises = result.items.map(fileRef => deleteObject(fileRef));
+    await Promise.all(deletePromises);
+
+    // Also check for subdirectories if any exist in the future
+    const folderPromises = result.prefixes.map(folderRef => {
+      // Recursively delete subfolders if needed, or just list and delete
+      // For now, our structure is flat: documents/{userId}/{fileName}
+      return Promise.resolve();
+    });
+    await Promise.all(folderPromises);
+
+    console.log(`Storage directory for ${userId} cleared.`);
+  } catch (error) {
+    console.error('Error deleting user directory:', error);
+    throw error;
+  }
+};

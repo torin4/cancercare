@@ -646,6 +646,81 @@ export const trialLocationService = {
   }
 };
 
+// ==================== ACCOUNT & DATA DELETION SERVICES ====================
+
+export const accountService = {
+  /**
+   * Clears all medical/personal health data but keeps basic profile info
+   */
+  async clearHealthData(userId) {
+    try {
+      console.log('Clearing health data for:', userId);
+
+      // 1. Collections to clear completely (where patientId == userId)
+      const healthCollections = [
+        COLLECTIONS.LABS,
+        COLLECTIONS.VITALS,
+        COLLECTIONS.MEDICATIONS,
+        COLLECTIONS.MEDICATION_LOGS,
+        COLLECTIONS.DOCUMENTS,
+        COLLECTIONS.MESSAGES,
+        COLLECTIONS.SYMPTOMS,
+        COLLECTIONS.CLINICAL_TRIALS
+      ];
+
+      for (const colName of healthCollections) {
+        const q = query(collection(db, colName), where('patientId', '==', userId));
+        const snapshot = await getDocs(q);
+
+        const deletePromises = snapshot.docs.map(async (docSnap) => {
+          // Special handling for labs/vitals subcollections
+          if (colName === COLLECTIONS.LABS || colName === COLLECTIONS.VITALS) {
+            const valuesSnap = await getDocs(collection(db, colName, docSnap.id, 'values'));
+            const subDeletePromises = valuesSnap.docs.map(d => deleteDoc(d.ref));
+            await Promise.all(subDeletePromises);
+          }
+          return deleteDoc(docSnap.ref);
+        });
+
+        await Promise.all(deletePromises);
+      }
+
+      // 2. Clear genomic profile (one per user, ID is userId)
+      await deleteDoc(doc(db, COLLECTIONS.GENOMIC_PROFILES, userId));
+
+      console.log('Health data cleared successfully');
+    } catch (error) {
+      console.error('Error clearing health data:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Deletes absolutely everything associated with the user
+   */
+  async deleteFullUserData(userId) {
+    try {
+      // First clear all health data
+      await this.clearHealthData(userId);
+
+      // Delete remaining profile/location data
+      await deleteDoc(doc(db, COLLECTIONS.PATIENTS, userId));
+      await deleteDoc(doc(db, COLLECTIONS.TRIAL_LOCATIONS, userId));
+
+      // Delete emergency contacts
+      const q = query(collection(db, COLLECTIONS.EMERGENCY_CONTACTS), where('patientId', '==', userId));
+      const snapshot = await getDocs(q);
+      const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
+      await Promise.all(deletePromises);
+
+      console.log('Full user data deleted successfully');
+    } catch (error) {
+      console.error('Error deleting full user data:', error);
+      throw error;
+    }
+  }
+};
+
 // ==================== ADVANCED CLINICAL TRIAL SERVICES ====================
 // Import advanced trial services (JRCT integration, matching, etc.)
 export { default as jrctService } from '../services/clinicalTrials/jrctService';
