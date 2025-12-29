@@ -4,7 +4,4 @@
   "devCommand": "npm start",
   "installCommand": "npm install",
   "framework": "create-react-app",
-  "env": {
-    "GEMINI_API_KEY": "@gemini-api-key"
-  }
 }
