@@ -154,6 +154,44 @@ module.exports = async (req, res) => {
         }
       }
 
+      // If WHO returned a 404 or unavailable message, attempt to fall back
+      // to ClinicalTrials.gov v2 using the same search expression.
+      if (source === 'who') {
+        const status = err?.response?.status;
+        const msg = String(err?.response?.data || '').toLowerCase();
+        if (status === 404 || msg.includes('removed') || msg.includes('temporarily unavailable')) {
+          try {
+            const expr = params.get('search') || params.get('condition') || '';
+            const fields = params.get('fields') || 'NCTId,BriefTitle';
+            const ctUrl = `https://clinicaltrials.gov/api/v2/studies?query.term=${encodeURIComponent(expr)}&fields=${encodeURIComponent(fields)}`;
+            console.log('trials-proxy WHO fallback to CTGov v2:', ctUrl);
+            const ctRes = await axios.get(ctUrl, {
+              headers: { 'User-Agent': req.headers['user-agent'] || 'CancerCareProxy/1.0', Accept: 'application/json' },
+              timeout: 20000
+            });
+            // Normalize v2 response into legacy StudyFieldsResponse-like shape
+            const d = ctRes.data || {};
+            const items = d.data || d.studies || d.results || [];
+            const studies = [];
+            if (Array.isArray(items)) {
+              items.forEach(it => {
+                const id = it.nctId || it.NCTId || it.id || (it.study && (it.study.nctId || it.study.NCTId));
+                const title = it.briefTitle || it.BriefTitle || it.title || (it.study && (it.study.briefTitle || it.study.title)) || '';
+                if (id) studies.push({ NCTId: [id], BriefTitle: [title] });
+              });
+            }
+            const out = { StudyFieldsResponse: { Study: studies } };
+            res.status(200).setHeader('Content-Type', 'application/json');
+            res.json(out);
+            return;
+          } catch (ctErr) {
+            console.error('WHO->CTGov fallback failed:', ctErr.message || ctErr);
+            // fall through to return original WHO error below
+          }
+        }
+      }
+      }
+
       // Not a ctgov fallback or fallback failed — rethrow to outer catch
       throw err;
     }
