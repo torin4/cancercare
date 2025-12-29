@@ -103,6 +103,15 @@ export default function CancerCareApp() {
   const [deletionType, setDeletionType] = useState(null); // 'data' or 'account'
   const [isDeleting, setIsDeleting] = useState(false);
   const [profileImage, setProfileImage] = useState(null);
+  const [patientProfile, setPatientProfile] = useState({
+    name: '',
+    age: '',
+    dateOfBirth: '',
+    weight: '',
+    height: '',
+    diagnosis: '',
+    stage: ''
+  });
   const [trialLocation, setTrialLocation] = useState({
     city: 'Seattle',
     state: 'WA',
@@ -592,6 +601,20 @@ export default function CancerCareApp() {
           const transformedVitals = transformVitalsData(vitals);
           setVitalsData(transformedVitals);
           setHasRealVitalData(vitals.length > 0);
+
+          // Load patient profile
+          const profile = await patientService.getPatient(user.uid);
+          if (profile) {
+            setPatientProfile({
+              name: profile.name || '',
+              age: profile.age || '',
+              dateOfBirth: profile.dateOfBirth || '',
+              weight: profile.weight || '',
+              height: profile.height || '',
+              diagnosis: profile.diagnosis || '',
+              stage: profile.stage || ''
+            });
+          }
 
           // Load genomic profile
           const genomic = await genomicProfileService.getGenomicProfile(user.uid);
@@ -3625,7 +3648,8 @@ export default function CancerCareApp() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
                     <input
                       type="text"
-                      defaultValue="Mary Johnson"
+                      value={patientProfile.name}
+                      onChange={(e) => setPatientProfile({ ...patientProfile, name: e.target.value })}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -3635,7 +3659,8 @@ export default function CancerCareApp() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Age *</label>
                       <input
                         type="number"
-                        defaultValue="58"
+                        value={patientProfile.age}
+                        onChange={(e) => setPatientProfile({ ...patientProfile, age: e.target.value })}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -3644,7 +3669,8 @@ export default function CancerCareApp() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
                       <input
                         type="date"
-                        defaultValue="1966-03-15"
+                        value={patientProfile.dateOfBirth}
+                        onChange={(e) => setPatientProfile({ ...patientProfile, dateOfBirth: e.target.value })}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -3655,7 +3681,8 @@ export default function CancerCareApp() {
                     <input
                       type="number"
                       step="0.1"
-                      defaultValue="62"
+                      value={patientProfile.weight}
+                      onChange={(e) => setPatientProfile({ ...patientProfile, weight: e.target.value })}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -3664,8 +3691,31 @@ export default function CancerCareApp() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Height (cm)</label>
                     <input
                       type="number"
-                      defaultValue="165"
+                      value={patientProfile.height}
+                      onChange={(e) => setPatientProfile({ ...patientProfile, height: e.target.value })}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis</label>
+                    <input
+                      type="text"
+                      value={patientProfile.diagnosis}
+                      onChange={(e) => setPatientProfile({ ...patientProfile, diagnosis: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="e.g., Ovarian Cancer"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Stage</label>
+                    <input
+                      type="text"
+                      value={patientProfile.stage}
+                      onChange={(e) => setPatientProfile({ ...patientProfile, stage: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="e.g., Stage IIIC"
                     />
                   </div>
                 </div>
@@ -3680,9 +3730,26 @@ export default function CancerCareApp() {
                     Cancel
                   </button>
                   <button
-                    onClick={() => {
-                      setShowEditInfo(false);
-                      alert('Patient information updated!');
+                    onClick={async () => {
+                      try {
+                        await patientService.savePatient(user.uid, {
+                          name: patientProfile.name,
+                          age: parseInt(patientProfile.age) || null,
+                          dateOfBirth: patientProfile.dateOfBirth,
+                          weight: parseFloat(patientProfile.weight) || null,
+                          height: parseFloat(patientProfile.height) || null,
+                          diagnosis: patientProfile.diagnosis,
+                          stage: patientProfile.stage
+                        });
+                        setShowEditInfo(false);
+                        setMessages(prev => [...prev, {
+                          type: 'ai',
+                          text: '✅ Patient information updated successfully!'
+                        }]);
+                      } catch (error) {
+                        console.error('Error saving patient info:', error);
+                        alert('Failed to save patient information. Please try again.');
+                      }
                     }}
                     className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"
                   >

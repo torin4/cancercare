@@ -651,6 +651,7 @@ export const trialLocationService = {
 export const accountService = {
   /**
    * Clears all medical/personal health data but keeps basic profile info
+   * Preserves: patient profile, emergency contacts, trial location preferences
    */
   async clearHealthData(userId) {
     try {
@@ -665,7 +666,8 @@ export const accountService = {
         COLLECTIONS.DOCUMENTS,
         COLLECTIONS.MESSAGES,
         COLLECTIONS.SYMPTOMS,
-        COLLECTIONS.CLINICAL_TRIALS
+        COLLECTIONS.CLINICAL_TRIALS,
+        COLLECTIONS.MATCHED_TRIALS
       ];
 
       for (const colName of healthCollections) {
@@ -685,10 +687,21 @@ export const accountService = {
         await Promise.all(deletePromises);
       }
 
-      // 2. Clear genomic profile (one per user, ID is userId)
-      await deleteDoc(doc(db, COLLECTIONS.GENOMIC_PROFILES, userId));
+      // 2. Clear genomic profile but keep it as empty doc (preserve structure)
+      const genomicRef = doc(db, COLLECTIONS.GENOMIC_PROFILES, userId);
+      await setDoc(genomicRef, {
+        patientId: userId,
+        mutations: [],
+        copyNumberVariants: [],
+        fusions: [],
+        biomarkers: {},
+        germlineFindings: [],
+        fdaApprovedTherapies: [],
+        clinicalTrialEligible: false,
+        lastUpdated: serverTimestamp()
+      });
 
-      console.log('Health data cleared successfully');
+      console.log('Health data cleared successfully - patient profile preserved');
     } catch (error) {
       console.error('Error clearing health data:', error);
       throw error;
