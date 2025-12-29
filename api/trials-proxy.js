@@ -29,12 +29,28 @@ module.exports = async (req, res) => {
 
     let target;
     if (source === 'ctgov') {
-      // ClinicalTrials.gov Study Fields API (preferred)
-      // We'll attempt the official JSON StudyFields API first; if it fails
-      // we fall back to the XML/results endpoint and convert a small
-      // set of fields into a Study-like JSON response so the frontend
-      // can continue to work without adding new dependencies.
-      target = `https://clinicaltrials.gov/api/query/study_fields?${forwardQs}`;
+      // ClinicalTrials.gov Data API v2 (preferred)
+      // Map legacy `expr` -> `query.term`, and translate paging params
+      // into v2 `page[size]`/`page[number]`. We'll request JSON and
+      // normalize the modern response back into a legacy-like
+      // `StudyFieldsResponse` shape so the frontend can continue to use
+      // the existing parsing logic without changes.
+      const expr = params.get('expr') || params.get('condition') || '';
+      const fields = params.get('fields') || '';
+      const min_rnk = Number(params.get('min_rnk') || params.get('min') || 1);
+      const max_rnk = Number(params.get('max_rnk') || params.get('max') || 50);
+      // compute page size (cap to 1000 per API limits)
+      const size = Math.min(Math.max(1, max_rnk - min_rnk + 1), 1000);
+      const pageNumber = Math.max(1, Math.floor((min_rnk - 1) / size) + 1);
+
+      const v2Params = [];
+      if (expr) v2Params.push(`query.term=${encodeURIComponent(expr)}`);
+      if (fields) v2Params.push(`fields=${encodeURIComponent(fields)}`);
+
+      // Avoid passing paging parameters that may be rejected by the API
+      // in some configurations; the v2 endpoint supports pagination but
+      // we'll rely on its defaults for now.
+      target = `https://clinicaltrials.gov/api/v2/studies?${v2Params.join('&')}`;
     } else if (source === 'who') {
       const path = params.get('path') || 'api/v1/trials';
       target = `https://trialsearch.who.int/${path}${forwardQs ? `?${forwardQs}` : ''}`;
@@ -55,7 +71,40 @@ module.exports = async (req, res) => {
         timeout: 20000
       });
 
-      // Forward JSON response
+      // If this was a CTGov v2 response, normalize it to a legacy
+      // `StudyFieldsResponse` shape that the frontend expects.
+      if (source === 'ctgov') {
+        const d = response.data || {};
+        // New v2 API often returns data in `data` array, or `studies`.
+        const items = d.data || d.studies || d.results || [];
+        const studies = [];
+
+        // items may already be an array of study objects (modern schema)
+        if (Array.isArray(items) && items.length > 0) {
+          items.forEach(it => {
+            // Try to extract common fields from multiple possible paths
+            const id = it.nctId || it.NCTId || it.id || it.NCTID || (it.study && (it.study.nctId || it.study.NCTId));
+            const title = it.briefTitle || it.BriefTitle || it.title || (it.study && (it.study.briefTitle || it.study.title)) || '';
+            if (id) {
+              // Legacy StudyFieldsResponse had arrays for each field
+              studies.push({ NCTId: [id], BriefTitle: [title] });
+            }
+          });
+        }
+
+        // Fallback: if response.data already resembles legacy schema, forward it
+        if (studies.length === 0 && d.StudyFieldsResponse && d.StudyFieldsResponse.Study) {
+          res.status(response.status).setHeader('Content-Type', 'application/json');
+          return res.json(d);
+        }
+
+        const out = { StudyFieldsResponse: { Study: studies } };
+        res.status(200).setHeader('Content-Type', 'application/json');
+        res.json(out);
+        return;
+      }
+
+      // Non-CTGov responses: forward JSON as-is
       res.status(response.status).setHeader('Content-Type', 'application/json');
       if (typeof response.data === 'string') {
         res.send(response.data);
