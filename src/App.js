@@ -991,7 +991,8 @@ export default function CancerCareApp() {
     // Create a file input element
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx';
+    // Accept common document and genomic data file types (vcf, maf, bed, txt, csv, tsv, compressed)
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls';
 
     input.onchange = async (e) => {
       const file = e.target.files[0];
@@ -1001,6 +1002,7 @@ export default function CancerCareApp() {
       }
     };
 
+    console.log('simulateDocumentUpload invoking file picker');
     input.click();
   };
 
@@ -2395,11 +2397,7 @@ export default function CancerCareApp() {
 
                 <button
                   onClick={() => {
-                    if (!hasUploadedDocument) {
-                      openDocumentOnboarding('general');
-                    } else {
-                      simulateDocumentUpload('general');
-                    }
+                    openDocumentOnboarding('general');
                   }}
                   className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 transition flex items-center justify-center gap-2"
                 >
@@ -2924,14 +2922,10 @@ export default function CancerCareApp() {
               <span className="text-sm font-medium text-gray-700">Scan File</span>
             </button>
 
-            <button
+              <button
               onClick={() => {
                 setShowFabMenu(false);
-                if (!hasUploadedDocument) {
-                  openDocumentOnboarding('general');
-                } else {
-                  simulateDocumentUpload('general');
-                }
+                openDocumentOnboarding('general');
               }}
               className="flex items-center gap-3 bg-white rounded-full shadow-lg pl-4 pr-5 py-3 hover:shadow-xl transition-all animate-fade-scale"
               style={{ animationDelay: '100ms' }}
