@@ -1292,16 +1292,35 @@ export default function CancerCareApp() {
                                 let minVal = Math.min(...values);
                                 let maxVal = Math.max(...values);
 
-                                // Parse normal range if available (formats: "0-35", "24.0-34.0", "90-120/60-80")
+                                // Parse normal range if available (formats: "0-35", "24.0-34.0", "< 0.5", "> 60")
                                 if (currentLab.normalRange) {
-                                  const rangeMatch = currentLab.normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+                                  // Try standard range format "X-Y"
+                                  let rangeMatch = currentLab.normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
                                   if (rangeMatch) {
                                     const normMin = parseFloat(rangeMatch[1]);
                                     const normMax = parseFloat(rangeMatch[2]);
                                     if (!isNaN(normMin) && !isNaN(normMax)) {
-                                      // Include normal range in Y-axis bounds for better context
                                       minVal = Math.min(minVal, normMin);
                                       maxVal = Math.max(maxVal, normMax);
+                                    }
+                                  } else {
+                                    // Try "< X" format (e.g., D-dimer: "< 0.5")
+                                    const lessThanMatch = currentLab.normalRange.match(/<\s*(\d+\.?\d*)/);
+                                    if (lessThanMatch) {
+                                      const threshold = parseFloat(lessThanMatch[1]);
+                                      if (!isNaN(threshold)) {
+                                        minVal = Math.min(minVal, 0);
+                                        maxVal = Math.max(maxVal, threshold);
+                                      }
+                                    } else {
+                                      // Try "> X" format (e.g., eGFR: "> 60")
+                                      const greaterThanMatch = currentLab.normalRange.match(/>\s*(\d+\.?\d*)/);
+                                      if (greaterThanMatch) {
+                                        const threshold = parseFloat(greaterThanMatch[1]);
+                                        if (!isNaN(threshold)) {
+                                          minVal = Math.min(minVal, threshold);
+                                        }
+                                      }
                                     }
                                   }
                                 }
@@ -1348,16 +1367,35 @@ export default function CancerCareApp() {
                                   let minVal = Math.min(...values);
                                   let maxVal = Math.max(...values);
 
-                                  // Parse normal range if available (formats: "0-35", "24.0-34.0", "90-120/60-80")
+                                  // Parse normal range if available (formats: "0-35", "24.0-34.0", "< 0.5", "> 60")
                                   if (currentLab.normalRange) {
-                                    const rangeMatch = currentLab.normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+                                    // Try standard range format "X-Y"
+                                    let rangeMatch = currentLab.normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
                                     if (rangeMatch) {
                                       const normMin = parseFloat(rangeMatch[1]);
                                       const normMax = parseFloat(rangeMatch[2]);
                                       if (!isNaN(normMin) && !isNaN(normMax)) {
-                                        // Include normal range in Y-axis bounds for better context
                                         minVal = Math.min(minVal, normMin);
                                         maxVal = Math.max(maxVal, normMax);
+                                      }
+                                    } else {
+                                      // Try "< X" format (e.g., D-dimer: "< 0.5")
+                                      const lessThanMatch = currentLab.normalRange.match(/<\s*(\d+\.?\d*)/);
+                                      if (lessThanMatch) {
+                                        const threshold = parseFloat(lessThanMatch[1]);
+                                        if (!isNaN(threshold)) {
+                                          minVal = Math.min(minVal, 0);
+                                          maxVal = Math.max(maxVal, threshold);
+                                        }
+                                      } else {
+                                        // Try "> X" format (e.g., eGFR: "> 60")
+                                        const greaterThanMatch = currentLab.normalRange.match(/>\s*(\d+\.?\d*)/);
+                                        if (greaterThanMatch) {
+                                          const threshold = parseFloat(greaterThanMatch[1]);
+                                          if (!isNaN(threshold)) {
+                                            minVal = Math.min(minVal, threshold);
+                                          }
+                                        }
                                       }
                                     }
                                   }
@@ -1380,7 +1418,8 @@ export default function CancerCareApp() {
 
                                         {/* Normal range boundaries (if available) */}
                                         {currentLab.normalRange && (() => {
-                                          const rangeMatch = currentLab.normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+                                          // Try standard range format "X-Y"
+                                          let rangeMatch = currentLab.normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
                                           if (rangeMatch) {
                                             const normMin = parseFloat(rangeMatch[1]);
                                             const normMax = parseFloat(rangeMatch[2]);
@@ -1403,6 +1442,54 @@ export default function CancerCareApp() {
                                                   <line x1="0" y1={normMaxY} x2="400" y2={normMaxY} stroke="#10b981" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
                                                 </>
                                               );
+                                            }
+                                          } else {
+                                            // Try "< X" format (e.g., D-dimer: "< 0.5")
+                                            const lessThanMatch = currentLab.normalRange.match(/<\s*(\d+\.?\d*)/);
+                                            if (lessThanMatch) {
+                                              const threshold = parseFloat(lessThanMatch[1]);
+                                              if (!isNaN(threshold) && isFinite(threshold)) {
+                                                const thresholdY = 160 - ((threshold - yMin) / yRange) * 160;
+                                                return (
+                                                  <>
+                                                    {/* Shaded area below threshold */}
+                                                    <rect
+                                                      x="0"
+                                                      y={thresholdY}
+                                                      width="400"
+                                                      height={160 - thresholdY}
+                                                      fill="#10b981"
+                                                      opacity="0.08"
+                                                    />
+                                                    {/* Threshold line */}
+                                                    <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#10b981" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                  </>
+                                                );
+                                              }
+                                            } else {
+                                              // Try "> X" format (e.g., eGFR: "> 60")
+                                              const greaterThanMatch = currentLab.normalRange.match(/>\s*(\d+\.?\d*)/);
+                                              if (greaterThanMatch) {
+                                                const threshold = parseFloat(greaterThanMatch[1]);
+                                                if (!isNaN(threshold) && isFinite(threshold)) {
+                                                  const thresholdY = 160 - ((threshold - yMin) / yRange) * 160;
+                                                  return (
+                                                    <>
+                                                      {/* Shaded area above threshold */}
+                                                      <rect
+                                                        x="0"
+                                                        y="0"
+                                                        width="400"
+                                                        height={thresholdY}
+                                                        fill="#10b981"
+                                                        opacity="0.08"
+                                                      />
+                                                      {/* Threshold line */}
+                                                      <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#10b981" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                    </>
+                                                  );
+                                                }
+                                              }
                                             }
                                           }
                                           return null;
