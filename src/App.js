@@ -1226,10 +1226,10 @@ export default function CancerCareApp() {
                                   const minVal = Math.min(...values);
                                   const maxVal = Math.max(...values);
                                   const range = maxVal - minVal;
-                                  const padding = range * 0.2;
+                                  const padding = range * 0.2 || 10; // Fallback if range is 0
                                   const yMin = Math.floor(minVal - padding);
                                   const yMax = Math.ceil(maxVal + padding);
-                                  const yRange = yMax - yMin;
+                                  const yRange = yMax - yMin || 1; // Prevent division by zero
 
                                   return (
                                     <>
@@ -1244,8 +1244,9 @@ export default function CancerCareApp() {
                                         {/* Area under line */}
                                         <polygon
                                           points={(() => {
+                                            const dataLength = Math.max(currentLab.data.length - 1, 1); // Prevent division by zero
                                             const topPoints = currentLab.data.map((d, i) =>
-                                              `${(i / (currentLab.data.length - 1)) * 400},${160 - ((d.value - yMin) / yRange) * 160}`
+                                              `${(i / dataLength) * 400},${160 - ((d.value - yMin) / yRange) * 160}`
                                             ).join(' ');
                                             return `${topPoints} 400,160 0,160`;
                                           })()}
@@ -1254,9 +1255,12 @@ export default function CancerCareApp() {
 
                                         {/* Line */}
                                         <polyline
-                                          points={currentLab.data.map((d, i) =>
-                                            `${(i / (currentLab.data.length - 1)) * 400},${160 - ((d.value - yMin) / yRange) * 160}`
-                                          ).join(' ')}
+                                          points={(() => {
+                                            const dataLength = Math.max(currentLab.data.length - 1, 1); // Prevent division by zero
+                                            return currentLab.data.map((d, i) =>
+                                              `${(i / dataLength) * 400},${160 - ((d.value - yMin) / yRange) * 160}`
+                                            ).join(' ');
+                                          })()}
                                           fill="none"
                                           stroke={currentLab.status === 'warning' ? '#f97316' : '#10b981'}
                                           strokeWidth="3"
@@ -1267,7 +1271,8 @@ export default function CancerCareApp() {
 
                                       {/* Interactive data points with tooltips */}
                                       {currentLab.data.map((d, i) => {
-                                        const x = (i / (currentLab.data.length - 1)) * 100;
+                                        const dataLength = Math.max(currentLab.data.length - 1, 1); // Prevent division by zero
+                                        const x = (i / dataLength) * 100;
                                         const y = ((d.value - yMin) / yRange) * 100;
                                         const isLatest = i === currentLab.data.length - 1;
 
@@ -1438,7 +1443,8 @@ export default function CancerCareApp() {
                                         stroke="#10b981"
                                         strokeWidth="3"
                                         points={currentVital.data.map((point, idx) => {
-                                          const x = (idx / (currentVital.data.length - 1)) * 380 + 10;
+                                          const dataLength = Math.max(currentVital.data.length - 1, 1); // Prevent division by zero
+                                          const x = (idx / dataLength) * 380 + 10;
                                           const maxVal = Math.max(...currentVital.data.map(d => selectedVital === 'bp' ? d.systolic : d.value));
                                           const minVal = Math.min(...currentVital.data.map(d => selectedVital === 'bp' ? (d.diastolic || d.value) : d.value));
                                           const range = maxVal - minVal || 1;
@@ -1448,7 +1454,8 @@ export default function CancerCareApp() {
                                         }).join(' ')}
                                       />
                                       {currentVital.data.map((point, idx) => {
-                                        const x = (idx / (currentVital.data.length - 1)) * 380 + 10;
+                                        const dataLength = Math.max(currentVital.data.length - 1, 1); // Prevent division by zero
+                                        const x = (idx / dataLength) * 380 + 10;
                                         const maxVal = Math.max(...currentVital.data.map(d => selectedVital === 'bp' ? d.systolic : d.value));
                                         const minVal = Math.min(...currentVital.data.map(d => selectedVital === 'bp' ? (d.diastolic || d.value) : d.value));
                                         const range = maxVal - minVal || 1;
