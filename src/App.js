@@ -2,9 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { uploadDocument } from './firebase/storage';
-import { documentService } from './firebase/services';
+import { documentService, labService, vitalService, patientService } from './firebase/services';
+import { processDocument, generateExtractionSummary } from './services/documentProcessor';
+import { processChatMessage, generateChatExtractionSummary } from './services/chatProcessor';
 import { auth } from './firebase/config';
 import Login from './components/Login';
+import Onboarding from './components/Onboarding';
+import ClinicalTrials from './components/ClinicalTrials';
 
 const styles = `
   @keyframes slide-up {
@@ -65,6 +69,7 @@ const styles = `
 export default function CancerCareApp() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showQuickLog, setShowQuickLog] = useState(false);
   const [showFabMenu, setShowFabMenu] = useState(false);
@@ -105,6 +110,10 @@ export default function CancerCareApp() {
     normalRange: '',
     unit: ''
   });
+
+  // Real data from Firestore
+  const [labsData, setLabsData] = useState({});
+  const [vitalsData, setVitalsData] = useState({});
 
   const [documents, setDocuments] = useState([
     { id: 1, name: 'Lab Results - Dec 28, 2024', type: 'Lab', date: '2024-12-28', data: 'CA-125: 62 U/mL, WBC: 5.8, Hemoglobin: 11.2', icon: 'lab' },
@@ -210,8 +219,8 @@ export default function CancerCareApp() {
     });
   };
 
-  // Comprehensive lab data
-  const allLabData = {
+  // Default lab data (fallback when no Firestore data)
+  const defaultLabData = {
     ca125: {
       name: 'CA-125',
       unit: 'U/mL',
@@ -352,7 +361,10 @@ export default function CancerCareApp() {
     }
   };
 
-  const allVitalsData = {
+  // Merge Firestore data with default data (Firestore takes priority)
+  const allLabData = { ...defaultLabData, ...labsData };
+
+  const defaultVitalsData = {
     bp: {
       name: 'Blood Pressure',
       unit: 'mmHg',
@@ -441,6 +453,9 @@ export default function CancerCareApp() {
     }
   };
 
+  // Merge Firestore data with default data (Firestore takes priority)
+  const allVitalsData = { ...defaultVitalsData, ...vitalsData };
+
   const symptoms = [
     { date: 'Dec 28', type: 'Fatigue', severity: 'Moderate', notes: 'Energy 3/10' },
     { date: 'Dec 27', type: 'Pain', severity: 'Mild', notes: 'Lower back' },
@@ -489,15 +504,98 @@ export default function CancerCareApp() {
     }
   ];
 
-  // Monitor authentication state
+  // Monitor authentication state and create patient profile if needed
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
+
+      if (user) {
+        // Check if patient profile exists, create if not
+        await ensurePatientProfile(user);
+      }
+
       setAuthLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
+
+  // Create patient profile if it doesn't exist
+  const ensurePatientProfile = async (user) => {
+    try {
+      // Check if patient exists
+      const existingPatient = await patientService.getPatient(user.uid);
+
+      if (!existingPatient) {
+        // Show onboarding for new users
+        console.log('New user detected, showing onboarding');
+        setNeedsOnboarding(true);
+      } else {
+        // Check if profile is complete (has firstName)
+        if (!existingPatient.firstName || !existingPatient.diagnosis) {
+          console.log('Incomplete profile detected, showing onboarding');
+          setNeedsOnboarding(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error ensuring patient profile:', error);
+    }
+  };
+
+  // Handle onboarding completion
+  const handleOnboardingComplete = async (formData) => {
+    try {
+      console.log('Saving onboarding data:', formData);
+
+      // Calculate age from date of birth
+      const dob = new Date(formData.dateOfBirth);
+      const today = new Date();
+      const age = Math.floor((today - dob) / (365.25 * 24 * 60 * 60 * 1000));
+
+      // Save patient profile
+      await patientService.savePatient(user.uid, {
+        email: user.email,
+        displayName: `${formData.firstName} ${formData.lastName}`,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        dateOfBirth: formData.dateOfBirth,
+        age: age,
+        gender: formData.gender,
+        phone: formData.phone,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        zip: formData.zip,
+        diagnosis: formData.diagnosis,
+        diagnosisDate: formData.diagnosisDate,
+        cancerType: formData.cancerType,
+        stage: formData.stage,
+        oncologist: formData.oncologist,
+        hospital: formData.hospital,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        profileComplete: true
+      });
+
+      // Save emergency contact
+      if (formData.emergencyContactName) {
+        const { emergencyContactService } = await import('./firebase/services');
+        await emergencyContactService.saveEmergencyContact({
+          patientId: user.uid,
+          name: formData.emergencyContactName,
+          phone: formData.emergencyContactPhone,
+          relationship: formData.emergencyContactRelationship,
+          isPrimary: true
+        });
+      }
+
+      console.log('Onboarding completed successfully');
+      setNeedsOnboarding(false);
+    } catch (error) {
+      console.error('Error saving onboarding data:', error);
+      alert('Failed to save profile. Please try again.');
+    }
+  };
 
   // Load documents from Firestore when user logs in
   useEffect(() => {
@@ -514,6 +612,106 @@ export default function CancerCareApp() {
 
     loadDocuments();
   }, [user]);
+
+  // Load labs and vitals data from Firestore
+  useEffect(() => {
+    const loadHealthData = async () => {
+      if (user) {
+        try {
+          // Load labs
+          const labs = await labService.getLabs(user.uid);
+          const transformedLabs = transformLabsData(labs);
+          setLabsData(transformedLabs);
+
+          // Load vitals
+          const vitals = await vitalService.getVitals(user.uid);
+          const transformedVitals = transformVitalsData(vitals);
+          setVitalsData(transformedVitals);
+        } catch (error) {
+          console.error('Error loading health data:', error);
+        }
+      }
+    };
+
+    loadHealthData();
+  }, [user]);
+
+  // Transform Firestore labs data to UI format
+  const transformLabsData = (labs) => {
+    const grouped = {};
+
+    labs.forEach(lab => {
+      const labType = lab.labType || 'unknown';
+
+      if (!grouped[labType]) {
+        grouped[labType] = {
+          name: lab.label,
+          unit: lab.unit,
+          current: lab.currentValue,
+          status: lab.status || 'normal',
+          trend: 'stable',
+          normalRange: lab.normalRange,
+          data: []
+        };
+      }
+
+      // Add to history if we have the lab values
+      // Note: We'll load full history when we expand this
+      grouped[labType].current = lab.currentValue;
+      grouped[labType].data.push({
+        date: new Date(lab.createdAt?.toDate ? lab.createdAt.toDate() : lab.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        value: lab.currentValue
+      });
+    });
+
+    return grouped;
+  };
+
+  // Transform Firestore vitals data to UI format
+  const transformVitalsData = (vitals) => {
+    const grouped = {};
+
+    vitals.forEach(vital => {
+      const vitalType = vital.vitalType || 'unknown';
+
+      if (!grouped[vitalType]) {
+        grouped[vitalType] = {
+          name: vital.label,
+          unit: vital.unit,
+          current: vital.currentValue,
+          status: 'normal',
+          trend: 'stable',
+          normalRange: vital.normalRange,
+          data: []
+        };
+      }
+
+      grouped[vitalType].current = vital.currentValue;
+      grouped[vitalType].data.push({
+        date: new Date(vital.createdAt?.toDate ? vital.createdAt.toDate() : vital.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        value: vital.currentValue
+      });
+    });
+
+    return grouped;
+  };
+
+  // Function to reload health data (call after adding new values)
+  const reloadHealthData = async () => {
+    if (user) {
+      try {
+        const labs = await labService.getLabs(user.uid);
+        const transformedLabs = transformLabsData(labs);
+        setLabsData(transformedLabs);
+
+        const vitals = await vitalService.getVitals(user.uid);
+        const transformedVitals = transformVitalsData(vitals);
+        setVitalsData(transformedVitals);
+      } catch (error) {
+        console.error('Error reloading health data:', error);
+      }
+    }
+  };
 
   // Manage FAB animations
   useEffect(() => {
@@ -532,51 +730,53 @@ export default function CancerCareApp() {
   }, [activeTab]);
 
   const handleSendMessage = async () => {
-    if (!inputText.trim()) return;
-    
+    if (!inputText.trim() || !user) return;
+
     const userMessage = inputText;
     setInputText('');
-    
+
     // Add user message immediately
     setMessages(prev => [...prev, { type: 'user', text: userMessage }]);
-    
-    try {
-      // Call Gemini API via our serverless function
-      const response = await fetch('/api/gemini', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: userMessage,
-          conversationHistory: messages.slice(-10).map(msg => ({
-            role: msg.type === 'user' ? 'user' : 'assistant',
-            content: msg.text
-          }))
-        })
-      });
 
-      const data = await response.json();
-      
-      if (response.ok) {
-        // Check if AI extracted any values
-        const hasValues = data.response.includes('logged') || data.response.includes('extracted');
-        setMessages(prev => [...prev, { 
-          type: 'ai', 
-          text: data.response,
-          isAnalysis: hasValues
-        }]);
-      } else {
-        setMessages(prev => [...prev, { 
-          type: 'ai', 
-          text: `Sorry, I encountered an error: ${data.error}. Please try again.`
-        }]);
+    try {
+      // Process message with AI to extract and save medical data
+      const result = await processChatMessage(
+        userMessage,
+        user.uid,
+        messages.slice(-10).map(msg => ({
+          role: msg.type === 'user' ? 'user' : 'assistant',
+          content: msg.text
+        }))
+      );
+
+      // Build response text
+      let responseText = result.response;
+
+      // Add extraction summary if data was extracted
+      if (result.extractedData) {
+        const summary = generateChatExtractionSummary(result.extractedData);
+        if (summary) {
+          responseText += summary;
+        }
       }
+
+      // Add AI response
+      setMessages(prev => [...prev, {
+        type: 'ai',
+        text: responseText,
+        isAnalysis: !!result.extractedData
+      }]);
+
+      // Reload health data if values were extracted
+      if (result.extractedData) {
+        await reloadHealthData();
+      }
+
     } catch (error) {
-      console.error('Error calling Gemini API:', error);
-      setMessages(prev => [...prev, { 
-        type: 'ai', 
-        text: 'Sorry, I\'m having trouble connecting right now. Please try again in a moment.'
+      console.error('Error processing message:', error);
+      setMessages(prev => [...prev, {
+        type: 'ai',
+        text: 'Sorry, I\'m having trouble processing your message right now. Please try again in a moment.'
       }]);
     }
   };
@@ -588,35 +788,69 @@ export default function CancerCareApp() {
     }
 
     try {
-      // Upload to Firebase Storage
-      const result = await uploadDocument(file, user.uid, {
-        category: docType,
-        documentType: docType
+      // Show processing message
+      setMessages([...messages,
+        { type: 'user', text: `Uploading: ${file.name}`, isUpload: true },
+        { type: 'ai', text: `Processing document... This may take a moment.`, isAnalysis: true }
+      ]);
+
+      // Step 1: Process document with AI to extract medical data
+      const processingResult = await processDocument(file, user.uid);
+      console.log('Document processing result:', processingResult);
+
+      // Step 2: Upload file to Firebase Storage
+      const uploadResult = await uploadDocument(file, user.uid, {
+        category: processingResult.documentType || docType,
+        documentType: processingResult.documentType || docType
       });
 
-      console.log('File uploaded successfully:', result);
+      console.log('File uploaded successfully:', uploadResult);
 
-      // Add to local documents state
+      // Step 3: Add to local documents state
       const newDoc = {
-        id: result.id,
+        id: uploadResult.id,
         name: file.name,
-        type: docType,
+        type: processingResult.documentType || docType,
         date: new Date().toISOString().split('T')[0],
-        fileUrl: result.fileUrl,
-        storagePath: result.storagePath,
-        icon: docType.toLowerCase()
+        fileUrl: uploadResult.fileUrl,
+        storagePath: uploadResult.storagePath,
+        icon: (processingResult.documentType || docType).toLowerCase()
       };
 
       setDocuments([newDoc, ...documents]);
-      setMessages([...messages,
-        { type: 'user', text: `Uploaded: ${file.name}`, isUpload: true },
-        { type: 'ai', text: `Document uploaded successfully to Firebase Storage. File is securely stored and accessible.`, isAnalysis: true }
+
+      // Step 4: Generate summary of extracted data
+      const summary = generateExtractionSummary(
+        processingResult.extractedData,
+        processingResult.extractedData
+      );
+
+      // Update messages with extraction results
+      setMessages(prev => [
+        ...prev.slice(0, -1), // Remove "Processing..." message
+        {
+          type: 'ai',
+          text: `✅ Document processed successfully!\n\nDocument Type: ${processingResult.documentType}\n\n${summary}\n\nAll data has been automatically saved to your health records.`,
+          isAnalysis: true
+        }
       ]);
+
+      // Reload health data to show new values
+      await reloadHealthData();
+
       setShowUploadDemo(false);
       setActiveTab('chat');
     } catch (error) {
       console.error('Upload error:', error);
-      alert('Failed to upload file: ' + error.message);
+
+      // Update messages with error
+      setMessages(prev => [
+        ...prev.slice(0, -1), // Remove "Processing..." message
+        {
+          type: 'ai',
+          text: `❌ Failed to process document: ${error.message}\n\nThe file was not uploaded. Please try again or contact support if the issue persists.`
+        }
+      ]);
     }
   };
 
@@ -664,6 +898,11 @@ export default function CancerCareApp() {
   // Show login screen if not authenticated
   if (!user) {
     return <Login onLoginSuccess={() => setUser(auth.currentUser)} />;
+  }
+
+  // Show onboarding if needed
+  if (needsOnboarding) {
+    return <Onboarding onComplete={handleOnboardingComplete} />;
   }
 
   return (
@@ -1742,67 +1981,7 @@ export default function CancerCareApp() {
           )}
 
           {activeTab === 'trials' && (
-            <div className="p-4 space-y-4">
-              <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 border border-purple-200">
-                <h3 className="font-semibold text-gray-800 mb-2">AI Trial Matching</h3>
-                <p className="text-sm text-gray-600 mb-3">
-                  Based on genomic profile (BRCA1+, HRD+, ARID1A mutation)
-                </p>
-                <div className="flex gap-2">
-                  <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">BRCA1+</span>
-                  <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-medium">HRD+</span>
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">ARID1A Mut</span>
-                </div>
-                <button 
-                  onClick={() => setShowEditLocation(true)}
-                  className="text-sm text-purple-600 hover:text-purple-700 font-medium mt-3 flex items-center gap-1"
-                >
-                  <MapPin className="w-4 h-4" />
-                  Edit Location
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {trials.map((trial) => (
-                  <div key={trial.id} className="bg-white rounded-lg shadow p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
-                            {trial.phase}
-                          </span>
-                          <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">
-                            {trial.status}
-                          </span>
-                        </div>
-                        <h3 className="font-semibold text-sm">{trial.name}</h3>
-                      </div>
-                      <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-bold ml-2">{trial.match}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-1 text-xs text-gray-600 mb-3">
-                      <MapPin className="w-3 h-3" />
-                      <span>{trial.location} • {trial.distance}</span>
-                    </div>
-
-                    <div className="mb-3">
-                      <p className="text-xs font-medium text-gray-700 mb-1">Why this matches:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {trial.matchReasons.map((reason, idx) => (
-                          <span key={idx} className="px-2 py-1 bg-green-50 text-green-700 text-xs rounded-full">
-                            {reason}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <button className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition">
-                      View Details
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <ClinicalTrials />
           )}
 
           {activeTab === 'profile' && (

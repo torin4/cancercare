@@ -1,0 +1,647 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { User, Calendar, MapPin, Activity, ChevronRight, Search } from 'lucide-react';
+
+// Comprehensive list of cancer types for dropdown
+const CANCER_TYPES = [
+  // Gynecological Cancers
+  'Ovarian Cancer',
+  'Endometrial Cancer',
+  'Cervical Cancer',
+  'Uterine Cancer',
+  'Vaginal Cancer',
+  'Vulvar Cancer',
+  'Fallopian Tube Cancer',
+
+  // Breast Cancer
+  'Breast Cancer',
+  'Male Breast Cancer',
+  'Inflammatory Breast Cancer',
+  'Triple-Negative Breast Cancer',
+
+  // Lung Cancer
+  'Lung Cancer',
+  'Non-Small Cell Lung Cancer',
+  'Small Cell Lung Cancer',
+  'Mesothelioma',
+
+  // Gastrointestinal Cancers
+  'Colorectal Cancer',
+  'Colon Cancer',
+  'Rectal Cancer',
+  'Stomach Cancer',
+  'Esophageal Cancer',
+  'Pancreatic Cancer',
+  'Liver Cancer',
+  'Gallbladder Cancer',
+  'Bile Duct Cancer',
+  'Anal Cancer',
+  'Gastrointestinal Stromal Tumor (GIST)',
+
+  // Blood Cancers
+  'Leukemia',
+  'Acute Lymphoblastic Leukemia (ALL)',
+  'Acute Myeloid Leukemia (AML)',
+  'Chronic Lymphocytic Leukemia (CLL)',
+  'Chronic Myeloid Leukemia (CML)',
+  'Lymphoma',
+  'Hodgkin Lymphoma',
+  'Non-Hodgkin Lymphoma',
+  'Multiple Myeloma',
+  'Myelodysplastic Syndrome',
+
+  // Skin Cancer
+  'Melanoma',
+  'Basal Cell Carcinoma',
+  'Squamous Cell Carcinoma',
+  'Merkel Cell Carcinoma',
+
+  // Genitourinary Cancers
+  'Prostate Cancer',
+  'Bladder Cancer',
+  'Kidney Cancer',
+  'Renal Cell Carcinoma',
+  'Testicular Cancer',
+  'Penile Cancer',
+
+  // Head and Neck Cancers
+  'Head and Neck Cancer',
+  'Thyroid Cancer',
+  'Oral Cancer',
+  'Throat Cancer',
+  'Laryngeal Cancer',
+  'Nasopharyngeal Cancer',
+  'Salivary Gland Cancer',
+
+  // Brain and Nervous System
+  'Brain Cancer',
+  'Glioblastoma',
+  'Astrocytoma',
+  'Meningioma',
+  'Neuroblastoma',
+  'Spinal Cord Tumor',
+
+  // Bone and Soft Tissue
+  'Bone Cancer',
+  'Osteosarcoma',
+  'Ewing Sarcoma',
+  'Soft Tissue Sarcoma',
+  'Rhabdomyosarcoma',
+
+  // Endocrine Cancers
+  'Adrenal Cancer',
+  'Pituitary Tumor',
+  'Parathyroid Cancer',
+  'Neuroendocrine Tumor',
+  'Carcinoid Tumor',
+
+  // Pediatric Cancers
+  'Wilms Tumor',
+  'Retinoblastoma',
+
+  // Other Cancers
+  'Mesothelioma',
+  'Thymoma',
+  'Carcinoma of Unknown Primary',
+  'Other (Please Specify)'
+].sort();
+
+export default function Onboarding({ onComplete }) {
+  const [step, setStep] = useState(1);
+  const [diagnosisSearch, setDiagnosisSearch] = useState('');
+  const [showDiagnosisDropdown, setShowDiagnosisDropdown] = useState(false);
+  const [showCustomDiagnosisInput, setShowCustomDiagnosisInput] = useState(false);
+  const diagnosisRef = useRef(null);
+  const [formData, setFormData] = useState({
+    // Personal Info
+    firstName: '',
+    lastName: '',
+    dateOfBirth: '',
+    gender: '',
+
+    // Contact Info
+    phone: '',
+    address: '',
+    city: '',
+    state: '',
+    zip: '',
+
+    // Medical Info
+    diagnosis: '',
+    diagnosisDate: '',
+    cancerType: '',
+    stage: '',
+    oncologist: '',
+    hospital: '',
+
+    // Emergency Contact
+    emergencyContactName: '',
+    emergencyContactPhone: '',
+    emergencyContactRelationship: ''
+  });
+
+  const updateField = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleNext = () => {
+    if (step < 4) {
+      setStep(step + 1);
+    }
+  };
+
+  const handleBack = () => {
+    if (step > 1) {
+      setStep(step - 1);
+    }
+  };
+
+  const handleComplete = () => {
+    onComplete(formData);
+  };
+
+  // Filter cancer types based on search
+  const filteredCancerTypes = CANCER_TYPES.filter(cancer =>
+    cancer.toLowerCase().includes(diagnosisSearch.toLowerCase())
+  );
+
+  // Handle diagnosis selection
+  const handleDiagnosisSelect = (cancer) => {
+    if (cancer === 'Other (Please Specify)') {
+      setShowCustomDiagnosisInput(true);
+      updateField('diagnosis', '');
+      setDiagnosisSearch('');
+    } else {
+      updateField('diagnosis', cancer);
+      setDiagnosisSearch(cancer);
+      setShowCustomDiagnosisInput(false);
+    }
+    setShowDiagnosisDropdown(false);
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (diagnosisRef.current && !diagnosisRef.current.contains(event.target)) {
+        setShowDiagnosisDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const isStepValid = () => {
+    switch(step) {
+      case 1:
+        return formData.firstName && formData.lastName && formData.dateOfBirth && formData.gender;
+      case 2:
+        return formData.phone && formData.city && formData.state;
+      case 3:
+        return formData.diagnosis && formData.diagnosisDate;
+      case 4:
+        return formData.emergencyContactName && formData.emergencyContactPhone;
+      default:
+        return false;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
+          <h1 className="text-2xl font-bold mb-2">Welcome to CancerCare</h1>
+          <p className="text-blue-100">Let's set up your health profile</p>
+
+          {/* Progress Bar */}
+          <div className="mt-4 flex gap-2">
+            {[1, 2, 3, 4].map(i => (
+              <div
+                key={i}
+                className={`flex-1 h-2 rounded-full transition-all ${
+                  i <= step ? 'bg-white' : 'bg-blue-400'
+                }`}
+              />
+            ))}
+          </div>
+          <p className="text-sm text-blue-100 mt-2">Step {step} of 4</p>
+        </div>
+
+        {/* Form Content */}
+        <div className="p-8">
+
+          {/* Step 1: Personal Information */}
+          {step === 1 && (
+            <div className="space-y-6 animate-fade-scale">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <User className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Personal Information</h2>
+                  <p className="text-sm text-gray-600">Tell us about yourself</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    First Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.firstName}
+                    onChange={(e) => updateField('firstName', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="John"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Last Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.lastName}
+                    onChange={(e) => updateField('lastName', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Doe"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Date of Birth *
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.dateOfBirth}
+                    onChange={(e) => updateField('dateOfBirth', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Gender *
+                  </label>
+                  <select
+                    value={formData.gender}
+                    onChange={(e) => updateField('gender', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select...</option>
+                    <option value="female">Female</option>
+                    <option value="male">Male</option>
+                    <option value="other">Other</option>
+                    <option value="prefer-not-to-say">Prefer not to say</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Contact Information */}
+          {step === 2 && (
+            <div className="space-y-6 animate-fade-scale">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                  <MapPin className="w-6 h-6 text-purple-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Contact Information</h2>
+                  <p className="text-sm text-gray-600">How can we reach you?</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone Number *
+                </label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => updateField('phone', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="(555) 123-4567"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Address
+                </label>
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={(e) => updateField('address', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="123 Main St"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    City *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.city}
+                    onChange={(e) => updateField('city', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="Seattle"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    State *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.state}
+                    onChange={(e) => updateField('state', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="WA"
+                    maxLength={2}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  ZIP Code
+                </label>
+                <input
+                  type="text"
+                  value={formData.zip}
+                  onChange={(e) => updateField('zip', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="98109"
+                  maxLength={5}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Medical Information */}
+          {step === 3 && (
+            <div className="space-y-6 animate-fade-scale">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                  <Activity className="w-6 h-6 text-green-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Medical Information</h2>
+                  <p className="text-sm text-gray-600">Help us understand your diagnosis</p>
+                </div>
+              </div>
+
+              <div className="relative" ref={diagnosisRef}>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Diagnosis *
+                </label>
+
+                {/* Searchable Dropdown */}
+                <div className="relative">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      value={diagnosisSearch}
+                      onChange={(e) => {
+                        setDiagnosisSearch(e.target.value);
+                        setShowDiagnosisDropdown(true);
+                        // If user types freely, save it as custom diagnosis
+                        if (e.target.value && !CANCER_TYPES.includes(e.target.value)) {
+                          updateField('diagnosis', e.target.value);
+                        }
+                      }}
+                      onFocus={() => setShowDiagnosisDropdown(true)}
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="Search for cancer type or type custom..."
+                    />
+                  </div>
+
+                  {/* Dropdown List */}
+                  {showDiagnosisDropdown && filteredCancerTypes.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                      {filteredCancerTypes.map((cancer, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => handleDiagnosisSelect(cancer)}
+                          className="w-full text-left px-4 py-2.5 hover:bg-green-50 focus:bg-green-50 focus:outline-none transition text-sm text-gray-700"
+                        >
+                          {cancer}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Selected Diagnosis Display */}
+                {formData.diagnosis && (
+                  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+                    <span className="text-sm text-green-700 font-medium">
+                      Selected: {formData.diagnosis}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateField('diagnosis', '');
+                        setDiagnosisSearch('');
+                        setShowCustomDiagnosisInput(false);
+                      }}
+                      className="text-xs text-green-600 hover:text-green-700 underline"
+                    >
+                      Change
+                    </button>
+                  </div>
+                )}
+
+                <p className="text-xs text-gray-500 mt-1">
+                  Search from our list or type your own diagnosis
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Diagnosis Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.diagnosisDate}
+                    onChange={(e) => updateField('diagnosisDate', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Cancer Type
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.cancerType}
+                    onChange={(e) => updateField('cancerType', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="e.g., Serous, Clear Cell"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Stage
+                </label>
+                <input
+                  type="text"
+                  value={formData.stage}
+                  onChange={(e) => updateField('stage', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="e.g., Stage IIIC, Stage II, etc."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Oncologist Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.oncologist}
+                  onChange={(e) => updateField('oncologist', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Dr. Jane Smith"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Hospital/Clinic
+                </label>
+                <input
+                  type="text"
+                  value={formData.hospital}
+                  onChange={(e) => updateField('hospital', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Seattle Cancer Care Alliance"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: Emergency Contact */}
+          {step === 4 && (
+            <div className="space-y-6 animate-fade-scale">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                  <User className="w-6 h-6 text-red-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Emergency Contact</h2>
+                  <p className="text-sm text-gray-600">Who should we contact in case of emergency?</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Contact Name *
+                </label>
+                <input
+                  type="text"
+                  value={formData.emergencyContactName}
+                  onChange={(e) => updateField('emergencyContactName', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="Jane Doe"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Contact Phone *
+                </label>
+                <input
+                  type="tel"
+                  value={formData.emergencyContactPhone}
+                  onChange={(e) => updateField('emergencyContactPhone', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="(555) 987-6543"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Relationship *
+                </label>
+                <select
+                  value={formData.emergencyContactRelationship}
+                  onChange={(e) => updateField('emergencyContactRelationship', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  <option value="">Select...</option>
+                  <option value="spouse">Spouse</option>
+                  <option value="partner">Partner</option>
+                  <option value="parent">Parent</option>
+                  <option value="child">Child</option>
+                  <option value="sibling">Sibling</option>
+                  <option value="friend">Friend</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              {/* Summary */}
+              <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-900 font-medium mb-2">You're all set!</p>
+                <p className="text-xs text-blue-700">
+                  Click "Complete Setup" to finish your profile. You can update this information anytime from your profile settings.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Navigation Buttons */}
+          <div className="flex justify-between mt-8 pt-6 border-t">
+            <button
+              onClick={handleBack}
+              disabled={step === 1}
+              className="px-6 py-2.5 text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Back
+            </button>
+
+            {step < 4 ? (
+              <button
+                onClick={handleNext}
+                disabled={!isStepValid()}
+                className="px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                onClick={handleComplete}
+                disabled={!isStepValid()}
+                className="px-6 py-2.5 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Complete Setup
+              </button>
+            )}
+          </div>
+
+          <p className="text-xs text-gray-500 text-center mt-4">
+            * Required fields
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

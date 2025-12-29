@@ -154,5 +154,17 @@ service cloud.firestore {
                                request.resource.data.patientId == locationId;
       allow delete: if isOwner(locationId);
     }
+
+    // Matched Trials (JRCT Integration) - users can only access their own matched trials
+    match /matchedTrials/{trialDocId} {
+      allow read: if request.auth != null &&
+                     resource.data.patientId == request.auth.uid;
+      allow create: if request.auth != null && hasValidPatientId();
+      allow update: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid &&
+                       hasValidPatientId();
+      allow delete: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid;
+    }
   }
 }

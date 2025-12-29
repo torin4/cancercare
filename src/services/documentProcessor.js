@@ -1,0 +1,488 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { labService, vitalService, medicationService, genomicProfileService } from '../firebase/services';
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+/**
+ * Process an uploaded medical document
+ * - Identifies document type
+ * - Extracts medical data
+ * - Saves to appropriate Firestore collections
+ */
+export async function processDocument(file, userId) {
+  try {
+    // Convert file to base64 for Gemini API
+    const base64Data = await fileToBase64(file);
+
+    // Step 1: Analyze document and extract data
+    const extractedData = await analyzeDocument(base64Data, file.type);
+
+    // Step 2: Save extracted data to Firestore
+    const savedData = await saveExtractedData(extractedData, userId);
+
+    return {
+      success: true,
+      documentType: extractedData.documentType,
+      extractedData: savedData,
+      summary: extractedData.summary
+    };
+  } catch (error) {
+    console.error('Error processing document:', error);
+    throw error;
+  }
+}
+
+/**
+ * Convert file to base64 string
+ */
+async function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Analyze document using Gemini AI
+ */
+async function analyzeDocument(base64Data, mimeType) {
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+
+  const prompt = `You are a medical document processing AI. Analyze this medical document and extract all relevant information.
+
+DOCUMENT TYPES TO IDENTIFY:
+1. Lab Results - Blood work, tumor markers (CA-125, CEA, etc.), chemistry panels
+2. Imaging/Scan - CT, MRI, PET scans, X-rays, ultrasounds
+3. Clinical Report - Progress notes, consultation notes, treatment summaries
+4. Genomic Test - Foundation One, Guardant360, BRCA testing, mutation panels
+5. Vital Signs - Blood pressure, heart rate, temperature, weight
+6. Medication - Prescriptions, medication lists
+
+EXTRACTION REQUIREMENTS:
+Return a JSON object with this EXACT structure:
+
+{
+  "documentType": "Lab|Scan|Report|Genomic|Vitals|Medication",
+  "summary": "Brief summary of key findings",
+  "data": {
+    // For Lab Results:
+    "labs": [
+      {
+        "labType": "ca125|cea|wbc|hemoglobin|platelets|etc",
+        "label": "CA-125",
+        "value": 68,
+        "unit": "U/mL",
+        "date": "2024-12-29",
+        "normalRange": "0-35",
+        "status": "high|normal|low"
+      }
+    ],
+
+    // For Vitals:
+    "vitals": [
+      {
+        "vitalType": "bp|hr|temp|weight|oxygen",
+        "label": "Blood Pressure",
+        "value": "125/80",
+        "unit": "mmHg",
+        "date": "2024-12-29",
+        "normalRange": "90-120/60-80"
+      }
+    ],
+
+    // For Genomic Tests (Foundation One, Guardant360, Tempus xT, Tempus TOP, BRCA testing, etc.):
+    "genomic": {
+      // Test Information
+      "testInfo": {
+        "testName": "FoundationOne CDx|Guardant360|Tempus xT|Tempus TOP|BRCA Testing|etc",
+        "testDate": "2024-12-15",
+        "laboratoryName": "Foundation Medicine|Tempus Labs|etc",
+        "specimenType": "FFPE tissue|Blood (ctDNA)|Germline blood",
+        "tumorPurity": "70%",
+        "genesCovered": 324
+      },
+
+      // ALL Genomic Alterations (extract every mutation with full details)
+      // For Tempus: separate somatic from germline - use mutationType field
+      "mutations": [
+        {
+          "gene": "BRCA1",
+          "alteration": "c.5266dupC (p.Gln1756Profs*74)",
+          "significance": "pathogenic|likely_pathogenic|VUS|benign",
+          "variantAlleleFrequency": 48.5,
+          "mutationType": "somatic|germline",
+          "therapyImplication": "PARP inhibitors",
+          "fdaApprovedTherapy": "Olaparib, Rucaparib, Niraparib",
+          "trialEligible": true
+        }
+      ],
+
+      // Copy Number Variants
+      "copyNumberVariants": [
+        {
+          "gene": "CCNE1",
+          "type": "amplification|deletion",
+          "copyNumber": 6,
+          "significance": "pathogenic"
+        }
+      ],
+
+      // Gene Fusions
+      "fusions": [
+        {
+          "fusion": "EML4-ALK",
+          "gene1": "EML4",
+          "gene2": "ALK",
+          "significance": "pathogenic",
+          "therapyImplication": "ALK inhibitors (Crizotinib)"
+        }
+      ],
+
+      // Biomarkers (extract with full numeric values and interpretations)
+      "biomarkers": {
+        "tumorMutationalBurden": {
+          "value": 12.5,
+          "unit": "mutations/megabase",
+          "interpretation": "high|intermediate|low",
+          "therapyEligible": "Pembrolizumab"
+        },
+        "microsatelliteInstability": {
+          "status": "MSI-H|MSS|MSI-L",
+          "interpretation": "Microsatellite Instability-High"
+        },
+        "hrdScore": {
+          "value": 48,
+          "threshold": "≥42",
+          "interpretation": "HRD-positive|HRD-negative",
+          "components": {
+            "LOH": 18,
+            "TAI": 15,
+            "LST": 21
+          },
+          "therapyEligible": "PARP inhibitors",
+          "clinicalSignificance": "Eligible for Olaparib, Rucaparib, Niraparib"
+        },
+        "pdl1Expression": {
+          "value": 85,
+          "unit": "percentage",
+          "interpretation": "high|low"
+        }
+      },
+
+      // Germline Findings (if germline testing or germline variants found)
+      "germlineFindings": [
+        {
+          "gene": "BRCA1",
+          "variant": "c.5266dupC",
+          "classification": "pathogenic",
+          "familyRisk": true,
+          "counselingRecommended": true
+        }
+      ],
+
+      // Therapy Matches from report
+      "fdaApprovedTherapies": ["Olaparib", "Pembrolizumab"],
+      "clinicalTrialEligible": true,
+
+      // Legacy fields (for backward compatibility - still extract these)
+      "tumorMutationalBurden": "high",
+      "microsatelliteStatus": "MSS",
+      "hrdScore": 48,
+      "additionalFindings": "Any other relevant clinical findings"
+    },
+
+    // For Medications:
+    "medications": [
+      {
+        "name": "Paclitaxel",
+        "dosage": "175 mg/m²",
+        "frequency": "Every 3 weeks",
+        "startDate": "2024-11-01"
+      }
+    ],
+
+    // For Imaging/Scans:
+    "imaging": {
+      "scanType": "CT|MRI|PET|X-ray|Ultrasound",
+      "bodyPart": "Abdomen & Pelvis",
+      "findings": "Stable disease, no new lesions",
+      "measurements": "Any tumor measurements",
+      "impression": "Radiologist impression"
+    }
+  }
+}
+
+IMPORTANT GENOMIC EXTRACTION RULES:
+For genomic/genetic test reports (FoundationOne, Guardant360, Tempus xT, Tempus TOP, etc.):
+
+GENERAL EXTRACTION:
+- Extract EVERY mutation listed, not just significant ones
+- Use official HUGO gene names (BRCA1 not brca1, TP53 not p53)
+- Include exact alteration notation (c.5266dupC, p.Arg273His, E545K, etc.)
+- Capture Variant Allele Frequency (VAF) percentages
+- Note ALL FDA-approved therapies mentioned
+- Flag genes/biomarkers that make patient eligible for trials
+- Capture test name, lab, dates, specimen type, tumor purity
+
+BIOMARKERS:
+- Extract TMB as numeric value with unit (e.g., 12.5 mutations/megabase)
+- Extract MSI as exact status (MSI-H, MSS, MSI-L)
+- Extract HRD score as numeric value (e.g., 48) with threshold
+- For Tempus: extract HRD components (LOH, TAI, LST) if provided
+- Extract PD-L1 if reported
+
+TEMPUS-SPECIFIC:
+- Distinguish somatic vs germline mutations (use mutationType field)
+- Extract RNA-detected fusions (mark source as "RNA sequencing")
+- Note gene expression data if mentioned
+- Extract CCNE1 amplification status (platinum resistance marker)
+- Capture ovarian-specific markers for TOP panel
+
+GERMLINE FINDINGS:
+- Separate germline findings in germlineFindings array
+- Include family risk assessment
+- Note counseling recommendations
+- Include cancer risk percentages if mentioned
+
+GENERAL RULES:
+- Only include sections that are present in the document
+- Extract ALL numerical values with proper units
+- Use standardized field names (ca125, wbc, bp, BRCA1, TP53, etc.)
+- Return ONLY valid JSON, no markdown or explanations
+- If a field is not present, omit it entirely`;
+
+  const result = await model.generateContent([
+    {
+      inlineData: {
+        mimeType: mimeType,
+        data: base64Data
+      }
+    },
+    { text: prompt }
+  ]);
+
+  const response = await result.response;
+  const text = response.text();
+
+  // Parse JSON response
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error('Failed to parse AI response');
+  }
+
+  return JSON.parse(jsonMatch[0]);
+}
+
+/**
+ * Save extracted data to Firestore collections
+ */
+async function saveExtractedData(extractedData, userId) {
+  const savedData = {
+    labs: [],
+    vitals: [],
+    medications: [],
+    genomic: null
+  };
+
+  try {
+    // Save Lab Results
+    if (extractedData.data?.labs) {
+      for (const lab of extractedData.data.labs) {
+        const labId = await labService.saveLab({
+          patientId: userId,
+          labType: lab.labType,
+          label: lab.label,
+          currentValue: lab.value,
+          unit: lab.unit,
+          normalRange: lab.normalRange,
+          status: lab.status,
+          createdAt: new Date(lab.date)
+        });
+
+        // Also save as a lab value entry
+        await labService.addLabValue(labId, {
+          value: lab.value,
+          date: new Date(lab.date),
+          notes: `Extracted from document`
+        });
+
+        savedData.labs.push({ labId, ...lab });
+      }
+    }
+
+    // Save Vitals
+    if (extractedData.data?.vitals) {
+      for (const vital of extractedData.data.vitals) {
+        const vitalId = await vitalService.saveVital({
+          patientId: userId,
+          vitalType: vital.vitalType,
+          label: vital.label,
+          currentValue: vital.value,
+          unit: vital.unit,
+          normalRange: vital.normalRange,
+          createdAt: new Date(vital.date)
+        });
+
+        // Also save as a vital value entry
+        await vitalService.addVitalValue(vitalId, {
+          value: vital.value,
+          date: new Date(vital.date),
+          notes: `Extracted from document`
+        });
+
+        savedData.vitals.push({ vitalId, ...vital });
+      }
+    }
+
+    // Save Genomic Profile
+    if (extractedData.data?.genomic) {
+      const genomicData = extractedData.data.genomic;
+
+      await genomicProfileService.saveGenomicProfile(userId, {
+        // Test Information
+        testName: genomicData.testInfo?.testName,
+        testDate: genomicData.testInfo?.testDate ? new Date(genomicData.testInfo.testDate) : null,
+        laboratoryName: genomicData.testInfo?.laboratoryName,
+        specimenType: genomicData.testInfo?.specimenType,
+        tumorPurity: genomicData.testInfo?.tumorPurity,
+
+        // Mutations (detailed array)
+        mutations: genomicData.mutations || [],
+
+        // Copy Number Variants
+        copyNumberVariants: genomicData.copyNumberVariants || [],
+
+        // Gene Fusions
+        fusions: genomicData.fusions || [],
+
+        // Biomarkers (enhanced structure)
+        biomarkers: genomicData.biomarkers || {},
+
+        // Germline Findings
+        germlineFindings: genomicData.germlineFindings || [],
+
+        // Therapy Matches
+        fdaApprovedTherapies: genomicData.fdaApprovedTherapies || [],
+        clinicalTrialEligible: genomicData.clinicalTrialEligible || false,
+
+        // Legacy fields (for backward compatibility)
+        tumorMutationalBurden: genomicData.tumorMutationalBurden || genomicData.biomarkers?.tumorMutationalBurden?.interpretation,
+        microsatelliteStatus: genomicData.microsatelliteStatus || genomicData.biomarkers?.microsatelliteInstability?.status,
+        hrdScore: genomicData.hrdScore || genomicData.biomarkers?.hrdScore?.value,
+        additionalFindings: genomicData.additionalFindings,
+
+        lastUpdated: new Date()
+      });
+
+      savedData.genomic = genomicData;
+    }
+
+    // Save Medications
+    if (extractedData.data?.medications) {
+      for (const med of extractedData.data.medications) {
+        const medId = await medicationService.saveMedication({
+          patientId: userId,
+          name: med.name,
+          dosage: med.dosage,
+          frequency: med.frequency,
+          startDate: new Date(med.startDate),
+          active: true
+        });
+
+        savedData.medications.push({ medId, ...med });
+      }
+    }
+
+    return savedData;
+  } catch (error) {
+    console.error('Error saving extracted data:', error);
+    throw error;
+  }
+}
+
+/**
+ * Generate a user-friendly summary of what was extracted
+ */
+export function generateExtractionSummary(extractedData, savedData) {
+  const parts = [];
+
+  if (savedData.labs.length > 0) {
+    parts.push(`📊 Extracted ${savedData.labs.length} lab value(s):`);
+    savedData.labs.forEach(lab => {
+      parts.push(`  • ${lab.label}: ${lab.value} ${lab.unit} (${lab.status || 'recorded'})`);
+    });
+  }
+
+  if (savedData.vitals.length > 0) {
+    parts.push(`\n💓 Extracted ${savedData.vitals.length} vital sign(s):`);
+    savedData.vitals.forEach(vital => {
+      parts.push(`  • ${vital.label}: ${vital.value} ${vital.unit}`);
+    });
+  }
+
+  if (savedData.genomic) {
+    parts.push(`\n🧬 Genomic Profile Updated:`);
+
+    // Test Information
+    if (savedData.genomic.testInfo?.testName) {
+      parts.push(`  • Test: ${savedData.genomic.testInfo.testName}`);
+    }
+
+    // Mutations
+    if (savedData.genomic.mutations?.length > 0) {
+      parts.push(`  • Mutations detected (${savedData.genomic.mutations.length}):`);
+      savedData.genomic.mutations.forEach(mut => {
+        const therapyInfo = mut.fdaApprovedTherapy ? ` → ${mut.fdaApprovedTherapy}` : '';
+        parts.push(`    - ${mut.gene}: ${mut.alteration || mut.significance}${therapyInfo}`);
+      });
+    }
+
+    // Biomarkers
+    if (savedData.genomic.biomarkers) {
+      const bio = savedData.genomic.biomarkers;
+      if (bio.tumorMutationalBurden) {
+        const tmb = bio.tumorMutationalBurden;
+        parts.push(`  • TMB: ${tmb.value || ''} ${tmb.unit || ''} (${tmb.interpretation}) ${tmb.therapyEligible ? '→ ' + tmb.therapyEligible : ''}`);
+      }
+      if (bio.microsatelliteInstability) {
+        parts.push(`  • MSI: ${bio.microsatelliteInstability.status}`);
+      }
+      if (bio.hrdScore) {
+        parts.push(`  • HRD Score: ${bio.hrdScore.value} (${bio.hrdScore.interpretation}) ${bio.hrdScore.therapyEligible ? '→ ' + bio.hrdScore.therapyEligible : ''}`);
+      }
+    }
+
+    // FDA-Approved Therapies
+    if (savedData.genomic.fdaApprovedTherapies?.length > 0) {
+      parts.push(`  • FDA-Approved Options: ${savedData.genomic.fdaApprovedTherapies.join(', ')}`);
+    }
+
+    // Germline Findings
+    if (savedData.genomic.germlineFindings?.length > 0) {
+      parts.push(`  • Germline Findings: ${savedData.genomic.germlineFindings.map(g => g.gene).join(', ')} (genetic counseling recommended)`);
+    }
+
+    // Clinical Trial Eligibility
+    if (savedData.genomic.clinicalTrialEligible) {
+      parts.push(`  • ✅ Eligible for clinical trials based on genomic profile`);
+    }
+  }
+
+  if (savedData.medications.length > 0) {
+    parts.push(`\n💊 Extracted ${savedData.medications.length} medication(s):`);
+    savedData.medications.forEach(med => {
+      parts.push(`  • ${med.name} - ${med.dosage}`);
+    });
+  }
+
+  if (parts.length === 0) {
+    parts.push('Document processed successfully. No structured data extracted.');
+  }
+
+  return parts.join('\n');
+}
