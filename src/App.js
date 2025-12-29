@@ -88,6 +88,7 @@ export default function CancerCareApp() {
   const [quickLogInput, setQuickLogInput] = useState('');
   const [inputText, setInputText] = useState('');
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
+  const [documentOnboardingMethod, setDocumentOnboardingMethod] = useState('picker');
   const [hasUploadedDocument, setHasUploadedDocument] = useState(false);
   const [showEditInfo, setShowEditInfo] = useState(false);
   const [showUpdateStatus, setShowUpdateStatus] = useState(false);
@@ -150,8 +151,9 @@ export default function CancerCareApp() {
   };
 
   // Helper to open the document upload onboarding with debugging log
-  const openDocumentOnboarding = (docType = null) => {
-    console.log('openDocumentOnboarding called, hasUploadedDocument=', hasUploadedDocument, 'docType=', docType);
+  const openDocumentOnboarding = (docType = null, method = 'picker') => {
+    console.log('openDocumentOnboarding called, hasUploadedDocument=', hasUploadedDocument, 'docType=', docType, 'method=', method);
+    setDocumentOnboardingMethod(method || 'picker');
     setShowDocumentOnboarding(true);
   };
 
@@ -1006,6 +1008,26 @@ export default function CancerCareApp() {
     input.click();
   };
 
+  const simulateCameraUpload = (docType) => {
+    console.log('simulateCameraUpload called, docType=', docType);
+    const input = document.createElement('input');
+    input.type = 'file';
+    // Allow camera capture on mobile and images from device
+    input.accept = 'image/*,video/*,.pdf';
+    // Hint mobile devices to open camera
+    input.capture = 'environment';
+
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        console.log('simulateCameraUpload - file selected:', file.name, 'docType=', docType);
+        await handleRealFileUpload(file, docType);
+      }
+    };
+
+    input.click();
+  };
+
   // Get current lab, ensuring it exists and defaulting to first numeric lab if not
   const currentLab = allLabData[selectedLab] || Object.values(allLabData).find(lab => lab.isNumeric) || Object.values(allLabData)[0] || {
     name: 'No Data',
@@ -1246,12 +1268,21 @@ export default function CancerCareApp() {
                   placeholder="Ask about symptoms, treatments, or upload results..."
                   className="flex-1 border border-gray-300 rounded-full px-4 py-2.5 text-sm sm:text-base focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
-                <button
-                  onClick={handleSendMessage}
-                  className="bg-green-600 text-white p-2.5 rounded-full hover:bg-green-700 transition flex-shrink-0"
-                >
-                  <Send className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => openDocumentOnboarding(null, 'camera')}
+                    title="Capture document with camera"
+                    className="bg-gray-100 text-gray-700 p-2 rounded-full hover:bg-gray-200 transition flex-shrink-0"
+                  >
+                    <Camera className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={handleSendMessage}
+                    className="bg-green-600 text-white p-2.5 rounded-full hover:bg-green-700 transition flex-shrink-0"
+                  >
+                    <Send className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -3305,8 +3336,12 @@ export default function CancerCareApp() {
             onClose={() => setShowDocumentOnboarding(false)}
             onUploadClick={(documentType) => {
               setShowDocumentOnboarding(false);
-              // Directly trigger file picker with the selected document type
-              simulateDocumentUpload(documentType);
+              // Trigger camera capture or file picker based on onboarding method
+              if (documentOnboardingMethod === 'camera') {
+                simulateCameraUpload(documentType);
+              } else {
+                simulateDocumentUpload(documentType);
+              }
             }}
           />
         )
