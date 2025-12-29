@@ -65,9 +65,9 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">{isOnboarding ? 'Upload Your First Document' : 'Upload Document'}</h2>
+            <h2 className="text-2xl font-bold text-gray-900">{isOnboarding ? 'Upload Your First File' : 'File Upload'}</h2>
             <p className="text-sm text-gray-600 mt-1">
-              {isOnboarding ? 'Choose the type of document you\'d like to upload' : 'Select document type or capture a file to upload'}
+              {isOnboarding ? 'Choose the type of file you\'d like to upload' : 'Select document type or capture a file to upload'}
             </p>
           </div>
           <button
