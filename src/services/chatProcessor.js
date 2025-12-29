@@ -8,7 +8,7 @@ const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY || pro
  */
 export async function processChatMessage(message, userId, conversationHistory = []) {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     // Build prompt for extraction
     const prompt = `You are CancerCare's AI health assistant helping track medical data for a patient with ovarian cancer.
