@@ -939,7 +939,13 @@ export default function CancerCareApp() {
             </div>
             <div>
               <h1 className="text-lg sm:text-xl font-bold text-gray-900">CancerCare</h1>
-              <p className="text-xs sm:text-sm text-gray-600">Ovarian Cancer • Stage IIIC</p>
+              {(patientProfile.diagnosis || patientProfile.stage) && (
+                <p className="text-xs sm:text-sm text-gray-600">
+                  {patientProfile.diagnosis}
+                  {patientProfile.diagnosis && patientProfile.stage && ' • '}
+                  {patientProfile.stage}
+                </p>
+              )}
             </div>
           </div>
           <button
@@ -2136,9 +2142,15 @@ export default function CancerCareApp() {
                 </div>
 
                 <div className="flex-1">
-                  <h2 className="font-bold text-lg">{user?.displayName || 'Patient'}</h2>
-                  <p className="text-sm text-gray-600">Age: {user?.age || '--'}</p>
-                  <p className="text-sm text-gray-600">DOB: {user?.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString() : '--'}</p>
+                  <h2 className="font-bold text-lg">{patientProfile.name || user?.displayName || 'Patient'}</h2>
+                  <p className="text-sm text-gray-600">Age: {patientProfile.age || '--'}</p>
+                  <p className="text-sm text-gray-600">DOB: {patientProfile.dateOfBirth ? new Date(patientProfile.dateOfBirth).toLocaleDateString() : '--'}</p>
+                  {patientProfile.diagnosis && (
+                    <p className="text-sm text-gray-600">Diagnosis: {patientProfile.diagnosis}</p>
+                  )}
+                  {patientProfile.stage && (
+                    <p className="text-sm text-gray-600">Stage: {patientProfile.stage}</p>
+                  )}
                   <button
                     onClick={() => setShowEditInfo(true)}
                     className="text-blue-600 text-sm font-medium mt-1 hover:underline"
