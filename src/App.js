@@ -1363,7 +1363,7 @@ export default function CancerCareApp() {
 
                         {/* Lab Value Cards */}
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-                          {Object.entries(allLabData).slice(0, 6).map(([key, lab]) => (
+                          {Object.entries(allLabData).map(([key, lab]) => (
                             <button
                               key={key}
                               onClick={() => setSelectedLab(key)}
