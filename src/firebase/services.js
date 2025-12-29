@@ -3,6 +3,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  onSnapshot,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -471,6 +472,22 @@ export const symptomService = {
       id: doc.id,
       ...convertTimestamps(doc.data())
     }));
+  },
+
+  // Subscribe to real-time symptom updates for a patient
+  subscribeSymptoms(patientId, onChange) {
+    const q = query(
+      collection(db, COLLECTIONS.SYMPTOMS),
+      where('patientId', '==', patientId),
+      orderBy('date', 'desc')
+    );
+    const unsub = onSnapshot(q, (snapshot) => {
+      const items = snapshot.docs.map(d => ({ id: d.id, ...convertTimestamps(d.data()) }));
+      if (typeof onChange === 'function') onChange(items);
+    }, (err) => {
+      console.warn('Symptoms subscription error:', err);
+    });
+    return unsub;
   },
 
   // Add symptom

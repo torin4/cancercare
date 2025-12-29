@@ -633,6 +633,15 @@ export default function CancerCareApp() {
     loadDocuments();
   }, [user]);
 
+  // Real-time subscription for symptoms so UI updates without refresh
+  useEffect(() => {
+    if (!user) return;
+    const unsub = symptomService.subscribeSymptoms(user.uid, (items) => {
+      setSymptoms(items);
+    });
+    return () => unsub && unsub();
+  }, [user]);
+
   // Load labs and vitals data from Firestore
   useEffect(() => {
     const loadHealthData = async () => {
