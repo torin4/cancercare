@@ -180,3 +180,5 @@ Historical data (lab values, vital values) is stored in subcollections for effic
 - ✅ Error handling in all services
 - ✅ Loading states in hooks
 
+
+

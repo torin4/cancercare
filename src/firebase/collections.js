@@ -282,3 +282,5 @@ export const TrialLocationSchema = {
   updatedAt: 'timestamp'
 };
 
+
+

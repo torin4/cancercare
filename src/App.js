@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight } from 'lucide-react';
 import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
 import { uploadDocument, deleteUserDirectory } from './firebase/storage';
-import { documentService, labService, vitalService, patientService, accountService } from './firebase/services';
+import { documentService, labService, vitalService, patientService, accountService, genomicProfileService, clinicalTrialService } from './firebase/services';
 import { processDocument, generateExtractionSummary } from './services/documentProcessor';
 import { processChatMessage, generateChatExtractionSummary } from './services/chatProcessor';
 import { auth } from './firebase/config';
@@ -122,6 +122,20 @@ export default function CancerCareApp() {
   const [hasRealVitalData, setHasRealVitalData] = useState(false);
 
   const [documents, setDocuments] = useState([]);
+  const [trials, setTrials] = useState([
+    {
+      name: 'Phase III Ovarian Cancer Targeted Therapy Study',
+      match: '94% Match',
+      location: 'Seattle Cancer Center',
+      distance: '2.4 miles'
+    },
+    {
+      name: 'Immunotherapy for Advanced Solid Tumors',
+      match: '88% Match',
+      location: 'UW Medical Center',
+      distance: '4.1 miles'
+    }
+  ]);
 
   const [medications, setMedications] = useState([
     {
@@ -212,7 +226,32 @@ export default function CancerCareApp() {
     });
   };
 
-  // Default lab data (fallback when no Firestore data)
+  useEffect(() => {
+    const fetchTopTrials = async () => {
+      if (!user) return;
+      try {
+        const patient = await patientService.getPatient(user.uid);
+        const genomic = await genomicProfileService.getGenomicProfile(user.uid);
+        const results = await clinicalTrialService.searchAndMatchTrials(user.uid, patient, genomic);
+
+        if (results.success && results.trials) {
+          const mappedTrials = results.trials.slice(0, 2).map(t => ({
+            name: t.title || t.titleJa,
+            match: `${t.matchResult?.matchPercentage || 0}% Match`,
+            location: t.locations?.[0] || 'TBD',
+            distance: 'Trial Match'
+          }));
+          setTrials(mappedTrials);
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard trials:', error);
+      }
+    };
+
+    fetchTopTrials();
+  }, [user]);
+
+  // Handle markers and data...
   const defaultLabData = {
     ca125: {
       name: 'CA-125',
@@ -597,6 +636,7 @@ export default function CancerCareApp() {
         setLabsData({});
         setVitalsData({});
         setDocuments([]);
+        setTrials([]);
         setMessages([
           {
             type: 'ai',

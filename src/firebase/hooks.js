@@ -518,3 +518,5 @@ export const useClinicalTrials = (patientId) => {
   return { trials, loading, error, addTrial };
 };
 
+
+
