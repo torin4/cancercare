@@ -3333,6 +3333,7 @@ export default function CancerCareApp() {
       {
         showDocumentOnboarding && (
           <DocumentUploadOnboarding
+            isOnboarding={!hasUploadedDocument}
             onClose={() => setShowDocumentOnboarding(false)}
             onUploadClick={(documentType) => {
               setShowDocumentOnboarding(false);

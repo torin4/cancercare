@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Upload, Activity, Dna, FileText, X, CheckCircle } from 'lucide-react';
 
-const DocumentUploadOnboarding = ({ onClose, onUploadClick }) => {
+const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true }) => {
   const [selectedType, setSelectedType] = useState(null);
 
   const documentTypes = [
@@ -65,9 +65,9 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick }) => {
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Upload Your First Document</h2>
+            <h2 className="text-2xl font-bold text-gray-900">{isOnboarding ? 'Upload Your First Document' : 'Upload Document'}</h2>
             <p className="text-sm text-gray-600 mt-1">
-              Choose the type of document you'd like to upload
+              {isOnboarding ? 'Choose the type of document you\'d like to upload' : 'Select document type or capture a file to upload'}
             </p>
           </div>
           <button
@@ -186,7 +186,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick }) => {
             }`}
           >
             <Upload className="w-5 h-5" />
-            Continue to Upload
+            {isOnboarding ? 'Continue to Upload' : 'Upload'}
           </button>
         </div>
       </div>
