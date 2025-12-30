@@ -16,7 +16,7 @@ const CANCER_SUBTYPES = {
 export default function Onboarding({ onComplete }) {
   // Derive simple cancer list from subtypes map
   const CANCER_TYPES = Object.keys(CANCER_SUBTYPES).concat(['Other (Please Specify)']);
-  const TOTAL_STEPS = 2;
+  const TOTAL_STEPS = 3;
   const [step, setStep] = useState(1);
   const [diagnosisSearch, setDiagnosisSearch] = useState('');
   const [showDiagnosisDropdown, setShowDiagnosisDropdown] = useState(false);
@@ -25,15 +25,15 @@ export default function Onboarding({ onComplete }) {
   const [showCustomStageInput, setShowCustomStageInput] = useState(false);
   const diagnosisRef = useRef(null);
   const [formData, setFormData] = useState({
-    name: '',
-    dateOfBirth: '',
-    gender: '',
+    country: 'United States',
     phone: '',
     address: '',
     city: '',
     state: '',
     zip: '',
-    country: 'United States',
+    name: '',
+    dateOfBirth: '',
+    gender: '',
     diagnosis: '',
     diagnosisDate: '',
     cancerType: '',
@@ -59,7 +59,20 @@ export default function Onboarding({ onComplete }) {
     primaryCareClinic: ''
   });
 
-  const updateField = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
+  const updateField = (field, value) => {
+    setFormData(prev => {
+      const newForm = { ...prev, [field]: value };
+      // Reset postal and state fields if country changes
+      if (field === 'country') {
+        // Clear state and zip if not United States
+        if (value !== 'United States') {
+          newForm.state = '';
+        }
+        newForm.zip = '';
+      }
+      return newForm;
+    });
+  };
 
   const getPostalPlaceholder = (country) => {
     if (!country) return '';
@@ -71,6 +84,13 @@ export default function Onboarding({ onComplete }) {
   };
 
   const handleNext = () => {
+    if (step === 2) {
+      // Require phone, city, state on step 2 to proceed
+      if (!formData.phone || !formData.city || (formData.country === 'United States' && !formData.state)) {
+        alert('Please fill out all required address fields, including state for United States.');
+        return;
+      }
+    }
     if (step < TOTAL_STEPS) {
       setStep(step + 1);
     }
