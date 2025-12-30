@@ -89,6 +89,16 @@ export default function CancerCareApp() {
     const kind = mutation.type || (mutation.germline ? 'Germline' : mutation.somatic ? 'Somatic' : null);
     return { dna, protein, kind };
   };
+  // Common subtype mapping (same options as onboarding)
+  const CANCER_SUBTYPES = {
+    'Ovarian Cancer': ['High-grade serous', 'Low-grade serous', 'Clear cell', 'Endometrioid', 'Mucinous', 'Other (specify)'],
+    'Breast Cancer': ['Invasive ductal (IDC)', 'Invasive lobular (ILC)', 'Triple-negative', 'HER2+', 'ER+/PR+', 'Other (specify)'],
+    'Lung Cancer': ['Adenocarcinoma', 'Squamous cell carcinoma', 'Small cell lung cancer', 'Large cell carcinoma', 'Other (specify)'],
+    'Colorectal Cancer': ['Adenocarcinoma', 'Mucinous adenocarcinoma', 'Signet ring cell carcinoma', 'Other (specify)'],
+    'Endometrial Cancer': ['Endometrioid', 'Serous (Type II)', 'Clear cell', 'Carcinosarcoma', 'Other (specify)'],
+    'Pancreatic Cancer': ['Pancreatic ductal adenocarcinoma', 'Pancreatic neuroendocrine tumor (PNET)', 'Other (specify)']
+  };
+  const STAGE_OPTIONS = ['Unknown','Stage I','Stage II','Stage III','Stage IV','Recurrent','Other (specify)'];
   // Format mutation labels (remove underscores, title case, map common codes)
   const formatLabel = (raw) => {
     if (!raw && raw !== 0) return '';
@@ -132,6 +142,8 @@ export default function CancerCareApp() {
   const [documentOnboardingMethod, setDocumentOnboardingMethod] = useState('picker');
   const [hasUploadedDocument, setHasUploadedDocument] = useState(false);
   const [showEditInfo, setShowEditInfo] = useState(false);
+  const [editCancerCustom, setEditCancerCustom] = useState(false);
+  const [editStageCustom, setEditStageCustom] = useState(false);
   const [showUpdateStatus, setShowUpdateStatus] = useState(false);
   const [editMode, setEditMode] = useState('ai');
   const [currentStatus, setCurrentStatus] = useState({
@@ -147,6 +159,14 @@ export default function CancerCareApp() {
   const [showEditGenomic, setShowEditGenomic] = useState(false);
   const [showEditContacts, setShowEditContacts] = useState(false);
   const [showEditLocation, setShowEditLocation] = useState(false);
+
+  useEffect(() => {
+    if (showEditInfo) {
+      const opts = CANCER_SUBTYPES[patientProfile.diagnosis] || [];
+      setEditCancerCustom(patientProfile.cancerType ? !opts.includes(patientProfile.cancerType) : false);
+      setEditStageCustom(patientProfile.stage === 'Other (specify)' || !!patientProfile.stageOther);
+    }
+  }, [showEditInfo]);
   const [showDeletionConfirm, setShowDeletionConfirm] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
@@ -161,6 +181,9 @@ export default function CancerCareApp() {
     height: '',
     diagnosis: '',
     stage: '',
+    stageOther: '',
+    diagnosisDate: '',
+    cancerType: '',
     oncologist: '',
     hospital: ''
   });
@@ -573,10 +596,8 @@ export default function CancerCareApp() {
       // Save patient profile
         await patientService.savePatient(user.uid, {
         email: user.email,
-        name: formData.name || `${formData.firstName} ${formData.lastName}`,
-        displayName: formData.name || `${formData.firstName} ${formData.lastName}`,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
+        name: formData.name,
+        displayName: formData.name,
         dateOfBirth: formData.dateOfBirth,
         age: age,
         gender: formData.gender,
@@ -641,7 +662,7 @@ export default function CancerCareApp() {
       // Update local patientProfile state so UI reflects saved name immediately
       setPatientProfile(prev => ({
         ...prev,
-        name: formData.name || `${formData.firstName} ${formData.lastName}`,
+        name: formData.name,
         age: age,
         dateOfBirth: formData.dateOfBirth,
         diagnosis: formData.diagnosis || prev.diagnosis,
@@ -765,7 +786,10 @@ export default function CancerCareApp() {
               weight: profile.weight || '',
               height: profile.height || '',
               diagnosis: profile.diagnosis || '',
+              diagnosisDate: profile.diagnosisDate || '',
+              cancerType: profile.cancerType || '',
               stage: profile.stage || '',
+              stageOther: profile.stageOther || '',
               oncologist: profile.oncologist || '',
               hospital: profile.hospital || ''
             });
@@ -4082,6 +4106,102 @@ export default function CancerCareApp() {
                   </div>
 
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis</label>
+                    <input
+                      type="text"
+                      value={patientProfile.diagnosis || ''}
+                      onChange={(e) => setPatientProfile({ ...patientProfile, diagnosis: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="e.g., Ovarian Cancer"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis Date</label>
+                      <input
+                        type="date"
+                        value={patientProfile.diagnosisDate || ''}
+                        onChange={(e) => setPatientProfile({ ...patientProfile, diagnosisDate: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Cancer Subtype</label>
+                      { (CANCER_SUBTYPES[patientProfile.diagnosis] || []).length > 0 ? (
+                        <>
+                          <select
+                            value={patientProfile.cancerType || ''}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              if (v === 'Other (specify)') {
+                                setEditCancerCustom(true);
+                                setPatientProfile({ ...patientProfile, cancerType: '' });
+                              } else {
+                                setEditCancerCustom(false);
+                                setPatientProfile({ ...patientProfile, cancerType: v });
+                              }
+                            }}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">Select subtype...</option>
+                            {(CANCER_SUBTYPES[patientProfile.diagnosis] || []).map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                          {editCancerCustom && (
+                            <input
+                              type="text"
+                              value={patientProfile.cancerType || ''}
+                              onChange={(e) => setPatientProfile({ ...patientProfile, cancerType: e.target.value })}
+                              className="w-full mt-2 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Specify subtype"
+                            />
+                          )}
+                        </>
+                      ) : (
+                        <input
+                          type="text"
+                          value={patientProfile.cancerType || ''}
+                          onChange={(e) => setPatientProfile({ ...patientProfile, cancerType: e.target.value })}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="e.g., Serous, Clear Cell"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Stage</label>
+                    <div>
+                      <select
+                        value={patientProfile.stage || ''}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === 'Other (specify)') {
+                            setEditStageCustom(true);
+                            setPatientProfile({ ...patientProfile, stage: '' });
+                          } else {
+                            setEditStageCustom(false);
+                            setPatientProfile({ ...patientProfile, stage: v });
+                          }
+                        }}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {STAGE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      {editStageCustom && (
+                        <input
+                          type="text"
+                          value={patientProfile.stageOther || ''}
+                          onChange={(e) => setPatientProfile({ ...patientProfile, stageOther: e.target.value })}
+                          className="w-full mt-2 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Specify stage (e.g., Stage IIIC)"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
                     <input
                       type="number"
@@ -4146,6 +4266,11 @@ export default function CancerCareApp() {
                           dateOfBirth: patientProfile.dateOfBirth,
                           weight: parseFloat(patientProfile.weight) || null,
                           height: parseFloat(patientProfile.height) || null,
+                          diagnosis: patientProfile.diagnosis || '',
+                          diagnosisDate: patientProfile.diagnosisDate || '',
+                          cancerType: patientProfile.cancerType || '',
+                          stage: patientProfile.stageOther || patientProfile.stage || '',
+                          stageOther: patientProfile.stageOther || '',
                           oncologist: patientProfile.oncologist || '',
                           hospital: patientProfile.hospital || ''
                         });
@@ -4157,6 +4282,11 @@ export default function CancerCareApp() {
                           dateOfBirth: patientProfile.dateOfBirth,
                           weight: patientProfile.weight,
                           height: patientProfile.height,
+                          diagnosis: patientProfile.diagnosis || prev.diagnosis,
+                          diagnosisDate: patientProfile.diagnosisDate || prev.diagnosisDate,
+                          cancerType: patientProfile.cancerType || prev.cancerType,
+                          stage: patientProfile.stageOther || patientProfile.stage || prev.stage,
+                          stageOther: patientProfile.stageOther || prev.stageOther,
                           oncologist: patientProfile.oncologist || '',
                           hospital: patientProfile.hospital || ''
                         }));
