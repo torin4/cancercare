@@ -1,149 +1,416 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Calendar, MapPin, Activity, ChevronRight, Search } from 'lucide-react';
+import { User, Activity, ChevronRight, Search, Camera } from 'lucide-react';
 
 // Map of common histologic subtypes / diagnoses by main cancer category
-// Includes most common subtypes and an "Other (specify)" option for custom entries
 const CANCER_SUBTYPES = {
   'Ovarian Cancer': ['High-grade serous', 'Low-grade serous', 'Clear cell', 'Endometrioid', 'Mucinous', 'Other (specify)'],
   'Breast Cancer': ['Invasive ductal (IDC)', 'Invasive lobular (ILC)', 'Triple-negative', 'HER2+', 'ER+/PR+', 'Other (specify)'],
   'Lung Cancer': ['Adenocarcinoma', 'Squamous cell carcinoma', 'Small cell lung cancer', 'Large cell carcinoma', 'Other (specify)'],
   'Colorectal Cancer': ['Adenocarcinoma', 'Mucinous adenocarcinoma', 'Signet ring cell carcinoma', 'Other (specify)'],
   'Endometrial Cancer': ['Endometrioid', 'Serous (Type II)', 'Clear cell', 'Carcinosarcoma', 'Other (specify)'],
-  'Pancreatic Cancer': ['Pancreatic ductal adenocarcinoma', 'Pancreatic neuroendocrine tumor (PNET)', 'Other (specify)'],
-          
-  };
+  'Pancreatic Cancer': ['Pancreatic ductal adenocarcinoma', 'Pancreatic neuroendocrine tumor (PNET)', 'Other (specify)']
+};
+
+const STAGE_OPTIONS = ['Unknown','Stage I','Stage II','Stage III','Stage IV','Recurrent','Other (specify)'];
 
 export default function Onboarding({ onComplete }) {
-  // Derive simple cancer list from subtypes map
   const CANCER_TYPES = [...Object.keys(CANCER_SUBTYPES), 'Other (Please Specify)'];
-  // Wizard simplified to 2 steps: Patient Information and Diagnosis
   const TOTAL_STEPS = 2;
   const [step, setStep] = useState(1);
-  const [diagnosisSearch, setDiagnosisSearch] = useState('');
-  const [showDiagnosisDropdown, setShowDiagnosisDropdown] = useState(false);
-  const [showCustomDiagnosisInput, setShowCustomDiagnosisInput] = useState(false);
   const [showCustomSubtypeInput, setShowCustomSubtypeInput] = useState(false);
   const [showCustomStageInput, setShowCustomStageInput] = useState(false);
-  const diagnosisRef = useRef(null);
   const [formData, setFormData] = useState({
-    country: 'United States',
-    phone: '',
-    address: '',
-    city: '',
-    state: '',
-    zip: '',
+    // Personal
     name: '',
     dateOfBirth: '',
     gender: '',
+    country: 'United States',
     height: '',
     weight: '',
-    diagnosis: '',
-    diagnosisDate: '',
+    // Diagnosis
     cancerType: '',
     cancerSubtype: '',
     stage: '',
     stageOther: '',
-    oncologist: '',
-    hospital: '',
+    diagnosisDate: '',
     treatmentLine: '',
     currentRegimen: '',
     performanceStatus: '',
     diseaseStatus: '',
-    baselineCa125: '',
-    emergencyContactName: '',
-    emergencyContactPhone: '',
-    emergencyContactRelationship: '',
-    emergencyContactEmail: '',
-    emergencyContactAddress: '',
-    emergencyContactCity: '',
-    emergencyContactState: '',
-    emergencyContactZip: '',
-    primaryCareName: '',
-    primaryCarePhone: '',
-    primaryCareClinic: ''
+    baselineCa125: ''
   });
 
-  const updateField = (field, value) => {
-    setFormData(prev => {
-      const newForm = { ...prev, [field]: value };
-      // Reset postal and state fields if country changes
-      if (field === 'country') {
-        // Clear state and zip if not United States
-        if (value !== 'United States') {
-          newForm.state = '';
-        }
-        newForm.zip = '';
-      }
-      return newForm;
-    });
-  };
+  const updateField = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
 
-  const getPostalPlaceholder = (country) => {
-    if (!country) return '';
-    const c = country.toLowerCase();
-    if (c.includes('japan')) return '100-0001';
-    if (c.includes('united states')) return '98109';
-    if (c.includes('canada')) return 'V6B 1A1';
-    return '';
-  };
+  const subtypeOptions = (() => {
+    const key = formData.cancerType || '';
+    if (!key) return [];
+    return CANCER_SUBTYPES[key] || ['Other (specify)'];
+  })();
 
-  const getStateLabel = (country) => {
-    if (!country) return 'State';
-    const c = country.toLowerCase();
-    if (c.includes('canada')) return 'Province/Region';
-    if (c.includes('united kingdom') || c.includes('uk')) return 'County/Region';
-    if (c.includes('japan')) return 'Prefecture';
-    return 'State';
-  };
-
-  const getZipMaxLength = (country) => {
-    if (!country) return 10;
-    const c = country.toLowerCase();
-    if (c.includes('united states')) return 5;
-    if (c.includes('canada')) return 7;
-    if (c.includes('japan')) return 8;
-    return 20;
+  const isStepValid = () => {
+    if (step === 1) return formData.name && formData.dateOfBirth && formData.height && formData.weight;
+    // step 2 requires cancerType, cancerSubtype, stage
+    return !!(formData.cancerType && formData.cancerSubtype && (formData.stage || formData.stageOther));
   };
 
   const handleNext = () => {
-    // Validate current step before advancing
-    if (!isStepValid()) {
-      alert('Please fill out all required fields for this step.');
-      return;
-    }
+    if (!isStepValid()) { alert('Please fill required fields'); return; }
     if (step < TOTAL_STEPS) setStep(step + 1);
   };
 
-  const handleBack = () => {
-    if (step > 1) {
-      setStep(step - 1);
-    }
-  };
+  const handleBack = () => { if (step > 1) setStep(step - 1); };
 
   const handleComplete = () => {
-    onComplete(formData);
+    // assemble human-readable diagnosis for compatibility
+    const stageValue = formData.stageOther || formData.stage || '';
+    const diagnosis = `${formData.cancerType || ''}${formData.cancerSubtype ? ' - ' + formData.cancerSubtype : ''}${stageValue ? ', ' + stageValue : ''}`;
+    onComplete({ ...formData, diagnosis });
   };
 
-  // Filter cancer types based on search
-  const filteredCancerTypes = CANCER_TYPES.filter(cancer =>
-    cancer.toLowerCase().includes(diagnosisSearch.toLowerCase())
+  // simple outside click handler placeholder if needed for search in future
+  const diagnosisRef = useRef(null);
+  useEffect(() => {
+    const handler = (e) => { if (diagnosisRef.current && !diagnosisRef.current.contains(e.target)) {} };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
+          <h1 className="text-2xl font-bold mb-2">Welcome to CancerCare</h1>
+          <p className="text-blue-100">Let's set up your health profile</p>
+          <div className="mt-4 flex gap-2">
+            {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map(i => (
+              <div key={i} className={`flex-1 h-2 rounded-full ${i <= step ? 'bg-white' : 'bg-blue-400'}`} />
+            ))}
+          </div>
+          <p className="text-sm text-blue-100 mt-2">Step {step} of {TOTAL_STEPS}</p>
+        </div>
+
+        <div className="p-8">
+          {step === 1 && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <User className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Personal Information</h2>
+                  <p className="text-sm text-gray-600">Tell us about yourself</p>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                <input type="text" value={formData.name} onChange={(e) => updateField('name', e.target.value)} className="w-full px-4 py-2.5 border rounded" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth *</label>
+                  <input type="date" value={formData.dateOfBirth} onChange={(e) => updateField('dateOfBirth', e.target.value)} className="w-full px-4 py-2.5 border rounded" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                  <select value={formData.gender} onChange={(e) => updateField('gender', e.target.value)} className="w-full px-4 py-2.5 border rounded">
+                    <option value="">Select...</option>
+                    <option value="female">Female</option>
+                    <option value="male">Male</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Height (cm) *</label>
+                  <input type="number" value={formData.height} onChange={(e) => updateField('height', e.target.value)} className="w-full px-4 py-2.5 border rounded" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg) *</label>
+                  <input type="number" value={formData.weight} onChange={(e) => updateField('weight', e.target.value)} className="w-full px-4 py-2.5 border rounded" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                  <Activity className="w-6 h-6 text-green-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Diagnosis</h2>
+                  <p className="text-sm text-gray-600">Select cancer type, subtype and stage</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cancer Type *</label>
+                <select value={formData.cancerType} onChange={(e) => { updateField('cancerType', e.target.value); updateField('cancerSubtype',''); }} className="w-full px-4 py-2.5 border rounded">
+                  <option value="">Select cancer type...</option>
+                  {CANCER_TYPES.map(ct => <option key={ct} value={ct}>{ct}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Subtype *</label>
+                {subtypeOptions.length > 0 ? (
+                  <select value={formData.cancerSubtype} onChange={(e) => updateField('cancerSubtype', e.target.value)} className="w-full px-4 py-2.5 border rounded">
+                    <option value="">Select subtype...</option>
+                    {subtypeOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                ) : (
+                  <input type="text" value={formData.cancerSubtype} onChange={(e) => updateField('cancerSubtype', e.target.value)} className="w-full px-4 py-2.5 border rounded" placeholder="Specify subtype" />
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stage *</label>
+                <select value={formData.stage} onChange={(e) => updateField('stage', e.target.value)} className="w-full px-4 py-2.5 border rounded">
+                  <option value="">Select stage...</option>
+                  {STAGE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis Date</label>
+                  <input type="date" value={formData.diagnosisDate} onChange={(e) => updateField('diagnosisDate', e.target.value)} className="w-full px-4 py-2.5 border rounded" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Treatment Line</label>
+                  <input type="text" value={formData.treatmentLine} onChange={(e) => updateField('treatmentLine', e.target.value)} className="w-full px-4 py-2.5 border rounded" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Current Regimen</label>
+                <input type="text" value={formData.currentRegimen} onChange={(e) => updateField('currentRegimen', e.target.value)} className="w-full px-4 py-2.5 border rounded" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Performance Status (ECOG)</label>
+                  <select value={formData.performanceStatus} onChange={(e) => updateField('performanceStatus', e.target.value)} className="w-full px-4 py-2.5 border rounded">
+                    <option value="">Select...</option>
+                    <option value="0">ECOG 0 - Fully active</option>
+                    <option value="1">ECOG 1 - Restricted in strenuous activity</option>
+                    <option value="2">ECOG 2 - Ambulatory, capable of self-care</option>
+                    <option value="3">ECOG 3 - Limited self-care</option>
+                    <option value="4">ECOG 4 - Completely disabled</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Disease Status</label>
+                  <select value={formData.diseaseStatus} onChange={(e) => updateField('diseaseStatus', e.target.value)} className="w-full px-4 py-2.5 border rounded">
+                    <option value="">Select...</option>
+                    <option value="stable">Stable Disease</option>
+                    <option value="responding">Responding to Treatment</option>
+                    <option value="progression">Progression Detected</option>
+                    <option value="remission">Complete Remission</option>
+                    <option value="partial">Partial Response</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Baseline CA-125 (U/mL)</label>
+                <input type="number" value={formData.baselineCa125} onChange={(e) => updateField('baselineCa125', e.target.value)} className="w-full px-4 py-2.5 border rounded" />
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-between mt-8 pt-6 border-t">
+            <button onClick={handleBack} disabled={step === 1} className="px-6 py-2.5 text-gray-700">Back</button>
+            {step < TOTAL_STEPS ? (
+              <button onClick={handleNext} disabled={!isStepValid()} className="px-6 py-2.5 bg-blue-600 text-white rounded-lg">Next <ChevronRight className="w-4 h-4 inline-block" /></button>
+            ) : (
+              <button onClick={handleComplete} disabled={!isStepValid()} className="px-6 py-2.5 bg-green-600 text-white rounded-lg">Complete Setup</button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
+}
+          {/* Step 2: Diagnosis / Current Treatment Info */}
+          {step === 2 && (
+            <div className="space-y-6 animate-fade-scale">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                  <Activity className="w-6 h-6 text-green-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Diagnosis & Treatment</h2>
+                  <p className="text-sm text-gray-600">Provide your diagnosis and current treatment details</p>
+                </div>
+              </div>
 
-  // Handle diagnosis selection
-  const handleDiagnosisSelect = (cancer) => {
-    if (cancer === 'Other (Please Specify)') {
-      setShowCustomDiagnosisInput(true);
-      updateField('diagnosis', '');
-      setDiagnosisSearch('');
-    } else {
-      updateField('diagnosis', cancer);
-      setDiagnosisSearch(cancer);
-      setShowCustomDiagnosisInput(false);
-    }
-    setShowDiagnosisDropdown(false);
-  };
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cancer Type *</label>
+                <select
+                  value={formData.cancerType}
+                  onChange={(e) => { updateField('cancerType', e.target.value); updateField('cancerSubtype', ''); }}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="">Select cancer type...</option>
+                  {CANCER_TYPES.map(ct => <option key={ct} value={ct}>{ct}</option>)}
+                </select>
+              </div>
 
-  // Get subtype options based on selected diagnosis (main cancer)
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Subtype *</label>
+                {subtypeOptions.length > 0 ? (
+                  <select
+                    value={formData.cancerSubtype}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === 'Other (specify)') {
+                        setShowCustomSubtypeInput(true);
+                        updateField('cancerSubtype', '');
+                      } else {
+                        setShowCustomSubtypeInput(false);
+                        updateField('cancerSubtype', v);
+                      }
+                    }}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">Select subtype...</option>
+                    {subtypeOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={formData.cancerSubtype}
+                    onChange={(e) => updateField('cancerSubtype', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Specify subtype"
+                  />
+                )}
+                {showCustomSubtypeInput && (
+                  <input
+                    type="text"
+                    value={formData.cancerSubtype}
+                    onChange={(e) => updateField('cancerSubtype', e.target.value)}
+                    className="w-full mt-2 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Specify subtype"
+                  />
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stage *</label>
+                <select
+                  value={formData.stage}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === 'Other (specify)') {
+                      setShowCustomStageInput(true);
+                      updateField('stage', '');
+                    } else {
+                      setShowCustomStageInput(false);
+                      updateField('stage', v);
+                    }
+                  }}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="">Select stage...</option>
+                  {STAGE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                {showCustomStageInput && (
+                  <input
+                    type="text"
+                    value={formData.stageOther}
+                    onChange={(e) => updateField('stageOther', e.target.value)}
+                    className="w-full mt-2 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Specify stage (e.g., Stage IIIC)"
+                  />
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis Date</label>
+                  <input
+                    type="date"
+                    value={formData.diagnosisDate}
+                    onChange={(e) => updateField('diagnosisDate', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="yyyy/mm/dd"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Treatment Line</label>
+                  <input
+                    type="text"
+                    value={formData.treatmentLine}
+                    onChange={(e) => updateField('treatmentLine', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="e.g., 1st Line, 2nd Line, Maintenance"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Current Regimen</label>
+                <input
+                  type="text"
+                  value={formData.currentRegimen}
+                  onChange={(e) => updateField('currentRegimen', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="e.g., Carboplatin + Paclitaxel"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Performance Status (ECOG)</label>
+                  <select
+                    value={formData.performanceStatus}
+                    onChange={(e) => updateField('performanceStatus', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">Select...</option>
+                    <option value="0">ECOG 0 - Fully active</option>
+                    <option value="1">ECOG 1 - Restricted in strenuous activity</option>
+                    <option value="2">ECOG 2 - Ambulatory, capable of self-care</option>
+                    <option value="3">ECOG 3 - Limited self-care</option>
+                    <option value="4">ECOG 4 - Completely disabled</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Disease Status</label>
+                  <select
+                    value={formData.diseaseStatus}
+                    onChange={(e) => updateField('diseaseStatus', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">Select...</option>
+                    <option value="stable">Stable Disease</option>
+                    <option value="responding">Responding to Treatment</option>
+                    <option value="progression">Progression Detected</option>
+                    <option value="remission">Complete Remission</option>
+                    <option value="partial">Partial Response</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Baseline CA-125 (U/mL)</label>
+                <input
+                  type="number"
+                  value={formData.baselineCa125}
+                  onChange={(e) => updateField('baselineCa125', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Initial CA-125 value"
+                />
+              </div>
+            </div>
+          )}
   const subtypeOptions = (() => {
     const key = formData.cancerType || '';
     if (!key) return [];
@@ -169,8 +436,8 @@ export default function Onboarding({ onComplete }) {
         // name, dob, height, weight required; country optional
         return !!(formData.name && formData.dateOfBirth && formData.height && formData.weight);
       case 2:
-        // Require at least a diagnosis entry to proceed from step 2
-        return !!(formData.diagnosis && formData.diagnosis.trim() !== '');
+        // Require structured diagnosis fields
+        return !!(formData.cancerType && formData.cancerSubtype && (formData.stage || formData.stageOther));
       default:
         return false;
     }
@@ -299,14 +566,55 @@ export default function Onboarding({ onComplete }) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis *</label>
-                <input
-                  type="text"
-                  value={formData.diagnosis}
-                  onChange={(e) => updateField('diagnosis', e.target.value)}
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cancer Type *</label>
+                <select
+                  value={formData.cancerType}
+                  onChange={(e) => { updateField('cancerType', e.target.value); updateField('cancerSubtype', ''); }}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="e.g., OCCC Stage IIIC, HGSOC Stage IV"
-                />
+                >
+                  <option value="">Select cancer type...</option>
+                  {CANCER_TYPES.map(ct => <option key={ct} value={ct}>{ct}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Subtype *</label>
+                {subtypeOptions.length > 0 ? (
+                  <select
+                    value={formData.cancerSubtype}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === 'Other (specify)') {
+                        setShowCustomSubtypeInput(true);
+                        updateField('cancerSubtype', '');
+                      } else {
+                        setShowCustomSubtypeInput(false);
+                        updateField('cancerSubtype', v);
+                      }
+                    }}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">Select subtype...</option>
+                    {subtypeOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={formData.cancerSubtype}
+                    onChange={(e) => updateField('cancerSubtype', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Specify subtype"
+                  />
+                )}
+                {showCustomSubtypeInput && (
+                  <input
+                    type="text"
+                    value={formData.cancerSubtype}
+                    onChange={(e) => updateField('cancerSubtype', e.target.value)}
+                    className="w-full mt-2 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Specify subtype"
+                  />
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -347,26 +655,35 @@ export default function Onboarding({ onComplete }) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Performance Status (ECOG)</label>
-                  <select
-                    value={formData.performanceStatus}
-                    onChange={(e) => updateField('performanceStatus', e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  >
-                    <option value="">Select...</option>
-                    <option value="0">ECOG 0 - Fully active</option>
-                    <option value="1">ECOG 1 - Restricted in strenuous activity</option>
-                    <option value="2">ECOG 2 - Ambulatory, capable of self-care</option>
-                    <option value="3">ECOG 3 - Limited self-care</option>
-                    <option value="4">ECOG 4 - Completely disabled</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Disease Status</label>
-                  <select
-                    value={formData.diseaseStatus}
-                    onChange={(e) => updateField('diseaseStatus', e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Stage *</label>
+                    <select
+                      value={formData.stage}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === 'Other (specify)') {
+                          setShowCustomStageInput(true);
+                          updateField('stage', '');
+                        } else {
+                          setShowCustomStageInput(false);
+                          updateField('stage', v);
+                        }
+                      }}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    >
+                      <option value="">Select stage...</option>
+                      {STAGE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    {showCustomStageInput && (
+                      <input
+                        type="text"
+                        value={formData.stageOther}
+                        onChange={(e) => updateField('stageOther', e.target.value)}
+                        className="w-full mt-2 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        placeholder="Specify stage (e.g., Stage IIIC)"
+                      />
+                    )}
+                  </div>
                   >
                     <option value="">Select...</option>
                     <option value="stable">Stable Disease</option>
