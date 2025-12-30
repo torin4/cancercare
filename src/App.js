@@ -4268,7 +4268,7 @@ export default function CancerCareApp() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 md:p-4">
             <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
               <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
-                <h3 className="font-bold text-lg text-gray-800">Update Current Status</h3>
+                <h3 className="font-bold text-lg text-gray-800">Update Diagnosis & Treatment</h3>
                 <button
                   onClick={() => setShowUpdateStatus(false)}
                   className="text-gray-500 hover:text-gray-700"
@@ -4378,15 +4378,38 @@ export default function CancerCareApp() {
                     onClick={async () => {
                       try {
                         // Save current status and top-level diagnosis to patient document
-                        await patientService.savePatient(user.uid, {
-                          currentStatus,
-                          diagnosis: currentStatus.diagnosis || '',
-                          diagnosisDate: currentStatus.diagnosisDate || ''
-                        });
-                        setShowUpdateStatus(false);
-                        // Update local UI state
-                        setCurrentStatus(currentStatus);
-                        setPatientProfile(prev => ({ ...prev, diagnosis: currentStatus.diagnosis || prev.diagnosis, diagnosisDate: currentStatus.diagnosisDate || prev.diagnosisDate }));
+                              // Persist current status and top-level diagnosis/treatment fields to patient document
+                              await patientService.savePatient(user.uid, {
+                                diagnosis: currentStatus.diagnosis || '',
+                                diagnosisDate: currentStatus.diagnosisDate || '',
+                                treatmentLine: currentStatus.treatmentLine || '',
+                                currentRegimen: currentStatus.currentRegimen || '',
+                                performanceStatus: currentStatus.performanceStatus || '',
+                                diseaseStatus: currentStatus.diseaseStatus || '',
+                                baselineCa125: currentStatus.baselineCa125 != null && currentStatus.baselineCa125 !== '' ? parseFloat(currentStatus.baselineCa125) : null,
+                                currentStatus: {
+                                  diagnosis: currentStatus.diagnosis || '',
+                                  diagnosisDate: currentStatus.diagnosisDate || '',
+                                  treatmentLine: currentStatus.treatmentLine || '',
+                                  currentRegimen: currentStatus.currentRegimen || '',
+                                  performanceStatus: currentStatus.performanceStatus || '',
+                                  diseaseStatus: currentStatus.diseaseStatus || '',
+                                  baselineCa125: currentStatus.baselineCa125 != null && currentStatus.baselineCa125 !== '' ? parseFloat(currentStatus.baselineCa125) : null
+                                }
+                              });
+                              setShowUpdateStatus(false);
+                              // Update local UI state
+                              setCurrentStatus(currentStatus);
+                              setPatientProfile(prev => ({
+                                ...prev,
+                                diagnosis: currentStatus.diagnosis || prev.diagnosis,
+                                diagnosisDate: currentStatus.diagnosisDate || prev.diagnosisDate,
+                                treatmentLine: currentStatus.treatmentLine || prev.treatmentLine,
+                                currentRegimen: currentStatus.currentRegimen || prev.currentRegimen,
+                                performanceStatus: currentStatus.performanceStatus || prev.performanceStatus,
+                                diseaseStatus: currentStatus.diseaseStatus || prev.diseaseStatus,
+                                baselineCa125: currentStatus.baselineCa125 != null && currentStatus.baselineCa125 !== '' ? parseFloat(currentStatus.baselineCa125) : prev.baselineCa125
+                              }));
                         setMessages(prev => [...prev, { type: 'ai', text: '✅ Current status updated successfully!' }]);
                       } catch (err) {
                         console.error('Failed to save current status', err);
