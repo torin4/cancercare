@@ -158,6 +158,15 @@ export default function CancerCareApp() {
   const [showAddLab, setShowAddLab] = useState(false);
   const [showEditGenomic, setShowEditGenomic] = useState(false);
   const [showEditContacts, setShowEditContacts] = useState(false);
+  const [showEditMedicalTeam, setShowEditMedicalTeam] = useState(false);
+  const [medicalTeamDraft, setMedicalTeamDraft] = useState({
+    oncologist: '',
+    oncologistPhone: '',
+    primaryCareName: '',
+    primaryCarePhone: '',
+    hospital: '',
+    hospitalPhone: ''
+  });
   const [showEditLocation, setShowEditLocation] = useState(false);
 
   useEffect(() => {
@@ -525,6 +534,7 @@ export default function CancerCareApp() {
   const [symptoms, setSymptoms] = useState([]);
 
   const [genomicProfile, setGenomicProfile] = useState(null);
+  const [genomicDraft, setGenomicDraft] = useState(null);
 
   // Mock data removed - app now uses real data from Firestore and JRCT API
 
@@ -2613,12 +2623,23 @@ export default function CancerCareApp() {
 
                 <div className="flex-1">
                   <h2 className="font-bold text-lg">{patientProfile.name || user?.displayName || 'Patient'}</h2>
-                  <p className="text-sm text-gray-600">Age: {patientProfile.age || '--'}</p>
-                  <p className="text-sm text-gray-600">DOB: {patientProfile.dateOfBirth ? new Date(patientProfile.dateOfBirth).toLocaleDateString() : '--'}</p>
-                  {/* Diagnosis and Stage removed from this Information block — shown under Current Status */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <p className="text-sm text-gray-600">Age: {patientProfile.age || '--'}</p>
+                    <p className="text-sm text-gray-600">Gender: {patientProfile.gender || '--'}</p>
+                    <p className="text-sm text-gray-600">DOB: {patientProfile.dateOfBirth ? new Date(patientProfile.dateOfBirth).toLocaleDateString() : '--'}</p>
+                    <p className="text-sm text-gray-600">Country: {patientProfile.country || '--'}</p>
+                    <p className="text-sm text-gray-600">Phone: {patientProfile.phone || '--'}</p>
+                    <p className="text-sm text-gray-600">Height / Weight: {patientProfile.height ? `${patientProfile.height} cm` : '--'} / {patientProfile.weight ? `${patientProfile.weight} kg` : '--'}</p>
+                  </div>
+                  <div className="mt-3 text-sm text-gray-700">
+                    <p><strong>Diagnosis:</strong> {currentStatus?.diagnosis || patientProfile?.diagnosis || '—'}</p>
+                    <p><strong>Stage:</strong> {patientProfile.stage || currentStatus?.stage || patientProfile.stageOther || '—'}</p>
+                    <p className="mt-1"><strong>Oncologist:</strong> {patientProfile.oncologist || '—'} {patientProfile.oncologistPhone ? `(${patientProfile.oncologistPhone})` : ''}</p>
+                    <p><strong>Hospital:</strong> {patientProfile.hospital || '—'}</p>
+                  </div>
                   <button
                     onClick={() => setShowEditInfo(true)}
-                    className="text-blue-600 text-sm font-medium mt-1 hover:underline"
+                    className="text-blue-600 text-sm font-medium mt-2 hover:underline"
                   >
                     Edit Information
                   </button>
@@ -2687,7 +2708,25 @@ export default function CancerCareApp() {
                     )}
                   </button>
                   <button
-                    onClick={() => setShowEditGenomic(true)}
+                    onClick={() => {
+                      // Prefill draft from existing genomicProfile
+                      setGenomicDraft(genomicProfile ? {
+                        mutations: (genomicProfile.mutations || []).map(m => ({ gene: m.gene || '', variant: m.variant || '', dna: m.dna || '', protein: m.protein || '', copyNumber: m.copyNumber || '', significance: m.significance || '' })),
+                        biomarkers: {
+                          hrdScore: genomicProfile.hrdScore || genomicProfile.hrd || '',
+                          hrdStatus: genomicProfile.hrdScore ? (genomicProfile.hrdScore >= 42 ? `Positive (≥42)` : `Negative (<42)`) : (genomicProfile.hrdStatus || ''),
+                          tmb: genomicProfile.tmb || genomicProfile.tmbValue || '',
+                          pdl1: genomicProfile.pdl1 || '',
+                          msi: genomicProfile.msi || ''
+                        },
+                        customBiomarkers: genomicProfile.customBiomarkers || [],
+                        testType: genomicProfile.testType || '',
+                        testDate: genomicProfile.testDate || '',
+                        sampleType: genomicProfile.sampleType || '',
+                        genesAnalyzed: genomicProfile.genesAnalyzed || ''
+                      } : { mutations: [], biomarkers: {}, customBiomarkers: [], testType: '', testDate: '', sampleType: '', genesAnalyzed: '' });
+                      setShowEditGenomic(true);
+                    }}
                     className="text-purple-600 hover:text-purple-700"
                   >
                     <Edit2 size={18} />
@@ -2876,25 +2915,18 @@ export default function CancerCareApp() {
               )}
             </div>
 
-            {/* Trial Location */}
+            {/* Trial Location (country derived from patient profile) */}
             <div className="bg-gradient-to-br from-green-50 to-teal-50 rounded-lg shadow p-4 border border-green-200">
               <h2 className="font-semibold text-gray-800 mb-3">Trial Search Location</h2>
               <div className="bg-white rounded-lg p-3 mb-3">
-                <p className="text-sm text-gray-800 font-medium">
-                  {trialLocation.city}, {trialLocation.state}
-                </p>
-                <p className="text-xs text-gray-600 mt-0.5">{trialLocation.country}</p>
-                {!trialLocation.includeAllLocations && (
-                  <p className="text-xs text-gray-600 mt-1">
-                    Search radius: {trialLocation.searchRadius} miles
-                  </p>
-                )}
+                <p className="text-sm text-gray-800 font-medium">{trialLocation.includeAllLocations ? 'Global (all countries)' : patientProfile.country}</p>
+                <p className="text-xs text-gray-600 mt-0.5">Country is taken from your profile (Onboarding)</p>
               </div>
               <button
                 onClick={() => setShowEditLocation(true)}
                 className="w-full text-green-600 font-medium text-sm hover:bg-green-50 py-2 rounded transition"
               >
-                Edit Location Settings
+                Edit Country
               </button>
             </div>
 
@@ -2904,7 +2936,18 @@ export default function CancerCareApp() {
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold text-gray-800">Medical Team</h2>
                 <button
-                  onClick={() => setShowEditContacts(true)}
+                  onClick={() => {
+                    // prefill draft from profile
+                    setMedicalTeamDraft({
+                      oncologist: patientProfile.oncologist || '',
+                      oncologistPhone: patientProfile.oncologistPhone || '',
+                      primaryCareName: patientProfile.primaryCareName || '',
+                      primaryCarePhone: patientProfile.primaryCarePhone || '',
+                      hospital: patientProfile.hospital || '',
+                      hospitalPhone: patientProfile.hospitalPhone || ''
+                    });
+                    setShowEditMedicalTeam(true);
+                  }}
                   className="text-blue-600 hover:text-blue-700"
                 >
                   Edit
@@ -3195,6 +3238,69 @@ export default function CancerCareApp() {
           </div>
         )
       }
+
+      {/* Edit Medical Team Modal */}
+      {showEditMedicalTeam && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 md:p-4">
+          <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-lg md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
+            <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
+              <h3 className="font-bold text-lg text-gray-800">Edit Medical Team</h3>
+              <button onClick={() => setShowEditMedicalTeam(false)} className="text-gray-500 hover:text-gray-700"><X size={24} /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Oncologist Name</label>
+                  <input type="text" value={medicalTeamDraft.oncologist} onChange={(e) => setMedicalTeamDraft(prev => ({ ...prev, oncologist: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Oncologist Phone</label>
+                  <input type="tel" value={medicalTeamDraft.oncologistPhone} onChange={(e) => setMedicalTeamDraft(prev => ({ ...prev, oncologistPhone: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Primary Care Doctor</label>
+                  <input type="text" value={medicalTeamDraft.primaryCareName} onChange={(e) => setMedicalTeamDraft(prev => ({ ...prev, primaryCareName: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Primary Care Phone</label>
+                  <input type="tel" value={medicalTeamDraft.primaryCarePhone} onChange={(e) => setMedicalTeamDraft(prev => ({ ...prev, primaryCarePhone: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Hospital / Clinic</label>
+                  <input type="text" value={medicalTeamDraft.hospital} onChange={(e) => setMedicalTeamDraft(prev => ({ ...prev, hospital: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Hospital Phone</label>
+                  <input type="tel" value={medicalTeamDraft.hospitalPhone} onChange={(e) => setMedicalTeamDraft(prev => ({ ...prev, hospitalPhone: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-shrink-0 bg-white border-t p-4">
+              <div className="flex gap-3">
+                <button onClick={() => setShowEditMedicalTeam(false)} className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition">Cancel</button>
+                <button onClick={() => {
+                  // persist to patientProfile
+                  setPatientProfile(prev => ({
+                    ...prev,
+                    oncologist: medicalTeamDraft.oncologist,
+                    oncologistPhone: medicalTeamDraft.oncologistPhone,
+                    primaryCareName: medicalTeamDraft.primaryCareName,
+                    primaryCarePhone: medicalTeamDraft.primaryCarePhone,
+                    hospital: medicalTeamDraft.hospital,
+                    hospitalPhone: medicalTeamDraft.hospitalPhone
+                  }));
+                  setShowEditMedicalTeam(false);
+                  alert('Medical team updated!');
+                }} className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition">Save Changes</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick Log Symptom Modal */}
       {
@@ -3831,189 +3937,67 @@ export default function CancerCareApp() {
         )
       }
 
-      {/* Edit Location Modal - Comprehensive */}
-      {
-        showEditLocation && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-            <div className="bg-white w-full h-full sm:h-auto sm:max-w-lg sm:rounded-xl sm:max-h-[85vh] flex flex-col animate-slide-up">
-              <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
-                <h3 className="text-lg font-semibold text-gray-900">Trial Search Location</h3>
-                <button
-                  onClick={() => setShowEditLocation(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+      {/* Edit Location Modal - Country only (derived from onboarding) */}
+      {showEditLocation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white w-full sm:max-w-md sm:rounded-xl flex flex-col animate-slide-up">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-semibold text-gray-900">Trial Search Country</h3>
+              <button onClick={() => setShowEditLocation(false)} className="p-2 hover:bg-gray-100 rounded-lg transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-green-900">Trial Matching</p>
-                      <p className="text-xs text-green-700 mt-0.5">
-                        Your location helps us find clinical trials nearby. You can also enable global search to include international trials.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={trialLocation.includeAllLocations}
-                      onChange={(e) => setTrialLocation({ ...trialLocation, includeAllLocations: e.target.checked })}
-                      className="mt-1 w-4 h-4 text-green-600 rounded focus:ring-green-500"
-                    />
-                    <div>
-                      <p className="font-semibold text-gray-800">Include Global Locations</p>
-                      <p className="text-xs text-gray-600 mt-1">
-                        Search international databases for all available clinical trials worldwide
-                      </p>
-                    </div>
-                  </label>
-                </div>
-
-                <div className={trialLocation.includeAllLocations ? 'opacity-50' : ''}>
-                  <h4 className="font-semibold text-gray-800 mb-3">Your Location</h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                      <select
-                        value={trialLocation.country}
-                        onChange={(e) => setTrialLocation({ ...trialLocation, country: e.target.value })}
-                        disabled={trialLocation.includeAllLocations}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-                      >
-                        <option value="United States">United States</option>
-                        <option value="Canada">Canada</option>
-                        <option value="United Kingdom">United Kingdom</option>
-                        <option value="Japan">Japan</option>
-                        <option value="Australia">Australia</option>
-                        <option value="Germany">Germany</option>
-                        <option value="France">France</option>
-                        <option value="China">China</option>
-                        <option value="India">India</option>
-                        <option value="South Korea">South Korea</option>
-                        <option value="Italy">Italy</option>
-                        <option value="Spain">Spain</option>
-                        <option value="Netherlands">Netherlands</option>
-                        <option value="Brazil">Brazil</option>
-                      </select>
-                    </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-                        <input
-                          type="text"
-                          value={trialLocation.city}
-                          onChange={(e) => setTrialLocation({ ...trialLocation, city: e.target.value })}
-                          disabled={trialLocation.includeAllLocations}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">{getStateLabel(trialLocation.country)}</label>
-                        <input
-                          type="text"
-                          value={trialLocation.state}
-                          placeholder={getStatePlaceholder(trialLocation.country)}
-                          onChange={(e) => setTrialLocation({ ...trialLocation, state: e.target.value })}
-                          disabled={trialLocation.includeAllLocations}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="mt-3">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">{getPostalLabel(trialLocation.country)}</label>
-                      <input
-                        type="text"
-                        value={trialLocation.zip}
-                        placeholder={getPostalPlaceholder(trialLocation.country)}
-                        onChange={(e) => setTrialLocation({ ...trialLocation, zip: e.target.value })}
-                        disabled={trialLocation.includeAllLocations}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {!trialLocation.includeAllLocations && (
+            <div className="p-4">
+              <p className="text-sm text-gray-700 mb-3">This setting uses the country from your profile. You may change it here if needed, or enable global search to bypass country.</p>
+              <div className="mb-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={trialLocation.includeAllLocations}
+                    onChange={(e) => setTrialLocation({ ...trialLocation, includeAllLocations: e.target.checked })}
+                    className="w-4 h-4 text-green-600"
+                  />
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Search Radius</label>
-                    <input
-                      type="range"
-                      min="10"
-                      max="500"
-                      step="10"
-                      value={trialLocation.searchRadius}
-                      onChange={(e) => setTrialLocation({ ...trialLocation, searchRadius: e.target.value })}
-                      className="w-full"
-                    />
-                    <div className="flex justify-between mt-2">
-                      <span className="text-sm text-gray-600">10 miles</span>
-                      <span className="text-lg font-bold text-green-600">{trialLocation.searchRadius} miles</span>
-                      <span className="text-sm text-gray-600">500 miles</span>
-                    </div>
+                    <p className="font-medium text-gray-800">Include Global Locations</p>
+                    <p className="text-xs text-gray-600">When enabled, trial search will include international trials and bypass the country filter.</p>
                   </div>
-                )}
-
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <h5 className="text-sm font-semibold text-gray-800 mb-2">What databases will be searched?</h5>
-                  <div className="space-y-1 text-xs text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <div className="w-1 h-1 bg-green-600 rounded-full"></div>
-                      <span>ClinicalTrials.gov (US federal database)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-1 h-1 bg-green-600 rounded-full"></div>
-                      <span>NCI Clinical Trials Search</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-1 h-1 bg-green-600 rounded-full"></div>
-                      <span>Major cancer center databases</span>
-                    </div>
-                    {trialLocation.includeAllLocations && (
-                      <>
-                        <div className="flex items-center gap-2">
-                          <div className="w-1 h-1 bg-green-600 rounded-full"></div>
-                          <span className="font-medium">EU Clinical Trials Register</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-1 h-1 bg-green-600 rounded-full"></div>
-                          <span className="font-medium">WHO International Registry</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
+                </label>
               </div>
 
-              <div className="border-t p-4 flex gap-3 flex-shrink-0">
-                <button
-                  onClick={() => setShowEditLocation(false)}
-                  className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    setShowEditLocation(false);
-                    alert('Location settings saved!');
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                <select
+                  value={patientProfile.country}
+                  onChange={(e) => {
+                    const c = e.target.value;
+                    setPatientProfile({ ...patientProfile, country: c });
+                    setTrialLocation({ ...trialLocation, country: c });
                   }}
-                  className="flex-1 bg-green-600 text-white py-2.5 rounded-lg font-medium hover:bg-green-700 transition"
+                  disabled={trialLocation.includeAllLocations}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
                 >
-                  Save
-                </button>
+                  <option value="United States">United States</option>
+                  <option value="Canada">Canada</option>
+                  <option value="United Kingdom">United Kingdom</option>
+                  <option value="Japan">Japan</option>
+                  <option value="Australia">Australia</option>
+                  <option value="Germany">Germany</option>
+                  <option value="France">France</option>
+                  <option value="China">China</option>
+                  <option value="India">India</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
             </div>
+
+            <div className="border-t p-4 flex gap-3">
+              <button onClick={() => setShowEditLocation(false)} className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition">Cancel</button>
+              <button onClick={() => { setShowEditLocation(false); alert('Country saved!'); }} className="flex-1 bg-green-600 text-white py-2.5 rounded-lg font-medium hover:bg-green-700 transition">Save</button>
+            </div>
           </div>
-        )
-      }
+        </div>
+      )}
 
       {/* Edit Patient Info Modal */}
       {
@@ -4450,38 +4434,31 @@ export default function CancerCareApp() {
 
                 <div>
                   <h4 className="font-semibold text-gray-800 mb-3">Key Mutations</h4>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-3">
+                    {(genomicDraft && genomicDraft.mutations && genomicDraft.mutations.length > 0) ? genomicDraft.mutations.map((mut, mi) => (
+                      <div key={mi} className="grid grid-cols-3 gap-3 items-end">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Gene</label>
+                          <input type="text" value={mut.gene} onChange={(e) => setGenomicDraft(prev => { const m = [...prev.mutations]; m[mi] = { ...m[mi], gene: e.target.value }; return { ...prev, mutations: m }; })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Variant / Notes</label>
+                          <input type="text" value={mut.variant} onChange={(e) => setGenomicDraft(prev => { const m = [...prev.mutations]; m[mi] = { ...m[mi], variant: e.target.value }; return { ...prev, mutations: m }; })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Significance</label>
+                            <input type="text" value={mut.significance} onChange={(e) => setGenomicDraft(prev => { const m = [...prev.mutations]; m[mi] = { ...m[mi], significance: e.target.value }; return { ...prev, mutations: m }; })} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                          </div>
+                          <button type="button" onClick={() => setGenomicDraft(prev => ({ ...prev, mutations: prev.mutations.filter((_, idx) => idx !== mi) }))} className="mt-6 px-3 py-2 bg-red-100 text-red-700 rounded">Remove</button>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="text-sm text-gray-500">No mutations added</div>
+                    )}
+
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">BRCA1</label>
-                      <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500">
-                        <option>Positive</option>
-                        <option>Negative</option>
-                        <option>Unknown</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">BRCA2</label>
-                      <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500">
-                        <option>Negative</option>
-                        <option>Positive</option>
-                        <option>Unknown</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">TP53</label>
-                      <input
-                        type="text"
-                        defaultValue="Wild-type"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">ARID1A</label>
-                      <input
-                        type="text"
-                        defaultValue="Mutated"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
-                      />
+                      <button type="button" onClick={() => setGenomicDraft(prev => ({ ...prev, mutations: [...(prev.mutations || []), { gene: '', variant: '', significance: '' }] }))} className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm">+ Add Mutation</button>
                     </div>
                   </div>
                 </div>
@@ -4491,35 +4468,38 @@ export default function CancerCareApp() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">HRD Score</label>
-                      <input
-                        type="number"
-                        defaultValue="62"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
-                      />
+                      <input type="number" value={genomicDraft?.biomarkers?.hrdScore || ''} onChange={(e) => setGenomicDraft(prev => ({ ...prev, biomarkers: { ...prev.biomarkers, hrdScore: e.target.value } }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">HRD Status</label>
-                      <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500">
-                        <option>Positive (≥42)</option>
-                        <option>Negative (&lt;42)</option>
-                        <option>Unknown</option>
+                      <select value={genomicDraft?.biomarkers?.hrdStatus || ''} onChange={(e) => setGenomicDraft(prev => ({ ...prev, biomarkers: { ...prev.biomarkers, hrdStatus: e.target.value } }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        <option value="">Select...</option>
+                        <option value="Positive (≥42)">Positive (≥42)</option>
+                        <option value="Negative (<42)">Negative (&lt;42)</option>
+                        <option value="Unknown">Unknown</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">TMB</label>
-                      <input
-                        type="text"
-                        defaultValue="Low (3.2 mut/Mb)"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
-                      />
+                      <input type="text" value={genomicDraft?.biomarkers?.tmb || ''} onChange={(e) => setGenomicDraft(prev => ({ ...prev, biomarkers: { ...prev.biomarkers, tmb: e.target.value } }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">PD-L1</label>
-                      <input
-                        type="text"
-                        defaultValue="Negative (<1%)"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
-                      />
+                      <input type="text" value={genomicDraft?.biomarkers?.pdl1 || ''} onChange={(e) => setGenomicDraft(prev => ({ ...prev, biomarkers: { ...prev.biomarkers, pdl1: e.target.value } }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                  </div>
+
+                  <div className="mt-3">
+                    <h5 className="font-medium text-gray-800 mb-2">Custom Biomarkers</h5>
+                    {(genomicDraft?.customBiomarkers || []).map((cb, ci) => (
+                      <div key={ci} className="grid grid-cols-3 gap-2 mb-2">
+                        <input type="text" value={cb.name} onChange={(e) => setGenomicDraft(prev => { const c = [...(prev.customBiomarkers||[])]; c[ci] = { ...c[ci], name: e.target.value }; return { ...prev, customBiomarkers: c }; })} placeholder="Name" className="border border-gray-300 rounded px-3 py-2" />
+                        <input type="text" value={cb.value} onChange={(e) => setGenomicDraft(prev => { const c = [...(prev.customBiomarkers||[])]; c[ci] = { ...c[ci], value: e.target.value }; return { ...prev, customBiomarkers: c }; })} placeholder="Value" className="border border-gray-300 rounded px-3 py-2" />
+                        <button type="button" onClick={() => setGenomicDraft(prev => ({ ...prev, customBiomarkers: prev.customBiomarkers.filter((_, idx) => idx !== ci) }))} className="px-3 py-2 bg-red-100 text-red-700 rounded">Remove</button>
+                      </div>
+                    ))}
+                    <div>
+                      <button type="button" onClick={() => setGenomicDraft(prev => ({ ...prev, customBiomarkers: [...(prev.customBiomarkers||[]), { name: '', value: '' }] }))} className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm">+ Add Biomarker</button>
                     </div>
                   </div>
                 </div>
@@ -4529,7 +4509,8 @@ export default function CancerCareApp() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Test Type</label>
-                      <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500">
+                      <select value={genomicDraft?.testType || ''} onChange={(e) => setGenomicDraft(prev => ({ ...prev, testType: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        <option value="">Select...</option>
                         <option>Foundation One CDx</option>
                         <option>Guardant360</option>
                         <option>Tempus xT</option>
@@ -4538,11 +4519,7 @@ export default function CancerCareApp() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Test Date</label>
-                      <input
-                        type="date"
-                        defaultValue="2024-09-15"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
-                      />
+                      <input type="date" value={genomicDraft?.testDate || ''} onChange={(e) => setGenomicDraft(prev => ({ ...prev, testDate: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
                     </div>
                   </div>
                 </div>
@@ -4557,9 +4534,34 @@ export default function CancerCareApp() {
                     Cancel
                   </button>
                   <button
-                    onClick={() => {
-                      setShowEditGenomic(false);
-                      alert('Genomic profile updated!');
+                    onClick={async () => {
+                      try {
+                        // Build profile object to save
+                        const toSave = {
+                          mutations: genomicDraft?.mutations || [],
+                          // top-level biomarker fields
+                          hrdScore: genomicDraft?.biomarkers?.hrdScore || null,
+                          hrd: genomicDraft?.biomarkers?.hrdScore || null,
+                          tmb: genomicDraft?.biomarkers?.tmb || null,
+                          pdl1: genomicDraft?.biomarkers?.pdl1 || null,
+                          msi: genomicDraft?.biomarkers?.msi || null,
+                          biomarkers: { ...(genomicDraft?.biomarkers || {}) },
+                          customBiomarkers: genomicDraft?.customBiomarkers || [],
+                          testType: genomicDraft?.testType || '',
+                          testDate: genomicDraft?.testDate || '',
+                          sampleType: genomicDraft?.sampleType || '',
+                          genesAnalyzed: genomicDraft?.genesAnalyzed || ''
+                        };
+
+                        await genomicProfileService.saveGenomicProfile(user.uid, toSave);
+                        const updated = await genomicProfileService.getGenomicProfile(user.uid);
+                        setGenomicProfile(updated);
+                        setShowEditGenomic(false);
+                        alert('Genomic profile updated!');
+                      } catch (err) {
+                        console.error('Failed to save genomic profile', err);
+                        alert('Failed to save genomic profile.');
+                      }
                     }}
                     className="flex-1 bg-purple-600 text-white py-2.5 rounded-lg font-medium hover:bg-purple-700 transition"
                   >

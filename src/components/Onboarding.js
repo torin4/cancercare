@@ -16,8 +16,8 @@ const CANCER_SUBTYPES = {
 export default function Onboarding({ onComplete }) {
   // Derive simple cancer list from subtypes map
   const CANCER_TYPES = [...Object.keys(CANCER_SUBTYPES), 'Other (Please Specify)'];
-  // This wizard has 4 steps (personal, contact, medical, emergency contact)
-  const TOTAL_STEPS = 4;
+  // Wizard simplified to 2 steps: Patient Information and Diagnosis
+  const TOTAL_STEPS = 2;
   const [step, setStep] = useState(1);
   const [diagnosisSearch, setDiagnosisSearch] = useState('');
   const [showDiagnosisDropdown, setShowDiagnosisDropdown] = useState(false);
@@ -35,9 +35,12 @@ export default function Onboarding({ onComplete }) {
     name: '',
     dateOfBirth: '',
     gender: '',
+    height: '',
+    weight: '',
     diagnosis: '',
     diagnosisDate: '',
     cancerType: '',
+    cancerSubtype: '',
     stage: '',
     stageOther: '',
     oncologist: '',
@@ -142,7 +145,7 @@ export default function Onboarding({ onComplete }) {
 
   // Get subtype options based on selected diagnosis (main cancer)
   const subtypeOptions = (() => {
-    const key = formData.diagnosis || formData.cancerType || '';
+    const key = formData.cancerType || '';
     if (!key) return [];
     return CANCER_SUBTYPES[key] || ['Other (specify)'];
   })();
@@ -163,16 +166,11 @@ export default function Onboarding({ onComplete }) {
   const isStepValid = () => {
     switch(step) {
       case 1:
-        return formData.name && formData.dateOfBirth && formData.gender;
+        // name, dob, height, weight required; country optional
+        return !!(formData.name && formData.dateOfBirth && formData.height && formData.weight);
       case 2:
-        // Contact info: require phone and city; require state only for United States
-        return formData.phone && formData.city && (formData.country === 'United States' ? !!formData.state : true);
-      case 3:
-        // Medical info
-        return formData.diagnosis && formData.diagnosisDate;
-      case 4:
-        // Emergency contact
-        return formData.emergencyContactName && formData.emergencyContactPhone;
+        // Require at least a diagnosis entry to proceed from step 2
+        return !!(formData.diagnosis && formData.diagnosis.trim() !== '');
       default:
         return false;
     }
@@ -216,10 +214,9 @@ export default function Onboarding({ onComplete }) {
                   <p className="text-sm text-gray-600">Tell us about yourself</p>
                 </div>
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
                   <input
                     type="text"
                     value={formData.name}
@@ -228,15 +225,11 @@ export default function Onboarding({ onComplete }) {
                     placeholder="John Doe"
                   />
                 </div>
-
-                {/* single full name field used instead of first/last */}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date of Birth *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth *</label>
                   <input
                     type="date"
                     value={formData.dateOfBirth}
@@ -246,124 +239,153 @@ export default function Onboarding({ onComplete }) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Gender *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
                   <select
-                    value={formData.gender}
-                    onChange={(e) => updateField('gender', e.target.value)}
+                    value={formData.country}
+                    onChange={(e) => updateField('country', e.target.value)}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="">Select...</option>
-                    <option value="female">Female</option>
-                    <option value="male">Male</option>
-                    <option value="other">Other</option>
-                    <option value="prefer-not-to-say">Prefer not to say</option>
+                    <option value="United States">United States</option>
+                    <option value="United Kingdom">United Kingdom</option>
+                    <option value="Canada">Canada</option>
+                    <option value="Australia">Australia</option>
+                    <option value="Japan">Japan</option>
+                    <option value="Germany">Germany</option>
+                    <option value="France">France</option>
+                    <option value="India">India</option>
+                    <option value="China">China</option>
+                    <option value="Other">Other</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Height (cm) *</label>
+                  <input
+                    type="number"
+                    value={formData.height}
+                    onChange={(e) => updateField('height', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., 170"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg) *</label>
+                  <input
+                    type="number"
+                    value={formData.weight}
+                    onChange={(e) => updateField('weight', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., 70"
+                  />
                 </div>
               </div>
             </div>
           )}
 
-          {/* Step 2: Contact Information */}
+          {/* Step 2: Diagnosis / Current Treatment Info */}
           {step === 2 && (
             <div className="space-y-6 animate-fade-scale">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                  <MapPin className="w-6 h-6 text-purple-600" />
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                  <Activity className="w-6 h-6 text-green-600" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Contact Information</h2>
-                  <p className="text-sm text-gray-600">How can we reach you?</p>
+                  <h2 className="text-xl font-bold text-gray-900">Diagnosis & Treatment</h2>
+                  <p className="text-sm text-gray-600">Provide your diagnosis and current treatment details</p>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone Number *
-                </label>
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => updateField('phone', e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="(555) 123-4567"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Address
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis *</label>
                 <input
                   type="text"
-                  value={formData.address}
-                  onChange={(e) => updateField('address', e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="123 Main St"
+                  value={formData.diagnosis}
+                  onChange={(e) => updateField('diagnosis', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="e.g., OCCC Stage IIIC, HGSOC Stage IV"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                <select
-                  value={formData.country}
-                  onChange={(e) => updateField('country', e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                >
-                  <option value="United States">United States</option>
-                  <option value="United Kingdom">United Kingdom</option>
-                  <option value="Canada">Canada</option>
-                  <option value="Australia">Australia</option>
-                  <option value="Japan">Japan</option>
-                  <option value="Germany">Germany</option>
-                  <option value="France">France</option>
-                  <option value="India">India</option>
-                  <option value="China">China</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    City *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis Date</label>
                   <input
-                    type="text"
-                    value={formData.city}
-                    onChange={(e) => updateField('city', e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="Seattle"
+                    type="date"
+                    value={formData.diagnosisDate}
+                    onChange={(e) => updateField('diagnosisDate', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="yyyy/mm/dd"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {getStateLabel(formData.country)} {formData.country === 'United States' ? '*' : ''}
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Treatment Line</label>
                   <input
                     type="text"
-                    value={formData.state}
-                    onChange={(e) => updateField('state', e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="WA"
-                    maxLength={getZipMaxLength(formData.country) === 5 ? 2 : 50}
+                    value={formData.treatmentLine}
+                    onChange={(e) => updateField('treatmentLine', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="e.g., 1st Line, 2nd Line, Maintenance"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  ZIP Code
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Current Regimen</label>
                 <input
                   type="text"
-                  value={formData.zip}
-                  onChange={(e) => updateField('zip', e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder={getPostalPlaceholder(formData.country) || 'Postal Code'}
-                  maxLength={getZipMaxLength(formData.country)}
+                  value={formData.currentRegimen}
+                  onChange={(e) => updateField('currentRegimen', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="e.g., Carboplatin + Paclitaxel"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Performance Status (ECOG)</label>
+                  <select
+                    value={formData.performanceStatus}
+                    onChange={(e) => updateField('performanceStatus', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">Select...</option>
+                    <option value="0">ECOG 0 - Fully active</option>
+                    <option value="1">ECOG 1 - Restricted in strenuous activity</option>
+                    <option value="2">ECOG 2 - Ambulatory, capable of self-care</option>
+                    <option value="3">ECOG 3 - Limited self-care</option>
+                    <option value="4">ECOG 4 - Completely disabled</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Disease Status</label>
+                  <select
+                    value={formData.diseaseStatus}
+                    onChange={(e) => updateField('diseaseStatus', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">Select...</option>
+                    <option value="stable">Stable Disease</option>
+                    <option value="responding">Responding to Treatment</option>
+                    <option value="progression">Progression Detected</option>
+                    <option value="remission">Complete Remission</option>
+                    <option value="partial">Partial Response</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Baseline CA-125 (U/mL)</label>
+                <input
+                  type="number"
+                  value={formData.baselineCa125}
+                  onChange={(e) => updateField('baselineCa125', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Initial CA-125 value"
                 />
               </div>
             </div>
