@@ -184,6 +184,7 @@ export default function CancerCareApp() {
     stageOther: '',
     diagnosisDate: '',
     cancerType: '',
+    country: 'United States',
     oncologist: '',
     hospital: ''
   });
@@ -604,6 +605,7 @@ export default function CancerCareApp() {
         phone: formData.phone,
         address: formData.address,
         city: formData.city,
+        country: formData.country,
         state: formData.state,
         zip: formData.zip,
         diagnosis: formData.diagnosis,
@@ -790,6 +792,7 @@ export default function CancerCareApp() {
               cancerType: profile.cancerType || '',
               stage: profile.stage || '',
               stageOther: profile.stageOther || '',
+              country: profile.country || 'United States',
               oncologist: profile.oncologist || '',
               hospital: profile.hospital || ''
             });
@@ -4223,25 +4226,31 @@ export default function CancerCareApp() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Oncologist Name</label>
-                    <input
-                      type="text"
-                      value={patientProfile.oncologist || ''}
-                      onChange={(e) => setPatientProfile({ ...patientProfile, oncologist: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Dr. Jane Smith"
-                    />
+                    {/* Oncologist moved to Medical Team (Edit Contacts) */}
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Hospital/Clinic</label>
-                    <input
-                      type="text"
-                      value={patientProfile.hospital || ''}
-                      onChange={(e) => setPatientProfile({ ...patientProfile, hospital: e.target.value })}
+                    {/* Hospital/Clinic moved to Medical Team (Edit Contacts) */}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                    <select
+                      value={patientProfile.country || 'United States'}
+                      onChange={(e) => setPatientProfile({ ...patientProfile, country: e.target.value })}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Seattle Cancer Care Alliance"
-                    />
+                    >
+                      <option value="United States">United States</option>
+                      <option value="United Kingdom">United Kingdom</option>
+                      <option value="Canada">Canada</option>
+                      <option value="Australia">Australia</option>
+                      <option value="Japan">Japan</option>
+                      <option value="Germany">Germany</option>
+                      <option value="France">France</option>
+                      <option value="India">India</option>
+                      <option value="China">China</option>
+                      <option value="Other">Other</option>
+                    </select>
                   </div>
 
                       {/* Primary Care is managed as a contact entry via Edit Contacts */}
@@ -4271,8 +4280,7 @@ export default function CancerCareApp() {
                           cancerType: patientProfile.cancerType || '',
                           stage: patientProfile.stageOther || patientProfile.stage || '',
                           stageOther: patientProfile.stageOther || '',
-                          oncologist: patientProfile.oncologist || '',
-                          hospital: patientProfile.hospital || ''
+                          country: patientProfile.country || ''
                         });
                         // Ensure UI reflects saved values
                         setPatientProfile(prev => ({
@@ -4286,9 +4294,7 @@ export default function CancerCareApp() {
                           diagnosisDate: patientProfile.diagnosisDate || prev.diagnosisDate,
                           cancerType: patientProfile.cancerType || prev.cancerType,
                           stage: patientProfile.stageOther || patientProfile.stage || prev.stage,
-                          stageOther: patientProfile.stageOther || prev.stageOther,
-                          oncologist: patientProfile.oncologist || '',
-                          hospital: patientProfile.hospital || ''
+                          stageOther: patientProfile.stageOther || prev.stageOther
                         }));
                         setShowEditInfo(false);
                         setMessages(prev => [...prev, {
