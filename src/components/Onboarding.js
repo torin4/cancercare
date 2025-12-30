@@ -15,8 +15,9 @@ const CANCER_SUBTYPES = {
 
 export default function Onboarding({ onComplete }) {
   // Derive simple cancer list from subtypes map
-  const CANCER_TYPES = Object.keys(CANCER_SUBTYPES).concat(['Other (Please Specify)']);
-  const TOTAL_STEPS = 3;
+  const CANCER_TYPES = [...Object.keys(CANCER_SUBTYPES), 'Other (Please Specify)'];
+  // This wizard has 4 steps (personal, contact, medical, emergency contact)
+  const TOTAL_STEPS = 4;
   const [step, setStep] = useState(1);
   const [diagnosisSearch, setDiagnosisSearch] = useState('');
   const [showDiagnosisDropdown, setShowDiagnosisDropdown] = useState(false);
@@ -344,7 +345,6 @@ export default function Onboarding({ onComplete }) {
                   placeholder="98109"
                   maxLength={5}
                 />
-              </div>
               </div>
             </div>
           )}
