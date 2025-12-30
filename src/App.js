@@ -162,7 +162,8 @@ export default function CancerCareApp() {
 
   useEffect(() => {
     if (showEditInfo) {
-      const opts = CANCER_SUBTYPES[patientProfile.diagnosis] || [];
+      const diagKey = patientProfile.diagnosis || currentStatus.diagnosis || '';
+      const opts = CANCER_SUBTYPES[diagKey] || [];
       setEditCancerCustom(patientProfile.cancerType ? !opts.includes(patientProfile.cancerType) : false);
       setEditStageCustom(patientProfile.stage === 'Other (specify)' || !!patientProfile.stageOther);
     }
@@ -4132,7 +4133,7 @@ export default function CancerCareApp() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Cancer Subtype</label>
-                      { (CANCER_SUBTYPES[patientProfile.diagnosis] || []).length > 0 ? (
+                      { (CANCER_SUBTYPES[patientProfile.diagnosis || currentStatus.diagnosis] || []).length > 0 ? (
                         <>
                           <select
                             value={patientProfile.cancerType || ''}
@@ -4149,7 +4150,7 @@ export default function CancerCareApp() {
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           >
                             <option value="">Select subtype...</option>
-                            {(CANCER_SUBTYPES[patientProfile.diagnosis] || []).map(s => <option key={s} value={s}>{s}</option>)}
+                            {(CANCER_SUBTYPES[patientProfile.diagnosis || currentStatus.diagnosis] || []).map(s => <option key={s} value={s}>{s}</option>)}
                           </select>
                           {editCancerCustom && (
                             <input
@@ -4432,11 +4433,16 @@ export default function CancerCareApp() {
                   <button
                     onClick={async () => {
                       try {
-                        // Save current status to patient document
-                        await patientService.savePatient(user.uid, { currentStatus });
+                        // Save current status and top-level diagnosis to patient document
+                        await patientService.savePatient(user.uid, {
+                          currentStatus,
+                          diagnosis: currentStatus.diagnosis || '',
+                          diagnosisDate: currentStatus.diagnosisDate || ''
+                        });
                         setShowUpdateStatus(false);
                         // Update local UI state
                         setCurrentStatus(currentStatus);
+                        setPatientProfile(prev => ({ ...prev, diagnosis: currentStatus.diagnosis || prev.diagnosis, diagnosisDate: currentStatus.diagnosisDate || prev.diagnosisDate }));
                         setMessages(prev => [...prev, { type: 'ai', text: '✅ Current status updated successfully!' }]);
                       } catch (err) {
                         console.error('Failed to save current status', err);
