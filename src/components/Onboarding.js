@@ -133,11 +133,26 @@ export default function Onboarding({ onComplete }) {
     stage: '',
     oncologist: '',
     hospital: '',
+    treatmentLine: '',
+    currentRegimen: '',
+    performanceStatus: '',
+    diseaseStatus: '',
+    baselineCa125: '',
 
     // Emergency Contact
     emergencyContactName: '',
     emergencyContactPhone: '',
-    emergencyContactRelationship: ''
+    emergencyContactRelationship: '',
+    emergencyContactEmail: '',
+    emergencyContactAddress: '',
+    emergencyContactCity: '',
+    emergencyContactState: '',
+    emergencyContactZip: '',
+
+    // Primary Care / Additional Contacts
+    primaryCareName: '',
+    primaryCarePhone: '',
+    primaryCareClinic: ''
   });
 
   const updateField = (field, value) => {
@@ -590,6 +605,73 @@ export default function Onboarding({ onComplete }) {
                   placeholder="Seattle Cancer Care Alliance"
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Treatment Line</label>
+                <input
+                  type="text"
+                  value={formData.treatmentLine}
+                  onChange={(e) => updateField('treatmentLine', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="e.g., 1st Line, 2nd Line (Platinum-resistant)"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Current Regimen</label>
+                <input
+                  type="text"
+                  value={formData.currentRegimen}
+                  onChange={(e) => updateField('currentRegimen', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="e.g., Carboplatin + Paclitaxel"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Performance Status (ECOG)</label>
+                  <select
+                    value={formData.performanceStatus}
+                    onChange={(e) => updateField('performanceStatus', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">Select...</option>
+                    <option value="0">ECOG 0 - Fully active</option>
+                    <option value="1">ECOG 1 - Restricted in strenuous activity</option>
+                    <option value="2">ECOG 2 - Ambulatory, capable of self-care</option>
+                    <option value="3">ECOG 3 - Limited self-care</option>
+                    <option value="4">ECOG 4 - Completely disabled</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Disease Status</label>
+                  <select
+                    value={formData.diseaseStatus}
+                    onChange={(e) => updateField('diseaseStatus', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">Select...</option>
+                    <option value="stable">Stable Disease</option>
+                    <option value="responding">Responding to Treatment</option>
+                    <option value="progression">Progression Detected</option>
+                    <option value="remission">Complete Remission</option>
+                    <option value="partial">Partial Response</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Baseline CA-125 (U/mL)</label>
+                <input
+                  type="number"
+                  value={formData.baselineCa125}
+                  onChange={(e) => updateField('baselineCa125', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="e.g., 38"
+                />
+              </div>
             </div>
           )}
 
@@ -652,8 +734,123 @@ export default function Onboarding({ onComplete }) {
                 </select>
               </div>
 
-              {/* Summary */}
-              <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Contact Email
+                </label>
+                <input
+                  type="email"
+                  value={formData.emergencyContactEmail}
+                  onChange={(e) => updateField('emergencyContactEmail', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="jane.doe@example.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Contact Address
+                </label>
+                <input
+                  type="text"
+                  value={formData.emergencyContactAddress}
+                  onChange={(e) => updateField('emergencyContactAddress', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="123 Elm St"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                  <input
+                    type="text"
+                    value={formData.emergencyContactCity}
+                    onChange={(e) => updateField('emergencyContactCity', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    placeholder="Seattle"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+                  <input
+                    type="text"
+                    value={formData.emergencyContactState}
+                    onChange={(e) => updateField('emergencyContactState', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    placeholder="WA"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">ZIP</label>
+                  <input
+                    type="text"
+                    value={formData.emergencyContactZip}
+                    onChange={(e) => updateField('emergencyContactZip', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    placeholder="98109"
+                  />
+                </div>
+              </div>
+
+              <hr className="my-4" />
+
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Primary Care / Clinic</h3>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Primary Care Doctor</label>
+                <input
+                  type="text"
+                  value={formData.primaryCareName}
+                  onChange={(e) => updateField('primaryCareName', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Dr. John Primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Primary Care Phone</label>
+                <input
+                  type="tel"
+                  value={formData.primaryCarePhone}
+                  onChange={(e) => updateField('primaryCarePhone', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="(555) 111-2222"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Primary Care Clinic / Hospital</label>
+                <input
+                  type="text"
+                  value={formData.primaryCareClinic}
+                  onChange={(e) => updateField('primaryCareClinic', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Seattle Primary Care Clinic"
+                />
+              </div>
+
+              {/* Summary / Display of entered contacts */}
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Emergency Contact</h4>
+                  <p className="text-sm text-gray-800"><strong>Name:</strong> {formData.emergencyContactName || '—'}</p>
+                  <p className="text-sm text-gray-800"><strong>Phone:</strong> {formData.emergencyContactPhone || '—'}</p>
+                  <p className="text-sm text-gray-800"><strong>Email:</strong> {formData.emergencyContactEmail || '—'}</p>
+                  <p className="text-sm text-gray-800"><strong>Relationship:</strong> {formData.emergencyContactRelationship || '—'}</p>
+                  <p className="text-sm text-gray-800"><strong>Address:</strong> {formData.emergencyContactAddress ? `${formData.emergencyContactAddress}, ${formData.emergencyContactCity || ''} ${formData.emergencyContactState || ''} ${formData.emergencyContactZip || ''}` : '—'}</p>
+                </div>
+
+                <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Primary Care / Clinic</h4>
+                  <p className="text-sm text-gray-800"><strong>Doctor:</strong> {formData.primaryCareName || '—'}</p>
+                  <p className="text-sm text-gray-800"><strong>Phone:</strong> {formData.primaryCarePhone || '—'}</p>
+                  <p className="text-sm text-gray-800"><strong>Clinic/Hospital:</strong> {formData.primaryCareClinic || formData.hospital || '—'}</p>
+                </div>
+              </div>
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-900 font-medium mb-2">You're all set!</p>
                 <p className="text-xs text-blue-700">
                   Click "Complete Setup" to finish your profile. You can update this information anytime from your profile settings.

@@ -104,6 +104,15 @@ export default function CancerCareApp() {
   const [showEditInfo, setShowEditInfo] = useState(false);
   const [showUpdateStatus, setShowUpdateStatus] = useState(false);
   const [editMode, setEditMode] = useState('ai');
+  const [currentStatus, setCurrentStatus] = useState({
+    diagnosis: '',
+    diagnosisDate: '',
+    treatmentLine: '',
+    currentRegimen: '',
+    performanceStatus: '',
+    diseaseStatus: '',
+    baselineCa125: ''
+  });
   const [showAddLab, setShowAddLab] = useState(false);
   const [showEditGenomic, setShowEditGenomic] = useState(false);
   const [showEditContacts, setShowEditContacts] = useState(false);
@@ -121,7 +130,9 @@ export default function CancerCareApp() {
     weight: '',
     height: '',
     diagnosis: '',
-    stage: ''
+    stage: '',
+    oncologist: '',
+    hospital: ''
   });
   const [trialLocation, setTrialLocation] = useState({
     city: 'Seattle',
@@ -530,7 +541,7 @@ export default function CancerCareApp() {
       const age = Math.floor((today - dob) / (365.25 * 24 * 60 * 60 * 1000));
 
       // Save patient profile
-      await patientService.savePatient(user.uid, {
+        await patientService.savePatient(user.uid, {
         email: user.email,
         displayName: `${formData.firstName} ${formData.lastName}`,
         firstName: formData.firstName,
@@ -549,6 +560,17 @@ export default function CancerCareApp() {
         stage: formData.stage,
         oncologist: formData.oncologist,
         hospital: formData.hospital,
+        // Save initial current status collected during onboarding
+        currentStatus: {
+          diagnosis: formData.diagnosis,
+          diagnosisDate: formData.diagnosisDate,
+          treatmentLine: formData.treatmentLine || '',
+          currentRegimen: formData.currentRegimen || '',
+          performanceStatus: formData.performanceStatus || '',
+          diseaseStatus: formData.diseaseStatus || '',
+          baselineCa125: formData.baselineCa125 ? parseFloat(formData.baselineCa125) : null
+        },
+        
         createdAt: new Date(),
         updatedAt: new Date(),
         profileComplete: true
@@ -559,10 +581,29 @@ export default function CancerCareApp() {
         const { emergencyContactService } = await import('./firebase/services');
         await emergencyContactService.saveEmergencyContact({
           patientId: user.uid,
+          contactType: 'emergency',
           name: formData.emergencyContactName,
           phone: formData.emergencyContactPhone,
+          email: formData.emergencyContactEmail || '',
+          address: formData.emergencyContactAddress || '',
+          city: formData.emergencyContactCity || '',
+          state: formData.emergencyContactState || '',
+          zip: formData.emergencyContactZip || '',
           relationship: formData.emergencyContactRelationship,
           isPrimary: true
+        });
+      }
+
+      // Save primary care as a contact entry (not on patient doc)
+      if (formData.primaryCareName) {
+        const { emergencyContactService } = await import('./firebase/services');
+        await emergencyContactService.saveEmergencyContact({
+          patientId: user.uid,
+          contactType: 'primaryCare',
+          name: formData.primaryCareName,
+          phone: formData.primaryCarePhone || '',
+          clinic: formData.primaryCareClinic || formData.hospital || '',
+          isPrimary: false
         });
       }
 
@@ -681,8 +722,14 @@ export default function CancerCareApp() {
               weight: profile.weight || '',
               height: profile.height || '',
               diagnosis: profile.diagnosis || '',
-              stage: profile.stage || ''
+              stage: profile.stage || '',
+              oncologist: profile.oncologist || '',
+              hospital: profile.hospital || ''
             });
+            // Load current status if present
+            if (profile.currentStatus) {
+              setCurrentStatus(profile.currentStatus);
+            }
           }
 
           // Load genomic profile
@@ -2567,15 +2614,23 @@ export default function CancerCareApp() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Diagnosis:</span>
-                  <span className="font-medium">{patientProfile?.diagnosis || 'No diagnosis yet'}</span>
+                  <span className="font-medium">{currentStatus?.diagnosis || patientProfile?.diagnosis || 'No diagnosis yet'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Treatment Status:</span>
-                  <span className="font-medium">Maintenance Therapy</span>
+                  <span className="font-medium">{currentStatus?.treatmentLine || currentStatus?.currentRegimen || '—'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">ECOG Performance:</span>
-                  <span className="font-medium">1</span>
+                  <span className="font-medium">{currentStatus?.performanceStatus || '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Disease Status:</span>
+                  <span className="font-medium">{currentStatus?.diseaseStatus || '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Baseline CA-125:</span>
+                  <span className="font-medium">{currentStatus?.baselineCa125 != null && currentStatus?.baselineCa125 !== '' ? currentStatus.baselineCa125 : '—'}</span>
                 </div>
               </div>
             </div>
@@ -2813,6 +2868,29 @@ export default function CancerCareApp() {
             </div>
 
             {/* Emergency Contacts */}
+            {/* Medical Team */}
+            <div className="bg-white rounded-lg shadow p-4 mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold text-gray-800">Medical Team</h2>
+                <button
+                  onClick={() => setShowEditContacts(true)}
+                  className="text-blue-600 hover:text-blue-700"
+                >
+                  Edit
+                </button>
+              </div>
+              <div className="text-sm text-gray-700 space-y-1">
+                <p><strong>Oncologist:</strong> {patientProfile.oncologist || '—'}</p>
+                <p><strong>Hospital/Clinic:</strong> {patientProfile.hospital || '—'}</p>
+                {(() => {
+                  const pc = emergencyContacts.find(c => c.contactType === 'primaryCare' || c.contactType === 'primary_care' || c.contactType === 'primary');
+                  if (pc) {
+                    return <p><strong>Primary Care:</strong> {pc.name} {pc.phone ? `(${pc.phone})` : ''}</p>;
+                  }
+                  return <p><strong>Primary Care:</strong> —</p>;
+                })()}
+              </div>
+            </div>
             <div className="bg-white rounded-lg shadow p-4">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold text-gray-800">Emergency Contacts</h2>
@@ -2839,6 +2917,9 @@ export default function CancerCareApp() {
                         {contact.email && (
                           <p className="text-xs text-gray-600">{contact.email}</p>
                         )}
+                        {contact.address && (
+                          <p className="text-xs text-gray-600">{contact.address}{contact.city ? `, ${contact.city}` : ''}{contact.state ? ` ${contact.state}` : ''}{contact.zip ? ` ${contact.zip}` : ''}</p>
+                        )}
                       </div>
                     );
                   })}
@@ -2848,7 +2929,7 @@ export default function CancerCareApp() {
                   <User className="w-12 h-12 text-gray-300 mx-auto mb-2" />
                   <p className="text-gray-500 text-sm mb-3">No emergency contacts added</p>
                   <button
-                    onClick={() => { setEditContacts(emergencyContacts.length ? emergencyContacts : [{ contactType: 'Emergency', name: '', relationship: '', phone: '', email: '' }]); setShowEditContacts(true); }}
+                    onClick={() => { setEditContacts(emergencyContacts.length ? emergencyContacts : [{ contactType: 'Emergency', name: '', relationship: '', phone: '', email: '', address: '', city: '', state: '', zip: '' }]); setShowEditContacts(true); }}
                     className="text-blue-600 text-sm font-medium hover:underline"
                   >
                     Add Emergency Contact
@@ -3973,6 +4054,30 @@ export default function CancerCareApp() {
                     />
                   </div>
 
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Oncologist Name</label>
+                    <input
+                      type="text"
+                      value={patientProfile.oncologist || ''}
+                      onChange={(e) => setPatientProfile({ ...patientProfile, oncologist: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Dr. Jane Smith"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Hospital/Clinic</label>
+                    <input
+                      type="text"
+                      value={patientProfile.hospital || ''}
+                      onChange={(e) => setPatientProfile({ ...patientProfile, hospital: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Seattle Cancer Care Alliance"
+                    />
+                  </div>
+
+                      {/* Primary Care is managed as a contact entry via Edit Contacts */}
+
                 </div>
               </div>
 
@@ -3992,7 +4097,9 @@ export default function CancerCareApp() {
                           age: parseInt(patientProfile.age) || null,
                           dateOfBirth: patientProfile.dateOfBirth,
                           weight: parseFloat(patientProfile.weight) || null,
-                          height: parseFloat(patientProfile.height) || null
+                          height: parseFloat(patientProfile.height) || null,
+                          oncologist: patientProfile.oncologist || '',
+                          hospital: patientProfile.hospital || ''
                         });
                         // Ensure UI reflects saved values
                         setPatientProfile(prev => ({
@@ -4001,7 +4108,9 @@ export default function CancerCareApp() {
                           age: parseInt(patientProfile.age) || '',
                           dateOfBirth: patientProfile.dateOfBirth,
                           weight: patientProfile.weight,
-                          height: patientProfile.height
+                          height: patientProfile.height,
+                          oncologist: patientProfile.oncologist || '',
+                          hospital: patientProfile.hospital || ''
                         }));
                         setShowEditInfo(false);
                         setMessages(prev => [...prev, {
@@ -4041,11 +4150,13 @@ export default function CancerCareApp() {
 
               <div className="flex-1 overflow-y-auto p-4">
                 <div className="space-y-4">
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis *</label>
                     <input
                       type="text"
-                      defaultValue="OCCC Stage IIIC"
+                      value={currentStatus.diagnosis}
+                      onChange={(e) => setCurrentStatus({...currentStatus, diagnosis: e.target.value})}
                       placeholder="e.g., OCCC Stage IIIC, HGSOC Stage IV"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -4055,7 +4166,8 @@ export default function CancerCareApp() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis Date</label>
                     <input
                       type="date"
-                      defaultValue="2024-10-15"
+                      value={currentStatus.diagnosisDate}
+                      onChange={(e) => setCurrentStatus({...currentStatus, diagnosisDate: e.target.value})}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -4064,7 +4176,8 @@ export default function CancerCareApp() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Treatment Line</label>
                     <input
                       type="text"
-                      defaultValue="2nd Line (Platinum-resistant)"
+                      value={currentStatus.treatmentLine}
+                      onChange={(e) => setCurrentStatus({...currentStatus, treatmentLine: e.target.value})}
                       placeholder="e.g., 1st Line, 2nd Line, Maintenance"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -4074,7 +4187,8 @@ export default function CancerCareApp() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Current Regimen</label>
                     <input
                       type="text"
-                      defaultValue="Paclitaxel + Bevacizumab"
+                      value={currentStatus.currentRegimen}
+                      onChange={(e) => setCurrentStatus({...currentStatus, currentRegimen: e.target.value})}
                       placeholder="e.g., Carboplatin + Paclitaxel"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -4082,9 +4196,13 @@ export default function CancerCareApp() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Performance Status (ECOG)</label>
-                    <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select
+                      value={currentStatus.performanceStatus}
+                      onChange={(e) => setCurrentStatus({...currentStatus, performanceStatus: e.target.value})}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
                       <option value="0">ECOG 0 - Fully active</option>
-                      <option value="1" selected>ECOG 1 - Restricted in strenuous activity</option>
+                      <option value="1">ECOG 1 - Restricted in strenuous activity</option>
                       <option value="2">ECOG 2 - Ambulatory, capable of self-care</option>
                       <option value="3">ECOG 3 - Limited self-care</option>
                       <option value="4">ECOG 4 - Completely disabled</option>
@@ -4093,8 +4211,12 @@ export default function CancerCareApp() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Disease Status</label>
-                    <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                      <option value="stable" selected>Stable Disease</option>
+                    <select
+                      value={currentStatus.diseaseStatus}
+                      onChange={(e) => setCurrentStatus({...currentStatus, diseaseStatus: e.target.value})}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="stable">Stable Disease</option>
                       <option value="responding">Responding to Treatment</option>
                       <option value="progression">Progression Detected</option>
                       <option value="remission">Complete Remission</option>
@@ -4106,7 +4228,8 @@ export default function CancerCareApp() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Baseline CA-125 (U/mL)</label>
                     <input
                       type="number"
-                      defaultValue="38"
+                      value={currentStatus.baselineCa125}
+                      onChange={(e) => setCurrentStatus({...currentStatus, baselineCa125: e.target.value})}
                       placeholder="Initial CA-125 value"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -4123,9 +4246,18 @@ export default function CancerCareApp() {
                     Cancel
                   </button>
                   <button
-                    onClick={() => {
-                      setShowUpdateStatus(false);
-                      alert('Status updated successfully!');
+                    onClick={async () => {
+                      try {
+                        // Save current status to patient document
+                        await patientService.savePatient(user.uid, { currentStatus });
+                        setShowUpdateStatus(false);
+                        // Update local UI state
+                        setCurrentStatus(currentStatus);
+                        setMessages(prev => [...prev, { type: 'ai', text: '✅ Current status updated successfully!' }]);
+                      } catch (err) {
+                        console.error('Failed to save current status', err);
+                        alert('Failed to save current status.');
+                      }
                     }}
                     className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"
                   >
@@ -4362,13 +4494,43 @@ export default function CancerCareApp() {
                           placeholder="Email (optional)"
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
                         />
+                        <input
+                          type="text"
+                          value={c.address || ''}
+                          onChange={(e) => setEditContacts(prev => prev.map((item, idx) => idx === i ? { ...item, address: e.target.value } : item))}
+                          placeholder="Address (street)"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                        />
+                        <div className="grid grid-cols-3 gap-2">
+                          <input
+                            type="text"
+                            value={c.city || ''}
+                            onChange={(e) => setEditContacts(prev => prev.map((item, idx) => idx === i ? { ...item, city: e.target.value } : item))}
+                            placeholder="City"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                          />
+                          <input
+                            type="text"
+                            value={c.state || ''}
+                            onChange={(e) => setEditContacts(prev => prev.map((item, idx) => idx === i ? { ...item, state: e.target.value } : item))}
+                            placeholder="State"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                          />
+                          <input
+                            type="text"
+                            value={c.zip || ''}
+                            onChange={(e) => setEditContacts(prev => prev.map((item, idx) => idx === i ? { ...item, zip: e.target.value } : item))}
+                            placeholder="ZIP"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
                       </div>
                     </div>
                   ))}
 
                   <div>
                     <button
-                      onClick={() => setEditContacts(prev => [...prev, { contactType: 'Emergency', name: '', relationship: '', phone: '', email: '' }])}
+                      onClick={() => setEditContacts(prev => [...prev, { contactType: 'Emergency', name: '', relationship: '', phone: '', email: '', address: '', city: '', state: '', zip: '' }])}
                       className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm"
                     >
                       + Add Contact
