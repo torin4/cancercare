@@ -1,6 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Calendar, MapPin, Activity, ChevronRight, Search } from 'lucide-react';
 
+// Map of common histologic subtypes / diagnoses by main cancer category
+// Includes most common subtypes and an "Other (specify)" option for custom entries
+const CANCER_SUBTYPES = {
+  'Ovarian Cancer': ['High-grade serous', 'Low-grade serous', 'Clear cell', 'Endometrioid', 'Mucinous', 'Other (specify)'],
+  'Breast Cancer': ['Invasive ductal (IDC)', 'Invasive lobular (ILC)', 'Triple-negative', 'HER2+', 'ER+/PR+', 'Other (specify)'],
+  'Lung Cancer': ['Adenocarcinoma', 'Squamous cell carcinoma', 'Small cell lung cancer', 'Large cell carcinoma', 'Other (specify)'],
+  'Colorectal Cancer': ['Adenocarcinoma', 'Mucinous adenocarcinoma', 'Signet ring cell carcinoma', 'Other (specify)'],
+  'Endometrial Cancer': ['Endometrioid', 'Serous (Type II)', 'Clear cell', 'Carcinosarcoma', 'Other (specify)'],
+  'Pancreatic Cancer': ['Pancreatic ductal adenocarcinoma', 'Pancreatic neuroendocrine tumor (PNET)', 'Other (specify)'],
+  'Prostate Cancer': ['Adenocarcinoma', 'Neuroendocrine', 'Other (specify)'],
+  'Bladder Cancer': ['Urothelial (transitional) carcinoma', 'Squamous cell carcinoma', 'Adenocarcinoma', 'Other (specify)'],
+  'Kidney Cancer': ['Clear cell RCC', 'Papillary RCC', 'Chromophobe RCC', 'Other (specify)'],
+  'Cervical Cancer': ['Squamous cell carcinoma', 'Adenocarcinoma', 'Adenosquamous', 'Other (specify)'],
+  'Uterine Cancer': ['Endometrial (endometrioid)', 'Serous', 'Carcinosarcoma', 'Other (specify)'],
+  'Brain Cancer': ['Glioblastoma', 'Astrocytoma', 'Oligodendroglioma', 'Other (specify)'],
+  'Skin Cancer': ['Melanoma', 'Basal cell carcinoma', 'Squamous cell carcinoma', 'Other (specify)'],
+  'Thyroid Cancer': ['Papillary', 'Follicular', 'Medullary', 'Anaplastic', 'Other (specify)'],
+  // fallback - other cancers will show an "Other (specify)" option by default via code
+};
+
 // Comprehensive list of cancer types for dropdown
 const CANCER_TYPES = [
   // Gynecological Cancers
@@ -110,8 +130,12 @@ export default function Onboarding({ onComplete }) {
   const [diagnosisSearch, setDiagnosisSearch] = useState('');
   const [showDiagnosisDropdown, setShowDiagnosisDropdown] = useState(false);
   const [showCustomDiagnosisInput, setShowCustomDiagnosisInput] = useState(false);
+  const [showCustomSubtypeInput, setShowCustomSubtypeInput] = useState(false);
+  const [showCustomStageInput, setShowCustomStageInput] = useState(false);
   const diagnosisRef = useRef(null);
   const [formData, setFormData] = useState({
+    // Full name
+    name: '',
     // Personal Info
     firstName: '',
     lastName: '',
@@ -131,6 +155,7 @@ export default function Onboarding({ onComplete }) {
     diagnosisDate: '',
     cancerType: '',
     stage: '',
+    stageOther: '',
     oncologist: '',
     hospital: '',
     treatmentLine: '',
@@ -229,6 +254,14 @@ export default function Onboarding({ onComplete }) {
     setShowDiagnosisDropdown(false);
   };
 
+  // Get subtype options based on selected diagnosis (main cancer)
+  const subtypeOptions = (() => {
+    const key = formData.diagnosis || formData.cancerType || '';
+    if (!key) return [];
+    return CANCER_SUBTYPES[key] || ['Other (specify)'];
+  })();
+  const STAGE_OPTIONS = ['Unknown','Stage I','Stage II','Stage III','Stage IV','Recurrent','Other (specify)'];
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -244,7 +277,8 @@ export default function Onboarding({ onComplete }) {
   const isStepValid = () => {
     switch(step) {
       case 1:
-        return formData.firstName && formData.lastName && formData.dateOfBirth && formData.gender;
+        // accept either full name or first+last
+        return (formData.name || (formData.firstName && formData.lastName)) && formData.dateOfBirth && formData.gender;
       case 2:
         return formData.phone && formData.city && formData.state;
       case 3:
@@ -296,6 +330,17 @@ export default function Onboarding({ onComplete }) {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => updateField('name', e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="John Doe"
+                  />
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     First Name *
@@ -555,29 +600,80 @@ export default function Onboarding({ onComplete }) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Cancer Type
+                    Cancer Subtype
                   </label>
-                  <input
-                    type="text"
-                    value={formData.cancerType}
-                    onChange={(e) => updateField('cancerType', e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="e.g., Serous, Clear Cell"
-                  />
+                  {subtypeOptions.length > 0 ? (
+                    <>
+                      <select
+                        value={formData.cancerType}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === 'Other (specify)') {
+                            setShowCustomSubtypeInput(true);
+                            updateField('cancerType', '');
+                          } else {
+                            setShowCustomSubtypeInput(false);
+                            updateField('cancerType', v);
+                          }
+                        }}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      >
+                        <option value="">Select subtype...</option>
+                        {subtypeOptions.map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                      {showCustomSubtypeInput && (
+                        <input
+                          type="text"
+                          value={formData.cancerType}
+                          onChange={(e) => updateField('cancerType', e.target.value)}
+                          className="w-full mt-2 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          placeholder="Specify subtype"
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <input
+                      type="text"
+                      value={formData.cancerType}
+                      onChange={(e) => updateField('cancerType', e.target.value)}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="e.g., Serous, Clear Cell"
+                    />
+                  )}
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Stage
-                </label>
-                <input
-                  type="text"
-                  value={formData.stage}
-                  onChange={(e) => updateField('stage', e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="e.g., Stage IIIC, Stage II, etc."
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stage</label>
+                <div>
+                  <select
+                    value={formData.stage}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === 'Other (specify)') {
+                        setShowCustomStageInput(true);
+                        updateField('stage', '');
+                      } else {
+                        setShowCustomStageInput(false);
+                        updateField('stage', v);
+                      }
+                    }}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    {STAGE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  {showCustomStageInput && (
+                    <input
+                      type="text"
+                      value={formData.stageOther}
+                      onChange={(e) => updateField('stageOther', e.target.value)}
+                      className="w-full mt-2 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="Specify stage (e.g., Stage IIIC)"
+                    />
+                  )}
+                </div>
               </div>
 
               <div>

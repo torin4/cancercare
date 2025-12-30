@@ -573,7 +573,8 @@ export default function CancerCareApp() {
       // Save patient profile
         await patientService.savePatient(user.uid, {
         email: user.email,
-        displayName: `${formData.firstName} ${formData.lastName}`,
+        name: formData.name || `${formData.firstName} ${formData.lastName}`,
+        displayName: formData.name || `${formData.firstName} ${formData.lastName}`,
         firstName: formData.firstName,
         lastName: formData.lastName,
         dateOfBirth: formData.dateOfBirth,
@@ -587,7 +588,7 @@ export default function CancerCareApp() {
         diagnosis: formData.diagnosis,
         diagnosisDate: formData.diagnosisDate,
         cancerType: formData.cancerType,
-        stage: formData.stage,
+        stage: formData.stageOther || formData.stage,
         oncologist: formData.oncologist,
         hospital: formData.hospital,
         // Save initial current status collected during onboarding
@@ -636,6 +637,18 @@ export default function CancerCareApp() {
           isPrimary: false
         });
       }
+
+      // Update local patientProfile state so UI reflects saved name immediately
+      setPatientProfile(prev => ({
+        ...prev,
+        name: formData.name || `${formData.firstName} ${formData.lastName}`,
+        age: age,
+        dateOfBirth: formData.dateOfBirth,
+        diagnosis: formData.diagnosis || prev.diagnosis,
+        stage: formData.stageOther || formData.stage || prev.stage,
+        oncologist: formData.oncologist || prev.oncologist,
+        hospital: formData.hospital || prev.hospital
+      }));
 
       console.log('Onboarding completed successfully');
       setNeedsOnboarding(false);
