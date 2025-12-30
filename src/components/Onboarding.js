@@ -13,6 +13,54 @@ const CANCER_SUBTYPES = {
           
   };
 
+export default function Onboarding({ onComplete }) {
+  // Derive simple cancer list from subtypes map
+  const CANCER_TYPES = Object.keys(CANCER_SUBTYPES).concat(['Other (Please Specify)']);
+  const TOTAL_STEPS = 2;
+  const [step, setStep] = useState(1);
+  const [diagnosisSearch, setDiagnosisSearch] = useState('');
+  const [showDiagnosisDropdown, setShowDiagnosisDropdown] = useState(false);
+  const [showCustomDiagnosisInput, setShowCustomDiagnosisInput] = useState(false);
+  const [showCustomSubtypeInput, setShowCustomSubtypeInput] = useState(false);
+  const [showCustomStageInput, setShowCustomStageInput] = useState(false);
+  const diagnosisRef = useRef(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    dateOfBirth: '',
+    gender: '',
+    phone: '',
+    address: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: 'United States',
+    diagnosis: '',
+    diagnosisDate: '',
+    cancerType: '',
+    stage: '',
+    stageOther: '',
+    oncologist: '',
+    hospital: '',
+    treatmentLine: '',
+    currentRegimen: '',
+    performanceStatus: '',
+    diseaseStatus: '',
+    baselineCa125: '',
+    emergencyContactName: '',
+    emergencyContactPhone: '',
+    emergencyContactRelationship: '',
+    emergencyContactEmail: '',
+    emergencyContactAddress: '',
+    emergencyContactCity: '',
+    emergencyContactState: '',
+    emergencyContactZip: '',
+    primaryCareName: '',
+    primaryCarePhone: '',
+    primaryCareClinic: ''
+  });
+
+  const updateField = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
+
   const getPostalPlaceholder = (country) => {
     if (!country) return '';
     const c = country.toLowerCase();

@@ -753,44 +753,26 @@ export default function CancerCareApp() {
           // Load patient profile
           const profile = await patientService.getPatient(user.uid);
           if (profile) {
-            // Save patient profile
-              const toSave = {
-                email: user.email,
-                name: formData.name,
-                displayName: formData.name,
-                dateOfBirth: formData.dateOfBirth,
-                age: age,
-                gender: formData.gender,
-                phone: formData.phone,
-                address: formData.address,
-                city: formData.city,
-                country: formData.country,
-                state: formData.state,
-                zip: formData.zip,
-                diagnosis: formData.diagnosis,
-                diagnosisDate: formData.diagnosisDate,
-                cancerType: formData.cancerType,
-                stage: formData.stageOther || formData.stage,
-                oncologist: formData.oncologist,
-                hospital: formData.hospital,
-                currentStatus: {
-                  diagnosis: formData.diagnosis,
-                  diagnosisDate: formData.diagnosisDate,
-                  treatmentLine: formData.treatmentLine || '',
-                  currentRegimen: formData.currentRegimen || '',
-                  performanceStatus: formData.performanceStatus || '',
-                  diseaseStatus: formData.diseaseStatus || '',
-                  baselineCa125: formData.baselineCa125 ? parseFloat(formData.baselineCa125) : null
-                },
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                profileComplete: true
-              };
-              console.log('Onboarding will save patient document:', toSave);
-              await patientService.savePatient(user.uid, toSave);
-              // verify saved
-              const savedProfile = await patientService.getPatient(user.uid);
-              console.log('Saved patient profile from Firestore:', savedProfile);
+            setPatientProfile({
+              name: profile.name || '',
+              age: profile.age || '',
+              dateOfBirth: profile.dateOfBirth || '',
+              weight: profile.weight || '',
+              height: profile.height || '',
+              diagnosis: profile.diagnosis || '',
+              diagnosisDate: profile.diagnosisDate || '',
+              cancerType: profile.cancerType || '',
+              stage: profile.stage || '',
+              stageOther: profile.stageOther || '',
+              country: profile.country || 'United States',
+              oncologist: profile.oncologist || '',
+              hospital: profile.hospital || ''
+            });
+            // Load current status if present
+            if (profile.currentStatus) {
+              setCurrentStatus(profile.currentStatus);
+            }
+          }
 
           // Check if user has uploaded documents
           const docs = await documentService.getDocuments(user.uid);
