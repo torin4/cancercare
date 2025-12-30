@@ -84,17 +84,31 @@ export default function Onboarding({ onComplete }) {
     return '';
   };
 
+  const getStateLabel = (country) => {
+    if (!country) return 'State';
+    const c = country.toLowerCase();
+    if (c.includes('canada')) return 'Province/Region';
+    if (c.includes('united kingdom') || c.includes('uk')) return 'County/Region';
+    if (c.includes('japan')) return 'Prefecture';
+    return 'State';
+  };
+
+  const getZipMaxLength = (country) => {
+    if (!country) return 10;
+    const c = country.toLowerCase();
+    if (c.includes('united states')) return 5;
+    if (c.includes('canada')) return 7;
+    if (c.includes('japan')) return 8;
+    return 20;
+  };
+
   const handleNext = () => {
-    if (step === 2) {
-      // Require phone, city, state on step 2 to proceed
-      if (!formData.phone || !formData.city || (formData.country === 'United States' && !formData.state)) {
-        alert('Please fill out all required address fields, including state for United States.');
-        return;
-      }
+    // Validate current step before advancing
+    if (!isStepValid()) {
+      alert('Please fill out all required fields for this step.');
+      return;
     }
-    if (step < TOTAL_STEPS) {
-      setStep(step + 1);
-    }
+    if (step < TOTAL_STEPS) setStep(step + 1);
   };
 
   const handleBack = () => {
@@ -151,8 +165,14 @@ export default function Onboarding({ onComplete }) {
       case 1:
         return formData.name && formData.dateOfBirth && formData.gender;
       case 2:
-        // Medical info and current status
+        // Contact info: require phone and city; require state only for United States
+        return formData.phone && formData.city && (formData.country === 'United States' ? !!formData.state : true);
+      case 3:
+        // Medical info
         return formData.diagnosis && formData.diagnosisDate;
+      case 4:
+        // Emergency contact
+        return formData.emergencyContactName && formData.emergencyContactPhone;
       default:
         return false;
     }
@@ -320,7 +340,7 @@ export default function Onboarding({ onComplete }) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    State *
+                    {getStateLabel(formData.country)} {formData.country === 'United States' ? '*' : ''}
                   </label>
                   <input
                     type="text"
@@ -328,7 +348,7 @@ export default function Onboarding({ onComplete }) {
                     onChange={(e) => updateField('state', e.target.value)}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     placeholder="WA"
-                    maxLength={2}
+                    maxLength={getZipMaxLength(formData.country) === 5 ? 2 : 50}
                   />
                 </div>
               </div>
@@ -342,8 +362,8 @@ export default function Onboarding({ onComplete }) {
                   value={formData.zip}
                   onChange={(e) => updateField('zip', e.target.value)}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="98109"
-                  maxLength={5}
+                  placeholder={getPostalPlaceholder(formData.country) || 'Postal Code'}
+                  maxLength={getZipMaxLength(formData.country)}
                 />
               </div>
             </div>
