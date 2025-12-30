@@ -631,36 +631,7 @@ export default function CancerCareApp() {
         profileComplete: true
       });
 
-      // Save emergency contact
-      if (formData.emergencyContactName) {
-        const { emergencyContactService } = await import('./firebase/services');
-        await emergencyContactService.saveEmergencyContact({
-          patientId: user.uid,
-          contactType: 'emergency',
-          name: formData.emergencyContactName,
-          phone: formData.emergencyContactPhone,
-          email: formData.emergencyContactEmail || '',
-          address: formData.emergencyContactAddress || '',
-          city: formData.emergencyContactCity || '',
-          state: formData.emergencyContactState || '',
-          zip: formData.emergencyContactZip || '',
-          relationship: formData.emergencyContactRelationship,
-          isPrimary: true
-        });
-      }
-
-      // Save primary care as a contact entry (not on patient doc)
-      if (formData.primaryCareName) {
-        const { emergencyContactService } = await import('./firebase/services');
-        await emergencyContactService.saveEmergencyContact({
-          patientId: user.uid,
-          contactType: 'primaryCare',
-          name: formData.primaryCareName,
-          phone: formData.primaryCarePhone || '',
-          clinic: formData.primaryCareClinic || formData.hospital || '',
-          isPrimary: false
-        });
-      }
+      // No emergency contact or primary care saved during onboarding (managed in app contacts)
 
       // Update local patientProfile state so UI reflects saved name immediately
       setPatientProfile(prev => ({
@@ -782,42 +753,44 @@ export default function CancerCareApp() {
           // Load patient profile
           const profile = await patientService.getPatient(user.uid);
           if (profile) {
-            setPatientProfile({
-              name: profile.name || '',
-              age: profile.age || '',
-              dateOfBirth: profile.dateOfBirth || '',
-              weight: profile.weight || '',
-              height: profile.height || '',
-              diagnosis: profile.diagnosis || '',
-              diagnosisDate: profile.diagnosisDate || '',
-              cancerType: profile.cancerType || '',
-              stage: profile.stage || '',
-              stageOther: profile.stageOther || '',
-              country: profile.country || 'United States',
-              oncologist: profile.oncologist || '',
-              hospital: profile.hospital || ''
-            });
-            // Load current status if present
-            if (profile.currentStatus) {
-              setCurrentStatus(profile.currentStatus);
-            }
-          }
-
-          // Load genomic profile
-          const genomic = await genomicProfileService.getGenomicProfile(user.uid);
-          setGenomicProfile(genomic);
-
-          // Load emergency contacts
-          const contacts = await emergencyContactService.getEmergencyContacts(user.uid);
-          setEmergencyContacts(contacts);
-
-          // Load medications
-          const meds = await medicationService.getMedications(user.uid);
-          setMedications(meds);
-
-          // Load symptoms
-          const symps = await symptomService.getSymptoms(user.uid);
-          setSymptoms(symps);
+            // Save patient profile
+              const toSave = {
+                email: user.email,
+                name: formData.name,
+                displayName: formData.name,
+                dateOfBirth: formData.dateOfBirth,
+                age: age,
+                gender: formData.gender,
+                phone: formData.phone,
+                address: formData.address,
+                city: formData.city,
+                country: formData.country,
+                state: formData.state,
+                zip: formData.zip,
+                diagnosis: formData.diagnosis,
+                diagnosisDate: formData.diagnosisDate,
+                cancerType: formData.cancerType,
+                stage: formData.stageOther || formData.stage,
+                oncologist: formData.oncologist,
+                hospital: formData.hospital,
+                currentStatus: {
+                  diagnosis: formData.diagnosis,
+                  diagnosisDate: formData.diagnosisDate,
+                  treatmentLine: formData.treatmentLine || '',
+                  currentRegimen: formData.currentRegimen || '',
+                  performanceStatus: formData.performanceStatus || '',
+                  diseaseStatus: formData.diseaseStatus || '',
+                  baselineCa125: formData.baselineCa125 ? parseFloat(formData.baselineCa125) : null
+                },
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                profileComplete: true
+              };
+              console.log('Onboarding will save patient document:', toSave);
+              await patientService.savePatient(user.uid, toSave);
+              // verify saved
+              const savedProfile = await patientService.getPatient(user.uid);
+              console.log('Saved patient profile from Firestore:', savedProfile);
 
           // Check if user has uploaded documents
           const docs = await documentService.getDocuments(user.uid);
@@ -4270,7 +4243,7 @@ export default function CancerCareApp() {
                   <button
                     onClick={async () => {
                       try {
-                        await patientService.savePatient(user.uid, {
+                        const toSave = {
                           name: patientProfile.name,
                           age: parseInt(patientProfile.age) || null,
                           dateOfBirth: patientProfile.dateOfBirth,
@@ -4282,7 +4255,12 @@ export default function CancerCareApp() {
                           stage: patientProfile.stageOther || patientProfile.stage || '',
                           stageOther: patientProfile.stageOther || '',
                           country: patientProfile.country || ''
-                        });
+                        };
+                        console.log('Saving Edit Patient Info:', toSave);
+                        await patientService.savePatient(user.uid, toSave);
+                        // verify saved
+                        const saved = await patientService.getPatient(user.uid);
+                        console.log('Saved patient profile after edit:', saved);
                         // Ensure UI reflects saved values
                         setPatientProfile(prev => ({
                           ...prev,

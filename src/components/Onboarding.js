@@ -10,201 +10,7 @@ const CANCER_SUBTYPES = {
   'Colorectal Cancer': ['Adenocarcinoma', 'Mucinous adenocarcinoma', 'Signet ring cell carcinoma', 'Other (specify)'],
   'Endometrial Cancer': ['Endometrioid', 'Serous (Type II)', 'Clear cell', 'Carcinosarcoma', 'Other (specify)'],
   'Pancreatic Cancer': ['Pancreatic ductal adenocarcinoma', 'Pancreatic neuroendocrine tumor (PNET)', 'Other (specify)'],
-  'Prostate Cancer': ['Adenocarcinoma', 'Neuroendocrine', 'Other (specify)'],
-  'Bladder Cancer': ['Urothelial (transitional) carcinoma', 'Squamous cell carcinoma', 'Adenocarcinoma', 'Other (specify)'],
-  'Kidney Cancer': ['Clear cell RCC', 'Papillary RCC', 'Chromophobe RCC', 'Other (specify)'],
-  'Cervical Cancer': ['Squamous cell carcinoma', 'Adenocarcinoma', 'Adenosquamous', 'Other (specify)'],
-  'Uterine Cancer': ['Endometrial (endometrioid)', 'Serous', 'Carcinosarcoma', 'Other (specify)'],
-  'Brain Cancer': ['Glioblastoma', 'Astrocytoma', 'Oligodendroglioma', 'Other (specify)'],
-  'Skin Cancer': ['Melanoma', 'Basal cell carcinoma', 'Squamous cell carcinoma', 'Other (specify)'],
-  'Thyroid Cancer': ['Papillary', 'Follicular', 'Medullary', 'Anaplastic', 'Other (specify)'],
-  // fallback - other cancers will show an "Other (specify)" option by default via code
-};
-
-// Comprehensive list of cancer types for dropdown
-const CANCER_TYPES = [
-  // Gynecological Cancers
-  'Ovarian Cancer',
-  'Endometrial Cancer',
-  'Cervical Cancer',
-  'Uterine Cancer',
-  'Vaginal Cancer',
-  'Vulvar Cancer',
-  'Fallopian Tube Cancer',
-
-  // Breast Cancer
-  'Breast Cancer',
-  'Male Breast Cancer',
-  'Inflammatory Breast Cancer',
-  'Triple-Negative Breast Cancer',
-
-  // Lung Cancer
-  'Lung Cancer',
-  'Non-Small Cell Lung Cancer',
-  'Small Cell Lung Cancer',
-  'Mesothelioma',
-
-  // Gastrointestinal Cancers
-  'Colorectal Cancer',
-  'Colon Cancer',
-  'Rectal Cancer',
-  'Stomach Cancer',
-  'Esophageal Cancer',
-  'Pancreatic Cancer',
-  'Liver Cancer',
-  'Gallbladder Cancer',
-  'Bile Duct Cancer',
-  'Anal Cancer',
-  'Gastrointestinal Stromal Tumor (GIST)',
-
-  // Blood Cancers
-  'Leukemia',
-  'Acute Lymphoblastic Leukemia (ALL)',
-  'Acute Myeloid Leukemia (AML)',
-  'Chronic Lymphocytic Leukemia (CLL)',
-  'Chronic Myeloid Leukemia (CML)',
-  'Lymphoma',
-  'Hodgkin Lymphoma',
-  'Non-Hodgkin Lymphoma',
-  'Multiple Myeloma',
-  'Myelodysplastic Syndrome',
-
-  // Skin Cancer
-  'Melanoma',
-  'Basal Cell Carcinoma',
-  'Squamous Cell Carcinoma',
-  'Merkel Cell Carcinoma',
-
-  // Genitourinary Cancers
-  'Prostate Cancer',
-  'Bladder Cancer',
-  'Kidney Cancer',
-  'Renal Cell Carcinoma',
-  'Testicular Cancer',
-  'Penile Cancer',
-
-  // Head and Neck Cancers
-  'Head and Neck Cancer',
-  'Thyroid Cancer',
-  'Oral Cancer',
-  'Throat Cancer',
-  'Laryngeal Cancer',
-  'Nasopharyngeal Cancer',
-  'Salivary Gland Cancer',
-
-  // Brain and Nervous System
-  'Brain Cancer',
-  'Glioblastoma',
-  'Astrocytoma',
-  'Meningioma',
-  'Neuroblastoma',
-  'Spinal Cord Tumor',
-
-  // Bone and Soft Tissue
-  'Bone Cancer',
-  'Osteosarcoma',
-  'Ewing Sarcoma',
-  'Soft Tissue Sarcoma',
-  'Rhabdomyosarcoma',
-
-  // Endocrine Cancers
-  'Adrenal Cancer',
-  'Pituitary Tumor',
-  'Parathyroid Cancer',
-  'Neuroendocrine Tumor',
-  'Carcinoid Tumor',
-
-  // Pediatric Cancers
-  'Wilms Tumor',
-  'Retinoblastoma',
-
-  // Other Cancers
-  'Mesothelioma',
-  'Thymoma',
-  'Carcinoma of Unknown Primary',
-  'Other (Please Specify)'
-].sort();
-
-export default function Onboarding({ onComplete }) {
-  const [step, setStep] = useState(1);
-  const [diagnosisSearch, setDiagnosisSearch] = useState('');
-  const [showDiagnosisDropdown, setShowDiagnosisDropdown] = useState(false);
-  const [showCustomDiagnosisInput, setShowCustomDiagnosisInput] = useState(false);
-  const [showCustomSubtypeInput, setShowCustomSubtypeInput] = useState(false);
-  const [showCustomStageInput, setShowCustomStageInput] = useState(false);
-  const diagnosisRef = useRef(null);
-  const [formData, setFormData] = useState({
-    // Full name (single field)
-    name: '',
-    dateOfBirth: '',
-    gender: '',
-
-    // Contact Info
-    phone: '',
-    address: '',
-    city: '',
-    state: '',
-    zip: '',
-    country: 'United States',
-
-    // Medical Info
-    diagnosis: '',
-    diagnosisDate: '',
-    cancerType: '',
-    stage: '',
-    stageOther: '',
-    oncologist: '',
-    hospital: '',
-    treatmentLine: '',
-    currentRegimen: '',
-    performanceStatus: '',
-    diseaseStatus: '',
-    baselineCa125: '',
-
-    // Emergency Contact
-    emergencyContactName: '',
-    emergencyContactPhone: '',
-    emergencyContactRelationship: '',
-    emergencyContactEmail: '',
-    emergencyContactAddress: '',
-    emergencyContactCity: '',
-    emergencyContactState: '',
-    emergencyContactZip: '',
-
-    // Primary Care / Additional Contacts
-    primaryCareName: '',
-    primaryCarePhone: '',
-    primaryCareClinic: ''
-  });
-
-  const updateField = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  // Helpers for country-specific address labels/placeholders
-  const getStateLabel = (country) => {
-    if (!country) return 'State/Region';
-    const c = country.toLowerCase();
-    if (c.includes('japan')) return 'Prefecture';
-    if (c.includes('canada') || c.includes('australia')) return 'Province/State';
-    if (c.includes('united kingdom') || c.includes('uk')) return 'County/Region';
-    return 'State/Region';
-  };
-
-  const getStatePlaceholder = (country) => {
-    if (!country) return '';
-    const c = country.toLowerCase();
-    if (c.includes('japan')) return 'Tokyo';
-    if (c.includes('canada')) return 'BC';
-    if (c.includes('united states') || c.includes('united states of america')) return 'WA';
-    return '';
-  };
-
-  const getPostalLabel = (country) => {
-    if (!country) return 'Postal Code';
-    const c = country.toLowerCase();
-    if (c.includes('united states')) return 'ZIP Code';
-    return 'Postal Code';
+          
   };
 
   const getPostalPlaceholder = (country) => {
@@ -217,7 +23,7 @@ export default function Onboarding({ onComplete }) {
   };
 
   const handleNext = () => {
-    if (step < 4) {
+    if (step < TOTAL_STEPS) {
       setStep(step + 1);
     }
   };
@@ -276,11 +82,8 @@ export default function Onboarding({ onComplete }) {
       case 1:
         return formData.name && formData.dateOfBirth && formData.gender;
       case 2:
-        return formData.phone && formData.city && formData.state;
-      case 3:
+        // Medical info and current status
         return formData.diagnosis && formData.diagnosisDate;
-      case 4:
-        return formData.emergencyContactName && formData.emergencyContactPhone;
       default:
         return false;
     }
@@ -297,7 +100,7 @@ export default function Onboarding({ onComplete }) {
 
           {/* Progress Bar */}
           <div className="mt-4 flex gap-2">
-            {[1, 2, 3, 4].map(i => (
+            {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map(i => (
               <div
                 key={i}
                 className={`flex-1 h-2 rounded-full transition-all ${
@@ -306,7 +109,7 @@ export default function Onboarding({ onComplete }) {
               />
             ))}
           </div>
-          <p className="text-sm text-blue-100 mt-2">Step {step} of 4</p>
+          <p className="text-sm text-blue-100 mt-2">Step {step} of {TOTAL_STEPS}</p>
         </div>
 
         {/* Form Content */}
