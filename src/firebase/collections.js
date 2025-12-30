@@ -18,6 +18,7 @@ export const COLLECTIONS = {
   GENOMIC_PROFILES: 'genomicProfiles',
   EMERGENCY_CONTACTS: 'emergencyContacts',
   CLINICAL_TRIALS: 'clinicalTrials',
+  MATCHED_TRIALS: 'matchedTrials',
   TRIAL_LOCATIONS: 'trialLocations'
 };
 
