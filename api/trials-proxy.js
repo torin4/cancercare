@@ -60,22 +60,31 @@ module.exports = async (req, res) => {
       const v2Params = [];
       
       // Handle query.term and query.cond
+      // query.cond = condition/disease (e.g., "Ovarian Cancer")
+      // query.term = other terms/biomarkers (e.g., "Clear Cell Sarcoma", "ATM OR BRD4")
       const queryTermParam = params.get('query.term');
       const queryCondParam = params.get('query.cond');
       
-      // If both are provided, combine them with AND logic in query.term
-      // The API may not support separate query.cond parameter properly
-      if (queryTermParam && queryCondParam) {
-        // Combine: condition AND (genes/biomarkers)
-        const combinedQuery = `${queryCondParam} AND (${queryTermParam})`;
-        v2Params.push(`query.term=${encodeURIComponent(combinedQuery)}`);
-      } else if (queryTermParam) {
+      // Use separate query.cond and query.term if both are provided (v2 API supports this)
+      if (queryCondParam) {
+        v2Params.push(`query.cond=${encodeURIComponent(queryCondParam)}`);
+      }
+      if (queryTermParam) {
         v2Params.push(`query.term=${encodeURIComponent(queryTermParam)}`);
-      } else if (queryCondParam) {
-        v2Params.push(`query.term=${encodeURIComponent(queryCondParam)}`);
-      } else if (queryTerm) {
-        // Fallback: use legacy parameter
+      }
+      
+      // Fallback: if only legacy queryTerm is provided, use it for query.term
+      if (!queryTermParam && !queryCondParam && queryTerm) {
         v2Params.push(`query.term=${encodeURIComponent(queryTerm)}`);
+      }
+      
+      // Add location filter if country is specified and includeAllLocations is false
+      const country = params.get('country');
+      const includeAllLocations = params.get('includeAllLocations') === 'true' || params.get('includeAllLocations') === true;
+      if (country && !includeAllLocations) {
+        // Use query.locn for location filtering in v2 API
+        v2Params.push(`query.locn=${encodeURIComponent(country)}`);
+        console.log('trials-proxy: Adding location filter to API query:', country);
       }
       
       // v2 API uses pageSize for pagination (not page.size)
@@ -83,10 +92,17 @@ module.exports = async (req, res) => {
       // Note: v2 API doesn't use pageNumber - it uses nextPageToken for pagination
       // For now, we'll just use pageSize
       
-      // Include fields if specified
+      // Include fields if specified - ensure location fields are always included
       const fields = params.get('fields');
       if (fields) {
-        v2Params.push(`fields=${encodeURIComponent(fields)}`);
+        // Make sure LocationCity and LocationCountry are in the fields list
+        const fieldsList = fields.split(',');
+        if (!fieldsList.includes('LocationCity')) fieldsList.push('LocationCity');
+        if (!fieldsList.includes('LocationCountry')) fieldsList.push('LocationCountry');
+        v2Params.push(`fields=${encodeURIComponent(fieldsList.join(','))}`);
+      } else {
+        // Default fields including location data
+        v2Params.push(`fields=${encodeURIComponent('NCTId,BriefTitle,Condition,OverallStatus,Phase,BriefSummary,LocationCity,LocationCountry')}`);
       }
       
       // Use new v2 API endpoint
@@ -137,19 +153,6 @@ module.exports = async (req, res) => {
         // Check if it's already in legacy format (fallback from old API)
         if (d.StudyFieldsResponse && d.StudyFieldsResponse.Study) {
           console.log('trials-proxy: Using legacy StudyFieldsResponse format, studies:', d.StudyFieldsResponse.Study.length);
-          if (d.StudyFieldsResponse.Study.length > 0) {
-            // Check if location data is present
-            const firstStudy = d.StudyFieldsResponse.Study[0];
-            const hasLocationCity = firstStudy.LocationCity && firstStudy.LocationCity.length > 0;
-            const hasLocationCountry = firstStudy.LocationCountry && firstStudy.LocationCountry.length > 0;
-            console.log('trials-proxy: First study location data check:', {
-              hasLocationCity,
-              hasLocationCountry,
-              locationCitySample: hasLocationCity ? firstStudy.LocationCity[0] : 'none',
-              locationCountrySample: hasLocationCountry ? firstStudy.LocationCountry[0] : 'none',
-              allKeys: Object.keys(firstStudy)
-            });
-          }
           if (d.StudyFieldsResponse.Study.length === 0) {
             const queryTerm = params.get('query.term') || params.get('query.cond') || params.get('expr') || params.get('condition') || '';
             console.log('trials-proxy: WARNING - Empty Study array. Query was:', queryTerm);
