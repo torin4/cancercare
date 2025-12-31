@@ -156,8 +156,9 @@ module.exports = async (req, res) => {
             seenTokens.add(nextPageToken);
           }
           
+          // IMPORTANT: API response returns nextPageToken, but request parameter must be pageToken
           const pageUrl = nextPageToken 
-            ? `${target}&nextPageToken=${encodeURIComponent(nextPageToken)}`
+            ? `${target}&pageToken=${encodeURIComponent(nextPageToken)}`
             : target;
           
           console.log(`trials-proxy: Fetching page ${pageCount}${nextPageToken ? ` (token: ${nextPageToken.substring(0, 20)}...)` : ''}`);
@@ -234,6 +235,11 @@ module.exports = async (req, res) => {
         
         console.log(`trials-proxy: Filtering ${allStudies.length} studies for country: ${country} (search terms: ${searchTerms.join(', ')})`);
         
+        let studiesWithNoLocation = 0;
+        let studiesWithLocationButNoMatch = 0;
+        let studiesWithMatch = 0;
+        let sampleLocationData = []; // Store first few location examples for debugging
+        
         allStudies.forEach((study, idx) => {
           try {
             const protocolSection = study.protocolSection || {};
@@ -256,6 +262,14 @@ module.exports = async (req, res) => {
               if (country) locationCountries.push(country);
             });
             
+            // Collect sample location data for first few studies
+            if (idx < 5 && locationCountries.length > 0) {
+              sampleLocationData.push({
+                studyId: id,
+                countries: locationCountries
+              });
+            }
+            
             // Check if this trial has the requested country
             const hasMatch = locationCountries.some(locCountry => 
               searchTerms.some(term => locCountry.toLowerCase().includes(term))
@@ -263,13 +277,17 @@ module.exports = async (req, res) => {
             
             // Only include trials that match the country filter
             if (!hasMatch && locations.length > 0) {
+              studiesWithLocationButNoMatch++;
               return; // Skip this trial - doesn't match country filter
             }
             
             // If no location data, exclude it (can't verify it's in requested country)
             if (locations.length === 0) {
+              studiesWithNoLocation++;
               return; // Skip trials with no location data
             }
+            
+            studiesWithMatch++;
             
             // Process this study (it passed the location filter)
             const briefTitle = identificationModule.briefTitle || identificationModule.officialTitle || study.title || '';
@@ -307,6 +325,11 @@ module.exports = async (req, res) => {
           }
         });
         
+        console.log(`trials-proxy: Location filtering summary:`);
+        console.log(`   - Studies with matching location: ${studiesWithMatch}`);
+        console.log(`   - Studies with location but no match: ${studiesWithLocationButNoMatch}`);
+        console.log(`   - Studies with no location data: ${studiesWithNoLocation}`);
+        console.log(`   - Sample location data (first 5 studies):`, JSON.stringify(sampleLocationData, null, 2));
         console.log(`trials-proxy: After location filtering: ${studies.length} studies match ${country}`);
         
         const out = { 
