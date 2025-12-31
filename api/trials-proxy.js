@@ -273,11 +273,13 @@ module.exports = async (req, res) => {
                   
                   // Log if we find location data for debugging
                   if (city || country) {
-                    console.log(`trials-proxy: Extracted location for study ${id}: city=${city}, state=${state}, country=${country}`);
-                  }
-                } catch (e) {
-                  console.warn(`trials-proxy: Error extracting location for study ${id}:`, e?.message || e);
-                  // Skip this location if there's an error
+                  // IMPORTANT: Based on actual API response structure:
+                  // - city and country are DIRECTLY on the location object (loc.city, loc.country)
+                  // - facility is a STRING (facility name), not an object
+                  // Structure: { facility: "Name", city: "Beijing", country: "China", state: "...", ... }
+                  const city = loc?.city || ;
+                  const state = loc?.state || ;
+                  const country = loc?.country || ;
                 }
               });
               
