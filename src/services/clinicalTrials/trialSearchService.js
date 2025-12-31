@@ -96,21 +96,36 @@ async function applyLocationFilters(trials, params) {
     console.log(`Applying location filter for country: ${params.country}, search terms:`, searchTerms);
     console.log(`Trials before filtering: ${out.length}`);
     
+    // Check if any trials have location data
+    const trialsWithLocationData = out.filter(t => {
+      const locations = t.locations || [];
+      return locations.length > 0 || (t.country && t.country.trim() !== '');
+    });
+    
+    console.log(`Trials with location data: ${trialsWithLocationData.length} out of ${out.length}`);
+    
+    // If NO trials have location data, we can't filter - show all trials with a warning
+    if (trialsWithLocationData.length === 0) {
+      console.warn('No trials have location data - cannot filter by country. Showing all trials.');
+      return out; // Return all trials since we can't filter
+    }
+    
+    // If some trials have location data, only filter those that have it
+    // Include trials with location data that match, exclude those that don't match
     out = out.filter(t => {
       // Check trial's country field
       const trialCountry = (t.country || '').toLowerCase();
-      if (searchTerms.some(term => trialCountry.includes(term))) {
+      if (trialCountry && searchTerms.some(term => trialCountry.includes(term))) {
         return true;
       }
       
       // Check trial locations
       const locations = t.locations || [];
       if (locations.length === 0) {
-        // If no location data and country filter is active, include the trial
-        // (we can't verify it's NOT in the requested country, so be permissive)
-        // This is necessary because the API often doesn't return location data
-        console.log(`Trial ${t.id} has no location data, including it (cannot verify country)`);
-        return true;
+        // If this trial has no location data but others do, exclude it
+        // (we can't verify it's in the requested country)
+        console.log(`Trial ${t.id} has no location data, excluding from country-filtered results`);
+        return false;
       }
       
       return locations.some(loc => {
