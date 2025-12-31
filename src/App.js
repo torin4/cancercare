@@ -544,7 +544,7 @@ export default function CancerCareApp() {
 
   const [genomicProfile, setGenomicProfile] = useState(null);
 
-  // Mock data removed - app now uses real data from Firestore and JRCT API
+  // Mock data removed - app now uses real data from Firestore and ClinicalTrials.gov API
 
   // Monitor authentication state and create patient profile if needed
   useEffect(() => {

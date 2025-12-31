@@ -29,27 +29,29 @@ module.exports = async (req, res) => {
 
     let target;
     if (source === 'ctgov') {
-      // ClinicalTrials.gov Data API v2 (preferred)
-      // Map legacy `expr` -> `query.term`, and translate paging params
-      // into v2 `page[size]`/`page[number]`. We'll request JSON and
-      // normalize the modern response back into a legacy-like
-      // `StudyFieldsResponse` shape so the frontend can continue to use
-      // the existing parsing logic without changes.
+      // ClinicalTrials.gov API v2 (modernized API)
+      // According to migration guide: https://clinicaltrials.gov/data-api/about-api/api-migration#query-endpoints
+      // The new API uses /api/v2/studies with query.term parameter
       const expr = params.get('expr') || params.get('condition') || '';
-      const fields = params.get('fields') || '';
       const min_rnk = Number(params.get('min_rnk') || params.get('min') || 1);
       const max_rnk = Number(params.get('max_rnk') || params.get('max') || 50);
-      // compute page size (cap to 1000 per API limits)
-      const size = Math.min(Math.max(1, max_rnk - min_rnk + 1), 1000);
-      const pageNumber = Math.max(1, Math.floor((min_rnk - 1) / size) + 1);
-
+      
+      // Calculate pagination for v2 API
+      const pageSize = Math.min(Math.max(1, max_rnk - min_rnk + 1), 100); // v2 API max is 100 per page
+      const pageToken = params.get('pageToken') || null; // For pagination continuation
+      
+      // Build v2 API query
       const v2Params = [];
-      if (expr) v2Params.push(`query.term=${encodeURIComponent(expr)}`);
-      if (fields) v2Params.push(`fields=${encodeURIComponent(fields)}`);
-
-      // Avoid passing paging parameters that may be rejected by the API
-      // in some configurations; the v2 endpoint supports pagination but
-      // we'll rely on its defaults for now.
+      if (expr) {
+        v2Params.push(`query.term=${encodeURIComponent(expr)}`);
+      }
+      // v2 API uses page[size] and page[token] for pagination
+      v2Params.push(`page.size=${pageSize}`);
+      if (pageToken) {
+        v2Params.push(`page.token=${encodeURIComponent(pageToken)}`);
+      }
+      
+      // Use new v2 API endpoint
       target = `https://clinicaltrials.gov/api/v2/studies?${v2Params.join('&')}`;
     } else if (source === 'who') {
       const path = params.get('path') || 'api/v1/trials';
@@ -71,37 +73,75 @@ module.exports = async (req, res) => {
         timeout: 20000
       });
 
-      // If this was a CTGov v2 response, normalize it to a legacy
-      // `StudyFieldsResponse` shape that the frontend expects.
+      // If this was a CTGov v2 API response, normalize it to legacy format
       if (source === 'ctgov') {
         const d = response.data || {};
-        // New v2 API often returns data in `data` array, or `studies`.
-        const items = d.data || d.studies || d.results || [];
-        const studies = [];
-
-        // items may already be an array of study objects (modern schema)
-        if (Array.isArray(items) && items.length > 0) {
-          items.forEach(it => {
-            // Try to extract common fields from multiple possible paths
-            const id = it.nctId || it.NCTId || it.id || it.NCTID || (it.study && (it.study.nctId || it.study.NCTId));
-            const title = it.briefTitle || it.BriefTitle || it.title || (it.study && (it.study.briefTitle || it.study.title)) || '';
-            if (id) {
-              // Legacy StudyFieldsResponse had arrays for each field
-              studies.push({ NCTId: [id], BriefTitle: [title] });
-            }
-          });
-        }
-
-        // Fallback: if response.data already resembles legacy schema, forward it
-        if (studies.length === 0 && d.StudyFieldsResponse && d.StudyFieldsResponse.Study) {
+        
+        // Check if it's already in legacy format (fallback from old API)
+        if (d.StudyFieldsResponse && d.StudyFieldsResponse.Study) {
           res.status(response.status).setHeader('Content-Type', 'application/json');
           return res.json(d);
         }
 
-        const out = { StudyFieldsResponse: { Study: studies } };
+        // v2 API structure: response has `studies` array
+        const items = d.studies || [];
+        const studies = [];
+        
+        if (Array.isArray(items) && items.length > 0) {
+          items.forEach(study => {
+            // v2 API structure: study.protocolSection contains all the data
+            const protocolSection = study.protocolSection || {};
+            const identificationModule = protocolSection.identificationModule || {};
+            const statusModule = protocolSection.statusModule || {};
+            const designModule = protocolSection.designModule || {};
+            const descriptionModule = protocolSection.descriptionModule || {};
+            const conditionsModule = protocolSection.conditionsModule || {};
+            const contactsLocationsModule = protocolSection.contactsLocationsModule || {};
+
+            const id = identificationModule.nctId || '';
+            if (!id) return; // Skip if no ID
+
+            // Extract all fields in legacy array format
+            const studyObj = {
+              NCTId: [id],
+              BriefTitle: [identificationModule.briefTitle || identificationModule.officialTitle || ''],
+              Condition: (conditionsModule.conditions || []).map(c => {
+                // Handle both string and object formats
+                return typeof c === 'string' ? c : (c.condition || c.name || '');
+              }),
+              OverallStatus: [statusModule.overallStatus || statusModule.overallStatusList?.overallStatus || ''],
+              Phase: (designModule.phases || []).map(p => {
+                return typeof p === 'string' ? p : (p.phase || '');
+              }),
+              BriefSummary: [descriptionModule.briefSummary || descriptionModule.detailedDescription?.text || ''],
+              LocationCity: [],
+              LocationCountry: []
+            };
+
+            // Extract location information from contactsLocationsModule
+            const locations = contactsLocationsModule.locations || [];
+            locations.forEach(loc => {
+              const facility = loc.facility || {};
+              const city = facility.city || '';
+              const country = facility.country || '';
+              if (city) studyObj.LocationCity.push(city);
+              if (country) studyObj.LocationCountry.push(country);
+            });
+
+            studies.push(studyObj);
+          });
+        }
+
+        // Return in legacy StudyFieldsResponse format for compatibility
+        const out = { 
+          StudyFieldsResponse: { 
+            Study: studies,
+            NStudiesReturned: studies.length,
+            NStudiesFound: d.nextPageToken ? '>=' + studies.length : studies.length
+          } 
+        };
         res.status(200).setHeader('Content-Type', 'application/json');
-        res.json(out);
-        return;
+        return res.json(out);
       }
 
       // Non-CTGov responses: forward JSON as-is
@@ -113,44 +153,68 @@ module.exports = async (req, res) => {
       }
       return;
     } catch (err) {
-      // If this was a CTGov request and the StudyFields API failed, try XML fallback
+      // If this was a CTGov v2 API request that failed, try legacy API as fallback
       if (source === 'ctgov') {
         try {
-          // Reconstruct key params from forwardQs so we can call the XML endpoint
+          console.log('trials-proxy ctgov v2 failed, trying legacy API fallback:', err?.message || err);
+          
+          // Try legacy API endpoint as fallback
           const expr = params.get('expr') || params.get('condition') || '';
-          const min_rnk = params.get('min_rnk') || '1';
-          const max_rnk = params.get('max_rnk') || '50';
-          const xmlUrl = `https://clinicaltrials.gov/ct2/results?expr=${encodeURIComponent(expr)}&min_rnk=${min_rnk}&max_rnk=${max_rnk}&displayxml=true`;
+          const fields = params.get('fields') || 'NCTId,BriefTitle,Condition,OverallStatus,Phase,BriefSummary,LocationCity,LocationCountry';
+          const min_rnk = params.get('min_rnk') || params.get('min') || '1';
+          const max_rnk = params.get('max_rnk') || params.get('max') || '50';
+          const legacyUrl = `https://clinicaltrials.gov/api/query/study_fields?expr=${encodeURIComponent(expr)}&fields=${encodeURIComponent(fields)}&min_rnk=${min_rnk}&max_rnk=${max_rnk}&fmt=json`;
 
-          console.log('trials-proxy ctgov fallback to XML:', xmlUrl);
-          const xmlRes = await axios.get(xmlUrl, {
-            headers: { 'User-Agent': req.headers['user-agent'] || 'CancerCareProxy/1.0' },
+          console.log('trials-proxy ctgov fallback to legacy API:', legacyUrl);
+          const legacyRes = await axios.get(legacyUrl, {
+            headers: { 
+              'User-Agent': req.headers['user-agent'] || 'CancerCareProxy/1.0',
+              Accept: 'application/json'
+            },
             timeout: 20000
           });
 
-          const xml = xmlRes.data || '';
+          // Legacy API returns StudyFieldsResponse format directly
+          if (legacyRes.data && legacyRes.data.StudyFieldsResponse) {
+            res.status(200).setHeader('Content-Type', 'application/json');
+            return res.json(legacyRes.data);
+          }
+        } catch (legacyErr) {
+          console.error('ctgov legacy API fallback also failed:', legacyErr.message || legacyErr);
+          // Try XML as last resort
+          try {
+            const expr = params.get('expr') || params.get('condition') || '';
+            const min_rnk = params.get('min_rnk') || '1';
+            const max_rnk = params.get('max_rnk') || '50';
+            const xmlUrl = `https://clinicaltrials.gov/ct2/results?expr=${encodeURIComponent(expr)}&min_rnk=${min_rnk}&max_rnk=${max_rnk}&displayxml=true`;
 
-          // Very small XML -> JSON extraction for core fields (NCTId, BriefTitle)
-          const studies = [];
-          const studyBlocks = Array.from(xml.matchAll(/<clinical_study>([\s\S]*?)<\/clinical_study>/gi));
-          studyBlocks.forEach(sb => {
-            const block = sb[1];
-            const idMatch = block.match(/<nct_id>([\s\S]*?)<\/nct_id>/i);
-            const titleMatch = block.match(/<brief_title>([\s\S]*?)<\/brief_title>/i);
-            const id = idMatch ? idMatch[1].trim() : null;
-            const title = titleMatch ? titleMatch[1].trim() : '';
-            if (id) {
-              studies.push({ NCTId: [id], BriefTitle: [title] });
-            }
-          });
+            console.log('trials-proxy ctgov fallback to XML:', xmlUrl);
+            const xmlRes = await axios.get(xmlUrl, {
+              headers: { 'User-Agent': req.headers['user-agent'] || 'CancerCareProxy/1.0' },
+              timeout: 20000
+            });
 
-          const out = { StudyFieldsResponse: { Study: studies } };
-          res.status(200).setHeader('Content-Type', 'application/json');
-          res.json(out);
-          return;
-        } catch (xmlErr) {
-          console.error('ctgov XML fallback failed:', xmlErr.message || xmlErr);
-          // fall-through to send original error below
+            const xml = xmlRes.data || '';
+            const studies = [];
+            const studyBlocks = Array.from(xml.matchAll(/<clinical_study>([\s\S]*?)<\/clinical_study>/gi));
+            studyBlocks.forEach(sb => {
+              const block = sb[1];
+              const idMatch = block.match(/<nct_id>([\s\S]*?)<\/nct_id>/i);
+              const titleMatch = block.match(/<brief_title>([\s\S]*?)<\/brief_title>/i);
+              const id = idMatch ? idMatch[1].trim() : null;
+              const title = titleMatch ? titleMatch[1].trim() : '';
+              if (id) {
+                studies.push({ NCTId: [id], BriefTitle: [title] });
+              }
+            });
+
+            const out = { StudyFieldsResponse: { Study: studies } };
+            res.status(200).setHeader('Content-Type', 'application/json');
+            return res.json(out);
+          } catch (xmlErr) {
+            console.error('ctgov XML fallback also failed:', xmlErr.message || xmlErr);
+            // fall-through to send original error below
+          }
         }
       }
 

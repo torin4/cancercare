@@ -222,7 +222,7 @@ const ClinicalTrials = () => {
           </div>
           <div>
             <span className="font-medium text-gray-700">Country:</span>
-            <span className="ml-2 text-gray-600">{trial.country || 'Japan'}</span>
+            <span className="ml-2 text-gray-600">{trial.country || 'Not specified'}</span>
           </div>
         </div>
 
@@ -309,12 +309,12 @@ const ClinicalTrials = () => {
             </button>
           )}
           <a
-            href={trial.url || trial.urlJa}
+            href={trial.url || (trial.id ? `https://clinicaltrials.gov/study/${trial.id}` : '#')}
             target="_blank"
             rel="noopener noreferrer"
             className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition text-sm font-medium text-center"
           >
-            JRCT Page
+            View on ClinicalTrials.gov
           </a>
         </div>
       </div>
@@ -326,7 +326,7 @@ const ClinicalTrials = () => {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Clinical Trials</h1>
-        <p className="text-gray-600">Search and save clinical trials from WHO ICTRP and ClinicalTrials.gov</p>
+        <p className="text-gray-600">Search and save clinical trials from ClinicalTrials.gov</p>
       </div>
 
       {/* Tabs */}
@@ -408,9 +408,22 @@ const ClinicalTrials = () => {
             </div>
           )}
 
+          {/* Error Display */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <p className="text-red-800 font-medium">⚠️ {error}</p>
+              {searchSources && searchSources.length > 0 && (
+                <p className="text-sm text-red-600 mt-2">
+                  Sources attempted: {searchSources.join(', ')}
+                </p>
+              )}
+            </div>
+          )}
+
           {!searching && searchResults.length === 0 && !error && (
             <div className="text-center text-gray-500 py-12">
               <p className="text-lg">Click "Search Clinical Trials" to find matching trials</p>
+              <p className="text-sm mt-2">Results will appear here after searching</p>
             </div>
           )}
         </div>
@@ -485,12 +498,12 @@ const ClinicalTrials = () => {
 
               <div className="flex gap-3 pt-4">
                 <a
-                  href={selectedTrial.url || selectedTrial.urlJa}
+                  href={selectedTrial.url || (selectedTrial.id ? `https://clinicaltrials.gov/study/${selectedTrial.id}` : '#')}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-center font-medium"
                 >
-                  View on source
+                  View on ClinicalTrials.gov
                 </a>
                 <button
                   onClick={() => setSelectedTrial(null)}
