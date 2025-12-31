@@ -211,6 +211,12 @@ export async function searchTrials(params) {
         fmt: 'json'
       };
       
+      // Add location filter parameters if provided
+      if (params?.country) {
+        postData.country = params.country;
+        postData.includeAllLocations = params.includeAllLocations ? 'true' : 'false';
+      }
+      
       // Log POST data
       console.log('=== POST Request Data ===');
       console.log(JSON.stringify(postData, null, 2));
@@ -232,7 +238,23 @@ export async function searchTrials(params) {
     } else {
       // Use GET request for shorter queries
       // Don't specify fields parameter - get full study data with locations
-      const proxyUrl = `${PROXY_BASE}?source=ctgov&query.term=${encodeURIComponent(term || '')}&query.cond=${encodeURIComponent(cond || '')}&pageSize=${pageSize}&pageNumber=${pageNumber}&fmt=json`;
+      // Include country and includeAllLocations parameters for backend filtering
+      const proxyParams = new URLSearchParams({
+        source: 'ctgov',
+        'query.term': term || '',
+        'query.cond': cond || '',
+        pageSize: pageSize.toString(),
+        pageNumber: pageNumber.toString(),
+        fmt: 'json'
+      });
+      
+      // Add location filter parameters if provided
+      if (params?.country) {
+        proxyParams.set('country', params.country);
+        proxyParams.set('includeAllLocations', params.includeAllLocations ? 'true' : 'false');
+      }
+      
+      const proxyUrl = `${PROXY_BASE}?${proxyParams.toString()}`;
       
       // Log full URL (not truncated)
       console.log('=== GET Request URL ===');
@@ -810,15 +832,18 @@ function buildSearchCondition(patientProfile, additionalTerms = []) {
   }
   
   // Process additional terms (genes/mutations) - goes in term
-  const uniqueGenes = [...new Set(additionalTerms.filter(term => term && typeof term === 'string'))];
-  if (uniqueGenes.length > 0) {
-    // Group genes with OR to broaden search (trials matching ANY gene)
-    if (uniqueGenes.length === 1) {
-      termParts.push(uniqueGenes[0]);
-    } else {
-      termParts.push(`(${uniqueGenes.join(' OR ')})`);
-    }
-  }
+  // NOTE: User requested to remove genes from query.term - only subtype should be in query.term
+  // Genes will be used for matching/scoring but not in the search query
+  // const uniqueGenes = [...new Set(additionalTerms.filter(term => term && typeof term === 'string'))];
+  // if (uniqueGenes.length > 0) {
+  //   // Group genes with OR to broaden search (trials matching ANY gene)
+  //   if (uniqueGenes.length === 1) {
+  //     termParts.push(uniqueGenes[0]);
+  //   } else {
+  //     termParts.push(`(${uniqueGenes.join(' OR ')})`);
+  //   }
+  // }
+  console.log(`buildSearchCondition: Skipping genes in query.term - only subtype will be included. Genes (${additionalTerms.length}) will be used for matching only.`);
   
   const finalCond = condTerms.join(' AND ');
   const finalTerm = termParts.join(' AND ');
