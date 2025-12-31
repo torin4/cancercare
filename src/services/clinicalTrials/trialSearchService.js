@@ -630,15 +630,11 @@ function buildSearchCondition(patientProfile, additionalTerms = []) {
     condTerms.push(patientProfile.cancerType);
   }
   
-  // Add cancer subtype if available (use OR to broaden search) - goes in cond
+  // Add cancer subtype if available - goes in query.term (Other terms) to match ClinicalTrials.gov interface
+  // This matches how users search: Condition = "Ovarian Cancer", Other terms = "Clear Cell Sarcoma"
   if (patientProfile.currentStatus?.diagnosis && patientProfile.currentStatus.diagnosis !== patientProfile.diagnosis) {
-    // Use OR for subtype to broaden results
-    const primaryTerm = condTerms[0] || patientProfile.diagnosis || patientProfile.cancerType;
-    if (primaryTerm) {
-      condTerms[0] = `(${primaryTerm} OR ${patientProfile.currentStatus.diagnosis})`;
-    } else {
-      condTerms.push(patientProfile.currentStatus.diagnosis);
-    }
+    // Add subtype to termParts (query.term) instead of cond (query.cond)
+    termParts.push(patientProfile.currentStatus.diagnosis);
   }
   
   // Add disease status with Boolean operators for better matching - goes in term
