@@ -165,7 +165,7 @@ export async function searchTrials(params) {
       console.log('Location filter:', params.country, params.includeAllLocations ? '(including all locations)' : '(specific country only)');
     }
     console.log('Page:', pageNumber, '| Page Size:', pageSize);
-    console.log('Fields requested:', fields);
+    console.log('Fields: NOT SPECIFIED (requesting full study data to get location information)')
     console.log('==========================================');
     
     // Check if query is too long for GET request (limit ~2000 chars for URL)
@@ -183,7 +183,7 @@ export async function searchTrials(params) {
         source: 'ctgov',
         'query.term': term || '',
         'query.cond': cond || '',
-        fields: fields,
+        // Don't specify fields - get full study data with locations
         pageSize: pageSize,
         pageNumber: pageNumber,
         fmt: 'json'
@@ -428,11 +428,10 @@ export async function searchCTGov(params) {
         }
       }
       // Don't specify fields - get full study data with locations
-      const fields = ['NCTId', 'BriefTitle', 'Condition', 'OverallStatus', 'Phase', 'BriefSummary', 'LocationCity', 'LocationCountry'].join(',');
       
       // Use proxy endpoint for better CORS handling and error management
       // v2 API uses query.term, query.cond, and pageSize
-      const url = `${PROXY_BASE}?source=ctgov&query.term=${encodeURIComponent(term || '')}&query.cond=${encodeURIComponent(cond || '')}&fields=${encodeURIComponent(fields)}&pageSize=50&pageNumber=1&fmt=json`;
+      const url = `${PROXY_BASE}?source=ctgov&query.term=${encodeURIComponent(term || '')&query.cond=${encodeURIComponent(cond || '')&pageSize=50&pageNumber=1&fmt=json`;
       try {
         const res = await axios.get(url, { timeout: 20000 });
         const responseData = res.data;
