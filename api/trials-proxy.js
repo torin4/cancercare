@@ -44,161 +44,51 @@ module.exports = async (req, res) => {
 
     let target;
     if (source === 'ctgov') {
-      // ClinicalTrials.gov Internal API (matches website format)
-      // The website uses /api/int/studies with cond, term, locStr, country parameters
-      // This appears to be more reliable than the public v2 API
+      // ClinicalTrials.gov Public API v2 (for third-party apps)
+      // Documentation: https://clinicaltrials.gov/data-api/api
+      // The public API uses /api/v2/studies with query.term and query.cond parameters
       const queryTerm = params.get('query.term') || params.get('query.cond') || params.get('expr') || params.get('condition') || '';
       const pageSize = Number(params.get('pageSize') || params.get('max_rnk') || 50);
       const pageNumber = Number(params.get('pageNumber') || params.get('page') || 1);
       
-      // Build internal API query parameters (matching website format)
-      const intParams = [];
+      // Calculate pagination for v2 API (max 100 per page)
+      const v2PageSize = Math.min(Math.max(1, pageSize), 100);
+      const v2PageNumber = Math.max(1, pageNumber);
       
-      // Handle query.term and query.cond - convert to cond and term format
+      // Build v2 API query parameters
+      const v2Params = [];
+      
+      // Handle query.term and query.cond (public API format)
+      // query.cond = condition/disease (e.g., "Ovarian Cancer")
+      // query.term = other terms/biomarkers (e.g., "Clear Cell Sarcoma", "ATM OR BRD4")
       const queryTermParam = params.get('query.term');
       const queryCondParam = params.get('query.cond');
       
-      // cond = condition/disease (e.g., "Ovarian Cancer")
+      // Use separate query.cond and query.term if both are provided (v2 API supports this)
       if (queryCondParam) {
-        intParams.push(`cond=${encodeURIComponent(queryCondParam)}`);
+        v2Params.push(`query.cond=${encodeURIComponent(queryCondParam)}`);
       }
-      
-      // term = other terms/biomarkers (e.g., "Clear Cell Sarcoma", "ATM OR BRD4")
       if (queryTermParam) {
-        intParams.push(`term=${encodeURIComponent(queryTermParam)}`);
+        v2Params.push(`query.term=${encodeURIComponent(queryTermParam)}`);
       }
       
-      // Fallback: if only legacy queryTerm is provided, use it for term
+      // Fallback: if only legacy queryTerm is provided, use it for query.term
       if (!queryTermParam && !queryCondParam && queryTerm) {
-        intParams.push(`term=${encodeURIComponent(queryTerm)}`);
+        v2Params.push(`query.term=${encodeURIComponent(queryTerm)}`);
       }
       
       // Add location filter if country is specified and includeAllLocations is false
       const country = params.get('country');
       const includeAllLocations = params.get('includeAllLocations') === 'true' || params.get('includeAllLocations') === true;
       if (country && !includeAllLocations) {
-        // Use locStr and country code (e.g., "Japan" -> "JP")
-        const countryCodeMap = {
-          'Japan': 'JP',
-          'United States': 'US',
-          'United Kingdom': 'GB',
-          'Canada': 'CA',
-          'Australia': 'AU',
-          'Germany': 'DE',
-          'France': 'FR',
-          'China': 'CN',
-          'India': 'IN',
-          'Brazil': 'BR',
-          'Mexico': 'MX',
-          'Italy': 'IT',
-          'Spain': 'ES',
-          'South Korea': 'KR',
-          'Netherlands': 'NL',
-          'Belgium': 'BE',
-          'Switzerland': 'CH',
-          'Sweden': 'SE',
-          'Norway': 'NO',
-          'Denmark': 'DK',
-          'Finland': 'FI',
-          'Poland': 'PL',
-          'Russia': 'RU',
-          'Turkey': 'TR',
-          'Thailand': 'TH',
-          'Singapore': 'SG',
-          'New Zealand': 'NZ',
-          'Ireland': 'IE',
-          'Israel': 'IL',
-          'South Africa': 'ZA',
-          'Argentina': 'AR',
-          'Chile': 'CL',
-          'Colombia': 'CO',
-          'Peru': 'PE',
-          'Venezuela': 'VE',
-          'Philippines': 'PH',
-          'Vietnam': 'VN',
-          'Indonesia': 'ID',
-          'Malaysia': 'MY',
-          'Pakistan': 'PK',
-          'Bangladesh': 'BD',
-          'Egypt': 'EG',
-          'Nigeria': 'NG',
-          'Kenya': 'KE',
-          'Ghana': 'GH',
-          'Morocco': 'MA',
-          'Algeria': 'DZ',
-          'Ukraine': 'UA',
-          'Romania': 'RO',
-          'Czech Republic': 'CZ',
-          'Hungary': 'HU',
-          'Greece': 'GR',
-          'Portugal': 'PT',
-          'Austria': 'AT',
-          'Saudi Arabia': 'SA',
-          'United Arab Emirates': 'AE',
-          'UAE': 'AE',
-          'Qatar': 'QA',
-          'Kuwait': 'KW',
-          'Oman': 'OM',
-          'Bahrain': 'BH',
-          'Jordan': 'JO',
-          'Lebanon': 'LB',
-          'Iraq': 'IQ',
-          'Iran': 'IR',
-          'Afghanistan': 'AF',
-          'Nepal': 'NP',
-          'Sri Lanka': 'LK',
-          'Myanmar': 'MM',
-          'Cambodia': 'KH',
-          'Laos': 'LA',
-          'Mongolia': 'MN',
-          'Kazakhstan': 'KZ',
-          'Uzbekistan': 'UZ',
-          'Kyrgyzstan': 'KG',
-          'Tajikistan': 'TJ',
-          'Turkmenistan': 'TM',
-          'Azerbaijan': 'AZ',
-          'Armenia': 'AM',
-          'Georgia': 'GE',
-          'Belarus': 'BY',
-          'Moldova': 'MD',
-          'Lithuania': 'LT',
-          'Latvia': 'LV',
-          'Estonia': 'EE',
-          'Slovenia': 'SI',
-          'Croatia': 'HR',
-          'Serbia': 'RS',
-          'Bulgaria': 'BG',
-          'Slovakia': 'SK',
-          'Bosnia and Herzegovina': 'BA',
-          'Macedonia': 'MK',
-          'Albania': 'AL',
-          'Montenegro': 'ME',
-          'Kosovo': 'XK',
-          'Cyprus': 'CY',
-          'Malta': 'MT',
-          'Iceland': 'IS',
-          'Luxembourg': 'LU',
-          'Monaco': 'MC',
-          'Liechtenstein': 'LI',
-          'Andorra': 'AD',
-          'San Marino': 'SM',
-          'Vatican City': 'VA',
-          'Global': ''
-        };
-        
-        const countryCode = countryCodeMap[country] || country.substring(0, 2).toUpperCase();
-        intParams.push(`locStr=${encodeURIComponent(country)}`);
-        if (countryCode) {
-          intParams.push(`country=${countryCode}`);
-        }
-        console.log('trials-proxy: Adding location filter to API query:', country, `(${countryCode})`);
+        // Use query.locn for location filtering in v2 API
+        v2Params.push(`query.locn=${encodeURIComponent(country)}`);
+        console.log('trials-proxy: Adding location filter to API query:', country);
       }
       
-      // Pagination: from and limit (website uses from=0&limit=10)
-      const from = (pageNumber - 1) * pageSize;
-      const limit = Math.min(Math.max(1, pageSize), 100); // Max 100 per page
-      intParams.push(`from=${from}`);
-      intParams.push(`limit=${limit}`);
+      // v2 API uses pageSize for pagination
+      v2Params.push(`pageSize=${v2PageSize}`);
+      // Note: v2 API uses nextPageToken for pagination, but we can use pageSize for first page
       
       // Include fields if specified - ensure location fields are always included
       const fields = params.get('fields');
@@ -207,32 +97,26 @@ module.exports = async (req, res) => {
         const fieldsList = fields.split(',');
         if (!fieldsList.includes('LocationCity')) fieldsList.push('LocationCity');
         if (!fieldsList.includes('LocationCountry')) fieldsList.push('LocationCountry');
-        intParams.push(`fields=${encodeURIComponent(fieldsList.join(','))}`);
+        v2Params.push(`fields=${encodeURIComponent(fieldsList.join(','))}`);
       } else {
-        // Default fields including location data (matching website format)
-        intParams.push(`fields=${encodeURIComponent('OverallStatus,LastKnownStatus,StatusVerifiedDate,HasResults,BriefTitle,Condition,InterventionType,InterventionName,LocationFacility,LocationCity,LocationState,LocationCountry,LocationStatus,LocationZip,LocationGeoPoint,LocationContactName,LocationContactRole,LocationContactPhone,LocationContactPhoneExt,LocationContactEMail,CentralContactName,CentralContactRole,CentralContactPhone,CentralContactPhoneExt,CentralContactEMail,Gender,MinimumAge,MaximumAge,StdAge,NCTId,StudyType,LeadSponsorName,Acronym,EnrollmentCount,StartDate,PrimaryCompletionDate,CompletionDate,StudyFirstPostDate,ResultsFirstPostDate,LastUpdatePostDate,OrgStudyId,SecondaryId,Phase,LargeDocLabel,LargeDocFilename,PrimaryOutcomeMeasure,SecondaryOutcomeMeasure,DesignAllocation,DesignInterventionModel,DesignMasking,DesignWhoMasked,DesignPrimaryPurpose,DesignObservationalModel,DesignTimePerspective,LeadSponsorClass,CollaboratorClass')}`);
+        // Default fields including location data
+        v2Params.push(`fields=${encodeURIComponent('NCTId,BriefTitle,Condition,OverallStatus,Phase,BriefSummary,LocationCity,LocationCountry')}`);
       }
       
-      // Additional parameters that website uses
-      intParams.push(`columns=${encodeURIComponent('conditions,interventions,collaborators')}`);
-      intParams.push(`highlight=true`);
-      intParams.push(`sort=${encodeURIComponent('@relevance')}`);
-      intParams.push(`checkSpell=true`);
-      
-      // Use internal API endpoint (matches website)
-      target = `https://clinicaltrials.gov/api/int/studies?${intParams.join('&')}`;
+      // Use public v2 API endpoint (for third-party apps)
+      target = `https://clinicaltrials.gov/api/v2/studies?${v2Params.join('&')}`;
       
       // Enhanced logging for debugging
-      console.log('=== trials-proxy: ClinicalTrials.gov Internal API Request ===');
+      console.log('=== trials-proxy: ClinicalTrials.gov Public v2 API Request ===');
       console.log('Full API URL:', target);
-      console.log('cond (Condition/Disease):', queryCondParam || '(not provided)');
-      console.log('term (Other terms):', queryTermParam || '(not provided)');
+      console.log('query.cond (Condition/Disease):', queryCondParam || '(not provided)');
+      console.log('query.term (Other terms):', queryTermParam || '(not provided)');
       if (country) {
-        console.log('locStr (Location):', country, includeAllLocations ? '(but including all locations)' : '(country-specific)');
+        console.log('query.locn (Location filter):', country, includeAllLocations ? '(but including all locations)' : '(country-specific)');
       }
-      console.log('from:', from, '| limit:', limit);
+      console.log('pageSize:', v2PageSize, '| pageNumber:', v2PageNumber);
       console.log('Fields:', fields || 'default fields');
-      console.log('=============================================================');
+      console.log('================================================================');
     } else if (source === 'who') {
       const path = params.get('path') || 'api/v1/trials';
       target = `https://trialsearch.who.int/${path}${forwardQs ? `?${forwardQs}` : ''}`;
