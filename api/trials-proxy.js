@@ -129,6 +129,163 @@ module.exports = async (req, res) => {
     // Try to fetch the target. For ClinicalTrials.gov we add special handling
     // to fall back to the ct2/results XML when the StudyFields API is unavailable.
     try {
+      // For CTGov v2 API: Fetch ALL pages and filter on backend to match website behavior
+      let allStudies = [];
+      let nextPageToken = null;
+      let pageCount = 0;
+      const country = params.get('country');
+      const includeAllLocations = params.get('includeAllLocations') === 'true' || params.get('includeAllLocations') === true;
+      
+      if (source === 'ctgov' && country && !includeAllLocations) {
+        console.log('trials-proxy: Fetching ALL pages and filtering by location on backend:', country);
+        
+        // Fetch all pages using nextPageToken
+        do {
+          pageCount++;
+          const pageUrl = nextPageToken 
+            ? `${target}&pageToken=${encodeURIComponent(nextPageToken)}`
+            : target;
+          
+          console.log(`trials-proxy: Fetching page ${pageCount}${nextPageToken ? ` (token: ${nextPageToken.substring(0, 20)}...)` : ''}`);
+          
+          const response = await axios.get(pageUrl, {
+            headers: {
+              Accept: 'application/json',
+              'User-Agent': req.headers['user-agent'] || 'CancerCareProxy/1.0'
+            },
+            timeout: 30000 // Longer timeout for multiple pages
+          });
+          
+          const d = response.data || {};
+          const items = d.studies || d.data || [];
+          console.log(`trials-proxy: Page ${pageCount} returned ${items.length} studies`);
+          
+          // Collect all studies from this page
+          allStudies.push(...items);
+          
+          // Check for next page
+          nextPageToken = d.nextPageToken || null;
+          if (nextPageToken) {
+            console.log(`trials-proxy: More pages available, nextPageToken: ${nextPageToken.substring(0, 20)}...`);
+          }
+        } while (nextPageToken && pageCount < 100); // Safety limit: max 100 pages
+        
+        console.log(`trials-proxy: Fetched ${pageCount} page(s), total studies: ${allStudies.length}`);
+        
+        // Now process and filter all studies
+        const studies = [];
+        const countryLower = country.toLowerCase();
+        const countryVariations = {
+          'japan': ['japan', 'japanese'],
+          'united states': ['united states', 'usa', 'us', 'america'],
+          'united kingdom': ['united kingdom', 'uk', 'britain', 'british'],
+          'south korea': ['south korea', 'korea', 'korean'],
+          'china': ['china', 'chinese'],
+          'australia': ['australia', 'australian'],
+          'canada': ['canada', 'canadian'],
+          'germany': ['germany', 'german'],
+          'france': ['france', 'french'],
+          'italy': ['italy', 'italian'],
+          'spain': ['spain', 'spanish']
+        };
+        
+        let searchTerms = [countryLower];
+        for (const [key, variations] of Object.entries(countryVariations)) {
+          if (variations.includes(countryLower)) {
+            searchTerms = variations;
+            break;
+          }
+        }
+        
+        console.log(`trials-proxy: Filtering ${allStudies.length} studies for country: ${country} (search terms: ${searchTerms.join(', ')})`);
+        
+        allStudies.forEach((study, idx) => {
+          try {
+            const protocolSection = study.protocolSection || {};
+            const identificationModule = protocolSection.identificationModule || {};
+            const statusModule = protocolSection.statusModule || {};
+            const designModule = protocolSection.designModule || {};
+            const descriptionModule = protocolSection.descriptionModule || {};
+            const conditionsModule = protocolSection.conditionsModule || {};
+            const contactsLocationsModule = protocolSection.contactsLocationsModule || {};
+            
+            const id = identificationModule.nctId || study.nctId || study.id || '';
+            if (!id) return;
+            
+            // Extract locations
+            const locations = contactsLocationsModule?.locations || [];
+            const locationCountries = [];
+            
+            locations.forEach(loc => {
+              const country = loc?.country || '';
+              if (country) locationCountries.push(country);
+            });
+            
+            // Check if this trial has the requested country
+            const hasMatch = locationCountries.some(locCountry => 
+              searchTerms.some(term => locCountry.toLowerCase().includes(term))
+            );
+            
+            // Only include trials that match the country filter
+            if (!hasMatch && locations.length > 0) {
+              return; // Skip this trial - doesn't match country filter
+            }
+            
+            // If no location data, exclude it (can't verify it's in requested country)
+            if (locations.length === 0) {
+              return; // Skip trials with no location data
+            }
+            
+            // Process this study (it passed the location filter)
+            const briefTitle = identificationModule.briefTitle || identificationModule.officialTitle || study.title || '';
+            const conditions = (conditionsModule?.conditions || []).map(c => 
+              typeof c === 'string' ? c : (c?.condition || c?.name || '')
+            ).filter(Boolean);
+            const overallStatus = statusModule?.overallStatus || 
+                                 statusModule?.overallStatusList?.overallStatus || 
+                                 study.overallStatus || '';
+            const phases = (designModule?.phases || []).map(p => 
+              typeof p === 'string' ? p : (p?.phase || '')
+            ).filter(Boolean);
+            const briefSummary = descriptionModule?.briefSummary || 
+                                descriptionModule?.detailedDescription?.text || 
+                                study.summary || '';
+            
+            const locationCities = [];
+            locations.forEach(loc => {
+              const city = loc?.city || '';
+              if (city) locationCities.push(city);
+            });
+            
+            studies.push({
+              NCTId: [id],
+              BriefTitle: [briefTitle],
+              Condition: conditions,
+              OverallStatus: [overallStatus],
+              Phase: phases,
+              BriefSummary: [briefSummary],
+              LocationCity: locationCities,
+              LocationCountry: locationCountries
+            });
+          } catch (error) {
+            console.error(`trials-proxy: Error processing study ${idx}:`, error?.message || error);
+          }
+        });
+        
+        console.log(`trials-proxy: After location filtering: ${studies.length} studies match ${country}`);
+        
+        const out = { 
+          StudyFieldsResponse: { 
+            Study: studies,
+            NStudiesReturned: studies.length,
+            NStudiesFound: studies.length
+          } 
+        };
+        res.status(200).setHeader('Content-Type', 'application/json');
+        return res.json(out);
+      }
+      
+      // For non-location-filtered requests or other sources: fetch single page as before
       const response = await axios.get(target, {
         headers: {
           Accept: 'application/json',
