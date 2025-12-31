@@ -519,3 +519,5 @@ export const useClinicalTrials = (patientId) => {
 };
 
 
+
+

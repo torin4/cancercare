@@ -10,6 +10,7 @@ import { auth } from './firebase/config';
 import Login from './components/Login';
 import ClinicalTrials from './components/ClinicalTrials';
 import DocumentUploadOnboarding from './components/DocumentUploadOnboarding';
+import Onboarding from './components/Onboarding';
 
 const styles = `
   @keyframes slide-up {
@@ -606,11 +607,14 @@ export default function CancerCareApp() {
         address: formData.address,
         city: formData.city,
         country: formData.country,
+        height: formData.height,
+        weight: formData.weight,
         state: formData.state,
         zip: formData.zip,
         diagnosis: formData.diagnosis,
         diagnosisDate: formData.diagnosisDate,
         cancerType: formData.cancerType,
+        cancerSubtype: formData.subtype,
         stage: formData.stageOther || formData.stage,
         oncologist: formData.oncologist,
         hospital: formData.hospital,
@@ -641,7 +645,10 @@ export default function CancerCareApp() {
         diagnosis: formData.diagnosis || prev.diagnosis,
         stage: formData.stageOther || formData.stage || prev.stage,
         oncologist: formData.oncologist || prev.oncologist,
-        hospital: formData.hospital || prev.hospital
+        hospital: formData.hospital || prev.hospital,
+        height: formData.height || prev.height,
+        weight: formData.weight || prev.weight,
+        country: formData.country || prev.country
       }));
 
       console.log('Onboarding completed successfully');
@@ -1196,7 +1203,10 @@ export default function CancerCareApp() {
     return <Login onLoginSuccess={() => setUser(auth.currentUser)} />;
   }
 
-  // Onboarding temporarily disabled
+  // Show onboarding if the user needs it
+  if (needsOnboarding) {
+    return <Onboarding onComplete={handleOnboardingComplete} />;
+  }
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
