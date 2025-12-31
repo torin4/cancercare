@@ -5,17 +5,59 @@ const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY || pro
 
 /**
  * Process a chat message to extract and save medical data
+ * @param {string} message - User's message
+ * @param {string} userId - User ID
+ * @param {Array} conversationHistory - Previous conversation messages
+ * @param {Object} trialContext - Optional trial context (when asking about a specific trial)
  */
-export async function processChatMessage(message, userId, conversationHistory = []) {
+export async function processChatMessage(message, userId, conversationHistory = [], trialContext = null) {
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+    // Build trial context section if provided
+    let trialContextSection = '';
+    if (trialContext) {
+      const interventions = trialContext.interventions || [];
+      const drugs = interventions.map(int => {
+        if (typeof int === 'string') return int;
+        return int.name || int.description || JSON.stringify(int);
+      }).filter(Boolean).join(', ');
+
+      trialContextSection = `
+
+═══════════════════════════════════════════════════════════════════════════════
+TRIAL CONTEXT: The user is asking about a specific clinical trial
+═══════════════════════════════════════════════════════════════════════════════
+
+Trial Information:
+- Title: ${trialContext.title || 'Not specified'}
+- Trial ID: ${trialContext.id || 'Not specified'}
+- Phase: ${trialContext.phase || 'Not specified'}
+- Status: ${trialContext.status || 'Not specified'}
+- Conditions: ${Array.isArray(trialContext.conditions) ? trialContext.conditions.join(', ') : (trialContext.conditions || 'Not specified')}
+- Drugs/Interventions: ${drugs || 'Not specified'}
+- Summary: ${trialContext.summary || 'Not available'}
+${trialContext.eligibility ? `- Eligibility Criteria: ${typeof trialContext.eligibility === 'string' ? trialContext.eligibility : JSON.stringify(trialContext.eligibility)}` : ''}
+${trialContext.matchResult ? `- Match Score: ${trialContext.matchResult.matchScore || 'Not calculated'}` : ''}
+
+When answering questions about this trial, you should:
+1. Explain the drugs/interventions being used, their mechanisms of action, and how they work
+2. Explain what the trial phase means (Phase I = safety, Phase II = efficacy, Phase III = comparison, Phase IV = post-marketing)
+3. Discuss the trial's eligibility criteria and what they mean
+4. Provide information about the drugs' properties, side effects, and typical usage
+5. Explain how the trial design works and what it's testing
+6. Be helpful and educational while being clear that you're providing general information, not medical advice
+
+═══════════════════════════════════════════════════════════════════════════════`;
+    }
 
     // Build prompt for extraction
     const prompt = `You are CancerCare's AI health assistant helping track medical data for a patient with ovarian cancer.
 
-TASK: Analyze the user's message and extract any medical values they mentioned.
+TASK: Analyze the user's message and extract any medical values they mentioned.${trialContext ? ' The user is asking about a specific clinical trial - provide detailed information about the trial, its drugs, phase, and eligibility.' : ''}
 
 USER MESSAGE: "${message}"
+${trialContextSection}
 
 Extract any medical data and return a JSON object with this structure:
 
@@ -67,7 +109,8 @@ IMPORTANT:
 - Calculate dates relative to today if needed: ${new Date().toISOString().split('T')[0]}
 - If NO date is mentioned at all, use today's date
 - Be conversational and supportive in your response
-- If no medical data is mentioned, just respond conversationally
+- If trial context is provided, prioritize answering trial-related questions with detailed, educational information about drugs, phases, eligibility, and trial design
+- If no medical data is mentioned, just respond conversationally (or about the trial if trial context is provided)
 - Return ONLY valid JSON
 
 DATE RECOGNITION EXAMPLES:

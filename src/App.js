@@ -268,6 +268,7 @@ export default function CancerCareApp() {
   const [quickLogInput, setQuickLogInput] = useState('');
   const [inputText, setInputText] = useState('');
   const [quickLogMode, setQuickLogMode] = useState('general'); // 'general' or 'symptom'
+  const [currentTrialContext, setCurrentTrialContext] = useState(null); // Trial context for chatbot
   const [quickLogSymptomForm, setQuickLogSymptomForm] = useState({
     name: '',
     severity: '',
@@ -1260,7 +1261,8 @@ export default function CancerCareApp() {
         messages.slice(-10).map(msg => ({
           role: msg.type === 'user' ? 'user' : 'assistant',
           content: msg.text
-        }))
+        })),
+        currentTrialContext // Pass trial context if available
       );
 
       // Build response text
@@ -1864,6 +1866,28 @@ export default function CancerCareApp() {
               ))}
             </div>
 
+            {/* Trial Context Indicator */}
+            {currentTrialContext && (
+              <div className="p-3 bg-blue-50 border-b border-blue-200 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-blue-600 text-sm font-medium">Discussing:</span>
+                  <span className="text-blue-800 text-sm">{currentTrialContext.title || 'Trial'}</span>
+                </div>
+                <button
+                  onClick={() => {
+                    setCurrentTrialContext(null);
+                    setMessages(prev => [...prev, {
+                      type: 'ai',
+                      text: 'Trial context cleared. You can now ask general questions or ask about a different trial.'
+                    }]);
+                  }}
+                  className="text-blue-600 hover:text-blue-800 text-sm underline"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+
             <div className="p-4 bg-white border-t">
               <div className="flex gap-2">
                 <input
@@ -1871,7 +1895,7 @@ export default function CancerCareApp() {
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  placeholder="Ask about symptoms, treatments, or upload results..."
+                  placeholder={currentTrialContext ? `Ask about ${currentTrialContext.title || 'this trial'}...` : "Ask about symptoms, treatments, or upload results..."}
                   className="flex-1 border border-gray-300 rounded-full px-4 py-2.5 text-sm sm:text-base focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
                 <div className="flex items-center gap-2">
@@ -3226,7 +3250,17 @@ export default function CancerCareApp() {
         )}
 
         {activeTab === 'trials' && (
-          <ClinicalTrials />
+          <ClinicalTrials 
+            onTrialSelected={(trial) => {
+              setCurrentTrialContext(trial);
+              setActiveTab('chat');
+              // Add a message indicating we're now discussing this trial
+              setMessages(prev => [...prev, {
+                type: 'ai',
+                text: `I'm ready to answer questions about "${trial.title || 'this trial'}". You can ask me about the drugs being used, what phase the study is in, eligibility criteria, or anything else about the trial.`
+              }]);
+            }}
+          />
         )}
 
         {activeTab === 'files' && (

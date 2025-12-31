@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { CheckCircle, AlertTriangle, XCircle, Star, Search as SearchIcon, MapPin, Globe } from 'lucide-react';
 import { auth } from '../firebase/config';
 import { patientService, genomicProfileService, clinicalTrialsService, trialLocationService } from '../firebase/services';
+import { getTrialDetails } from '../services/clinicalTrials/trialSearchService';
 
-const ClinicalTrials = () => {
+const ClinicalTrials = ({ onTrialSelected }) => {
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [activeTab, setActiveTab] = useState('search'); // 'search' or 'saved'
@@ -14,6 +15,7 @@ const ClinicalTrials = () => {
   const [savedTrials, setSavedTrials] = useState([]);
   const [savedTrialIds, setSavedTrialIds] = useState(new Set()); // Track which trial IDs are saved
   const [selectedTrial, setSelectedTrial] = useState(null);
+  const [loadingTrialDetails, setLoadingTrialDetails] = useState(false);
   const [pagination, setPagination] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
 
@@ -388,7 +390,23 @@ const ClinicalTrials = () => {
         {/* Actions */}
         <div className="flex gap-3">
           <button
-            onClick={() => setSelectedTrial(trial)}
+            onClick={async () => {
+              setSelectedTrial(trial);
+              // If summary is missing, try to fetch it
+              if (!trial.summary && trial.id && trial.source === 'ClinicalTrials.gov') {
+                setLoadingTrialDetails(true);
+                try {
+                  const details = await getTrialDetails(trial.id);
+                  if (details.success && details.summary) {
+                    setSelectedTrial({ ...trial, summary: details.summary });
+                  }
+                } catch (error) {
+                  console.error('Error fetching trial details:', error);
+                } finally {
+                  setLoadingTrialDetails(false);
+                }
+              }
+            }}
             className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
           >
             View Details
@@ -653,7 +671,13 @@ const ClinicalTrials = () => {
             <div className="space-y-4">
               <div>
                 <h3 className="font-bold text-gray-900 mb-2">Summary</h3>
-                <p className="text-gray-700">{selectedTrial.summary || selectedTrial.summaryJa || 'No summary available'}</p>
+                {loadingTrialDetails ? (
+                  <p className="text-gray-500 text-sm">Loading summary...</p>
+                ) : (
+                  <p className="text-gray-700 whitespace-pre-line">
+                    {selectedTrial.summary || selectedTrial.summaryJa || 'No summary available. Please visit the trial page for more information.'}
+                  </p>
+                )}
               </div>
 
               {selectedTrial.eligibility && (
@@ -692,6 +716,17 @@ const ClinicalTrials = () => {
               )}
 
               <div className="flex gap-3 pt-4">
+                {onTrialSelected && (
+                  <button
+                    onClick={() => {
+                      onTrialSelected(selectedTrial);
+                      setSelectedTrial(null);
+                    }}
+                    className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-center font-medium"
+                  >
+                    Ask About This Trial
+                  </button>
+                )}
                 <a
                   href={selectedTrial.url || (selectedTrial.id ? `https://clinicaltrials.gov/study/${selectedTrial.id}` : '#')}
                   target="_blank"

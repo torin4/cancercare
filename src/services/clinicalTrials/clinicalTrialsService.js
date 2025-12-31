@@ -40,6 +40,7 @@ export async function saveMatchedTrial(userId, trialData) {
       interventions: trialData.interventions,
       sponsor: trialData.sponsor,
       locations: trialData.locations,
+      summary: trialData.summary,
 
       // Match results
       matchResult: trialData.matchResult,

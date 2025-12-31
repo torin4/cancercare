@@ -510,7 +510,22 @@ export async function searchCTGov(params) {
               const phases = (designModule?.phases || []).map(p => 
                 typeof p === 'string' ? p : (p?.phase || '')
               ).filter(Boolean);
-              const briefSummary = descriptionModule?.briefSummary || descriptionModule?.detailedDescription?.text || study.summary || '';
+              // Extract briefSummary - can be string or object with text property
+              let briefSummary = '';
+              if (descriptionModule?.briefSummary) {
+                briefSummary = typeof descriptionModule.briefSummary === 'string' 
+                  ? descriptionModule.briefSummary 
+                  : (descriptionModule.briefSummary.text || descriptionModule.briefSummary.content || '');
+              }
+              if (!briefSummary && descriptionModule?.detailedDescription) {
+                const detailedDesc = descriptionModule.detailedDescription;
+                briefSummary = typeof detailedDesc === 'string' 
+                  ? detailedDesc 
+                  : (detailedDesc.text || detailedDesc.content || '');
+              }
+              if (!briefSummary) {
+                briefSummary = study.summary || '';
+              }
               
               // Safely extract locations from v2 API format
               // According to ClinicalTrials.gov API docs: protocolSection.contactsLocationsModule.locations[]
@@ -782,8 +797,63 @@ export async function searchWHO(params, rawResponse) {
  * @returns {Promise<Object>} - Detailed trial information
  */
 export async function getTrialDetails(trialId) {
-  // For detailed trial info, use the trial URL: https://clinicaltrials.gov/study/{trialId}
-  return { success: false, error: 'Use ClinicalTrials.gov website for detailed trial information.' };
+  // Fetch full trial details from ClinicalTrials.gov API
+  try {
+    if (!trialId) {
+      return { success: false, error: 'Trial ID is required' };
+    }
+
+    // Use v2 API to get full trial details by searching for the specific NCT ID
+    // The query.term can search for NCT IDs
+    const url = `${PROXY_BASE}?source=ctgov&query.term=${encodeURIComponent(trialId)}&pageSize=1&fmt=json`;
+    const res = await axios.get(url, { timeout: 20000 });
+    const responseData = res.data;
+
+    if (responseData.studies && responseData.studies.length > 0) {
+      // Find the study that matches the trialId exactly
+      const study = responseData.studies.find(s => {
+        const nctId = s.protocolSection?.identificationModule?.nctId || s.nctId || s.id || '';
+        return nctId === trialId || nctId === `NCT${trialId}` || trialId === `NCT${nctId}`;
+      }) || responseData.studies[0];
+      
+      const protocolSection = study.protocolSection || {};
+      const descriptionModule = protocolSection.descriptionModule || {};
+      
+      // Extract summary with proper handling
+      let briefSummary = '';
+      if (descriptionModule?.briefSummary) {
+        briefSummary = typeof descriptionModule.briefSummary === 'string' 
+          ? descriptionModule.briefSummary 
+          : (descriptionModule.briefSummary.text || descriptionModule.briefSummary.content || '');
+      }
+      if (!briefSummary && descriptionModule?.detailedDescription) {
+        const detailedDesc = descriptionModule.detailedDescription;
+        briefSummary = typeof detailedDesc === 'string' 
+          ? detailedDesc 
+          : (detailedDesc.text || detailedDesc.content || '');
+      }
+
+      // Extract eligibility criteria
+      let eligibilityCriteria = '';
+      if (descriptionModule?.eligibilityCriteria) {
+        const elig = descriptionModule.eligibilityCriteria;
+        eligibilityCriteria = typeof elig === 'string' 
+          ? elig 
+          : (elig.text || elig.content || '');
+      }
+
+      return {
+        success: true,
+        summary: briefSummary,
+        eligibilityCriteria: eligibilityCriteria
+      };
+    }
+
+    return { success: false, error: 'Trial not found' };
+  } catch (error) {
+    console.error('Error fetching trial details:', error);
+    return { success: false, error: error.message || 'Failed to fetch trial details' };
+  }
 }
 
 /**

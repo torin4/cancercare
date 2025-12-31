@@ -572,11 +572,22 @@ module.exports = async (req, res) => {
                 }
               }).filter(Boolean);
               
-              // Safely extract summary
-              const briefSummary = descriptionModule?.briefSummary || 
-                                  descriptionModule?.detailedDescription?.text || 
-                                  study.summary || 
-                                  '';
+              // Safely extract summary - can be string or object with text property
+              let briefSummary = '';
+              if (descriptionModule?.briefSummary) {
+                briefSummary = typeof descriptionModule.briefSummary === 'string' 
+                  ? descriptionModule.briefSummary 
+                  : (descriptionModule.briefSummary.text || descriptionModule.briefSummary.content || '');
+              }
+              if (!briefSummary && descriptionModule?.detailedDescription) {
+                const detailedDesc = descriptionModule.detailedDescription;
+                briefSummary = typeof detailedDesc === 'string' 
+                  ? detailedDesc 
+                  : (detailedDesc.text || detailedDesc.content || '');
+              }
+              if (!briefSummary) {
+                briefSummary = study.summary || '';
+              }
               
               // Safely extract locations from contactsLocationsModule
               // According to ClinicalTrials.gov API docs: protocolSection.contactsLocationsModule.locations[]
