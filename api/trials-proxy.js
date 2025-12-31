@@ -277,9 +277,9 @@ module.exports = async (req, res) => {
                   // - city and country are DIRECTLY on the location object (loc.city, loc.country)
                   // - facility is a STRING (facility name), not an object
                   // Structure: { facility: "Name", city: "Beijing", country: "China", state: "...", ... }
-                  const city = loc?.city || ;
-                  const state = loc?.state || ;
-                  const country = loc?.country || ;
+                  const city = loc?.city || '';
+                  const state = loc?.state || '';
+                  const country = loc?.country || '';
                 }
               });
               
