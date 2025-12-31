@@ -48,13 +48,31 @@ export function calculateTrialMatchScore(trial, patientProfile, genomicProfile =
     }
   }
 
-  // 2. Age Match (20 points)
+  // 2. Age Match (20 points) - Also check eligibilityCriteria.text for exclusions with unit normalization
   maxPossibleScore += weights.age;
   if (patientProfile.age) {
+    // First check structured eligibility data
     const minAge = trial.eligibility?.minAge || 0;
     const maxAge = trial.eligibility?.maxAge || 150;
+    
+    // Also check eligibilityCriteria.text for age exclusions (with unit handling)
+    let ageExcluded = false;
+    if (trial.eligibilityCriteria) {
+      const eligibilityMatch = matchesTrialEligibility(trial, patientProfile, genomicProfile);
+      if (eligibilityMatch.exclusionFound && eligibilityMatch.exclusionReasons.some(r => r.toLowerCase().includes('age'))) {
+        ageExcluded = true;
+        // Add issues from eligibility match
+        eligibilityMatch.issues.forEach(issue => {
+          if (issue.category === 'Age' || issue.detail.toLowerCase().includes('age')) {
+            issues.push(issue);
+          }
+        });
+      }
+    }
 
-    if (patientProfile.age >= minAge && patientProfile.age <= maxAge) {
+    if (ageExcluded) {
+      // Issue already added from eligibilityMatch
+    } else if (patientProfile.age >= minAge && patientProfile.age <= maxAge) {
       totalScore += weights.age;
       matchDetails.push({
         category: 'Age',
@@ -92,44 +110,82 @@ export function calculateTrialMatchScore(trial, patientProfile, genomicProfile =
     }
   }
 
-  // 4. Genomic Match (25 points)
+  // 4. Genomic Match (25 points) - Also check eligibilityCriteria.text for mutation mentions and negative matches
   maxPossibleScore += weights.genomic;
-  if (genomicProfile && trial.genomicCriteria && trial.genomicCriteria.length > 0) {
-    const genomicMatches = checkGenomicMatches(trial.genomicCriteria, genomicProfile);
+  if (genomicProfile) {
+    // First check structured genomic criteria
+    if (trial.genomicCriteria && trial.genomicCriteria.length > 0) {
+      const genomicMatches = checkGenomicMatches(trial.genomicCriteria, genomicProfile);
 
-    if (genomicMatches.matches.length > 0) {
-      // Partial credit based on how many genomic criteria are met
-      const genomicScore = (genomicMatches.matches.length / genomicMatches.total) * weights.genomic;
-      totalScore += genomicScore;
+      if (genomicMatches.matches.length > 0) {
+        // Partial credit based on how many genomic criteria are met
+        const genomicScore = (genomicMatches.matches.length / genomicMatches.total) * weights.genomic;
+        totalScore += genomicScore;
 
-      matchDetails.push({
-        category: 'Genomic',
-        score: genomicScore,
-        detail: `Genomic matches: ${genomicMatches.matches.join(', ')}`
-      });
+        matchDetails.push({
+          category: 'Genomic',
+          score: genomicScore,
+          detail: `Genomic matches: ${genomicMatches.matches.join(', ')}`
+        });
 
-      if (genomicMatches.mismatches.length > 0) {
+        if (genomicMatches.mismatches.length > 0) {
+          issues.push({
+            category: 'Genomic',
+            severity: 'medium',
+            detail: `Some genomic criteria not met: ${genomicMatches.mismatches.join(', ')}`
+          });
+        }
+      } else {
         issues.push({
           category: 'Genomic',
-          severity: 'medium',
-          detail: `Some genomic criteria not met: ${genomicMatches.mismatches.join(', ')}`
+          severity: 'high',
+          detail: `No genomic criteria match. Trial requires: ${trial.genomicCriteria.join(', ')}`
+        });
+      }
+    } else if (trial.eligibilityCriteria) {
+      // No structured criteria, but check eligibilityCriteria.text for mutation mentions and negative matches
+      const eligibilityMatch = matchesTrialEligibility(trial, patientProfile, genomicProfile);
+      
+      // Add any issues from negative matches
+      eligibilityMatch.issues.forEach(issue => {
+        issues.push(issue);
+      });
+      
+      if (eligibilityMatch.negativeMatches.length > 0) {
+        // Negative matches found - don't give points
+        issues.push({
+          category: 'Genomic',
+          severity: 'high',
+          detail: `Patient mutations found in exclusion criteria: ${eligibilityMatch.negativeMatches.join(', ')}`
+        });
+      } else if (eligibilityMatch.totalMutations > 0) {
+        // Score based on how many mutations are mentioned in criteria
+        const genomicScore = (eligibilityMatch.mutationMatches / eligibilityMatch.totalMutations) * weights.genomic;
+        totalScore += genomicScore;
+        
+        matchDetails.push({
+          category: 'Genomic',
+          score: genomicScore,
+          detail: `${eligibilityMatch.mutationMatches} of ${eligibilityMatch.totalMutations} mutations mentioned in criteria${eligibilityMatch.matchedMutations.length > 0 ? ` (${eligibilityMatch.matchedMutations.join(', ')})` : ''}`
+        });
+      } else {
+        // No mutations to check, give full points
+        totalScore += weights.genomic;
+        matchDetails.push({
+          category: 'Genomic',
+          score: weights.genomic,
+          detail: 'No specific genomic requirements'
         });
       }
     } else {
-      issues.push({
+      // No genomic criteria required, give full points
+      totalScore += weights.genomic;
+      matchDetails.push({
         category: 'Genomic',
-        severity: 'high',
-        detail: `No genomic criteria match. Trial requires: ${trial.genomicCriteria.join(', ')}`
+        score: weights.genomic,
+        detail: 'No specific genomic requirements'
       });
     }
-  } else if (genomicProfile && (!trial.genomicCriteria || trial.genomicCriteria.length === 0)) {
-    // No genomic criteria required, give full points
-    totalScore += weights.genomic;
-    matchDetails.push({
-      category: 'Genomic',
-      score: weights.genomic,
-      detail: 'No specific genomic requirements'
-    });
   }
 
   // 5. Trial Status (10 points)
@@ -262,6 +318,314 @@ function checkGenomicMatches(trialCriteria, genomicProfile) {
 }
 
 /**
+ * Check if a trial matches eligibility criteria based on eligibilityCriteria.text
+ * Uses simple text-matching logic to check for exclusions and count mutation matches
+ * Handles negative matches (mutations in exclusion sections or preceded by "negative")
+ * @param {Object} trial - Trial data with eligibilityCriteria.text
+ * @param {Object} patientProfile - Patient demographics (age, gender)
+ * @param {Object} genomicProfile - Patient's genomic profile (mutations, cnvs)
+ * @returns {Object} - Match result with matchScore, issues, and details
+ */
+export function matchesTrialEligibility(trial, patientProfile, genomicProfile = null) {
+  const eligibilityText = trial.eligibilityCriteria || '';
+  
+  if (!eligibilityText || typeof eligibilityText !== 'string') {
+    return {
+      matchScore: 0,
+      exclusionFound: false,
+      mutationMatches: 0,
+      totalMutations: 0,
+      issues: [],
+      details: 'No eligibility criteria text available'
+    };
+  }
+  
+  const textLower = eligibilityText.toLowerCase();
+  let exclusionFound = false;
+  const exclusionReasons = [];
+  const issues = [];
+  let mutationMatches = 0;
+  const matchedMutations = [];
+  const negativeMatches = []; // Mutations found in exclusion context
+  const totalMutations = [];
+  
+  // Split text into inclusion and exclusion sections
+  const exclusionSection = textLower.includes('exclusion criteria') 
+    ? textLower.split('exclusion criteria')[1] || ''
+    : '';
+  const inclusionSection = textLower.includes('inclusion criteria')
+    ? textLower.split('inclusion criteria')[1]?.split('exclusion criteria')[0] || textLower
+    : textLower;
+  
+  // Helper function to normalize age with units
+  function normalizeAge(ageText, patientAge) {
+    // Extract number and unit
+    const ageMatch = ageText.match(/\b(\d+)\s*(years?|months?|yrs?|mos?)\b/i);
+    if (!ageMatch) return null;
+    
+    const ageValue = parseInt(ageMatch[1]);
+    const unit = ageMatch[2].toLowerCase();
+    
+    // Convert to years if needed
+    if (unit.includes('month')) {
+      return ageValue / 12; // Convert months to years
+    }
+    return ageValue; // Already in years
+  }
+  
+  // Check for exclusion keywords related to age (with unit normalization)
+  if (patientProfile.age) {
+    const ageExclusionPatterns = [
+      /exclusion.*age.*\b(\d+)\s*(years?|months?|yrs?|mos?)?\b/i,
+      /age.*\b(\d+)\s*(years?|months?|yrs?|mos?)?\b.*exclusion/i,
+      /exclude.*age.*\b(\d+)\s*(years?|months?|yrs?|mos?)?\b/i,
+      /age.*greater than.*\b(\d+)\s*(years?|months?|yrs?|mos?)?\b/i,
+      /age.*less than.*\b(\d+)\s*(years?|months?|yrs?|mos?)?\b/i,
+      /age.*over.*\b(\d+)\s*(years?|months?|yrs?|mos?)?\b/i,
+      /age.*under.*\b(\d+)\s*(years?|months?|yrs?|mos?)?\b/i
+    ];
+    
+    for (const pattern of ageExclusionPatterns) {
+      const match = textLower.match(pattern);
+      if (match) {
+        const normalizedAge = normalizeAge(match[0], patientProfile.age);
+        if (normalizedAge !== null) {
+          // Check if patient age would be excluded
+          if (textLower.includes('greater than') || textLower.includes('over')) {
+            if (patientProfile.age > normalizedAge) {
+              exclusionFound = true;
+              exclusionReasons.push(`Age exclusion: over ${normalizedAge} years`);
+            }
+          } else if (textLower.includes('less than') || textLower.includes('under')) {
+            if (patientProfile.age < normalizedAge) {
+              exclusionFound = true;
+              exclusionReasons.push(`Age exclusion: under ${normalizedAge} years`);
+            }
+          }
+        }
+      }
+    }
+    
+    // Check for explicit age exclusions in exclusion section
+    if (exclusionSection && exclusionSection.includes('age')) {
+      const agePattern = new RegExp(`\\b${patientProfile.age}\\s*(years?|yrs?)\\b`, 'i');
+      if (agePattern.test(exclusionSection)) {
+        exclusionFound = true;
+        exclusionReasons.push(`Age ${patientProfile.age} mentioned in exclusion criteria`);
+      }
+    }
+  }
+  
+  // Check for exclusion keywords related to gender
+  if (patientProfile.gender) {
+    const genderLower = patientProfile.gender.toLowerCase();
+    const genderExclusionPatterns = [
+      new RegExp(`exclusion.*${genderLower}`, 'i'),
+      new RegExp(`exclude.*${genderLower}`, 'i'),
+      new RegExp(`${genderLower}.*exclusion`, 'i')
+    ];
+    
+    for (const pattern of genderExclusionPatterns) {
+      if (pattern.test(textLower)) {
+        exclusionFound = true;
+        exclusionReasons.push(`Gender exclusion: ${patientProfile.gender}`);
+        break;
+      }
+    }
+    
+    // Check exclusion criteria section for gender
+    if (exclusionSection) {
+      if (exclusionSection.includes(genderLower) || 
+          (genderLower === 'female' && exclusionSection.includes('women')) ||
+          (genderLower === 'male' && exclusionSection.includes('men'))) {
+        exclusionFound = true;
+        exclusionReasons.push(`${patientProfile.gender} mentioned in exclusion criteria`);
+      }
+    }
+  }
+  
+  // Count how many patient mutations are mentioned in eligibility criteria
+  // Check for negative matches (preceded by "negative" or in exclusion section)
+  if (genomicProfile) {
+    // Check mutations
+    if (genomicProfile.mutations && Array.isArray(genomicProfile.mutations)) {
+      genomicProfile.mutations.forEach(mutation => {
+        if (mutation.gene) {
+          totalMutations.push(mutation.gene);
+          const geneName = mutation.gene.toUpperCase();
+          const genePattern = new RegExp(`\\b${geneName}\\b|\\b${mutation.gene}\\b`, 'i');
+          
+          // Check if gene is mentioned in exclusion section (negative match)
+          if (exclusionSection && genePattern.test(exclusionSection)) {
+            negativeMatches.push(mutation.gene);
+            issues.push({
+              category: 'Genomic',
+              severity: 'high',
+              detail: `${mutation.gene} mutation found in exclusion criteria - patient has this mutation`
+            });
+          }
+          // Check if gene is preceded by "negative" (negative match)
+          else if (/\bnegative\s+(?:for\s+)?(?:the\s+)?(?:presence\s+of\s+)?(?:a\s+)?(?:mutation\s+in\s+)?(?:mutation\s+of\s+)?/i.test(textLower)) {
+            const negativeContext = textLower.match(new RegExp(`\\bnegative\\s+(?:for\\s+)?(?:the\\s+)?(?:presence\\s+of\\s+)?(?:a\\s+)?(?:mutation\\s+in\\s+)?(?:mutation\\s+of\\s+)?[^.]*?\\b${geneName}\\b|\\b${mutation.gene}\\b`, 'i'));
+            if (negativeContext) {
+              negativeMatches.push(mutation.gene);
+              issues.push({
+                category: 'Genomic',
+                severity: 'high',
+                detail: `${mutation.gene} mutation mentioned with "negative" context - patient has this mutation`
+              });
+            }
+          }
+          // Positive match (in inclusion section or general text, not in exclusion)
+          else if (genePattern.test(inclusionSection) || (genePattern.test(textLower) && !exclusionSection)) {
+            mutationMatches++;
+            matchedMutations.push(mutation.gene);
+          }
+        }
+      });
+    }
+    
+    // Check CNVs (copy number variants)
+    if (genomicProfile.cnvs && Array.isArray(genomicProfile.cnvs)) {
+      genomicProfile.cnvs.forEach(cnv => {
+        if (cnv.gene) {
+          totalMutations.push(cnv.gene);
+          const geneName = cnv.gene.toUpperCase();
+          const genePattern = new RegExp(`\\b${geneName}\\b|\\b${cnv.gene}\\b`, 'i');
+          
+          // Check if CNV is mentioned in exclusion section (negative match)
+          if (exclusionSection && genePattern.test(exclusionSection)) {
+            negativeMatches.push(cnv.gene);
+            issues.push({
+              category: 'Genomic',
+              severity: 'high',
+              detail: `${cnv.gene} CNV found in exclusion criteria - patient has this CNV`
+            });
+          }
+          // Check if CNV is preceded by "negative"
+          else if (/\bnegative\s+(?:for\s+)?(?:the\s+)?(?:presence\s+of\s+)?(?:a\s+)?(?:amplification\s+of\s+)?(?:deletion\s+of\s+)?/i.test(textLower)) {
+            const negativeContext = textLower.match(new RegExp(`\\bnegative\\s+(?:for\\s+)?(?:the\\s+)?(?:presence\\s+of\\s+)?(?:a\\s+)?(?:amplification\\s+of\\s+)?(?:deletion\\s+of\\s+)?[^.]*?\\b${geneName}\\b|\\b${cnv.gene}\\b`, 'i'));
+            if (negativeContext) {
+              negativeMatches.push(cnv.gene);
+              issues.push({
+                category: 'Genomic',
+                severity: 'high',
+                detail: `${cnv.gene} CNV mentioned with "negative" context - patient has this CNV`
+              });
+            }
+          }
+          // Positive match
+          else if (genePattern.test(inclusionSection) || (genePattern.test(textLower) && !exclusionSection)) {
+            mutationMatches++;
+            matchedMutations.push(cnv.gene);
+          }
+        }
+      });
+    }
+    
+    // Check for biomarker mentions (BRCA, TMB, MSI, HRD) - handle negative matches
+    if (genomicProfile.biomarkers) {
+      // BRCA
+      if (genomicProfile.mutations?.some(m => m.gene === 'BRCA1' || m.gene === 'BRCA2')) {
+        if (exclusionSection && /\bbrca\b/i.test(exclusionSection)) {
+          negativeMatches.push('BRCA');
+          issues.push({
+            category: 'Genomic',
+            severity: 'high',
+            detail: 'BRCA mutation found in exclusion criteria - patient has BRCA mutation'
+          });
+        } else if (/\bnegative\s+(?:for\s+)?(?:brca|brca1|brca2)\b/i.test(textLower)) {
+          negativeMatches.push('BRCA');
+          issues.push({
+            category: 'Genomic',
+            severity: 'high',
+            detail: 'BRCA mentioned with "negative" context - patient has BRCA mutation'
+          });
+        } else if (/\bbrca\b/i.test(textLower)) {
+          mutationMatches++;
+          matchedMutations.push('BRCA');
+        }
+      }
+      
+      // TMB
+      if (genomicProfile.biomarkers.tumorMutationalBurden?.interpretation === 'high') {
+        if (exclusionSection && (/\btmb\b|\btumor.*mutational.*burden\b/i.test(exclusionSection))) {
+          negativeMatches.push('TMB-high');
+          issues.push({
+            category: 'Genomic',
+            severity: 'high',
+            detail: 'TMB-high found in exclusion criteria - patient has high TMB'
+          });
+        } else if (/\btmb\b|\btumor.*mutational.*burden\b/i.test(textLower)) {
+          mutationMatches++;
+          matchedMutations.push('TMB-high');
+        }
+      }
+      
+      // MSI-H
+      if (genomicProfile.biomarkers.microsatelliteInstability?.status === 'MSI-H') {
+        if (exclusionSection && (/\bmsi-h\b|\bmicrosatellite.*instability\b/i.test(exclusionSection))) {
+          negativeMatches.push('MSI-H');
+          issues.push({
+            category: 'Genomic',
+            severity: 'high',
+            detail: 'MSI-H found in exclusion criteria - patient has MSI-H'
+          });
+        } else if (/\bmsi-h\b|\bmicrosatellite.*instability\b/i.test(textLower)) {
+          mutationMatches++;
+          matchedMutations.push('MSI-H');
+        }
+      }
+      
+      // HRD
+      if (genomicProfile.biomarkers.hrdScore?.interpretation === 'HRD-positive') {
+        if (exclusionSection && (/\bhrd\b|\bhomologous.*recombination.*deficiency\b/i.test(exclusionSection))) {
+          negativeMatches.push('HRD-positive');
+          issues.push({
+            category: 'Genomic',
+            severity: 'high',
+            detail: 'HRD-positive found in exclusion criteria - patient has HRD-positive'
+          });
+        } else if (/\bhrd\b|\bhomologous.*recombination.*deficiency\b/i.test(textLower)) {
+          mutationMatches++;
+          matchedMutations.push('HRD-positive');
+        }
+      }
+    }
+  }
+  
+  // Calculate matchScore based on mutation matches
+  // Score: 0-100, where 100 = all mutations mentioned, 0 = exclusion found or no matches
+  let matchScore = 0;
+  
+  if (exclusionFound || negativeMatches.length > 0) {
+    matchScore = 0;
+  } else if (totalMutations.length > 0) {
+    // Score based on percentage of mutations mentioned
+    matchScore = Math.round((mutationMatches / totalMutations.length) * 100);
+  } else {
+    // No mutations to check, give neutral score
+    matchScore = 50;
+  }
+  
+  return {
+    matchScore,
+    exclusionFound: exclusionFound || negativeMatches.length > 0,
+    exclusionReasons,
+    mutationMatches,
+    totalMutations: totalMutations.length,
+    matchedMutations,
+    negativeMatches,
+    issues,
+    details: exclusionFound || negativeMatches.length > 0
+      ? `Exclusion found: ${exclusionReasons.join('; ')}${negativeMatches.length > 0 ? `; Negative genomic matches: ${negativeMatches.join(', ')}` : ''}`
+      : totalMutations.length > 0
+        ? `${mutationMatches} of ${totalMutations.length} mutations mentioned in criteria${matchedMutations.length > 0 ? ` (${matchedMutations.join(', ')})` : ''}`
+        : 'No mutations to check against criteria'
+  };
+}
+
+/**
  * Generate recommendation text based on match results
  * @param {string} eligibilityLevel - Eligibility level
  * @param {Array} matchDetails - Details of matches
@@ -280,8 +644,12 @@ function generateRecommendation(eligibilityLevel, matchDetails, issues) {
       return `⚠️ Potentially eligible with considerations. ${highIssues[0].detail}. Consult with oncologist to determine if exceptions apply.`;
     }
   } else {
+    // For unlikely_eligible, explicitly list all high severity issues
     if (highIssues.length > 0) {
-      return `❌ Unlikely eligible. ${highIssues[0].detail}. Consider exploring other trial options.`;
+      const issueList = highIssues.map((issue, idx) => {
+        return `${idx + 1}. ${issue.detail}`;
+      }).join(' ');
+      return `❌ Unlikely eligible. The following high-severity issues disqualify this trial: ${issueList}. Consider exploring other trial options.`;
     } else {
       return `❌ Not recommended. Patient does not meet sufficient eligibility criteria for this trial.`;
     }
@@ -344,6 +712,7 @@ export function groupTrialsByEligibility(trials) {
 
 export default {
   calculateTrialMatchScore,
+  matchesTrialEligibility,
   sortTrialsByMatch,
   filterTrialsByMatchThreshold,
   groupTrialsByEligibility
