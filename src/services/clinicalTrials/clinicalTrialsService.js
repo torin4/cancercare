@@ -26,14 +26,14 @@ export async function saveMatchedTrial(userId, trialData) {
   try {
     const trialRef = doc(collection(db, 'matchedTrials'));
 
-    await setDoc(trialRef, {
+    // Build trial data object, filtering out undefined values
+    const trialDocData = {
       patientId: userId,
       trialId: trialData.id,
       source: trialData.source,
 
-      // Trial information
+      // Trial information (only include if defined)
       title: trialData.title,
-      titleJa: trialData.titleJa,
       phase: trialData.phase,
       status: trialData.status,
       conditions: trialData.conditions,
@@ -44,16 +44,30 @@ export async function saveMatchedTrial(userId, trialData) {
       // Match results
       matchResult: trialData.matchResult,
 
-      // URLs
+      // URLs (only include if defined)
       url: trialData.url,
-      urlJa: trialData.urlJa,
 
       // Metadata
       savedAt: serverTimestamp(),
       attemptedSources: trialData.attemptedSources || [],
       isFavorite: false,
       notes: ''
-    });
+    };
+
+    // Add optional fields only if they are defined
+    if (trialData.titleJa !== undefined && trialData.titleJa !== null) {
+      trialDocData.titleJa = trialData.titleJa;
+    }
+    if (trialData.urlJa !== undefined && trialData.urlJa !== null) {
+      trialDocData.urlJa = trialData.urlJa;
+    }
+
+    // Filter out any remaining undefined values
+    const cleanData = Object.fromEntries(
+      Object.entries(trialDocData).filter(([_, value]) => value !== undefined)
+    );
+
+    await setDoc(trialRef, cleanData);
 
     return trialRef.id;
   } catch (error) {
@@ -322,6 +336,11 @@ export async function getTrialStatistics(userId) {
  */
 export async function isTrialSaved(userId, trialId) {
   try {
+    // Return false if userId or trialId is missing
+    if (!userId || !trialId) {
+      return false;
+    }
+
     const trialsQuery = query(
       collection(db, 'matchedTrials'),
       where('patientId', '==', userId),
@@ -331,6 +350,12 @@ export async function isTrialSaved(userId, trialId) {
     const snapshot = await getDocs(trialsQuery);
     return !snapshot.empty;
   } catch (error) {
+    // Handle permission errors gracefully - return false if we can't check
+    // This allows the UI to continue working even if there's a permissions issue
+    if (error.code === 'permission-denied' || error.message?.includes('permission')) {
+      console.warn('Permission denied checking if trial is saved. User may not be authenticated:', error.message);
+      return false;
+    }
     console.error('Error checking if trial is saved:', error);
     return false;
   }
