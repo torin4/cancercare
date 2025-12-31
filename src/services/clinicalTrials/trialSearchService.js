@@ -106,9 +106,10 @@ async function applyLocationFilters(trials, params) {
       // Check trial locations
       const locations = t.locations || [];
       if (locations.length === 0) {
-        // If no location data, include the trial (don't filter out due to missing data)
-        console.warn(`Trial ${t.id} has no location data, including it`);
-        return true;
+        // If no location data and country filter is active, exclude the trial
+        // (we can't verify it's in the requested country)
+        console.warn(`Trial ${t.id} has no location data, excluding from country-filtered results`);
+        return false;
       }
       
       return locations.some(loc => {
