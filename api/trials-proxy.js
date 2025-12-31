@@ -137,6 +137,19 @@ module.exports = async (req, res) => {
         // Check if it's already in legacy format (fallback from old API)
         if (d.StudyFieldsResponse && d.StudyFieldsResponse.Study) {
           console.log('trials-proxy: Using legacy StudyFieldsResponse format, studies:', d.StudyFieldsResponse.Study.length);
+          if (d.StudyFieldsResponse.Study.length > 0) {
+            // Check if location data is present
+            const firstStudy = d.StudyFieldsResponse.Study[0];
+            const hasLocationCity = firstStudy.LocationCity && firstStudy.LocationCity.length > 0;
+            const hasLocationCountry = firstStudy.LocationCountry && firstStudy.LocationCountry.length > 0;
+            console.log('trials-proxy: First study location data check:', {
+              hasLocationCity,
+              hasLocationCountry,
+              locationCitySample: hasLocationCity ? firstStudy.LocationCity[0] : 'none',
+              locationCountrySample: hasLocationCountry ? firstStudy.LocationCountry[0] : 'none',
+              allKeys: Object.keys(firstStudy)
+            });
+          }
           if (d.StudyFieldsResponse.Study.length === 0) {
             const queryTerm = params.get('query.term') || params.get('query.cond') || params.get('expr') || params.get('condition') || '';
             console.log('trials-proxy: WARNING - Empty Study array. Query was:', queryTerm);
