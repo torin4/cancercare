@@ -431,7 +431,7 @@ export async function searchCTGov(params) {
       
       // Use proxy endpoint for better CORS handling and error management
       // v2 API uses query.term, query.cond, and pageSize
-      const url = `${PROXY_BASE}?source=ctgov&query.term=${encodeURIComponent(term || '')&query.cond=${encodeURIComponent(cond || '')&pageSize=50&pageNumber=1&fmt=json`;
+      const url = `${PROXY_BASE}?source=ctgov&query.term=${encodeURIComponent(term || '')}&query.cond=${encodeURIComponent(cond || '')}&pageSize=50&pageNumber=1&fmt=json`;
       try {
         const res = await axios.get(url, { timeout: 20000 });
         const responseData = res.data;
