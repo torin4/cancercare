@@ -68,21 +68,60 @@ async function applyLocationFilters(trials, params) {
   // Country filter (simple string match) when includeAllLocations is false
   if (params.country && !params.includeAllLocations) {
     const countryLower = String(params.country).toLowerCase();
+    
+    // Normalize country names for better matching
+    const countryVariations = {
+      'japan': ['japan', 'japanese'],
+      'united states': ['united states', 'usa', 'us', 'america'],
+      'united kingdom': ['united kingdom', 'uk', 'britain', 'british'],
+      'south korea': ['south korea', 'korea', 'korean'],
+      'china': ['china', 'chinese'],
+      'australia': ['australia', 'australian'],
+      'canada': ['canada', 'canadian'],
+      'germany': ['germany', 'german'],
+      'france': ['france', 'french'],
+      'italy': ['italy', 'italian'],
+      'spain': ['spain', 'spanish']
+    };
+    
+    // Get all variations for the country
+    let searchTerms = [countryLower];
+    for (const [key, variations] of Object.entries(countryVariations)) {
+      if (variations.includes(countryLower)) {
+        searchTerms = variations;
+        break;
+      }
+    }
+    
+    console.log(`Applying location filter for country: ${params.country}, search terms:`, searchTerms);
+    console.log(`Trials before filtering: ${out.length}`);
+    
     out = out.filter(t => {
       // Check trial's country field
-      if ((t.country || '').toLowerCase().includes(countryLower)) return true;
+      const trialCountry = (t.country || '').toLowerCase();
+      if (searchTerms.some(term => trialCountry.includes(term))) {
+        return true;
+      }
       
       // Check trial locations
       const locations = t.locations || [];
+      if (locations.length === 0) {
+        // If no location data, include the trial (don't filter out due to missing data)
+        console.warn(`Trial ${t.id} has no location data, including it`);
+        return true;
+      }
+      
       return locations.some(loc => {
         if (typeof loc === 'string') {
-          return loc.toLowerCase().includes(countryLower);
+          return searchTerms.some(term => loc.toLowerCase().includes(term));
         }
         // Check location object's country field
         const locCountry = (loc.country || '').toLowerCase();
-        return locCountry.includes(countryLower);
+        return searchTerms.some(term => locCountry.includes(term));
       });
     });
+    
+    console.log(`Trials after filtering: ${out.length}`);
   }
 
   // If includeAllLocations is true, return all trials (no filtering)
@@ -172,11 +211,21 @@ export async function searchTrials(params) {
         studyFieldsResponseKeys: ctRaw.StudyFieldsResponse ? Object.keys(ctRaw.StudyFieldsResponse) : null,
         studyCount: ctRaw.StudyFieldsResponse?.Study?.length || ctRaw.studies?.length || 0
       });
+      
+      // Log location filter params
+      if (params.country) {
+        console.log('Location filter params:', {
+          country: params.country,
+          includeAllLocations: params.includeAllLocations
+        });
+      }
+      
       const ctResult = await searchCTGov({ ...params, _rawCTGovResponse: ctRaw });
       console.log('searchCTGov result:', {
         success: ctResult.success,
         trialsLength: ctResult.trials?.length,
-        error: ctResult.error
+        error: ctResult.error,
+        countryFilter: params.country
       });
       if (ctResult.success && ctResult.trials.length > 0) {
         if (typeof onProgress === 'function') onProgress(`ClinicalTrials.gov returned ${ctResult.trials.length} results`);
@@ -414,6 +463,24 @@ export async function searchCTGov(params) {
     }
 
     let trials = studies.map(s => {
+      const locationCities = s.LocationCity || [];
+      const locationCountries = s.LocationCountry || [];
+      
+      // Build locations array
+      const locations = locationCities.map((city, idx) => ({ 
+        city: typeof city === 'string' ? city : '', 
+        country: (locationCountries[idx] || locationCountries[0] || '') 
+      }));
+      
+      // If no cities but we have countries, create location entries from countries
+      if (locations.length === 0 && locationCountries.length > 0) {
+        locationCountries.forEach(country => {
+          if (country) {
+            locations.push({ city: '', country: country });
+          }
+        });
+      }
+      
       const trial = {
         id: s.NCTId?.[0] || s.NCTId || null,
         source: 'ClinicalTrials.gov',
@@ -422,16 +489,19 @@ export async function searchCTGov(params) {
         status: s.OverallStatus?.[0] || s.OverallStatus || '',
         phase: s.Phase?.[0] || s.Phase || '',
         summary: s.BriefSummary?.[0] || s.BriefSummary || '',
-        locations: (s.LocationCity || []).map((city, idx) => ({ 
-          city: typeof city === 'string' ? city : '', 
-          country: (s.LocationCountry?.[idx] || s.LocationCountry?.[0] || '') 
-        })),
+        locations: locations,
+        // Also store country for easier filtering
+        country: locationCountries[0] || '',
         url: (s.NCTId?.[0] || s.NCTId) ? `https://clinicaltrials.gov/study/${s.NCTId[0] || s.NCTId}` : null
       };
       return trial;
     }).filter(t => t.id); // Filter out trials without IDs
 
     console.log('searchCTGov - mapped trials count:', trials.length);
+    if (trials.length > 0) {
+      console.log('Sample trial locations:', trials[0].locations);
+      console.log('Sample trial country:', trials[0].country);
+    }
 
     // Apply location filters if provided
     trials = await applyLocationFilters(trials, params);
