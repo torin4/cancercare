@@ -811,39 +811,19 @@ function buildSearchCondition(patientProfile, additionalTerms = []) {
     console.log(`   Full currentStatus object:`, JSON.stringify(patientProfile.currentStatus, null, 2));
   }
   
-  // Add disease status with Boolean operators for better matching - goes in term
-  // Only include disease statuses that are useful search terms
-  if (patientProfile.currentStatus?.diseaseStatus) {
-    const diseaseStatus = patientProfile.currentStatus.diseaseStatus.toLowerCase();
-    // Use Boolean OR operators to capture variations
-    // Skip "Stable Disease" and similar statuses that aren't good search terms
-    if (diseaseStatus.includes('stable') && !diseaseStatus.includes('unstable')) {
-      // Skip "Stable Disease" - not a useful search term
-    } else if (diseaseStatus.includes('recurrent') || diseaseStatus.includes('recurrence')) {
-      termParts.push('(recurrent OR relapsed OR recurrence)');
-    } else if (diseaseStatus.includes('refractory')) {
-      termParts.push('(refractory OR resistant)');
-    } else if (diseaseStatus.includes('metastatic')) {
-      termParts.push('(metastatic OR metastasis)');
-    } else if (diseaseStatus.includes('advanced')) {
-      termParts.push('(advanced OR stage IV)');
-    }
-    // Skip other disease statuses like "Stable Disease", "Partial Response", etc.
-  }
   
-  // Process additional terms (genes/mutations) - goes in term
-  // NOTE: User requested to remove genes from query.term - only subtype should be in query.term
-  // Genes will be used for matching/scoring but not in the search query
-  // const uniqueGenes = [...new Set(additionalTerms.filter(term => term && typeof term === 'string'))];
-  // if (uniqueGenes.length > 0) {
-  //   // Group genes with OR to broaden search (trials matching ANY gene)
-  //   if (uniqueGenes.length === 1) {
-  //     termParts.push(uniqueGenes[0]);
-  //   } else {
-  //     termParts.push(`(${uniqueGenes.join(' OR ')})`);
-  //   }
-  // }
-  console.log(`buildSearchCondition: Skipping genes in query.term - only subtype will be included. Genes (${additionalTerms.length}) will be used for matching only.`);
+  // NOTE: User explicitly requested that ONLY the subtype should be in query.term
+  // All other parameters (disease status, genes, mutations, biomarkers) are REMOVED from query.term
+  // These will be used for matching/scoring but NOT in the search query
+  // 
+  // REMOVED: Disease status terms (recurrent, refractory, metastatic, advanced, etc.)
+  // REMOVED: Gene/mutation terms (BRCA, ATM, CCNE1, etc.)
+  // REMOVED: Biomarker terms (TMB, MSI-H, HRD, etc.)
+  // 
+  // ONLY subtype (e.g., "Clear Cell") is included in query.term
+  
+  console.log(`buildSearchCondition: Only subtype in query.term - all other parameters removed.`);
+  console.log(`   Genes (${additionalTerms.length}) will be used for matching only, not in search query.`);
   
   const finalCond = condTerms.join(' AND ');
   const finalTerm = termParts.join(' AND ');
