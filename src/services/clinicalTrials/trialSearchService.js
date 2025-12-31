@@ -772,13 +772,21 @@ function buildSearchCondition(patientProfile, additionalTerms = []) {
   const mainDiagnosis = patientProfile.diagnosis || patientProfile.cancerType || '';
   const subtype = patientProfile.currentStatus?.diagnosis || '';
   
+  console.log(`buildSearchCondition: Checking subtype - mainDiagnosis: "${mainDiagnosis}", subtype: "${subtype}", currentStatus:`, patientProfile.currentStatus);
+  
   if (subtype && subtype.trim() !== '' && subtype !== mainDiagnosis) {
     // Add subtype to termParts (query.term) instead of cond (query.cond)
-    termParts.push(subtype.trim());
-    console.log(`buildSearchCondition: Adding subtype "${subtype}" to query.term (Other terms), main diagnosis: "${mainDiagnosis}"`);
+    // IMPORTANT: Subtype should be FIRST in query.term to match website search behavior
+    termParts.unshift(subtype.trim()); // Use unshift to add at beginning
+    console.log(`buildSearchCondition: ✅ Adding subtype "${subtype.trim()}" to query.term (Other terms)`);
+    console.log(`   Main diagnosis (query.cond): "${mainDiagnosis}"`);
+    console.log(`   Subtype (query.term): "${subtype.trim()}"`);
   } else if (subtype && subtype === mainDiagnosis) {
     // Subtype is same as main diagnosis, no need to add it again
-    console.log(`buildSearchCondition: Subtype "${subtype}" is same as main diagnosis "${mainDiagnosis}", not adding to query.term`);
+    console.log(`buildSearchCondition: ⚠️ Subtype "${subtype}" is same as main diagnosis "${mainDiagnosis}", not adding to query.term`);
+  } else if (!subtype || subtype.trim() === '') {
+    console.log(`buildSearchCondition: ⚠️ No subtype found - patientProfile.currentStatus?.diagnosis: "${subtype}"`);
+    console.log(`   Full currentStatus object:`, JSON.stringify(patientProfile.currentStatus, null, 2));
   }
   
   // Add disease status with Boolean operators for better matching - goes in term
@@ -812,9 +820,15 @@ function buildSearchCondition(patientProfile, additionalTerms = []) {
     }
   }
   
+  const finalCond = condTerms.join(' AND ');
+  const finalTerm = termParts.join(' AND ');
+  
+  console.log(`buildSearchCondition: Final query - cond: "${finalCond}", term: "${finalTerm}"`);
+  console.log(`   termParts array:`, termParts);
+  
   return {
-    cond: condTerms.join(' AND '),
-    term: termParts.join(' AND ')
+    cond: finalCond,
+    term: finalTerm
   };
 }
 
