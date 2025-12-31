@@ -106,24 +106,24 @@ export async function searchTrials(params) {
     attempted.push('ClinicalTrials.gov');
     
     // Build v2 API compatible query parameters
-    const queryTerm = buildCTGovExpr(params);
+    const { cond, term } = buildCTGovExpr(params);
     const fields = ['NCTId', 'BriefTitle', 'Condition', 'OverallStatus', 'Phase', 'BriefSummary', 'LocationCity', 'LocationCountry'].join(',');
     
-    // Check if queryTerm is too long for GET request (limit ~2000 chars for URL)
-    const queryTermLength = encodeURIComponent(queryTerm).length;
+    // Check if query is too long for GET request (limit ~2000 chars for URL)
+    const queryLength = encodeURIComponent(cond).length + encodeURIComponent(term).length;
     const maxUrlLength = 2000;
     
     let ctRaw;
     
-    if (queryTermLength > maxUrlLength) {
+    if (queryLength > maxUrlLength) {
       // Use POST request for long queries
-      console.log(`Query term too long (${queryTermLength} chars), using POST request`);
+      console.log(`Query too long (${queryLength} chars), using POST request`);
       if (typeof onProgress === 'function') onProgress('Sending search request (POST)');
       
       const postData = {
         source: 'ctgov',
-        'query.term': queryTerm,
-        'query.cond': queryTerm,
+        'query.term': term || '',
+        'query.cond': cond || '',
         fields: fields,
         pageSize: pageSize,
         pageNumber: pageNumber,
@@ -145,7 +145,7 @@ export async function searchTrials(params) {
       });
     } else {
       // Use GET request for shorter queries
-      const proxyUrl = `${PROXY_BASE}?source=ctgov&query.term=${encodeURIComponent(queryTerm)}&query.cond=${encodeURIComponent(queryTerm)}&fields=${encodeURIComponent(fields)}&pageSize=${pageSize}&pageNumber=${pageNumber}&fmt=json`;
+      const proxyUrl = `${PROXY_BASE}?source=ctgov&query.term=${encodeURIComponent(term || '')}&query.cond=${encodeURIComponent(cond || '')}&fields=${encodeURIComponent(fields)}&pageSize=${pageSize}&pageNumber=${pageNumber}&fmt=json`;
       
       console.log('Searching ClinicalTrials.gov with URL:', proxyUrl.substring(0, 200) + (proxyUrl.length > 200 ? '...' : ''));
       
@@ -312,15 +312,33 @@ export async function searchCTGov(params) {
       console.log('Using array format, studies count:', studies.length);
     } else {
       // Build expression - use proxy instead of direct API call for better reliability
-      const { condition, age, gender } = params;
+      const { condition, patientProfile, additionalTerms, age, gender } = params;
       // ClinicalTrials.gov basic search only supports condition/keywords
       // Age and gender filtering should be done post-query or via eligibility criteria
-      let expr = condition || '';
+      let cond = '';
+      let term = '';
+      
+      if (patientProfile) {
+        const result = buildSearchCondition(patientProfile, additionalTerms || []);
+        cond = result.cond;
+        term = result.term;
+      } else if (condition) {
+        // Legacy: try to parse condition string
+        const andMatch = condition.match(/^(.+?)\s+AND\s+\((.+)\)$/i);
+        if (andMatch) {
+          cond = andMatch[1].trim();
+          term = andMatch[2].trim();
+        } else {
+          cond = condition;
+          term = '';
+        }
+      }
+      
       const fields = ['NCTId', 'BriefTitle', 'Condition', 'OverallStatus', 'Phase', 'BriefSummary', 'LocationCity', 'LocationCountry'].join(',');
       
       // Use proxy endpoint for better CORS handling and error management
       // v2 API uses query.term, query.cond, and pageSize
-      const url = `${PROXY_BASE}?source=ctgov&query.term=${encodeURIComponent(expr)}&query.cond=${encodeURIComponent(expr)}&fields=${encodeURIComponent(fields)}&pageSize=50&pageNumber=1&fmt=json`;
+      const url = `${PROXY_BASE}?source=ctgov&query.term=${encodeURIComponent(term || '')}&query.cond=${encodeURIComponent(cond || '')}&fields=${encodeURIComponent(fields)}&pageSize=50&pageNumber=1&fmt=json`;
       try {
         const res = await axios.get(url, { timeout: 20000 });
         const responseData = res.data;
@@ -447,17 +465,35 @@ export async function searchCTGov(params) {
 }
 
 function buildCTGovExpr(params) {
-  const { condition, age, gender } = params || {};
-  let expr = '';
-  // ClinicalTrials.gov basic search only supports condition/keywords
-  // Age and gender are eligibility criteria, not searchable fields in the basic query
-  // We'll filter by these criteria after getting results
-  if (condition) {
-    expr = condition;
-    // Optionally add age range if provided (but this is often too restrictive)
-    // For now, just search by condition to get more results
+  const { condition, patientProfile, additionalTerms } = params || {};
+  
+  // If patientProfile is provided, use buildSearchCondition to separate cond and term
+  if (patientProfile) {
+    const { cond, term } = buildSearchCondition(patientProfile, additionalTerms || []);
+    return { cond, term };
   }
-  return expr;
+  
+  // Legacy: if only condition is provided, try to parse it
+  // For now, put everything in cond and leave term empty
+  // This is not ideal but maintains backward compatibility
+  if (condition) {
+    // Try to separate condition from genes/biomarkers
+    // Look for patterns like "Disease AND (Gene1 OR Gene2)"
+    const andMatch = condition.match(/^(.+?)\s+AND\s+\((.+)\)$/i);
+    if (andMatch) {
+      return {
+        cond: andMatch[1].trim(),
+        term: andMatch[2].trim()
+      };
+    }
+    // If no AND pattern, assume it's all condition
+    return {
+      cond: condition,
+      term: ''
+    };
+  }
+  
+  return { cond: '', term: '' };
 }
 
 /**
@@ -510,33 +546,31 @@ export async function getTrialDetails(trialId) {
  * Helper function to build search condition with cancer type, subtype, disease status, and mutations
  * @param {Object} patientProfile - Patient profile with diagnosis, cancerType, currentStatus
  * @param {Array<string>} additionalTerms - Additional search terms (e.g., gene names, biomarkers)
- * @returns {string} - Formatted search condition string
+ * @returns {Object} - Object with `cond` (condition/disease) and `term` (biomarkers/genes)
  */
 function buildSearchCondition(patientProfile, additionalTerms = []) {
-  const terms = [];
+  const condTerms = []; // For query.cond (disease/condition)
+  const termParts = []; // For query.term (biomarkers, status, genes, chromosomal locations)
   
-  // Primary diagnosis/cancer type
+  // Primary diagnosis/cancer type - goes in cond
   if (patientProfile.diagnosis) {
-    terms.push(patientProfile.diagnosis);
+    condTerms.push(patientProfile.diagnosis);
   } else if (patientProfile.cancerType) {
-    terms.push(patientProfile.cancerType);
+    condTerms.push(patientProfile.cancerType);
   }
   
-  // Add cancer subtype if available (use OR to broaden search)
+  // Add cancer subtype if available (use OR to broaden search) - goes in cond
   if (patientProfile.currentStatus?.diagnosis && patientProfile.currentStatus.diagnosis !== patientProfile.diagnosis) {
     // Use OR for subtype to broaden results
-    const primaryTerm = terms[0] || patientProfile.diagnosis || patientProfile.cancerType;
+    const primaryTerm = condTerms[0] || patientProfile.diagnosis || patientProfile.cancerType;
     if (primaryTerm) {
-      terms[0] = `(${primaryTerm} OR ${patientProfile.currentStatus.diagnosis})`;
+      condTerms[0] = `(${primaryTerm} OR ${patientProfile.currentStatus.diagnosis})`;
     } else {
-      terms.push(patientProfile.currentStatus.diagnosis);
+      condTerms.push(patientProfile.currentStatus.diagnosis);
     }
   }
   
-  // Add cancer type if different from diagnosis (already handled above with OR)
-  // Skip to avoid duplication
-  
-  // Add disease status with Boolean operators for better matching
+  // Add disease status with Boolean operators for better matching - goes in term
   // Only include disease statuses that are useful search terms
   if (patientProfile.currentStatus?.diseaseStatus) {
     const diseaseStatus = patientProfile.currentStatus.diseaseStatus.toLowerCase();
@@ -545,30 +579,32 @@ function buildSearchCondition(patientProfile, additionalTerms = []) {
     if (diseaseStatus.includes('stable') && !diseaseStatus.includes('unstable')) {
       // Skip "Stable Disease" - not a useful search term
     } else if (diseaseStatus.includes('recurrent') || diseaseStatus.includes('recurrence')) {
-      terms.push('(recurrent OR relapsed OR recurrence)');
+      termParts.push('(recurrent OR relapsed OR recurrence)');
     } else if (diseaseStatus.includes('refractory')) {
-      terms.push('(refractory OR resistant)');
+      termParts.push('(refractory OR resistant)');
     } else if (diseaseStatus.includes('metastatic')) {
-      terms.push('(metastatic OR metastasis)');
+      termParts.push('(metastatic OR metastasis)');
     } else if (diseaseStatus.includes('advanced')) {
-      terms.push('(advanced OR stage IV)');
+      termParts.push('(advanced OR stage IV)');
     }
     // Skip other disease statuses like "Stable Disease", "Partial Response", etc.
   }
   
-  // Process additional terms (genes/mutations) - deduplicate and group with OR
+  // Process additional terms (genes/mutations) - goes in term
   const uniqueGenes = [...new Set(additionalTerms.filter(term => term && typeof term === 'string'))];
   if (uniqueGenes.length > 0) {
     // Group genes with OR to broaden search (trials matching ANY gene)
     if (uniqueGenes.length === 1) {
-      terms.push(uniqueGenes[0]);
+      termParts.push(uniqueGenes[0]);
     } else {
-      terms.push(`(${uniqueGenes.join(' OR ')})`);
+      termParts.push(`(${uniqueGenes.join(' OR ')})`);
     }
   }
   
-  // Join terms with AND operator, preserving OR groups in parentheses
-  return terms.join(' AND ');
+  return {
+    cond: condTerms.join(' AND '),
+    term: termParts.join(' AND ')
+  };
 }
 
 /**
@@ -590,10 +626,11 @@ export async function searchTrialsByGenomicProfile(genomicProfile, patientProfil
 
     if (brcaMutations && brcaMutations.length > 0) {
     // Build condition with cancer type/subtype, disease status, and BRCA
-    const brcaCondition = buildSearchCondition(patientProfile, ['BRCA']);
+    const { cond, term } = buildSearchCondition(patientProfile, ['BRCA']);
     
     const baseParams = {
-      condition: brcaCondition,
+      patientProfile: patientProfile,
+      additionalTerms: ['BRCA'],
       age: patientProfile.age,
       gender: patientProfile.gender,
       pageNumber: 1,
@@ -612,11 +649,12 @@ export async function searchTrialsByGenomicProfile(genomicProfile, patientProfil
 
   // Search for TMB-high trials (immunotherapy)
     if (genomicProfile.biomarkers?.tumorMutationalBurden?.interpretation === 'high') {
-    const tmbCondition = buildSearchCondition(patientProfile, ['TMB', 'immunotherapy']);
+    const { cond, term } = buildSearchCondition(patientProfile, ['TMB', 'immunotherapy']);
     
     const baseParamsTMB = {
       biomarker: 'TMB-high',
-      condition: tmbCondition,
+      patientProfile: patientProfile,
+      additionalTerms: ['TMB', 'immunotherapy'],
       intervention: 'pembrolizumab OR nivolumab OR immunotherapy',
       age: patientProfile.age,
       gender: patientProfile.gender,
@@ -637,11 +675,12 @@ export async function searchTrialsByGenomicProfile(genomicProfile, patientProfil
 
   // Search for MSI-H trials
     if (genomicProfile.biomarkers?.microsatelliteInstability?.status === 'MSI-H') {
-    const msiCondition = buildSearchCondition(patientProfile, ['MSI-H']);
+    const { cond, term } = buildSearchCondition(patientProfile, ['MSI-H']);
     
     const baseParamsMSI = {
       biomarker: 'MSI-H',
-      condition: msiCondition,
+      patientProfile: patientProfile,
+      additionalTerms: ['MSI-H'],
       intervention: 'pembrolizumab',
       age: patientProfile.age,
       gender: patientProfile.gender,
@@ -662,11 +701,12 @@ export async function searchTrialsByGenomicProfile(genomicProfile, patientProfil
 
   // Search for HRD-positive trials (PARP inhibitors)
     if (genomicProfile.biomarkers?.hrdScore?.interpretation === 'HRD-positive') {
-    const hrdCondition = buildSearchCondition(patientProfile, ['HRD', 'PARP']);
+    const { cond, term } = buildSearchCondition(patientProfile, ['HRD', 'PARP']);
     
     const baseParamsHRD = {
       biomarker: 'HRD-positive',
-      condition: hrdCondition,
+      patientProfile: patientProfile,
+      additionalTerms: ['HRD', 'PARP'],
       intervention: 'olaparib OR rucaparib OR niraparib OR PARP inhibitor',
       age: patientProfile.age,
       gender: patientProfile.gender,
@@ -695,10 +735,11 @@ export async function searchTrialsByGenomicProfile(genomicProfile, patientProfil
     const topGenes = otherMutations.slice(0, 3); // Limit to top 3 mutations
     topGenes.forEach(mutation => {
       // Build condition with cancer type/subtype, disease status, and mutation gene
-      const mutationCondition = buildSearchCondition(patientProfile, [mutation.gene]);
+      const { cond, term } = buildSearchCondition(patientProfile, [mutation.gene]);
       
       const gp = {
-        condition: mutationCondition,
+        patientProfile: patientProfile,
+        additionalTerms: [mutation.gene],
         age: patientProfile.age,
         gender: patientProfile.gender,
         status: 'recruiting',
@@ -736,10 +777,11 @@ export async function searchTrialsByGenomicProfile(genomicProfile, patientProfil
     mutationTerms.push(...importantCNVs);
   }
   
-  const generalCondition = buildSearchCondition(patientProfile, mutationTerms);
+  const { cond, term } = buildSearchCondition(patientProfile, mutationTerms);
   
   const generalParams = {
-    condition: generalCondition,
+    patientProfile: patientProfile,
+    additionalTerms: mutationTerms,
     age: patientProfile.age,
     gender: patientProfile.gender,
     status: 'recruiting',

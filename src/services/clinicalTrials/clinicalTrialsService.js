@@ -183,29 +183,17 @@ export async function searchAndMatchTrials(userId, patientProfile, genomicProfil
       const tl = trialLocation ? { ...trialLocation, onProgress } : { onProgress };
       searchResults = await searchTrialsByGenomicProfile(genomicProfile, patientProfile, tl);
     } else {
-      // Build search condition including cancer type, subtype, and mutations if available
-      let searchCondition = patientProfile.diagnosis || patientProfile.cancerType || '';
+      // Extract mutations and CNVs for separate query.term
+      const additionalTerms = [];
       
-      // Add cancer subtype if available
-      if (patientProfile.currentStatus?.diagnosis && patientProfile.currentStatus.diagnosis !== patientProfile.diagnosis) {
-        searchCondition += ` ${patientProfile.currentStatus.diagnosis}`;
-      }
-      
-      // Add cancer type if different from diagnosis
-      if (patientProfile.cancerType && patientProfile.cancerType !== patientProfile.diagnosis) {
-        searchCondition += ` ${patientProfile.cancerType}`;
-      }
-      
-      // Add mutations/variants from genomic profile if available (even if not using genomic search)
+      // Add mutations/variants from genomic profile if available
       if (genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0) {
-        // Add top 3 important mutations to search
         const importantMutations = genomicProfile.mutations
           .filter(m => m.gene && IMPORTANT_GENES.includes(m.gene.toUpperCase()))
           .slice(0, 3);
         
         if (importantMutations.length > 0) {
-          const mutationGenes = importantMutations.map(m => m.gene).join(' OR ');
-          searchCondition += ` (${mutationGenes})`;
+          additionalTerms.push(...importantMutations.map(m => m.gene));
         }
       }
       
@@ -216,14 +204,14 @@ export async function searchAndMatchTrials(userId, patientProfile, genomicProfil
           .slice(0, 2);
         
         if (importantCNVs.length > 0) {
-          const cnvGenes = importantCNVs.map(cnv => cnv.gene).join(' OR ');
-          searchCondition += ` (${cnvGenes})`;
+          additionalTerms.push(...importantCNVs.map(cnv => cnv.gene));
         }
       }
       
       const { searchTrials } = await import('./trialSearchService');
       const params = {
-        condition: searchCondition.trim(),
+        patientProfile: patientProfile,
+        additionalTerms: additionalTerms,
         age: patientProfile.age,
         gender: patientProfile.gender,
         status: 'recruiting',
