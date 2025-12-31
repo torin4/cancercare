@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight } from 'lucide-react';
 import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
 import { uploadDocument, deleteUserDirectory } from './firebase/storage';
-import { documentService, labService, vitalService, patientService, accountService, genomicProfileService, emergencyContactService, medicationService, symptomService } from './firebase/services';
+import { documentService, labService, vitalService, patientService, accountService, genomicProfileService, emergencyContactService, medicationService, symptomService, trialLocationService } from './firebase/services';
 import { IMPORTANT_GENES } from './config/importantGenes';
 import { processDocument, generateExtractionSummary } from './services/documentProcessor';
 import { processChatMessage, generateChatExtractionSummary } from './services/chatProcessor';
@@ -11,6 +11,26 @@ import Login from './components/Login';
 import ClinicalTrials from './components/ClinicalTrials';
 import DocumentUploadOnboarding from './components/DocumentUploadOnboarding';
 import Onboarding from './components/Onboarding';
+
+// Comprehensive list of countries for dropdowns
+const COUNTRIES = [
+  "United States", "Canada", "United Kingdom", "Australia", "Germany", "France", "India", "China", "Japan",
+  "Brazil", "Mexico", "Italy", "Spain", "South Africa", "Nigeria", "Egypt", "Argentina", "Colombia",
+  "Indonesia", "Pakistan", "Bangladesh", "Russia", "South Korea", "Vietnam", "Philippines", "Turkey",
+  "Iran", "Thailand", "Myanmar", "Kenya", "Ukraine", "Poland", "Algeria", "Morocco", "Peru",
+  "Venezuela", "Malaysia", "Uzbekistan", "Saudi Arabia", "Yemen", "Ghana", "Nepal", "Madagascar",
+  "Cameroon", "Chile", "Netherlands", "Belgium", "Greece", "Portugal", "Sweden", "Switzerland",
+  "Austria", "Israel", "United Arab Emirates", "Singapore", "Ireland", "New Zealand", "Denmark",
+  "Finland", "Norway", "Cuba", "Dominican Republic", "Haiti", "Guatemala", "Ecuador", "Bolivia",
+  "Paraguay", "Uruguay", "Honduras", "Nicaragua", "El Salvador", "Costa Rica", "Panama", "Jamaica",
+  "Trinidad and Tobago", "Ethiopia", "Sudan", "Angola", "Mozambique", "Uganda", "Tanzania", "Democratic Republic of the Congo",
+  "Afghanistan", "Iraq", "Syria", "Kazakhstan", "Sri Lanka", "Romania", "Hungary", "Czech Republic",
+  "Bulgaria", "Serbia", "Croatia", "Bosnia and Herzegovina", "Albania", "North Macedonia", "Slovenia",
+  "Estonia", "Latvia", "Lithuania", "Belarus", "Moldova", "Cyprus", "Malta", "Luxembourg", "Iceland",
+  "Greenland", "Fiji", "Papua New Guinea", "Solomon Islands", "Vanuatu", "Samoa", "Tonga", "Kiribati",
+  "Micronesia", "Marshall Islands", "Palau", "Nauru", "Tuvalu", "San Marino", "Monaco", "Liechtenstein",
+  "Andorra", "Vatican City"
+].sort();
 
 const styles = `
   @keyframes slide-up {
@@ -98,7 +118,7 @@ export default function CancerCareApp() {
     'Endometrial Cancer': ['Endometrioid', 'Serous (Type II)', 'Clear cell', 'Carcinosarcoma', 'Other (specify)'],
     'Pancreatic Cancer': ['Pancreatic ductal adenocarcinoma', 'Pancreatic neuroendocrine tumor (PNET)', 'Other (specify)']
   };
-  const STAGE_OPTIONS = ['Unknown','Stage I','Stage II','Stage III','Stage IV','Recurrent','Other (specify)'];
+  const STAGE_OPTIONS = ['Unknown','Stage I','Stage II','Stage III','Stage IV','Other (specify)'];
   // Format mutation labels (remove underscores, title case, map common codes)
   const formatLabel = (raw) => {
     if (!raw && raw !== 0) return '';
@@ -157,8 +177,10 @@ export default function CancerCareApp() {
   });
   const [showAddLab, setShowAddLab] = useState(false);
   const [showEditGenomic, setShowEditGenomic] = useState(false);
+  const [editingGenomicProfile, setEditingGenomicProfile] = useState(null);
   const [showEditContacts, setShowEditContacts] = useState(false);
   const [showEditLocation, setShowEditLocation] = useState(false);
+  const [showEditMedicalTeam, setShowEditMedicalTeam] = useState(false);
 
   useEffect(() => {
     if (showEditInfo) {
@@ -190,11 +212,7 @@ export default function CancerCareApp() {
     hospital: ''
   });
   const [trialLocation, setTrialLocation] = useState({
-    city: 'Seattle',
-    state: 'WA',
     country: 'United States',
-    zip: '98109',
-    searchRadius: '100',
     includeAllLocations: false
   });
 
@@ -690,21 +708,72 @@ export default function CancerCareApp() {
       } else if (type === 'account') {
         // Option 2: Full Account & Data Deletion
         const currentUser = auth.currentUser;
+        if (!currentUser) {
+          alert('No user found. Please log in and try again.');
+          setIsDeleting(false);
+          return;
+        }
+
         const userId = currentUser.uid;
 
-        // 1. Scrub all data
-        await accountService.deleteFullUserData(userId);
-        await deleteUserDirectory(userId);
-
-        // 2. Delete Auth Account
         try {
+          // 1. Scrub all data first
+          await accountService.deleteFullUserData(userId);
+          await deleteUserDirectory(userId);
+
+          // 2. Delete Auth Account
           await deleteUser(currentUser);
+          
+          // 3. Sign out and reset state
+          await signOut(auth);
+          setUser(null);
+          setPatientProfile({
+            name: '',
+            age: '',
+            dateOfBirth: '',
+            weight: '',
+            height: '',
+            diagnosis: '',
+            stage: '',
+            stageOther: '',
+            diagnosisDate: '',
+            cancerType: '',
+            country: 'United States',
+            oncologist: '',
+            hospital: ''
+          });
+          setLabsData({});
+          setVitalsData({});
+          setDocuments([]);
+          setMessages([]);
+          setCurrentStatus({
+            diagnosis: '',
+            diagnosisDate: '',
+            treatmentLine: '',
+            currentRegimen: '',
+            performanceStatus: '',
+            diseaseStatus: '',
+            baselineCa125: ''
+          });
+          
+          setShowDeletionConfirm(false);
           alert('Your account and all associated data have been permanently deleted.');
         } catch (authError) {
+          console.error('Account deletion error:', authError);
           if (authError.code === 'auth/requires-recent-login') {
             alert('For security, account deletion requires a recent login. Please log out and log back in, then try again.');
             setIsDeleting(false);
+            setShowDeletionConfirm(false);
             return;
+          }
+          // If auth deletion fails but data was deleted, still sign out
+          if (authError.code && !authError.code.includes('requires-recent-login')) {
+            try {
+              await signOut(auth);
+              setUser(null);
+            } catch (signOutError) {
+              console.error('Sign out error:', signOutError);
+            }
           }
           throw authError;
         }
@@ -783,10 +852,30 @@ export default function CancerCareApp() {
             }
           }
 
+          // Load genomic profile
+          const genomic = await genomicProfileService.getGenomicProfile(user.uid);
+          if (genomic) {
+            setGenomicProfile(genomic);
+          }
+
           // Check if user has uploaded documents
           const docs = await documentService.getDocuments(user.uid);
           setHasUploadedDocument(docs.length > 0);
           setDocuments(docs);
+
+          // Load trial location preferences
+          try {
+            const location = await trialLocationService.getTrialLocation(user.uid);
+            if (location) {
+              // Handle both old format (with city/state/zip) and new format (country only)
+              setTrialLocation({
+                country: location.country || 'United States',
+                includeAllLocations: location.includeAllLocations || false
+              });
+            }
+          } catch (error) {
+            console.log('No trial location preferences found, using defaults');
+          }
         } catch (error) {
           console.error('Error loading health data:', error);
         }
@@ -948,6 +1037,14 @@ export default function CancerCareApp() {
         const vitals = await vitalService.getVitals(user.uid);
         const transformedVitals = transformVitalsData(vitals);
         setVitalsData(transformedVitals);
+
+        // Reload genomic profile
+        const genomic = await genomicProfileService.getGenomicProfile(user.uid);
+        if (genomic) {
+          setGenomicProfile(genomic);
+        } else {
+          setGenomicProfile(null);
+        }
       } catch (error) {
         console.error('Error reloading health data:', error);
       }
@@ -2709,7 +2806,39 @@ export default function CancerCareApp() {
                     )}
                   </button>
                   <button
-                    onClick={() => setShowEditGenomic(true)}
+                    onClick={() => {
+                      // Initialize editing state with current profile or empty structure
+                      setEditingGenomicProfile(genomicProfile ? {
+                        mutations: genomicProfile.mutations || [],
+                        biomarkers: genomicProfile.biomarkers || {},
+                        testName: genomicProfile.testName || '',
+                        testDate: genomicProfile.testDate ? (typeof genomicProfile.testDate === 'string' ? genomicProfile.testDate.split('T')[0] : new Date(genomicProfile.testDate).toISOString().split('T')[0]) : '',
+                        laboratoryName: genomicProfile.laboratoryName || '',
+                        specimenType: genomicProfile.specimenType || '',
+                        tumorPurity: genomicProfile.tumorPurity || '',
+                        tmb: genomicProfile.tmb || genomicProfile.biomarkers?.tumorMutationalBurden?.value || '',
+                        msi: genomicProfile.msi || genomicProfile.biomarkers?.microsatelliteInstability?.status || '',
+                        hrdScore: genomicProfile.hrdScore || genomicProfile.biomarkers?.hrdScore?.value || '',
+                        cnvs: genomicProfile.cnvs || [],
+                        fusions: genomicProfile.fusions || [],
+                        germlineFindings: genomicProfile.germlineFindings || []
+                      } : {
+                        mutations: [],
+                        biomarkers: {},
+                        testName: '',
+                        testDate: '',
+                        laboratoryName: '',
+                        specimenType: '',
+                        tumorPurity: '',
+                        tmb: '',
+                        msi: '',
+                        hrdScore: '',
+                        cnvs: [],
+                        fusions: [],
+                        germlineFindings: []
+                      });
+                      setShowEditGenomic(true);
+                    }}
                     className="text-purple-600 hover:text-purple-700"
                   >
                     <Edit2 size={18} />
@@ -2902,14 +3031,16 @@ export default function CancerCareApp() {
             <div className="bg-gradient-to-br from-green-50 to-teal-50 rounded-lg shadow p-4 border border-green-200">
               <h2 className="font-semibold text-gray-800 mb-3">Trial Search Location</h2>
               <div className="bg-white rounded-lg p-3 mb-3">
-                <p className="text-sm text-gray-800 font-medium">
-                  {trialLocation.city}, {trialLocation.state}
-                </p>
-                <p className="text-xs text-gray-600 mt-0.5">{trialLocation.country}</p>
-                {!trialLocation.includeAllLocations && (
-                  <p className="text-xs text-gray-600 mt-1">
-                    Search radius: {trialLocation.searchRadius} miles
-                  </p>
+                {trialLocation.includeAllLocations ? (
+                  <div>
+                    <p className="text-sm text-gray-800 font-medium">🌍 Global Search</p>
+                    <p className="text-xs text-gray-600 mt-0.5">Searching all countries worldwide</p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-gray-800 font-medium">{trialLocation.country}</p>
+                    <p className="text-xs text-gray-600 mt-0.5">Searching trials in this country</p>
+                  </div>
                 )}
               </div>
               <button
@@ -2926,8 +3057,8 @@ export default function CancerCareApp() {
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold text-gray-800">Medical Team</h2>
                 <button
-                  onClick={() => setShowEditContacts(true)}
-                  className="text-blue-600 hover:text-blue-700"
+                  onClick={() => setShowEditMedicalTeam(true)}
+                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
                 >
                   Edit
                 </button>
@@ -3899,90 +4030,24 @@ export default function CancerCareApp() {
                 </div>
 
                 <div className={trialLocation.includeAllLocations ? 'opacity-50' : ''}>
-                  <h4 className="font-semibold text-gray-800 mb-3">Your Location</h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                      <select
-                        value={trialLocation.country}
-                        onChange={(e) => setTrialLocation({ ...trialLocation, country: e.target.value })}
-                        disabled={trialLocation.includeAllLocations}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-                      >
-                        <option value="United States">United States</option>
-                        <option value="Canada">Canada</option>
-                        <option value="United Kingdom">United Kingdom</option>
-                        <option value="Japan">Japan</option>
-                        <option value="Australia">Australia</option>
-                        <option value="Germany">Germany</option>
-                        <option value="France">France</option>
-                        <option value="China">China</option>
-                        <option value="India">India</option>
-                        <option value="South Korea">South Korea</option>
-                        <option value="Italy">Italy</option>
-                        <option value="Spain">Spain</option>
-                        <option value="Netherlands">Netherlands</option>
-                        <option value="Brazil">Brazil</option>
-                      </select>
-                    </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-                        <input
-                          type="text"
-                          value={trialLocation.city}
-                          onChange={(e) => setTrialLocation({ ...trialLocation, city: e.target.value })}
-                          disabled={trialLocation.includeAllLocations}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">{getStateLabel(trialLocation.country)}</label>
-                        <input
-                          type="text"
-                          value={trialLocation.state}
-                          placeholder={getStatePlaceholder(trialLocation.country)}
-                          onChange={(e) => setTrialLocation({ ...trialLocation, state: e.target.value })}
-                          disabled={trialLocation.includeAllLocations}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="mt-3">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">{getPostalLabel(trialLocation.country)}</label>
-                      <input
-                        type="text"
-                        value={trialLocation.zip}
-                        placeholder={getPostalPlaceholder(trialLocation.country)}
-                        onChange={(e) => setTrialLocation({ ...trialLocation, zip: e.target.value })}
-                        disabled={trialLocation.includeAllLocations}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-                      />
-                    </div>
+                  <h4 className="font-semibold text-gray-800 mb-3">Search Country</h4>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                    <select
+                      value={trialLocation.country}
+                      onChange={(e) => setTrialLocation({ ...trialLocation, country: e.target.value })}
+                      disabled={trialLocation.includeAllLocations}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+                    >
+                      {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {trialLocation.includeAllLocations 
+                        ? 'Global search is enabled - country selection disabled'
+                        : 'Trials will be searched within this country'}
+                    </p>
                   </div>
                 </div>
-
-                {!trialLocation.includeAllLocations && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Search Radius</label>
-                    <input
-                      type="range"
-                      min="10"
-                      max="500"
-                      step="10"
-                      value={trialLocation.searchRadius}
-                      onChange={(e) => setTrialLocation({ ...trialLocation, searchRadius: e.target.value })}
-                      className="w-full"
-                    />
-                    <div className="flex justify-between mt-2">
-                      <span className="text-sm text-gray-600">10 miles</span>
-                      <span className="text-lg font-bold text-green-600">{trialLocation.searchRadius} miles</span>
-                      <span className="text-sm text-gray-600">500 miles</span>
-                    </div>
-                  </div>
-                )}
 
                 <div className="bg-gray-50 rounded-lg p-3">
                   <h5 className="text-sm font-semibold text-gray-800 mb-2">What databases will be searched?</h5>
@@ -4023,9 +4088,18 @@ export default function CancerCareApp() {
                   Cancel
                 </button>
                 <button
-                  onClick={() => {
-                    setShowEditLocation(false);
-                    alert('Location settings saved!');
+                  onClick={async () => {
+                    try {
+                      await trialLocationService.saveTrialLocation(user.uid, trialLocation);
+                      setShowEditLocation(false);
+                      setMessages(prev => [...prev, {
+                        type: 'ai',
+                        text: '✅ Trial search location updated successfully!'
+                      }]);
+                    } catch (error) {
+                      console.error('Error saving trial location:', error);
+                      alert('Failed to save location settings. Please try again.');
+                    }
                   }}
                   className="flex-1 bg-green-600 text-white py-2.5 rounded-lg font-medium hover:bg-green-700 transition"
                 >
@@ -4461,20 +4535,23 @@ export default function CancerCareApp() {
 
       {/* Edit Genomic Profile Modal */}
       {
-        showEditGenomic && (
+        showEditGenomic && editingGenomicProfile && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 md:p-4">
-            <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-2xl md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
+            <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-4xl md:max-h-[90vh] overflow-hidden flex flex-col animate-slide-up">
               <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
                 <h3 className="font-bold text-lg text-gray-800">Edit Genomic Profile</h3>
                 <button
-                  onClick={() => setShowEditGenomic(false)}
+                  onClick={() => {
+                    setShowEditGenomic(false);
+                    setEditingGenomicProfile(null);
+                  }}
                   className="text-gray-500 hover:text-gray-700"
                 >
                   <X size={24} />
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="flex-1 overflow-y-auto p-4 space-y-6">
                 <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
                   <div className="flex items-start gap-2">
                     <AlertCircle className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
@@ -4487,99 +4564,225 @@ export default function CancerCareApp() {
                   </div>
                 </div>
 
-                <div>
-                  <h4 className="font-semibold text-gray-800 mb-3">Key Mutations</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">BRCA1</label>
-                      <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500">
-                        <option>Positive</option>
-                        <option>Negative</option>
-                        <option>Unknown</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">BRCA2</label>
-                      <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500">
-                        <option>Negative</option>
-                        <option>Positive</option>
-                        <option>Unknown</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">TP53</label>
-                      <input
-                        type="text"
-                        defaultValue="Wild-type"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">ARID1A</label>
-                      <input
-                        type="text"
-                        defaultValue="Mutated"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold text-gray-800 mb-3">Biomarkers</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">HRD Score</label>
-                      <input
-                        type="number"
-                        defaultValue="62"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">HRD Status</label>
-                      <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500">
-                        <option>Positive (≥42)</option>
-                        <option>Negative (&lt;42)</option>
-                        <option>Unknown</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">TMB</label>
-                      <input
-                        type="text"
-                        defaultValue="Low (3.2 mut/Mb)"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">PD-L1</label>
-                      <input
-                        type="text"
-                        defaultValue="Negative (<1%)"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-
+                {/* Test Information */}
                 <div>
                   <h4 className="font-semibold text-gray-800 mb-3">Test Information</h4>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Test Type</label>
-                      <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500">
-                        <option>Foundation One CDx</option>
-                        <option>Guardant360</option>
-                        <option>Tempus xT</option>
-                        <option>Other</option>
-                      </select>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Test Name</label>
+                      <input
+                        type="text"
+                        value={editingGenomicProfile.testName || ''}
+                        onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, testName: e.target.value})}
+                        placeholder="e.g., FoundationOne CDx, Guardant360"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Test Date</label>
                       <input
                         type="date"
-                        defaultValue="2024-09-15"
+                        value={editingGenomicProfile.testDate || ''}
+                        onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, testDate: e.target.value})}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Laboratory Name</label>
+                      <input
+                        type="text"
+                        value={editingGenomicProfile.laboratoryName || ''}
+                        onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, laboratoryName: e.target.value})}
+                        placeholder="e.g., Foundation Medicine"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Specimen Type</label>
+                      <input
+                        type="text"
+                        value={editingGenomicProfile.specimenType || ''}
+                        onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, specimenType: e.target.value})}
+                        placeholder="e.g., FFPE tissue, Blood (ctDNA)"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Tumor Purity</label>
+                      <input
+                        type="text"
+                        value={editingGenomicProfile.tumorPurity || ''}
+                        onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, tumorPurity: e.target.value})}
+                        placeholder="e.g., 70%"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mutations */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold text-gray-800">Mutations</h4>
+                    <button
+                      onClick={() => {
+                        setEditingGenomicProfile({
+                          ...editingGenomicProfile,
+                          mutations: [...(editingGenomicProfile.mutations || []), { gene: '', variant: '', dna: '', protein: '', significance: '', type: '' }]
+                        });
+                      }}
+                      className="text-sm text-purple-600 hover:text-purple-700 font-medium"
+                    >
+                      + Add Mutation
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {editingGenomicProfile.mutations && editingGenomicProfile.mutations.length > 0 ? (
+                      editingGenomicProfile.mutations.map((mutation, idx) => (
+                        <div key={idx} className="border border-gray-200 rounded-lg p-3 space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Gene</label>
+                              <input
+                                type="text"
+                                value={mutation.gene || ''}
+                                onChange={(e) => {
+                                  const updated = [...editingGenomicProfile.mutations];
+                                  updated[idx] = {...updated[idx], gene: e.target.value};
+                                  setEditingGenomicProfile({...editingGenomicProfile, mutations: updated});
+                                }}
+                                placeholder="e.g., BRCA1"
+                                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-purple-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Variant/Alteration</label>
+                              <input
+                                type="text"
+                                value={mutation.variant || mutation.alteration || ''}
+                                onChange={(e) => {
+                                  const updated = [...editingGenomicProfile.mutations];
+                                  updated[idx] = {...updated[idx], variant: e.target.value, alteration: e.target.value};
+                                  setEditingGenomicProfile({...editingGenomicProfile, mutations: updated});
+                                }}
+                                placeholder="e.g., c.5266dupC"
+                                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-purple-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">DNA Change</label>
+                              <input
+                                type="text"
+                                value={mutation.dna || mutation.dnaChange || ''}
+                                onChange={(e) => {
+                                  const updated = [...editingGenomicProfile.mutations];
+                                  updated[idx] = {...updated[idx], dna: e.target.value, dnaChange: e.target.value};
+                                  setEditingGenomicProfile({...editingGenomicProfile, mutations: updated});
+                                }}
+                                placeholder="e.g., c.5266dupC"
+                                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-purple-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Protein Change</label>
+                              <input
+                                type="text"
+                                value={mutation.protein || mutation.aminoAcidChange || ''}
+                                onChange={(e) => {
+                                  const updated = [...editingGenomicProfile.mutations];
+                                  updated[idx] = {...updated[idx], protein: e.target.value, aminoAcidChange: e.target.value};
+                                  setEditingGenomicProfile({...editingGenomicProfile, mutations: updated});
+                                }}
+                                placeholder="e.g., p.Gln1756Profs*74"
+                                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-purple-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Significance</label>
+                              <select
+                                value={mutation.significance || mutation.clinicalSignificance || ''}
+                                onChange={(e) => {
+                                  const updated = [...editingGenomicProfile.mutations];
+                                  updated[idx] = {...updated[idx], significance: e.target.value, clinicalSignificance: e.target.value};
+                                  setEditingGenomicProfile({...editingGenomicProfile, mutations: updated});
+                                }}
+                                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-purple-500"
+                              >
+                                <option value="">Select...</option>
+                                <option value="pathogenic">Pathogenic</option>
+                                <option value="likely_pathogenic">Likely Pathogenic</option>
+                                <option value="VUS">VUS (Variant of Uncertain Significance)</option>
+                                <option value="benign">Benign</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Type</label>
+                              <select
+                                value={mutation.type || ''}
+                                onChange={(e) => {
+                                  const updated = [...editingGenomicProfile.mutations];
+                                  updated[idx] = {...updated[idx], type: e.target.value};
+                                  setEditingGenomicProfile({...editingGenomicProfile, mutations: updated});
+                                }}
+                                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-purple-500"
+                              >
+                                <option value="">Select...</option>
+                                <option value="somatic">Somatic</option>
+                                <option value="germline">Germline</option>
+                              </select>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              const updated = editingGenomicProfile.mutations.filter((_, i) => i !== idx);
+                              setEditingGenomicProfile({...editingGenomicProfile, mutations: updated});
+                            }}
+                            className="text-xs text-red-600 hover:text-red-700"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500 italic">No mutations added yet</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Biomarkers */}
+                <div>
+                  <h4 className="font-semibold text-gray-800 mb-3">Biomarkers</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">TMB (Tumor Mutational Burden)</label>
+                      <input
+                        type="text"
+                        value={editingGenomicProfile.tmb || ''}
+                        onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, tmb: e.target.value})}
+                        placeholder="e.g., 12.5 mutations/megabase"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">MSI (Microsatellite Instability)</label>
+                      <select
+                        value={editingGenomicProfile.msi || ''}
+                        onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, msi: e.target.value})}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="">Select...</option>
+                        <option value="MSI-H">MSI-H (High)</option>
+                        <option value="MSS">MSS (Stable)</option>
+                        <option value="MSI-L">MSI-L (Low)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">HRD Score</label>
+                      <input
+                        type="number"
+                        value={editingGenomicProfile.hrdScore || ''}
+                        onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, hrdScore: e.target.value})}
+                        placeholder="e.g., 48"
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
                       />
                     </div>
@@ -4590,15 +4793,52 @@ export default function CancerCareApp() {
               <div className="flex-shrink-0 bg-white border-t p-4">
                 <div className="flex gap-3">
                   <button
-                    onClick={() => setShowEditGenomic(false)}
+                    onClick={() => {
+                      setShowEditGenomic(false);
+                      setEditingGenomicProfile(null);
+                    }}
                     className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition"
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={() => {
-                      setShowEditGenomic(false);
-                      alert('Genomic profile updated!');
+                    onClick={async () => {
+                      try {
+                        // Build the genomic profile object for saving
+                        const profileToSave = {
+                          mutations: editingGenomicProfile.mutations || [],
+                          biomarkers: {
+                            ...(editingGenomicProfile.biomarkers || {}),
+                            ...(editingGenomicProfile.tmb ? { tumorMutationalBurden: { value: editingGenomicProfile.tmb } } : {}),
+                            ...(editingGenomicProfile.msi ? { microsatelliteInstability: { status: editingGenomicProfile.msi } } : {}),
+                            ...(editingGenomicProfile.hrdScore ? { hrdScore: { value: parseFloat(editingGenomicProfile.hrdScore) } } : {})
+                          },
+                          testName: editingGenomicProfile.testName || '',
+                          testDate: editingGenomicProfile.testDate ? new Date(editingGenomicProfile.testDate) : null,
+                          laboratoryName: editingGenomicProfile.laboratoryName || '',
+                          specimenType: editingGenomicProfile.specimenType || '',
+                          tumorPurity: editingGenomicProfile.tumorPurity || '',
+                          tmb: editingGenomicProfile.tmb || '',
+                          msi: editingGenomicProfile.msi || '',
+                          hrdScore: editingGenomicProfile.hrdScore ? parseFloat(editingGenomicProfile.hrdScore) : null,
+                          cnvs: editingGenomicProfile.cnvs || [],
+                          fusions: editingGenomicProfile.fusions || [],
+                          germlineFindings: editingGenomicProfile.germlineFindings || []
+                        };
+
+                        await genomicProfileService.saveGenomicProfile(user.uid, profileToSave);
+                        
+                        // Reload the profile
+                        const updated = await genomicProfileService.getGenomicProfile(user.uid);
+                        setGenomicProfile(updated);
+                        
+                        setShowEditGenomic(false);
+                        setEditingGenomicProfile(null);
+                        setMessages(prev => [...prev, { type: 'ai', text: '✅ Genomic profile updated successfully!' }]);
+                      } catch (err) {
+                        console.error('Failed to save genomic profile', err);
+                        alert('Failed to save genomic profile. Please try again.');
+                      }
                     }}
                     className="flex-1 bg-purple-600 text-white py-2.5 rounded-lg font-medium hover:bg-purple-700 transition"
                   >
@@ -4757,6 +4997,137 @@ export default function CancerCareApp() {
                       } catch (err) {
                         console.error('Failed to save emergency contacts', err);
                         alert('Failed to save emergency contacts.');
+                      }
+                    }}
+                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* Edit Medical Team Modal */}
+      {
+        showEditMedicalTeam && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 md:p-4">
+            <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-lg md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
+              <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
+                <h3 className="font-bold text-lg text-gray-800">Edit Medical Team</h3>
+                <button
+                  onClick={() => setShowEditMedicalTeam(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-blue-900">Medical Team Information</p>
+                      <p className="text-xs text-blue-700 mt-0.5">
+                        Keep your medical team information up to date for better care coordination
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Oncologist</label>
+                    <input
+                      type="text"
+                      value={patientProfile.oncologist || ''}
+                      onChange={(e) => setPatientProfile({ ...patientProfile, oncologist: e.target.value })}
+                      placeholder="e.g., Dr. Jane Smith"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Hospital/Clinic</label>
+                    <input
+                      type="text"
+                      value={patientProfile.hospital || ''}
+                      onChange={(e) => setPatientProfile({ ...patientProfile, hospital: e.target.value })}
+                      placeholder="e.g., Seattle Cancer Care Alliance"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Primary Care Physician</label>
+                    {(() => {
+                      const pc = emergencyContacts.find(c => c.contactType === 'primaryCare' || c.contactType === 'primary_care' || c.contactType === 'primary');
+                      if (pc) {
+                        return (
+                          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                            <p className="text-sm text-gray-700"><strong>{pc.name}</strong></p>
+                            {pc.phone && <p className="text-sm text-gray-600">{pc.phone}</p>}
+                            {pc.email && <p className="text-sm text-gray-600">{pc.email}</p>}
+                            <p className="text-xs text-gray-500 mt-2">Manage in Emergency Contacts</p>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                          <p className="text-sm text-gray-500">No primary care physician added</p>
+                          <button
+                            onClick={() => {
+                              setShowEditMedicalTeam(false);
+                              setShowEditContacts(true);
+                            }}
+                            className="text-xs text-blue-600 hover:underline mt-1"
+                          >
+                            Add in Emergency Contacts →
+                          </button>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-shrink-0 bg-white border-t p-4">
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowEditMedicalTeam(false)}
+                    className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const toSave = {
+                          oncologist: patientProfile.oncologist || '',
+                          hospital: patientProfile.hospital || ''
+                        };
+                        console.log('Saving Medical Team:', toSave);
+                        await patientService.savePatient(user.uid, toSave);
+                        // Verify saved
+                        const saved = await patientService.getPatient(user.uid);
+                        console.log('Saved medical team:', saved);
+                        // Update local state
+                        setPatientProfile(prev => ({
+                          ...prev,
+                          oncologist: patientProfile.oncologist || prev.oncologist,
+                          hospital: patientProfile.hospital || prev.hospital
+                        }));
+                        setShowEditMedicalTeam(false);
+                        setMessages(prev => [...prev, {
+                          type: 'ai',
+                          text: '✅ Medical team information updated successfully!'
+                        }]);
+                      } catch (error) {
+                        console.error('Error saving medical team:', error);
+                        alert('Failed to save medical team information. Please try again.');
                       }
                     }}
                     className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"

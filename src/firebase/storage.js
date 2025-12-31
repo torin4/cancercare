@@ -129,6 +129,11 @@ export const deleteUserDirectory = async (userId) => {
 
     console.log(`Storage directory for ${userId} cleared.`);
   } catch (error) {
+    // If directory doesn't exist, that's okay - just log and continue
+    if (error.code === 'storage/object-not-found' || error.code === 'storage/unauthorized') {
+      console.log(`Storage directory for ${userId} not found or already deleted.`);
+      return;
+    }
     console.error('Error deleting user directory:', error);
     throw error;
   }

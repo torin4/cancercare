@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { auth } from '../firebase/config';
-import { patientService, genomicProfileService, clinicalTrialsService } from '../firebase/services';
+import { patientService, genomicProfileService, clinicalTrialsService, trialLocationService } from '../firebase/services';
 
 const ClinicalTrials = () => {
   const [loading, setLoading] = useState(false);
@@ -15,6 +15,7 @@ const ClinicalTrials = () => {
 
   const [patientProfile, setPatientProfile] = useState(null);
   const [genomicProfile, setGenomicProfile] = useState(null);
+  const [trialLocation, setTrialLocation] = useState(null);
 
   const [error, setError] = useState(null);
 
@@ -35,6 +36,23 @@ const ClinicalTrials = () => {
 
       const genomic = await genomicProfileService.getGenomicProfile(userId);
       setGenomicProfile(genomic);
+
+      // Load trial location preferences
+      try {
+        const location = await trialLocationService.getTrialLocation(userId);
+        if (location) {
+          setTrialLocation({
+            country: location.country || 'United States',
+            includeAllLocations: location.includeAllLocations || false
+          });
+        }
+      } catch (error) {
+        console.log('No trial location preferences found');
+        setTrialLocation({
+          country: 'United States',
+          includeAllLocations: false
+        });
+      }
     } catch (error) {
       console.error('Error loading patient data:', error);
     }
@@ -347,6 +365,15 @@ const ClinicalTrials = () => {
               <p><strong>Gender:</strong> {patientProfile?.gender || 'Not set'}</p>
               {genomicProfile && (
                 <p><strong>Genomic Profile:</strong> ✅ Available (will be used for matching)</p>
+              )}
+              {trialLocation && (
+                <p>
+                  <strong>Search Location:</strong> {
+                    trialLocation.includeAllLocations 
+                      ? '🌍 Global (All Countries)' 
+                      : `📍 ${trialLocation.country}`
+                  }
+                </p>
               )}
             </div>
           </div>
