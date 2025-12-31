@@ -89,18 +89,17 @@ module.exports = async (req, res) => {
       v2Params.push(`pageSize=${v2PageSize}`);
       // Note: v2 API uses nextPageToken for pagination, but we can use pageSize for first page
       
-      // Include fields if specified - ensure location fields are always included
+      // Include fields if specified
+      // IMPORTANT: LocationCity and LocationCountry fields are NOT available in v2 API fields parameter
+      // Location data is only in full study response (protocolSection.contactsLocationsModule.locations)
+      // So we need to get full study data to access locations, OR make separate API calls
       const fields = params.get('fields');
-      if (fields) {
-        // Make sure LocationCity and LocationCountry are in the fields list
-        const fieldsList = fields.split(',');
-        if (!fieldsList.includes('LocationCity')) fieldsList.push('LocationCity');
-        if (!fieldsList.includes('LocationCountry')) fieldsList.push('LocationCountry');
-        v2Params.push(`fields=${encodeURIComponent(fieldsList.join(','))}`);
-      } else {
-        // Default fields including location data
-        v2Params.push(`fields=${encodeURIComponent('NCTId,BriefTitle,Condition,OverallStatus,Phase,BriefSummary,LocationCity,LocationCountry')}`);
+      if (fields && fields !== 'all') {
+        // If specific fields requested, use them (but location won't be included)
+        v2Params.push(`fields=${encodeURIComponent(fields)}`);
       }
+      // If no fields specified, API returns full study data including locations
+      // This is what we want for location data, but it's more data to transfer
       
       // Use public v2 API endpoint (for third-party apps)
       target = `https://clinicaltrials.gov/api/v2/studies?${v2Params.join('&')}`;
@@ -158,26 +157,6 @@ module.exports = async (req, res) => {
         // Check if it's already in legacy format (fallback from old API)
         if (d.StudyFieldsResponse && d.StudyFieldsResponse.Study) {
           console.log('trials-proxy: Using legacy StudyFieldsResponse format, studies:', d.StudyFieldsResponse.Study.length);
-          if (d.StudyFieldsResponse.Study.length > 0) {
-            // Log first study to see location data structure
-            const firstStudy = d.StudyFieldsResponse.Study[0];
-            console.log('trials-proxy: First study keys:', Object.keys(firstStudy));
-            console.log('trials-proxy: First study LocationCity:', firstStudy.LocationCity);
-            console.log('trials-proxy: First study LocationCountry:', firstStudy.LocationCountry);
-            // Check for all location-related fields
-            const locationFields = Object.keys(firstStudy).filter(k => 
-              k.toLowerCase().includes('location') || 
-              k.toLowerCase().includes('city') || 
-              k.toLowerCase().includes('country') ||
-              k.toLowerCase().includes('facility')
-            );
-            if (locationFields.length > 0) {
-              console.log('trials-proxy: Location-related fields found:', locationFields);
-              locationFields.forEach(field => {
-                console.log(`trials-proxy:   ${field}:`, firstStudy[field]);
-              });
-            }
-          }
           if (d.StudyFieldsResponse.Study.length === 0) {
             const queryTerm = params.get('query.term') || params.get('query.cond') || params.get('expr') || params.get('condition') || '';
             console.log('trials-proxy: WARNING - Empty Study array. Query was:', queryTerm);
