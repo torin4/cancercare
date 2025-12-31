@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, AlertTriangle, XCircle, Star, Search as SearchIcon } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, Star, Search as SearchIcon, MapPin, Globe } from 'lucide-react';
 import { auth } from '../firebase/config';
 import { patientService, genomicProfileService, clinicalTrialsService, trialLocationService } from '../firebase/services';
 
@@ -474,11 +474,19 @@ const ClinicalTrials = () => {
                 <p className="flex items-center gap-1"><strong>Genomic Profile:</strong> <CheckCircle className="w-4 h-4 text-green-600" /> Available (will be used for matching)</p>
               )}
               {trialLocation && (
-                <p>
+                <p className="flex items-center gap-2">
                   <strong>Search Location:</strong> {
                     trialLocation.includeAllLocations 
-                      ? '🌍 Global (All Countries)' 
-                      : `📍 ${trialLocation.country}`
+                      ? (
+                        <span className="flex items-center gap-1">
+                          <Globe className="w-4 h-4" /> Global (All Countries)
+                        </span>
+                      )
+                      : (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-4 h-4" /> {trialLocation.country}
+                        </span>
+                      )
                   }
                 </p>
               )}
