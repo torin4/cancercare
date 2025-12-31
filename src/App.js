@@ -1655,7 +1655,7 @@ export default function CancerCareApp() {
           <div className="p-4 space-y-4">
             {/* Health Section Tabs */}
             <div className="flex justify-center gap-2 bg-white rounded-lg p-1 shadow">
-              {['labs', 'symptoms', 'medications', 'files'].map(section => (
+              {['labs', 'symptoms', 'medications'].map(section => (
                 <button
                   key={section}
                   onClick={() => setHealthSection(section)}
@@ -1667,7 +1667,6 @@ export default function CancerCareApp() {
                   {section === 'labs' && 'Labs'}
                   {section === 'symptoms' && 'Symptoms'}
                   {section === 'medications' && 'Meds'}
-                  {section === 'files' && 'Files'}
                 </button>
               ))}
             </div>
@@ -2980,174 +2979,177 @@ export default function CancerCareApp() {
               </>
             )}
 
-            {healthSection === 'files' && (
-              <>
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-semibold text-purple-900">AI Document Analysis</p>
-                      <p className="text-xs text-purple-700 mt-1">
-                        12 documents processed. Next suggested upload: Recent imaging (last scan was Dec 20).
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg shadow p-4">
-                  <h3 className="font-semibold mb-3">Medical Documents</h3>
-                  <div className="space-y-2">
-                    {documents.map(doc => {
-                      // Define icon and color based on document type
-                      const getIconConfig = (type) => {
-                        switch (type) {
-                          case 'Lab':
-                            return {
-                              bgColor: 'bg-blue-100',
-                              iconColor: 'text-blue-600',
-                              icon: (
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                                </svg>
-                              )
-                            };
-                          case 'Scan':
-                            return {
-                              bgColor: 'bg-purple-100',
-                              iconColor: 'text-purple-600',
-                              icon: (
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                              )
-                            };
-                          case 'Report':
-                            return {
-                              bgColor: 'bg-green-100',
-                              iconColor: 'text-green-600',
-                              icon: (
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                              )
-                            };
-                          case 'Genomic':
-                            return {
-                              bgColor: 'bg-amber-100',
-                              iconColor: 'text-amber-600',
-                              icon: (
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                                </svg>
-                              )
-                            };
-                          default:
-                            return {
-                              bgColor: 'bg-gray-100',
-                              iconColor: 'text-gray-600',
-                              icon: (
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                              )
-                            };
-                        }
-                      };
-
-                      const iconConfig = getIconConfig(doc.type);
-                      
-                      // Get descriptive label for document type
-                      const getTypeLabel = (type) => {
-                        switch (type) {
-                          case 'Lab':
-                            return 'Lab Results';
-                          case 'Genomic':
-                            return 'Genomic Test';
-                          case 'Scan':
-                            return 'Imaging Scan';
-                          case 'Report':
-                            return 'Clinical Report';
-                          default:
-                            return type || 'Document';
-                        }
-                      };
-                      
-                      // Get file name - try multiple possible fields
-                      const fileName = doc.fileName || doc.name || 'Untitled Document';
-                      
-                      const handleDelete = async (e) => {
-                        e.stopPropagation();
-                        if (window.confirm(`Are you sure you want to delete "${fileName}"? This action cannot be undone.`)) {
-                          try {
-                            await deleteDocument(doc.id, doc.storagePath);
-                            // Reload documents
-                            const updatedDocs = await documentService.getDocuments(user.uid);
-                            setDocuments(updatedDocs);
-                          } catch (error) {
-                            console.error('Error deleting document:', error);
-                            alert('Failed to delete document. Please try again.');
-                          }
-                        }
-                      };
-
-                      return (
-                        <div key={doc.id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition">
-                          <div className={`w-12 h-12 ${iconConfig.bgColor} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                            <div className={iconConfig.iconColor}>
-                              {iconConfig.icon}
-                            </div>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-gray-900 truncate">{fileName}</p>
-                            <p className="text-xs text-gray-600 mt-0.5">
-                              {getTypeLabel(doc.type)}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-0.5">
-                              {new Date(doc.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            {doc.fileUrl ? (
-                              <a
-                                href={doc.fileUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                View
-                              </a>
-                            ) : null}
-                            <button
-                              onClick={handleDelete}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition"
-                              title="Delete document"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => {
-                    openDocumentOnboarding('general');
-                  }}
-                  className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 transition flex items-center justify-center gap-2"
-                >
-                  <Upload size={18} />
-                  Upload Document
-                </button>
-              </>
-            )}
           </div>
         )}
 
         {activeTab === 'trials' && (
           <ClinicalTrials />
+        )}
+
+        {activeTab === 'files' && (
+          <div className="p-4 space-y-4">
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-purple-900">AI Document Analysis</p>
+                  <p className="text-xs text-purple-700 mt-1">
+                    {documents.length} document{documents.length !== 1 ? 's' : ''} processed. Upload lab results, imaging scans, clinical reports, or genomic test results.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow p-4">
+              <h3 className="font-semibold mb-3">Medical Documents</h3>
+              {documents.length === 0 ? (
+                <div className="text-center py-8">
+                  <FolderOpen className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-500 text-sm mb-4">No documents uploaded yet</p>
+                  <button
+                    onClick={() => {
+                      openDocumentOnboarding('general');
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+                  >
+                    Upload Your First Document
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {documents.map(doc => {
+                    // Define icon and color based on document type
+                    const getIconConfig = (type) => {
+                      switch (type) {
+                        case 'Lab':
+                          return {
+                            bgColor: 'bg-blue-100',
+                            iconColor: 'text-blue-600',
+                            icon: (
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                              </svg>
+                            ),
+                            label: "Lab Results"
+                          };
+                        case 'Scan':
+                          return {
+                            bgColor: 'bg-purple-100',
+                            iconColor: 'text-purple-600',
+                            icon: (
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            ),
+                            label: "Imaging Scan"
+                          };
+                        case 'Report':
+                          return {
+                            bgColor: 'bg-green-100',
+                            iconColor: 'text-green-600',
+                            icon: (
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            ),
+                            label: "Clinical Report"
+                          };
+                        case 'Genomic':
+                          return {
+                            bgColor: 'bg-amber-100',
+                            iconColor: 'text-amber-600',
+                            icon: (
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                              </svg>
+                            ),
+                            label: "Genomic Test"
+                          };
+                        default:
+                          return {
+                            bgColor: 'bg-gray-100',
+                            iconColor: 'text-gray-600',
+                            icon: (
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            ),
+                            label: "Document"
+                          };
+                      }
+                    };
+
+                    const iconConfig = getIconConfig(doc.documentType || doc.type);
+                    
+                    // Get file name - try multiple possible fields
+                    const fileName = doc.fileName || doc.name || 'Untitled Document';
+                    
+                    const handleDelete = async (e) => {
+                      e.stopPropagation();
+                      if (window.confirm(`Are you sure you want to delete "${fileName}"? This action cannot be undone.`)) {
+                        try {
+                          await deleteDocument(doc.id, doc.storagePath);
+                          // Reload documents
+                          const updatedDocs = await documentService.getDocuments(user.uid);
+                          setDocuments(updatedDocs);
+                        } catch (error) {
+                          console.error('Error deleting document:', error);
+                          alert('Failed to delete document. Please try again.');
+                        }
+                      }
+                    };
+
+                    return (
+                      <div key={doc.id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition">
+                        <div className={`w-12 h-12 ${iconConfig.bgColor} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                          <div className={iconConfig.iconColor}>
+                            {iconConfig.icon}
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-base font-semibold truncate">{fileName}</p>
+                          <p className="text-xs text-gray-700 mt-0.5">{iconConfig.label}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {new Date(doc.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </p>
+                        </div>
+                        <div className="flex-shrink-0 flex items-center gap-2">
+                          {doc.fileUrl && (
+                            <a
+                              href={doc.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              View
+                            </a>
+                          )}
+                          <button
+                            onClick={handleDelete}
+                            className="p-1.5 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-600 transition"
+                            aria-label="Delete document"
+                          >
+                            <X size={18} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => {
+                openDocumentOnboarding('general');
+              }}
+              className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 transition flex items-center justify-center gap-2"
+            >
+              <Upload size={18} />
+              Upload Document
+            </button>
+          </div>
         )}
 
         {activeTab === 'profile' && (
@@ -3754,6 +3756,15 @@ export default function CancerCareApp() {
           >
             <Search className="w-5 h-5 sm:w-6 sm:h-6" />
             <span className="text-xs font-medium">Trials</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('files')}
+            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition ${activeTab === 'files' ? 'text-green-600' : 'text-gray-600 hover:text-gray-900'
+              }`}
+          >
+            <FolderOpen className="w-5 h-5 sm:w-6 sm:h-6" />
+            <span className="text-xs font-medium">Files</span>
           </button>
         </div>
       </div>
