@@ -255,7 +255,6 @@ module.exports = async (req, res) => {
               const locationCities = [];
               const locationCountries = [];
               
-              const locationCountries = [];
 
 // CRITICAL DEBUG: Log location structure for first study to understand why extraction fails
               if (locations.length > 0 && idx === 0) {
