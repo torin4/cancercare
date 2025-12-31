@@ -12,6 +12,7 @@ const ClinicalTrials = () => {
   const [searchSources, setSearchSources] = useState([]);
   const [searchProgress, setSearchProgress] = useState(null);
   const [savedTrials, setSavedTrials] = useState([]);
+  const [savedTrialIds, setSavedTrialIds] = useState(new Set()); // Track which trial IDs are saved
   const [selectedTrial, setSelectedTrial] = useState(null);
   const [pagination, setPagination] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -69,11 +70,44 @@ const ClinicalTrials = () => {
 
       const trials = await clinicalTrialsService.getSavedTrials(userId);
       setSavedTrials(trials);
+      // Update saved trial IDs set
+      const savedIds = new Set(trials.map(t => t.trialId || t.id));
+      setSavedTrialIds(savedIds);
     } catch (error) {
       console.error('Error loading saved trials:', error);
       setError('Failed to load saved trials');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Check saved status for search results
+  const checkSavedStatus = async (trials) => {
+    const userId = auth.currentUser?.uid;
+    if (!userId || !trials || trials.length === 0) return;
+
+    try {
+      // Check saved status for all trials in parallel
+      const savedChecks = await Promise.all(
+        trials.map(trial => 
+          clinicalTrialsService.isTrialSaved(userId, trial.id)
+            .then(isSaved => ({ trialId: trial.id, isSaved }))
+            .catch(() => ({ trialId: trial.id, isSaved: false }))
+        )
+      );
+
+      // Update saved trial IDs set
+      const newSavedIds = new Set(savedTrialIds);
+      savedChecks.forEach(({ trialId, isSaved }) => {
+        if (isSaved) {
+          newSavedIds.add(trialId);
+        } else {
+          newSavedIds.delete(trialId);
+        }
+      });
+      setSavedTrialIds(newSavedIds);
+    } catch (error) {
+      console.error('Error checking saved status:', error);
     }
   };
 
@@ -100,6 +134,10 @@ const ClinicalTrials = () => {
           ? results.searchSources
           : Array.from(new Set((results.trials || []).map(t => t.source || t.sourceName).filter(Boolean)));
         setSearchSources(sources);
+        // Check saved status for search results
+        if (results.trials && results.trials.length > 0) {
+          checkSavedStatus(results.trials);
+        }
       } else {
         setError(results.error || 'No trials found');
         setSearchSources(results.searchSources || []);
@@ -122,14 +160,15 @@ const ClinicalTrials = () => {
       // Check if already saved
       const isSaved = await clinicalTrialsService.isTrialSaved(userId, trial.id);
       if (isSaved) {
-        alert('This trial is already saved!');
-        return;
+        return; // Already saved, button should be disabled
       }
 
       // include search-level source attribution when saving
       const trialToSave = { ...trial, attemptedSources: searchSources || [] };
       await clinicalTrialsService.saveMatchedTrial(userId, trialToSave);
-      alert('Trial saved successfully!');
+      
+      // Update saved trial IDs set
+      setSavedTrialIds(prev => new Set([...prev, trial.id]));
 
       // Reload saved trials if on saved tab
       if (activeTab === 'saved') {
@@ -145,7 +184,19 @@ const ClinicalTrials = () => {
     if (!window.confirm('Remove this trial from your saved list?')) return;
 
     try {
+      // Get the trial to find its trialId before removing
+      const trial = savedTrials.find(t => t.id === trialDocId);
       await clinicalTrialsService.removeSavedTrial(trialDocId);
+      
+      // Update saved trial IDs set
+      if (trial && (trial.trialId || trial.id)) {
+        setSavedTrialIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(trial.trialId || trial.id);
+          return newSet;
+        });
+      }
+      
       loadSavedTrials();
     } catch (error) {
       console.error('Error removing trial:', error);
@@ -316,12 +367,19 @@ const ClinicalTrials = () => {
           >
             View Details
           </button>
-          {!isSaved ? (
+          {!isSaved && !savedTrialIds.has(trial.id) ? (
             <button
               onClick={() => handleSaveTrial(trial)}
               className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-sm font-medium"
             >
               Save Trial
+            </button>
+          ) : !isSaved ? (
+            <button
+              disabled
+              className="flex-1 bg-gray-400 text-white px-4 py-2 rounded-lg cursor-not-allowed text-sm font-medium"
+            >
+              Saved
             </button>
           ) : (
             <button
@@ -521,7 +579,7 @@ const ClinicalTrials = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
             <div className="flex justify-between items-start mb-4">
-              <h2 className="text-2xl font-bold text-gray-900">{selectedTrial.title}</h2>
+              <h2 className="text-2xl font-bold text-gray-900">{selectedTrial.title || selectedTrial.titleJa || 'Trial Details'}</h2>
               <button
                 onClick={() => setSelectedTrial(null)}
                 className="text-gray-500 hover:text-gray-700 text-2xl"
@@ -553,9 +611,22 @@ const ClinicalTrials = () => {
                 <div>
                   <h3 className="font-bold text-gray-900 mb-2">Locations</h3>
                   <ul className="list-disc list-inside text-gray-700">
-                    {selectedTrial.locations.map((location, idx) => (
-                      <li key={idx}>{location}</li>
-                    ))}
+                    {selectedTrial.locations.map((location, idx) => {
+                      // Handle both string and object location formats
+                      let locationText = '';
+                      if (typeof location === 'string') {
+                        locationText = location;
+                      } else if (location && typeof location === 'object') {
+                        // Format object location: "City, Country" or just "Country"
+                        const parts = [];
+                        if (location.city) parts.push(location.city);
+                        if (location.country) parts.push(location.country);
+                        locationText = parts.length > 0 ? parts.join(', ') : JSON.stringify(location);
+                      } else {
+                        locationText = String(location || 'Unknown location');
+                      }
+                      return <li key={idx}>{locationText}</li>;
+                    })}
                   </ul>
                 </div>
               )}

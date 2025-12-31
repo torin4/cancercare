@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight } from 'lucide-react';
+import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark } from 'lucide-react';
 import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
 import { uploadDocument, deleteUserDirectory, deleteDocument } from './firebase/storage';
 import { documentService, labService, vitalService, patientService, accountService, genomicProfileService, emergencyContactService, medicationService, symptomService, trialLocationService } from './firebase/services';
+import { getSavedTrials } from './services/clinicalTrials/clinicalTrialsService';
 import { IMPORTANT_GENES } from './config/importantGenes';
 import { processDocument, generateExtractionSummary } from './services/documentProcessor';
 import { processChatMessage, generateChatExtractionSummary } from './services/chatProcessor';
@@ -100,6 +101,8 @@ export default function CancerCareApp() {
   const [selectedLab, setSelectedLab] = useState('ca125');
   const [selectedDate, setSelectedDate] = useState(null);
   const [showAddMedication, setShowAddMedication] = useState(false);
+  const [savedTrials, setSavedTrials] = useState([]);
+  const [loadingSavedTrials, setLoadingSavedTrials] = useState(false);
   // Helper: extract DNA and protein change from mutation strings
   const parseMutation = (mutation) => {
     const raw = (mutation.variant || '') + ' ' + (mutation.type || '');
@@ -1216,6 +1219,30 @@ export default function CancerCareApp() {
     }
   }, [activeTab]);
 
+  // Load saved trials when dashboard is active
+  useEffect(() => {
+    const loadSavedTrials = async () => {
+      if (activeTab === 'dashboard' && user?.uid) {
+        setLoadingSavedTrials(true);
+        try {
+          const trials = await getSavedTrials(user.uid);
+          // Sort by match percentage (highest first) and limit to top 5
+          const sortedTrials = trials
+            .filter(trial => trial.matchResult?.matchPercentage)
+            .sort((a, b) => (b.matchResult?.matchPercentage || 0) - (a.matchResult?.matchPercentage || 0))
+            .slice(0, 5);
+          setSavedTrials(sortedTrials);
+        } catch (error) {
+          console.error('Error loading saved trials:', error);
+          setSavedTrials([]);
+        } finally {
+          setLoadingSavedTrials(false);
+        }
+      }
+    };
+    loadSavedTrials();
+  }, [activeTab, user]);
+
   const handleSendMessage = async () => {
     if (!inputText.trim() || !user) return;
 
@@ -1759,21 +1786,62 @@ export default function CancerCareApp() {
               </div>
             </div>
 
-            {/* Top Trials */}
+            {/* Saved Trials */}
             <div className="bg-white rounded-lg shadow p-4">
               <h3 className="font-semibold text-gray-800 mb-3 flex items-center">
-                <TrendingUp size={18} className="mr-2" />
-                Top Trial Matches
+                <Bookmark size={18} className="mr-2" />
+                Saved Trials
               </h3>
-              <div className="text-center py-6">
-                <p className="text-gray-500 text-sm mb-3">No clinical trials matched yet</p>
-                <button
-                  onClick={() => setActiveTab('trials')}
-                  className="text-blue-600 text-sm font-medium hover:underline"
-                >
-                  Search Clinical Trials →
-                </button>
-              </div>
+              {loadingSavedTrials ? (
+                <div className="text-center py-6">
+                  <p className="text-gray-500 text-sm">Loading saved trials...</p>
+                </div>
+              ) : savedTrials.length > 0 ? (
+                <div className="space-y-3">
+                  {savedTrials.map((trial) => (
+                    <div
+                      key={trial.id}
+                      className="border border-gray-200 rounded-lg p-3 hover:border-blue-300 transition cursor-pointer"
+                      onClick={() => setActiveTab('trials')}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-gray-900 text-sm mb-1 truncate">
+                            {trial.title || trial.titleJa || 'Untitled Trial'}
+                          </h4>
+                          {trial.matchResult && (
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs text-gray-600">
+                                Match: {trial.matchResult.matchPercentage}%
+                              </span>
+                              {trial.isFavorite && (
+                                <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-gray-400 ml-2 flex-shrink-0" />
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setActiveTab('trials')}
+                    className="w-full text-center text-blue-600 text-sm font-medium hover:underline mt-2"
+                  >
+                    View All Saved Trials →
+                  </button>
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-gray-500 text-sm mb-3">No saved trials yet</p>
+                  <button
+                    onClick={() => setActiveTab('trials')}
+                    className="text-blue-600 text-sm font-medium hover:underline"
+                  >
+                    Search Clinical Trials →
+                  </button>
+                </div>
+              )}
             </div>
           </div>
           );
