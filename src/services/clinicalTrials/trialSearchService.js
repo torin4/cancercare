@@ -566,6 +566,19 @@ export async function searchCTGov(params) {
     if (trials.length > 0) {
       console.log('Sample trial locations:', trials[0].locations);
       console.log('Sample trial country:', trials[0].country);
+      console.log('Sample trial status:', trials[0].status);
+      // Log trials with Japan locations for debugging
+      const japanTrials = trials.filter(t => {
+        const country = (t.country || '').toLowerCase();
+        const hasJapan = t.locations?.some(loc => {
+          const locCountry = (typeof loc === 'string' ? loc : loc.country || '').toLowerCase();
+          return locCountry.includes('japan') || locCountry.includes('japanese');
+        });
+        return country.includes('japan') || country.includes('japanese') || hasJapan;
+      });
+      if (japanTrials.length > 0) {
+        console.log(`Found ${japanTrials.length} trials with Japan locations before filtering`);
+      }
     }
 
     // Apply location filters if provided

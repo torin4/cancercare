@@ -77,13 +77,12 @@ module.exports = async (req, res) => {
         v2Params.push(`query.term=${encodeURIComponent(queryTerm)}`);
       }
       
-      // Add location filter if country is specified and includeAllLocations is false
+      // Note: Public v2 API doesn't support query.locn parameter
+      // Location filtering will be done client-side after receiving results
       const country = params.get('country');
       const includeAllLocations = params.get('includeAllLocations') === 'true' || params.get('includeAllLocations') === true;
       if (country && !includeAllLocations) {
-        // Use query.locn for location filtering in v2 API
-        v2Params.push(`query.locn=${encodeURIComponent(country)}`);
-        console.log('trials-proxy: Adding location filter to API query:', country);
+        console.log('trials-proxy: Location filter requested:', country, '(will filter client-side)');
       }
       
       // v2 API uses pageSize for pagination
