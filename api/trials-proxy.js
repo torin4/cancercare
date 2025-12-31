@@ -59,8 +59,10 @@ module.exports = async (req, res) => {
       const v2Params = [];
       
       // Handle query.term and query.cond (public API format)
-      // query.cond = condition/disease (e.g., "Ovarian Cancer")
-      // query.term = other terms/biomarkers (e.g., "Clear Cell Sarcoma", "ATM OR BRD4")
+      // IMPORTANT MAPPING (matches ClinicalTrials.gov search interface):
+      // - query.cond = condition/disease (main search field, e.g., "Ovarian Cancer")
+      // - query.term = patient subtype (other terms field, e.g., "Clear Cell Sarcoma")
+      // Note: Genes/biomarkers are NOT included in query.term - only subtype is included
       const queryTermParam = params.get('query.term');
       const queryCondParam = params.get('query.cond');
       
@@ -105,8 +107,8 @@ module.exports = async (req, res) => {
       // Enhanced logging for debugging
       console.log('=== trials-proxy: ClinicalTrials.gov Public v2 API Request ===');
       console.log('Full API URL:', target);
-      console.log('query.cond (Condition/Disease):', queryCondParam || '(not provided)');
-      console.log('query.term (Other terms):', queryTermParam || '(not provided)');
+      console.log('query.cond (Condition/Disease - main search):', queryCondParam || '(not provided)');
+      console.log('query.term (Patient Subtype - other terms):', queryTermParam || '(not provided)');
       if (country) {
         console.log('query.locn (Location filter):', country, includeAllLocations ? '(but including all locations)' : '(country-specific)');
       }
@@ -140,10 +142,22 @@ module.exports = async (req, res) => {
         console.log('trials-proxy: Fetching ALL pages and filtering by location on backend:', country);
         
         // Fetch all pages using nextPageToken
+        const seenTokens = new Set(); // Track tokens to detect infinite loops
+        const seenFirstStudyIds = new Set(); // Track first study ID from each page to detect duplicates
         do {
           pageCount++;
+          
+          // Safety check: if we've seen this token before, pagination is broken
+          if (nextPageToken && seenTokens.has(nextPageToken)) {
+            console.warn(`trials-proxy: WARNING - Duplicate nextPageToken detected (${nextPageToken.substring(0, 20)}...), stopping pagination to prevent infinite loop`);
+            break;
+          }
+          if (nextPageToken) {
+            seenTokens.add(nextPageToken);
+          }
+          
           const pageUrl = nextPageToken 
-            ? `${target}&pageToken=${encodeURIComponent(nextPageToken)}`
+            ? `${target}&nextPageToken=${encodeURIComponent(nextPageToken)}`
             : target;
           
           console.log(`trials-proxy: Fetching page ${pageCount}${nextPageToken ? ` (token: ${nextPageToken.substring(0, 20)}...)` : ''}`);
@@ -160,13 +174,34 @@ module.exports = async (req, res) => {
           const items = d.studies || d.data || [];
           console.log(`trials-proxy: Page ${pageCount} returned ${items.length} studies`);
           
+          // Safety check: detect if we're getting duplicate pages (same first study ID)
+          if (items.length > 0) {
+            const firstStudyId = items[0]?.protocolSection?.identificationModule?.nctId || 
+                                items[0]?.nctId || 
+                                items[0]?.id || 
+                                '';
+            if (firstStudyId && seenFirstStudyIds.has(firstStudyId)) {
+              console.warn(`trials-proxy: WARNING - Duplicate page detected (first study ID: ${firstStudyId}), stopping pagination`);
+              break;
+            }
+            if (firstStudyId) {
+              seenFirstStudyIds.add(firstStudyId);
+            }
+          }
+          
           // Collect all studies from this page
           allStudies.push(...items);
           
           // Check for next page
+          const previousToken = nextPageToken;
           nextPageToken = d.nextPageToken || null;
           if (nextPageToken) {
             console.log(`trials-proxy: More pages available, nextPageToken: ${nextPageToken.substring(0, 20)}...`);
+            // Additional check: if token hasn't changed, pagination might be stuck
+            if (previousToken === nextPageToken) {
+              console.warn(`trials-proxy: WARNING - nextPageToken unchanged from previous page, stopping pagination`);
+              break;
+            }
           }
         } while (nextPageToken && pageCount < 100); // Safety limit: max 100 pages
         
