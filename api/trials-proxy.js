@@ -255,13 +255,32 @@ module.exports = async (req, res) => {
               const locationCities = [];
               const locationCountries = [];
               
+              const locationCountries = [];
+
+// CRITICAL DEBUG: Log location structure for first study to understand why extraction fails
+              if (locations.length > 0 && idx === 0) {
+                console.log(`trials-proxy: ===== LOCATION STRUCTURE DEBUG FOR FIRST STUDY ${id} =====`);
+                console.log(`trials-proxy: Number of locations: ${locations.length}`);
+                console.log(`trials-proxy: First location FULL structure:`, JSON.stringify(locations[0], null, 2));
+                console.log(`trials-proxy: First location keys:`, Object.keys(locations[0] || {}));
+                if (locations[0]?.facility) {
+                  console.log(`trials-proxy: Facility object:`, JSON.stringify(locations[0].facility, null, 2));
+                  console.log(`trials-proxy: Facility keys:`, Object.keys(locations[0].facility || {}));
+                } else {
+                  console.log(`trials-proxy: WARNING - First location has NO facility property!`);
+                }
+                console.log(`trials-proxy: ====================================================`);
+              }
+
               locations.forEach(loc => {
                 try {
-                  const facility = loc?.facility || {};
-                  // Extract city, state, and country according to API structure
-                  const city = facility?.city || '';
-                  const state = facility?.state || facility?.province || '';
-                  const country = facility?.country || '';
+                  // IMPORTANT: Based on actual API response structure:
+                  // - city and country are DIRECTLY on the location object (loc.city, loc.country)
+                  // - facility is a STRING (facility name), not an object
+                  // Structure: { facility: "Name", city: "Beijing", country: "China", state: "...", ... }
+                  const city = loc?.city || '';
+                  const state = loc?.state || '';
+                  const country = loc?.country || '';
                   
                   // Build location string with city, state (if available), and country
                   if (city) {
@@ -273,13 +292,11 @@ module.exports = async (req, res) => {
                   
                   // Log if we find location data for debugging
                   if (city || country) {
-                  // IMPORTANT: Based on actual API response structure:
-                  // - city and country are DIRECTLY on the location object (loc.city, loc.country)
-                  // - facility is a STRING (facility name), not an object
-                  // Structure: { facility: "Name", city: "Beijing", country: "China", state: "...", ... }
-                  const city = loc?.city || '';
-                  const state = loc?.state || '';
-                  const country = loc?.country || '';
+                    console.log(`trials-proxy: Extracted location for study ${id}: city=${city}, state=${state}, country=${country}`);
+                  }
+                } catch (e) {
+                  console.warn(`trials-proxy: Error extracting location for study ${id}:`, e?.message || e);
+                  // Skip this location if there's an error
                 }
               });
               
