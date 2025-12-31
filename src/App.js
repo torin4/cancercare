@@ -1004,9 +1004,11 @@ export default function CancerCareApp() {
       // Add to history if we have the lab values
       // Note: We'll load full history when we expand this
       grouped[labType].current = lab.currentValue;
+      const timestamp = lab.createdAt?.toDate ? lab.createdAt.toDate() : (lab.createdAt ? new Date(lab.createdAt) : new Date());
       grouped[labType].data.push({
-        date: new Date(lab.createdAt?.toDate ? lab.createdAt.toDate() : lab.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        value: lab.currentValue
+        date: timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        value: lab.currentValue,
+        timestamp: timestamp.getTime() // Store timestamp for calculations
       });
     });
 
@@ -1354,22 +1356,79 @@ export default function CancerCareApp() {
 
       {/* Main Content - Scrollable */}
       <div className="flex-1 overflow-y-auto pb-20">
-        {activeTab === 'dashboard' && (
-          <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-            {/* AI Alert */}
-            <div className="bg-amber-50 border-l-4 border-amber-500 p-3 sm:p-4 rounded">
-              <div className="flex items-start gap-2 sm:gap-3">
-                <AlertCircle className="text-amber-600 flex-shrink-0 mt-0.5" size={20} />
-                <div>
-                  <p className="text-amber-800 font-medium text-sm">CA-125 Trending Up</p>
-                  <p className="text-amber-700 text-xs sm:text-sm mt-1">
-                    Rose from 55 → 62 in 8 days (13% increase). Consider discussing with oncologist.
-                  </p>
-                </div>
-              </div>
-            </div>
+        {activeTab === 'dashboard' && (() => {
+          // Calculate CA-125 trend dynamically
+          const ca125Data = labsData.ca125;
+          let ca125Alert = null;
 
-            {/* Most Important Labs & Vitals - Single Row */}
+          if (ca125Data && ca125Data.data && ca125Data.data.length >= 2) {
+            const dataPoints = ca125Data.data
+              .map(d => ({
+                date: d.timestamp ? new Date(d.timestamp) : (typeof d.date === 'string' ? parseDateString(d.date) : new Date(d.date)),
+                value: typeof d.value === 'number' ? d.value : parseFloat(d.value)
+              }))
+              .filter(d => !isNaN(d.value) && d.date instanceof Date && !isNaN(d.date.getTime()))
+              .sort((a, b) => a.date - b.date);
+            
+            // Helper function to parse date strings like "Oct 15"
+            function parseDateString(dateStr) {
+              if (!dateStr || typeof dateStr !== 'string') return new Date();
+              // Try to parse "Oct 15" format - assume current year
+              const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+              const parts = dateStr.trim().split(' ');
+              if (parts.length === 2) {
+                const monthIndex = months.indexOf(parts[0]);
+                const day = parseInt(parts[1]);
+                if (monthIndex !== -1 && !isNaN(day)) {
+                  const year = new Date().getFullYear();
+                  return new Date(year, monthIndex, day);
+                }
+              }
+              return new Date(dateStr);
+            }
+
+            if (dataPoints.length >= 2) {
+              const latest = dataPoints[dataPoints.length - 1];
+              const previous = dataPoints[dataPoints.length - 2];
+              const change = latest.value - previous.value;
+              const percentChange = ((change / previous.value) * 100).toFixed(1);
+              const daysDiff = Math.round((latest.date - previous.date) / (1000 * 60 * 60 * 24));
+
+              // Show alert if significant increase (>10%) or decrease (>15%)
+              if (change > 0 && percentChange > 10) {
+                ca125Alert = {
+                  type: 'up',
+                  message: `Rose from ${previous.value} → ${latest.value}${ca125Data.unit ? ` ${ca125Data.unit}` : ''} in ${daysDiff} day${daysDiff !== 1 ? 's' : ''} (${percentChange}% increase). Consider discussing with oncologist.`
+                };
+              } else if (change < 0 && Math.abs(percentChange) > 15) {
+                ca125Alert = {
+                  type: 'down',
+                  message: `Decreased from ${previous.value} → ${latest.value}${ca125Data.unit ? ` ${ca125Data.unit}` : ''} in ${daysDiff} day${daysDiff !== 1 ? 's' : ''} (${Math.abs(percentChange)}% decrease).`
+                };
+              }
+            }
+          }
+
+          return (
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+              {/* Dynamic CA-125 Alert */}
+              {ca125Alert && (
+                <div className={`border-l-4 p-3 sm:p-4 rounded ${ca125Alert.type === 'up' ? 'bg-amber-50 border-amber-500' : 'bg-green-50 border-green-500'}`}>
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <AlertCircle className={`flex-shrink-0 mt-0.5 ${ca125Alert.type === 'up' ? 'text-amber-600' : 'text-green-600'}`} size={20} />
+                    <div>
+                      <p className={`font-medium text-sm ${ca125Alert.type === 'up' ? 'text-amber-800' : 'text-green-800'}`}>
+                        CA-125 {ca125Alert.type === 'up' ? 'Trending Up' : 'Trending Down'}
+                      </p>
+                      <p className={`text-xs sm:text-sm mt-1 ${ca125Alert.type === 'up' ? 'text-amber-700' : 'text-green-700'}`}>
+                        {ca125Alert.message}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Most Important Labs & Vitals - Single Row */}
             {hasRealLabData || hasRealVitalData ? (() => {
               // Get most important labs (prioritize by relevance score, then by critical list)
               const importantLabKeys = Object.keys(labsData)
@@ -1602,7 +1661,8 @@ export default function CancerCareApp() {
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {activeTab === 'chat' && (
           <div className="flex flex-col h-full">
