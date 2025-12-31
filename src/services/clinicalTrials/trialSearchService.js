@@ -210,7 +210,7 @@ export async function searchTrials(params) {
     } else {
       // Use GET request for shorter queries
       // Don't specify fields parameter - get full study data with locations
-      const proxyUrl = `${PROXY_BASE}?source=ctgov&query.term=${encodeURIComponent(term || '')&query.cond=${encodeURIComponent(cond || '')&pageSize=${pageSize}&pageNumber=${pageNumber}&fmt=json`;
+      const proxyUrl = `${PROXY_BASE}?source=ctgov&query.term=${encodeURIComponent(term || '')}&query.cond=${encodeURIComponent(cond || '')}&pageSize=${pageSize}&pageNumber=${pageNumber}&fmt=json`;
       
       // Log full URL (not truncated)
       console.log('=== GET Request URL ===');
