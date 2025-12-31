@@ -83,6 +83,7 @@ export async function saveMatchedTrial(userId, trialData) {
  */
 export async function getSavedTrials(userId) {
   try {
+    // Try query with orderBy first (requires index)
     const trialsQuery = query(
       collection(db, 'matchedTrials'),
       where('patientId', '==', userId),
@@ -96,6 +97,30 @@ export async function getSavedTrials(userId) {
       ...doc.data()
     }));
   } catch (error) {
+    // If index error, try fallback query without orderBy
+    if (error.code === 'failed-precondition' || error.message?.includes('index')) {
+      console.warn('Index not ready, using fallback query without sorting:', error.message);
+      try {
+        const fallbackQuery = query(
+          collection(db, 'matchedTrials'),
+          where('patientId', '==', userId)
+        );
+        const snapshot = await getDocs(fallbackQuery);
+        const trials = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        // Sort in memory as fallback
+        return trials.sort((a, b) => {
+          const aTime = a.savedAt?.toMillis?.() || a.savedAt || 0;
+          const bTime = b.savedAt?.toMillis?.() || b.savedAt || 0;
+          return bTime - aTime;
+        });
+      } catch (fallbackError) {
+        console.error('Error with fallback query:', fallbackError);
+        throw fallbackError;
+      }
+    }
     console.error('Error getting saved trials:', error);
     throw error;
   }

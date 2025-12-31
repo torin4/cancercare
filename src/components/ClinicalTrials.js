@@ -25,8 +25,14 @@ const ClinicalTrials = () => {
 
   useEffect(() => {
     loadPatientData();
+    // Always load saved trials to get accurate count (silently in background)
+    loadSavedTrials(false);
+  }, []); // Load once on mount
+
+  useEffect(() => {
+    // Reload saved trials when switching to saved tab to ensure fresh data
     if (activeTab === 'saved') {
-      loadSavedTrials();
+      loadSavedTrials(true); // Show loading state when on saved tab
     }
   }, [activeTab]);
 
@@ -62,9 +68,12 @@ const ClinicalTrials = () => {
     }
   };
 
-  const loadSavedTrials = async () => {
+  const loadSavedTrials = async (showLoading = false) => {
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      }
+      setError(null); // Clear previous errors
       const userId = auth.currentUser?.uid;
       if (!userId) return;
 
@@ -75,9 +84,27 @@ const ClinicalTrials = () => {
       setSavedTrialIds(savedIds);
     } catch (error) {
       console.error('Error loading saved trials:', error);
-      setError('Failed to load saved trials');
+      // Check if it's an index error
+      if (error.code === 'failed-precondition' || error.message?.includes('index')) {
+        const indexUrl = error.message?.match(/https:\/\/[^\s]+/)?.[0];
+        // Only show error if on saved tab
+        if (activeTab === 'saved') {
+          setError(
+            indexUrl 
+              ? `Index required. Click here to create it: ${indexUrl}`
+              : 'Firestore index required. Please create an index for matchedTrials (patientId + savedAt) in Firebase Console.'
+          );
+        }
+      } else {
+        // Only show error if on saved tab
+        if (activeTab === 'saved') {
+          setError('Failed to load saved trials. Please try again.');
+        }
+      }
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -170,10 +197,8 @@ const ClinicalTrials = () => {
       // Update saved trial IDs set
       setSavedTrialIds(prev => new Set([...prev, trial.id]));
 
-      // Reload saved trials if on saved tab
-      if (activeTab === 'saved') {
-        loadSavedTrials();
-      }
+      // Reload saved trials to update count (silently if not on saved tab)
+      loadSavedTrials(activeTab === 'saved');
     } catch (error) {
       console.error('Error saving trial:', error);
       alert('Failed to save trial');
@@ -197,7 +222,8 @@ const ClinicalTrials = () => {
         });
       }
       
-      loadSavedTrials();
+      // Reload saved trials to update count (silently if not on saved tab)
+      loadSavedTrials(activeTab === 'saved');
     } catch (error) {
       console.error('Error removing trial:', error);
       alert('Failed to remove trial');
@@ -558,6 +584,30 @@ const ClinicalTrials = () => {
             <div className="text-center py-12">
               <p className="text-gray-500">Loading saved trials...</p>
             </div>
+          ) : error ? (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+              <p className="text-yellow-800 font-medium flex items-center gap-2 mb-2">
+                <AlertTriangle className="w-5 h-5" /> Index Required
+              </p>
+              <p className="text-sm text-yellow-700 mb-2">
+                {error.includes('https://') 
+                  ? 'A Firestore index is required. Click the link below to create it:'
+                  : 'A Firestore index is required. Please create an index for matchedTrials (patientId + savedAt) in Firebase Console.'}
+              </p>
+              {error.includes('https://') && (
+                <a 
+                  href={error.match(/https:\/\/[^\s]+/)?.[0]} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline text-sm block mb-2"
+                >
+                  Click here to create the required index →
+                </a>
+              )}
+              <p className="text-xs text-yellow-600 mt-2">
+                Once the index is created (usually takes 1-2 minutes), refresh this page.
+              </p>
+            </div>
           ) : savedTrials.length > 0 ? (
             <div>
               <h2 className="text-xl font-bold text-gray-900 mb-4">
@@ -602,7 +652,9 @@ const ClinicalTrials = () => {
                 <div>
                   <h3 className="font-bold text-gray-900 mb-2">Eligibility Criteria</h3>
                   <p className="text-gray-700 whitespace-pre-line">
-                    {selectedTrial.eligibility.criteria || selectedTrial.eligibility.criteriaJa || 'Not specified'}
+                    {typeof selectedTrial.eligibility === 'string' 
+                      ? selectedTrial.eligibility
+                      : (selectedTrial.eligibility.criteria || selectedTrial.eligibility.criteriaJa || 'Not specified')}
                   </p>
                 </div>
               )}
