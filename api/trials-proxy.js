@@ -255,22 +255,6 @@ module.exports = async (req, res) => {
               const locationCities = [];
               const locationCountries = [];
               
-              
-              // CRITICAL DEBUG: Log location structure for first study to understand why extraction fails
-              if (locations.length > 0 && idx === 0) {
-                console.log(`trials-proxy: ===== LOCATION STRUCTURE DEBUG FOR FIRST STUDY ${id} =====`);
-                console.log(`trials-proxy: Number of locations: ${locations.length}`);
-                console.log(`trials-proxy: First location FULL structure:`, JSON.stringify(locations[0], null, 2));
-                console.log(`trials-proxy: First location keys:`, Object.keys(locations[0] || {}));
-                if (locations[0]?.facility) {
-                  console.log(`trials-proxy: Facility object:`, JSON.stringify(locations[0].facility, null, 2));
-                  console.log(`trials-proxy: Facility keys:`, Object.keys(locations[0].facility || {}));
-                } else {
-                  console.log(`trials-proxy: WARNING - First location has NO facility property!`);
-                }
-                console.log(`trials-proxy: ====================================================`);
-              }
-
               locations.forEach(loc => {
                 try {
                   const facility = loc?.facility || {};
@@ -469,4 +453,3 @@ module.exports = async (req, res) => {
   }
 };
 // Force rebuild
-// Force new commit
