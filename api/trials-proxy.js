@@ -158,6 +158,26 @@ module.exports = async (req, res) => {
         // Check if it's already in legacy format (fallback from old API)
         if (d.StudyFieldsResponse && d.StudyFieldsResponse.Study) {
           console.log('trials-proxy: Using legacy StudyFieldsResponse format, studies:', d.StudyFieldsResponse.Study.length);
+          if (d.StudyFieldsResponse.Study.length > 0) {
+            // Log first study to see location data structure
+            const firstStudy = d.StudyFieldsResponse.Study[0];
+            console.log('trials-proxy: First study keys:', Object.keys(firstStudy));
+            console.log('trials-proxy: First study LocationCity:', firstStudy.LocationCity);
+            console.log('trials-proxy: First study LocationCountry:', firstStudy.LocationCountry);
+            // Check for all location-related fields
+            const locationFields = Object.keys(firstStudy).filter(k => 
+              k.toLowerCase().includes('location') || 
+              k.toLowerCase().includes('city') || 
+              k.toLowerCase().includes('country') ||
+              k.toLowerCase().includes('facility')
+            );
+            if (locationFields.length > 0) {
+              console.log('trials-proxy: Location-related fields found:', locationFields);
+              locationFields.forEach(field => {
+                console.log(`trials-proxy:   ${field}:`, firstStudy[field]);
+              });
+            }
+          }
           if (d.StudyFieldsResponse.Study.length === 0) {
             const queryTerm = params.get('query.term') || params.get('query.cond') || params.get('expr') || params.get('condition') || '';
             console.log('trials-proxy: WARNING - Empty Study array. Query was:', queryTerm);

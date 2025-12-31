@@ -96,35 +96,19 @@ async function applyLocationFilters(trials, params) {
     console.log(`Applying location filter for country: ${params.country}, search terms:`, searchTerms);
     console.log(`Trials before filtering: ${out.length}`);
     
-    // Check if any trials have location data
-    const trialsWithLocationData = out.filter(t => {
-      const locations = t.locations || [];
-      return locations.length > 0 || (t.country && t.country.trim() !== '');
-    });
-    
-    console.log(`Trials with location data: ${trialsWithLocationData.length} out of ${out.length}`);
-    
-    // If NO trials have location data, we can't filter - show all trials with a warning
-    if (trialsWithLocationData.length === 0) {
-      console.warn('No trials have location data - cannot filter by country. Showing all trials.');
-      return out; // Return all trials since we can't filter
-    }
-    
-    // If some trials have location data, only filter those that have it
-    // Include trials with location data that match, exclude those that don't match
     out = out.filter(t => {
       // Check trial's country field
       const trialCountry = (t.country || '').toLowerCase();
-      if (trialCountry && searchTerms.some(term => trialCountry.includes(term))) {
+      if (searchTerms.some(term => trialCountry.includes(term))) {
         return true;
       }
       
       // Check trial locations
       const locations = t.locations || [];
       if (locations.length === 0) {
-        // If this trial has no location data but others do, exclude it
+        // If no location data and country filter is active, exclude the trial
         // (we can't verify it's in the requested country)
-        console.log(`Trial ${t.id} has no location data, excluding from country-filtered results`);
+        console.warn(`Trial ${t.id} has no location data, excluding from country-filtered results`);
         return false;
       }
       
@@ -398,12 +382,23 @@ export async function searchCTGov(params) {
       studies = raw.StudyFieldsResponse.Study || [];
       console.log('Using legacy StudyFieldsResponse format, studies count:', studies.length);
       if (studies.length > 0) {
-        console.log('First study sample:', JSON.stringify(studies[0], null, 2).substring(0, 500));
-        // Log location fields specifically
         const firstStudy = studies[0];
+        console.log('First study sample:', JSON.stringify(firstStudy, null, 2).substring(0, 1000));
         console.log('First study LocationCity:', firstStudy.LocationCity);
         console.log('First study LocationCountry:', firstStudy.LocationCountry);
         console.log('First study all keys:', Object.keys(firstStudy));
+        // Check for alternative location field names
+        const locationKeys = Object.keys(firstStudy).filter(k => 
+          k.toLowerCase().includes('location') || 
+          k.toLowerCase().includes('city') || 
+          k.toLowerCase().includes('country')
+        );
+        console.log('Location-related keys in first study:', locationKeys);
+        if (locationKeys.length > 0) {
+          locationKeys.forEach(key => {
+            console.log(`  ${key}:`, firstStudy[key]);
+          });
+        }
       }
     } else if (raw && Array.isArray(raw)) {
       studies = raw;
