@@ -55,13 +55,42 @@ async function analyzeDocument(base64Data, mimeType) {
 
   const prompt = `You are a medical document processing AI. Analyze this medical document and extract all relevant information.
 
-CRITICAL DATE EXTRACTION RULE:
-- ALWAYS look for and extract the ACTUAL test date, specimen collection date, or report date from the document
-- Look for labels like: "Collection Date", "Test Date", "Specimen Date", "Date Collected", "Date of Service", "Report Date"
-- Also check document headers for dates labeled: "採取日時", "検査日", "報告日", or dates in the format YYYY/MM/DD or YYYY-MM-DD
-- CONVERT the extracted date to YYYY-MM-DD format (e.g., if you see "2025/12/25 11:09:48", convert to "2025-12-25")
-- Japanese lab reports often have the date in the top-right header area - CHECK THERE FIRST
-- If no date is found anywhere in the document, only then use today's date: ${new Date().toISOString().split('T')[0]}
+═══════════════════════════════════════════════════════════════════════════════
+🚨 CRITICAL: DATE EXTRACTION IS MANDATORY - DO NOT SKIP THIS STEP 🚨
+═══════════════════════════════════════════════════════════════════════════════
+
+BEFORE extracting any other data, you MUST find and extract dates from the document.
+
+STEP 1: SEARCH FOR DATES IN THESE LOCATIONS (in order of priority):
+1. Document header/top section (most common location)
+2. Report date fields: "Report Date", "Date of Report", "Reported", "報告日"
+3. Test/Collection date fields: "Collection Date", "Test Date", "Specimen Date", "Date Collected", "Date of Service", "採取日時", "検査日"
+4. Any date field in the document metadata
+5. Dates in formats: YYYY/MM/DD, YYYY-MM-DD, MM/DD/YYYY, DD/MM/YYYY, or written dates like "December 25, 2024"
+
+STEP 2: DATE FORMATS TO LOOK FOR:
+- "2025/12/25" or "2025/12/25 11:09:48" → convert to "2025-12-25"
+- "2025-12-25" → use as "2025-12-25"
+- "12/25/2025" or "25/12/2025" → convert to "2025-12-25"
+- "December 25, 2024" or "Dec 25, 2024" → convert to "2024-12-25"
+- Japanese dates: "令和6年12月25日" or "2024年12月25日" → convert to "2024-12-25"
+- Any timestamp with date component → extract just the date part
+
+STEP 3: DATE ASSIGNMENT RULES:
+- For LAB REPORTS: Use the collection/test date (採取日時/検査日) for ALL lab values
+- For GENOMIC REPORTS: Use the test date (testDate) from testInfo section
+- For VITALS: Use the measurement date
+- If multiple dates exist, use the MOST RECENT test/collection date
+- If NO date is found after thorough search, ONLY THEN use: ${new Date().toISOString().split('T')[0]}
+
+STEP 4: VALIDATION:
+- Every lab value MUST have a "date" field
+- Every vital MUST have a "date" field  
+- Genomic testInfo MUST have a "testDate" field
+- Dates MUST be in YYYY-MM-DD format (e.g., "2024-12-25")
+- DO NOT use placeholder dates or "unknown" - extract the actual date from the document
+
+═══════════════════════════════════════════════════════════════════════════════
 
 DOCUMENT TYPES TO IDENTIFY:
 1. Lab Results - Blood work, tumor markers (CA-125, CEA, etc.), chemistry panels
@@ -85,16 +114,18 @@ Return a JSON object with this EXACT structure:
         "label": "CA-125",
         "value": 68,
         "unit": "U/mL",
-        "date": "2024-12-14",  // CRITICAL: Extract the ACTUAL collection/test date from document header (採取日時/検査日)
+        "date": "2024-12-14",  // 🚨 MANDATORY: Extract the ACTUAL collection/test date. Search document header, look for "Collection Date", "Test Date", "採取日時", "検査日", or any date field. MUST be in YYYY-MM-DD format.
         "normalRange": "0-35",  // If not shown, omit this field entirely
         "status": "high|normal|low"
       }
     ],
 
-    IMPORTANT FOR ALL LAB VALUES:
-    - ALL lab values in the "labs" array MUST use the SAME date - the collection/test date from the document header
+    🚨 CRITICAL RULE FOR ALL LAB VALUES:
+    - ALL lab values in the "labs" array MUST use the SAME date - the collection/test date from the document
     - Do NOT use different dates for different lab values from the same report
-    - Example: If document shows "採取日時: 2025/12/25", ALL labs should have "date": "2025-12-25"
+    - Do NOT skip the date field - it is MANDATORY
+    - Example: If document shows "採取日時: 2025/12/25" or "Collection Date: 12/25/2025", ALL labs should have "date": "2025-12-25"
+    - If you cannot find a date after searching the entire document, use today's date: ${new Date().toISOString().split('T')[0]}
 
     // For Vitals:
     "vitals": [
@@ -113,7 +144,7 @@ Return a JSON object with this EXACT structure:
       // Test Information
       "testInfo": {
         "testName": "FoundationOne CDx|Guardant360|Tempus xT|Tempus TOP|BRCA Testing|etc",
-        "testDate": "2024-12-15",
+        "testDate": "2024-12-15",  // 🚨 MANDATORY: Extract the ACTUAL test date from the genomic report. Look for "Test Date", "Report Date", "Date of Test", or any date in the report header/metadata. MUST be in YYYY-MM-DD format.
         "laboratoryName": "Foundation Medicine|Tempus Labs|etc",
         "specimenType": "FFPE tissue|Blood (ctDNA)|Germline blood",
         "tumorPurity": "70%",
@@ -287,7 +318,9 @@ GENERAL RULES:
 - Return ONLY valid JSON, no markdown or explanations
 - If a field is not present, omit it entirely (DO NOT include fields with null or undefined values)
 - CRITICAL: For normalRange field - only include if explicitly shown in the document. If not shown, DO NOT include the field at all
-- CRITICAL: For date fields - ALWAYS extract the actual test/collection/report date from the document. Look carefully for date labels`;
+- 🚨 CRITICAL: For date fields - ALWAYS extract the actual test/collection/report date from the document. Look carefully for date labels
+- 🚨 VALIDATION: Before returning JSON, verify that EVERY lab has a "date" field, EVERY vital has a "date" field, and genomic testInfo has a "testDate" field
+- 🚨 If you cannot find dates after thorough search, you MUST still include date fields using today's date: ${new Date().toISOString().split('T')[0]}`;
 
   const result = await model.generateContent([
     {
@@ -308,7 +341,28 @@ GENERAL RULES:
     throw new Error('Failed to parse AI response');
   }
 
-  return JSON.parse(jsonMatch[0]);
+  const parsed = JSON.parse(jsonMatch[0]);
+
+  // Validate that dates were extracted
+  if (parsed.data?.labs) {
+    const labsWithoutDates = parsed.data.labs.filter(lab => !lab.date);
+    if (labsWithoutDates.length > 0) {
+      console.warn(`⚠️ WARNING: ${labsWithoutDates.length} lab value(s) missing dates:`, labsWithoutDates.map(l => l.label));
+    }
+  }
+
+  if (parsed.data?.vitals) {
+    const vitalsWithoutDates = parsed.data.vitals.filter(vital => !vital.date);
+    if (vitalsWithoutDates.length > 0) {
+      console.warn(`⚠️ WARNING: ${vitalsWithoutDates.length} vital(s) missing dates:`, vitalsWithoutDates.map(v => v.label));
+    }
+  }
+
+  if (parsed.data?.genomic?.testInfo && !parsed.data.genomic.testInfo.testDate) {
+    console.warn('⚠️ WARNING: Genomic test missing testDate');
+  }
+
+  return parsed;
 }
 
 /**
@@ -326,6 +380,20 @@ async function saveExtractedData(extractedData, userId) {
     // Save Lab Results
     if (extractedData.data?.labs) {
       for (const lab of extractedData.data.labs) {
+        // Parse date - try multiple formats and fallback to today if missing
+        let labDate = new Date();
+        if (lab.date) {
+          // Try parsing the date string
+          const parsedDate = new Date(lab.date);
+          if (!isNaN(parsedDate.getTime())) {
+            labDate = parsedDate;
+          } else {
+            console.warn(`⚠️ Could not parse lab date "${lab.date}" for ${lab.label}, using today's date`);
+          }
+        } else {
+          console.warn(`⚠️ Lab ${lab.label} missing date field, using today's date`);
+        }
+
         // Ensure all fields have defined values (Firestore doesn't accept undefined)
         const labData = {
           patientId: userId,
@@ -334,7 +402,7 @@ async function saveExtractedData(extractedData, userId) {
           currentValue: lab.value,
           unit: lab.unit || '',
           status: lab.status || 'unknown',
-          createdAt: lab.date ? new Date(lab.date) : new Date()
+          createdAt: labDate
         };
 
         // Only include normalRange if it's defined
@@ -347,7 +415,7 @@ async function saveExtractedData(extractedData, userId) {
         // Also save as a lab value entry
         await labService.addLabValue(labId, {
           value: lab.value,
-          date: lab.date ? new Date(lab.date) : new Date(),
+          date: labDate,
           notes: `Extracted from document`
         });
 
@@ -358,6 +426,19 @@ async function saveExtractedData(extractedData, userId) {
     // Save Vitals
     if (extractedData.data?.vitals) {
       for (const vital of extractedData.data.vitals) {
+        // Parse date - try multiple formats and fallback to today if missing
+        let vitalDate = new Date();
+        if (vital.date) {
+          const parsedDate = new Date(vital.date);
+          if (!isNaN(parsedDate.getTime())) {
+            vitalDate = parsedDate;
+          } else {
+            console.warn(`⚠️ Could not parse vital date "${vital.date}" for ${vital.label}, using today's date`);
+          }
+        } else {
+          console.warn(`⚠️ Vital ${vital.label} missing date field, using today's date`);
+        }
+
         // Ensure all fields have defined values (Firestore doesn't accept undefined)
         const vitalData = {
           patientId: userId,
@@ -365,7 +446,7 @@ async function saveExtractedData(extractedData, userId) {
           label: vital.label || 'Unknown Vital',
           currentValue: vital.value,
           unit: vital.unit || '',
-          createdAt: vital.date ? new Date(vital.date) : new Date()
+          createdAt: vitalDate
         };
 
         // Only include normalRange if it's defined
@@ -378,7 +459,7 @@ async function saveExtractedData(extractedData, userId) {
         // Also save as a vital value entry
         await vitalService.addVitalValue(vitalId, {
           value: vital.value,
-          date: vital.date ? new Date(vital.date) : new Date(),
+          date: vitalDate,
           notes: `Extracted from document`
         });
 
@@ -422,7 +503,16 @@ async function saveExtractedData(extractedData, userId) {
         genomicProfile.testName = genomicData.testInfo.testName;
       }
       if (genomicData.testInfo?.testDate) {
-        genomicProfile.testDate = new Date(genomicData.testInfo.testDate);
+        const parsedTestDate = new Date(genomicData.testInfo.testDate);
+        if (!isNaN(parsedTestDate.getTime())) {
+          genomicProfile.testDate = parsedTestDate;
+        } else {
+          console.warn(`⚠️ Could not parse genomic testDate "${genomicData.testInfo.testDate}", using today's date`);
+          genomicProfile.testDate = new Date();
+        }
+      } else {
+        console.warn('⚠️ Genomic test missing testDate field, using today\'s date');
+        genomicProfile.testDate = new Date();
       }
       if (genomicData.testInfo?.laboratoryName) {
         genomicProfile.laboratoryName = genomicData.testInfo.laboratoryName;
