@@ -199,10 +199,17 @@ module.exports = async (req, res) => {
           if (nextPageToken) {
             console.log(`trials-proxy: More pages available, nextPageToken: ${nextPageToken.substring(0, 20)}...`);
             // Additional check: if token hasn't changed, pagination might be stuck
-            if (previousToken === nextPageToken) {
-              console.warn(`trials-proxy: WARNING - nextPageToken unchanged from previous page, stopping pagination`);
+            if (previousToken && previousToken === nextPageToken) {
+              console.warn(`trials-proxy: WARNING - nextPageToken unchanged from previous page!`);
+              console.warn(`trials-proxy: Previous: ${previousToken.substring(0, 40)}... Current: ${nextPageToken.substring(0, 40)}...`);
+              console.warn(`trials-proxy: Stopping pagination. Total studies: ${allStudies.length}`);
               break;
             }
+            if (previousToken) {
+              console.log(`trials-proxy: Token changed: ${previousToken.substring(0, 20)}... -> ${nextPageToken.substring(0, 20)}...`);
+            }
+          } else {
+            console.log(`trials-proxy: No more pages (nextPageToken is null)`);
           }
         } while (nextPageToken && pageCount < 100); // Safety limit: max 100 pages
         
@@ -343,28 +350,96 @@ module.exports = async (req, res) => {
         return res.json(out);
       }
       
-      // For non-location-filtered requests or other sources: fetch single page as before
-      const response = await axios.get(target, {
-        headers: {
-          Accept: 'application/json',
-          'User-Agent': req.headers['user-agent'] || 'CancerCareProxy/1.0'
-        },
-        timeout: 20000
-      });
-      
-      console.log('trials-proxy: API response status:', response.status);
-      console.log('trials-proxy: API response data keys:', Object.keys(response.data || {}));
-
-      // If this was a CTGov v2 API response, normalize it to legacy format
+      // For CTGov v2 API: Fetch ALL pages to get complete results (even without country filter)
       if (source === 'ctgov') {
-        const d = response.data || {};
+        console.log('trials-proxy: Fetching ALL pages for complete results');
+        
+        // Fetch all pages using nextPageToken
+        let allStudies = [];
+        let nextPageToken = null;
+        let pageCount = 0;
+        const seenTokens = new Set(); // Track tokens to detect infinite loops
+        const seenFirstStudyIds = new Set(); // Track first study ID from each page to detect duplicates
+        
+        do {
+          pageCount++;
+          
+          // Safety check: if we've seen this token before, pagination is broken
+          if (nextPageToken && seenTokens.has(nextPageToken)) {
+            console.warn(`trials-proxy: WARNING - Duplicate nextPageToken detected (${nextPageToken.substring(0, 20)}...), stopping pagination to prevent infinite loop`);
+            break;
+          }
+          if (nextPageToken) {
+            seenTokens.add(nextPageToken);
+          }
+          
+          // IMPORTANT: API response returns nextPageToken, but request parameter must be pageToken
+          const pageUrl = nextPageToken 
+            ? `${target}&pageToken=${encodeURIComponent(nextPageToken)}`
+            : target;
+          
+          console.log(`trials-proxy: Fetching page ${pageCount}${nextPageToken ? ` (token: ${nextPageToken.substring(0, 20)}...)` : ''}`);
+          
+          const response = await axios.get(pageUrl, {
+            headers: {
+              Accept: 'application/json',
+              'User-Agent': req.headers['user-agent'] || 'CancerCareProxy/1.0'
+            },
+            timeout: 30000 // Longer timeout for multiple pages
+          });
+          
+          const d = response.data || {};
+          const items = d.studies || d.data || [];
+          console.log(`trials-proxy: Page ${pageCount} returned ${items.length} studies`);
+          
+          // Safety check: detect if we're getting duplicate pages (same first study ID)
+          if (items.length > 0) {
+            const firstStudyId = items[0]?.protocolSection?.identificationModule?.nctId || 
+                                items[0]?.nctId || 
+                                items[0]?.id || 
+                                '';
+            if (firstStudyId && seenFirstStudyIds.has(firstStudyId)) {
+              console.warn(`trials-proxy: WARNING - Duplicate page detected (first study ID: ${firstStudyId}), stopping pagination`);
+              break;
+            }
+            if (firstStudyId) {
+              seenFirstStudyIds.add(firstStudyId);
+            }
+          }
+          
+          // Collect all studies from this page
+          allStudies.push(...items);
+          
+          // Check for next page
+          const previousToken = nextPageToken;
+          nextPageToken = d.nextPageToken || null;
+          if (nextPageToken) {
+            console.log(`trials-proxy: More pages available, nextPageToken: ${nextPageToken.substring(0, 20)}...`);
+            // Additional check: if token hasn't changed, pagination might be stuck
+            if (previousToken && previousToken === nextPageToken) {
+              console.warn(`trials-proxy: WARNING - nextPageToken unchanged from previous page!`);
+              console.warn(`trials-proxy: Previous: ${previousToken.substring(0, 40)}... Current: ${nextPageToken.substring(0, 40)}...`);
+              console.warn(`trials-proxy: Stopping pagination. Total studies: ${allStudies.length}`);
+              break;
+            }
+            if (previousToken) {
+              console.log(`trials-proxy: Token changed: ${previousToken.substring(0, 20)}... -> ${nextPageToken.substring(0, 20)}...`);
+            }
+          } else {
+            console.log(`trials-proxy: No more pages (nextPageToken is null)`);
+          }
+        } while (nextPageToken && pageCount < 100); // Safety limit: max 100 pages
+        
+        console.log(`trials-proxy: Fetched ${pageCount} page(s), total studies: ${allStudies.length}`);
+        
+        // Now process all studies (no location filtering for global search)
+        const d = { studies: allStudies };
         
         console.log('trials-proxy: CTGov response structure:', {
           hasStudyFieldsResponse: !!d.StudyFieldsResponse,
           hasStudies: !!d.studies,
           hasData: !!d.data,
-          keys: Object.keys(d),
-          status: response.status
+          keys: Object.keys(d)
         });
         
         // Check if it's already in legacy format (fallback from old API)
@@ -395,7 +470,7 @@ module.exports = async (req, res) => {
             console.log('trials-proxy: WARNING - Empty Study array. Query was:', queryTerm);
             console.log('trials-proxy: Full response structure:', JSON.stringify(d, null, 2).substring(0, 500));
           }
-          res.status(response.status).setHeader('Content-Type', 'application/json');
+          res.status(200).setHeader('Content-Type', 'application/json');
           return res.json(d);
         }
 
@@ -550,7 +625,7 @@ module.exports = async (req, res) => {
           StudyFieldsResponse: { 
             Study: studies,
             NStudiesReturned: studies.length,
-            NStudiesFound: d.nextPageToken ? '>=' + studies.length : studies.length
+            NStudiesFound: studies.length // All pages fetched, so this is the complete count
           } 
         };
         res.status(200).setHeader('Content-Type', 'application/json');
