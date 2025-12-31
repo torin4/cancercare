@@ -58,14 +58,24 @@ module.exports = async (req, res) => {
       
       // Build v2 API query parameters
       const v2Params = [];
-      if (queryTerm) {
-        // v2 API uses query.term for search terms
+      
+      // Handle query.term and query.cond
+      const queryTermParam = params.get('query.term');
+      const queryCondParam = params.get('query.cond');
+      
+      // If both are provided, combine them with AND logic in query.term
+      // The API may not support separate query.cond parameter properly
+      if (queryTermParam && queryCondParam) {
+        // Combine: condition AND (genes/biomarkers)
+        const combinedQuery = `${queryCondParam} AND (${queryTermParam})`;
+        v2Params.push(`query.term=${encodeURIComponent(combinedQuery)}`);
+      } else if (queryTermParam) {
+        v2Params.push(`query.term=${encodeURIComponent(queryTermParam)}`);
+      } else if (queryCondParam) {
+        v2Params.push(`query.term=${encodeURIComponent(queryCondParam)}`);
+      } else if (queryTerm) {
+        // Fallback: use legacy parameter
         v2Params.push(`query.term=${encodeURIComponent(queryTerm)}`);
-        // Also include query.cond if provided separately
-        const queryCond = params.get('query.cond');
-        if (queryCond && queryCond !== queryTerm) {
-          v2Params.push(`query.cond=${encodeURIComponent(queryCond)}`);
-        }
       }
       
       // v2 API uses page[size] and page[number] for pagination
@@ -80,6 +90,10 @@ module.exports = async (req, res) => {
       
       // Use new v2 API endpoint
       target = `https://clinicaltrials.gov/api/v2/studies?${v2Params.join('&')}`;
+      
+      console.log('trials-proxy: CTGov v2 API URL:', target);
+      console.log('trials-proxy: query.term:', queryTermParam || 'none');
+      console.log('trials-proxy: query.cond:', queryCondParam || 'none');
     } else if (source === 'who') {
       const path = params.get('path') || 'api/v1/trials';
       target = `https://trialsearch.who.int/${path}${forwardQs ? `?${forwardQs}` : ''}`;
