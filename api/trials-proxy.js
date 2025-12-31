@@ -89,18 +89,15 @@ module.exports = async (req, res) => {
       v2Params.push(`pageSize=${v2PageSize}`);
       // Note: v2 API uses nextPageToken for pagination, but we can use pageSize for first page
       
-      // Include fields if specified - ensure location fields are always included
+      // IMPORTANT: Do NOT specify fields parameter - this forces API to return legacy format without location data
+      // When fields is not specified, API returns full v2 format (studies array) with location data in protocolSection.contactsLocationsModule
       const fields = params.get('fields');
-      if (fields) {
-        // Make sure LocationCity and LocationCountry are in the fields list
-        const fieldsList = fields.split(',');
-        if (!fieldsList.includes('LocationCity')) fieldsList.push('LocationCity');
-        if (!fieldsList.includes('LocationCountry')) fieldsList.push('LocationCountry');
-        v2Params.push(`fields=${encodeURIComponent(fieldsList.join(','))}`);
-      } else {
-        // Default fields including location data
-        v2Params.push(`fields=${encodeURIComponent('NCTId,BriefTitle,Condition,OverallStatus,Phase,BriefSummary,LocationCity,LocationCountry')}`);
+      if (fields && fields !== 'all') {
+        // Only use fields if explicitly requested (but note: location data won't be available)
+        v2Params.push(`fields=${encodeURIComponent(fields)}`);
+        console.log('trials-proxy: WARNING - fields parameter specified, location data may not be available');
       }
+      // If no fields specified, API returns full v2 format with location data
       
       // Use public v2 API endpoint (for third-party apps)
       target = `https://clinicaltrials.gov/api/v2/studies?${v2Params.join('&')}`;
