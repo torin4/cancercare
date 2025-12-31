@@ -522,21 +522,29 @@ function buildSearchCondition(patientProfile, additionalTerms = []) {
     terms.push(patientProfile.cancerType);
   }
   
-  // Add cancer subtype if available
+  // Add cancer subtype if available (use OR to broaden search)
   if (patientProfile.currentStatus?.diagnosis && patientProfile.currentStatus.diagnosis !== patientProfile.diagnosis) {
-    terms.push(patientProfile.currentStatus.diagnosis);
+    // Use OR for subtype to broaden results
+    const primaryTerm = terms[0] || patientProfile.diagnosis || patientProfile.cancerType;
+    if (primaryTerm) {
+      terms[0] = `(${primaryTerm} OR ${patientProfile.currentStatus.diagnosis})`;
+    } else {
+      terms.push(patientProfile.currentStatus.diagnosis);
+    }
   }
   
-  // Add cancer type if different from diagnosis
-  if (patientProfile.cancerType && patientProfile.cancerType !== patientProfile.diagnosis && patientProfile.cancerType !== terms[0]) {
-    terms.push(patientProfile.cancerType);
-  }
+  // Add cancer type if different from diagnosis (already handled above with OR)
+  // Skip to avoid duplication
   
   // Add disease status with Boolean operators for better matching
+  // Only include disease statuses that are useful search terms
   if (patientProfile.currentStatus?.diseaseStatus) {
     const diseaseStatus = patientProfile.currentStatus.diseaseStatus.toLowerCase();
     // Use Boolean OR operators to capture variations
-    if (diseaseStatus.includes('recurrent') || diseaseStatus.includes('recurrence')) {
+    // Skip "Stable Disease" and similar statuses that aren't good search terms
+    if (diseaseStatus.includes('stable') && !diseaseStatus.includes('unstable')) {
+      // Skip "Stable Disease" - not a useful search term
+    } else if (diseaseStatus.includes('recurrent') || diseaseStatus.includes('recurrence')) {
       terms.push('(recurrent OR relapsed OR recurrence)');
     } else if (diseaseStatus.includes('refractory')) {
       terms.push('(refractory OR resistant)');
@@ -544,16 +552,20 @@ function buildSearchCondition(patientProfile, additionalTerms = []) {
       terms.push('(metastatic OR metastasis)');
     } else if (diseaseStatus.includes('advanced')) {
       terms.push('(advanced OR stage IV)');
-    } else {
-      // Add the disease status as-is if it doesn't match common patterns
-      terms.push(patientProfile.currentStatus.diseaseStatus);
     }
+    // Skip other disease statuses like "Stable Disease", "Partial Response", etc.
   }
   
-  // Add any additional terms
-  additionalTerms.forEach(term => {
-    if (term) terms.push(term);
-  });
+  // Process additional terms (genes/mutations) - deduplicate and group with OR
+  const uniqueGenes = [...new Set(additionalTerms.filter(term => term && typeof term === 'string'))];
+  if (uniqueGenes.length > 0) {
+    // Group genes with OR to broaden search (trials matching ANY gene)
+    if (uniqueGenes.length === 1) {
+      terms.push(uniqueGenes[0]);
+    } else {
+      terms.push(`(${uniqueGenes.join(' OR ')})`);
+    }
+  }
   
   // Join terms with AND operator, preserving OR groups in parentheses
   return terms.join(' AND ');
