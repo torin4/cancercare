@@ -236,6 +236,12 @@ export async function searchAndMatchTrials(userId, patientProfile, genomicProfil
       if (trialLocation) {
         params.country = trialLocation.country;
         params.includeAllLocations = trialLocation.includeAllLocations;
+        console.log('clinicalTrialsService: Adding location filter to search params:', {
+          country: trialLocation.country,
+          includeAllLocations: trialLocation.includeAllLocations
+        });
+      } else {
+        console.log('clinicalTrialsService: No trialLocation found, searching globally');
       }
       searchResults = await searchTrials(params);
     }
