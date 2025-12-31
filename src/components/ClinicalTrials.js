@@ -226,7 +226,25 @@ const ClinicalTrials = () => {
           </div>
           <div>
             <span className="font-medium text-gray-700">Location:</span>
-            <span className="ml-2 text-gray-600">{trial.country || 'Not specified'}</span>
+            <span className="ml-2 text-gray-600">
+              {trial.locations && trial.locations.length > 0 ? (() => {
+                // Get unique countries from all locations
+                const countries = [...new Set(trial.locations.map(loc => {
+                  if (typeof loc === 'string') {
+                    const parts = loc.split(',').map(s => s.trim());
+                    return parts[parts.length - 1] || '';
+                  }
+                  return loc.country || '';
+                }).filter(Boolean))];
+                if (countries.length === 0) {
+                  return trial.country || 'Not specified';
+                } else if (countries.length === 1) {
+                  return countries[0];
+                } else {
+                  return `${countries.length} countries (${countries.slice(0, 3).join(', ')}${countries.length > 3 ? '...' : ''})`;
+                }
+              })() : (trial.country || 'Not specified')}
+            </span>
           </div>
         </div>
 
