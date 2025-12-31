@@ -11,7 +11,7 @@ import {
   deleteDoc,
   serverTimestamp
 } from 'firebase/firestore';
-import { searchJRCTByGenomicProfile, matchesJRCTEligibility } from './jrctService';
+import { searchTrialsByGenomicProfile, matchesTrialEligibility } from './trialSearchService'';
 import { trialLocationService } from '../../firebase/services';
 import { calculateTrialMatchScore, sortTrialsByMatch } from './trialMatcher';
 
@@ -180,10 +180,10 @@ export async function searchAndMatchTrials(userId, patientProfile, genomicProfil
     // If genomic profile exists, use genomic-based search and include location
     if (genomicProfile) {
       const tl = trialLocation ? { ...trialLocation, onProgress } : { onProgress };
-      searchResults = await searchJRCTByGenomicProfile(genomicProfile, patientProfile, tl);
+      searchResults = await searchTrialsByGenomicProfile(genomicProfile, patientProfile, tl);
     } else {
       // Otherwise, search by diagnosis only and include location
-      const { searchJRCT } = await import('./jrctService');
+      const { searchTrials } = await import('./trialSearchService');
       const params = {
         condition: patientProfile.diagnosis,
         age: patientProfile.age,
@@ -197,7 +197,7 @@ export async function searchAndMatchTrials(userId, patientProfile, genomicProfil
         params.searchRadius = trialLocation.searchRadius;
         params.includeAllLocations = trialLocation.includeAllLocations;
       }
-      searchResults = await searchJRCT(params);
+      searchResults = await searchTrials(params);
     }
 
     if (!searchResults.success || !searchResults.trials) {
