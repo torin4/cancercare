@@ -97,29 +97,71 @@ async function applyLocationFilters(trials, params) {
 export async function searchTrials(params) {
   const attempted = [];
   const onProgress = params?.onProgress;
+  const pageNumber = params?.pageNumber || 1;
+  const pageSize = params?.pageSize || 50;
+  
   // Currently queries ClinicalTrials.gov
   try {
-    if (typeof onProgress === 'function') onProgress('Querying ClinicalTrials.gov');
+    if (typeof onProgress === 'function') onProgress(`Querying ClinicalTrials.gov (page ${pageNumber})`);
     attempted.push('ClinicalTrials.gov');
     
-    const expr = buildCTGovExpr(params);
+    // Build v2 API compatible query parameters
+    const queryTerm = buildCTGovExpr(params);
     const fields = ['NCTId', 'BriefTitle', 'Condition', 'OverallStatus', 'Phase', 'BriefSummary', 'LocationCity', 'LocationCountry'].join(',');
-    const proxyUrl = `${PROXY_BASE}?source=ctgov&expr=${encodeURIComponent(expr)}&fields=${encodeURIComponent(fields)}&min_rnk=1&max_rnk=50&fmt=json`;
     
-    console.log('Searching ClinicalTrials.gov with URL:', proxyUrl);
+    // Check if queryTerm is too long for GET request (limit ~2000 chars for URL)
+    const queryTermLength = encodeURIComponent(queryTerm).length;
+    const maxUrlLength = 2000;
     
-    const ctRaw = await axios.get(proxyUrl, { 
-      timeout: 20000,
-      headers: {
-        'Accept': 'application/json'
-      }
-    }).then(r => {
-      console.log('ClinicalTrials.gov response received:', r?.data ? 'has data' : 'no data');
-      return r.data;
-    }).catch(err => {
-      console.error('ClinicalTrials.gov proxy request failed:', err?.response?.status, err?.message);
-      return null;
-    });
+    let ctRaw;
+    
+    if (queryTermLength > maxUrlLength) {
+      // Use POST request for long queries
+      console.log(`Query term too long (${queryTermLength} chars), using POST request`);
+      if (typeof onProgress === 'function') onProgress('Sending search request (POST)');
+      
+      const postData = {
+        source: 'ctgov',
+        'query.term': queryTerm,
+        'query.cond': queryTerm,
+        fields: fields,
+        pageSize: pageSize,
+        pageNumber: pageNumber,
+        fmt: 'json'
+      };
+      
+      ctRaw = await axios.post(PROXY_BASE, postData, {
+        timeout: 20000,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      }).then(r => {
+        console.log('ClinicalTrials.gov POST response received:', r?.data ? 'has data' : 'no data');
+        return r.data;
+      }).catch(err => {
+        console.error('ClinicalTrials.gov POST request failed:', err?.response?.status, err?.message);
+        return null;
+      });
+    } else {
+      // Use GET request for shorter queries
+      const proxyUrl = `${PROXY_BASE}?source=ctgov&query.term=${encodeURIComponent(queryTerm)}&query.cond=${encodeURIComponent(queryTerm)}&fields=${encodeURIComponent(fields)}&pageSize=${pageSize}&pageNumber=${pageNumber}&fmt=json`;
+      
+      console.log('Searching ClinicalTrials.gov with URL:', proxyUrl.substring(0, 200) + (proxyUrl.length > 200 ? '...' : ''));
+      
+      ctRaw = await axios.get(proxyUrl, { 
+        timeout: 20000,
+        headers: {
+          'Accept': 'application/json'
+        }
+      }).then(r => {
+        console.log('ClinicalTrials.gov response received:', r?.data ? 'has data' : 'no data');
+        return r.data;
+      }).catch(err => {
+        console.error('ClinicalTrials.gov proxy request failed:', err?.response?.status, err?.message);
+        return null;
+      });
+    }
     
     if (ctRaw) {
       console.log('ClinicalTrials.gov raw response structure:', {
@@ -170,36 +212,172 @@ export async function searchCTGov(params) {
       rawType: raw ? typeof raw : null,
       isArray: Array.isArray(raw),
       hasStudyFieldsResponse: raw?.StudyFieldsResponse ? true : false,
+      hasStudies: !!raw?.studies,
       studyFieldsResponseKeys: raw?.StudyFieldsResponse ? Object.keys(raw.StudyFieldsResponse) : null
     });
     
-    if (raw && raw.StudyFieldsResponse) {
+    // Handle v2 API format (preferred) - studies array with protocolSection
+    if (raw && raw.studies && Array.isArray(raw.studies)) {
+      // v2 API format: studies array with protocolSection structure
+      studies = raw.studies.map(study => {
+        try {
+          const protocolSection = study.protocolSection || {};
+          // Safely extract modules with fallbacks to prevent 'cannot read property of undefined' errors
+          const identificationModule = protocolSection.identificationModule || {};
+          const statusModule = protocolSection.statusModule || {};
+          const designModule = protocolSection.designModule || {};
+          const descriptionModule = protocolSection.descriptionModule || {};
+          const conditionsModule = protocolSection.conditionsModule || {};
+          const contactsLocationsModule = protocolSection.contactsLocationsModule || {};
+          
+          // Safely extract nctId with multiple fallbacks
+          const nctId = identificationModule.nctId || study.nctId || study.id || '';
+          if (!nctId) {
+            console.warn('Study missing nctId, skipping:', study);
+            return null;
+          }
+          
+          // Safely extract title
+          const briefTitle = identificationModule.briefTitle || 
+                            identificationModule.officialTitle || 
+                            study.title || 
+                            '';
+          
+          // Safely extract conditions
+          const conditions = (conditionsModule?.conditions || []).map(c => 
+            typeof c === 'string' ? c : (c?.condition || c?.name || '')
+          ).filter(Boolean);
+          
+          // Safely extract status
+          const overallStatus = statusModule?.overallStatus || 
+                               statusModule?.overallStatusList?.overallStatus || 
+                               study.overallStatus || 
+                               '';
+          
+          // Safely extract phases
+          const phases = (designModule?.phases || []).map(p => 
+            typeof p === 'string' ? p : (p?.phase || '')
+          ).filter(Boolean);
+          
+          // Safely extract summary
+          const briefSummary = descriptionModule?.briefSummary || 
+                              descriptionModule?.detailedDescription?.text || 
+                              study.summary || 
+                              '';
+          
+          // Safely extract locations
+          const locations = contactsLocationsModule?.locations || [];
+          const locationCities = locations.map(loc => {
+            try {
+              return loc?.facility?.city || '';
+            } catch (e) {
+              return '';
+            }
+          }).filter(Boolean);
+          
+          const locationCountries = locations.map(loc => {
+            try {
+              return loc?.facility?.country || '';
+            } catch (e) {
+              return '';
+            }
+          }).filter(Boolean);
+          
+          // Convert v2 format to legacy StudyFieldsResponse format for compatibility
+          return {
+            NCTId: [nctId],
+            BriefTitle: [briefTitle],
+            Condition: conditions,
+            OverallStatus: [overallStatus],
+            Phase: phases,
+            BriefSummary: [briefSummary],
+            LocationCity: locationCities,
+            LocationCountry: locationCountries
+          };
+        } catch (error) {
+          console.error('Error processing study in v2 format:', error, study);
+          return null;
+        }
+      }).filter(Boolean); // Remove null entries
+      console.log('Using v2 API format (protocolSection), studies count:', studies.length);
+    } else if (raw && raw.StudyFieldsResponse) {
+      // Legacy format fallback
       studies = raw.StudyFieldsResponse.Study || [];
-      console.log('Using StudyFieldsResponse format, studies count:', studies.length);
+      console.log('Using legacy StudyFieldsResponse format, studies count:', studies.length);
       if (studies.length > 0) {
         console.log('First study sample:', JSON.stringify(studies[0], null, 2).substring(0, 300));
       }
     } else if (raw && Array.isArray(raw)) {
       studies = raw;
       console.log('Using array format, studies count:', studies.length);
-    } else if (raw && raw.studies) {
-      // Handle v2 API format that might have been normalized differently
-      studies = raw.studies;
-      console.log('Using raw.studies format, studies count:', studies.length);
     } else {
       // Build expression - use proxy instead of direct API call for better reliability
       const { condition, age, gender } = params;
-      let expr = '';
-      if (condition) expr += condition;
-      if (gender) expr += ` AND ${gender}`;
-      if (age) expr += ` AND ${age}`;
+      // ClinicalTrials.gov basic search only supports condition/keywords
+      // Age and gender filtering should be done post-query or via eligibility criteria
+      let expr = condition || '';
       const fields = ['NCTId', 'BriefTitle', 'Condition', 'OverallStatus', 'Phase', 'BriefSummary', 'LocationCity', 'LocationCountry'].join(',');
       
       // Use proxy endpoint for better CORS handling and error management
-      const url = `${PROXY_BASE}?source=ctgov&expr=${encodeURIComponent(expr)}&fields=${encodeURIComponent(fields)}&min_rnk=1&max_rnk=50&fmt=json`;
+      // v2 API uses query.term, query.cond, and pageSize
+      const url = `${PROXY_BASE}?source=ctgov&query.term=${encodeURIComponent(expr)}&query.cond=${encodeURIComponent(expr)}&fields=${encodeURIComponent(fields)}&pageSize=50&pageNumber=1&fmt=json`;
       try {
         const res = await axios.get(url, { timeout: 20000 });
-        studies = res.data.StudyFieldsResponse?.Study || [];
+        const responseData = res.data;
+        
+        // Handle v2 API format (studies array with protocolSection)
+        if (responseData.studies && Array.isArray(responseData.studies)) {
+          studies = responseData.studies.map(study => {
+            try {
+              const protocolSection = study.protocolSection || {};
+              // Safely extract modules with fallbacks
+              const identificationModule = protocolSection.identificationModule || {};
+              const statusModule = protocolSection.statusModule || {};
+              const designModule = protocolSection.designModule || {};
+              const descriptionModule = protocolSection.descriptionModule || {};
+              const conditionsModule = protocolSection.conditionsModule || {};
+              const contactsLocationsModule = protocolSection.contactsLocationsModule || {};
+              
+              // Safely extract nctId
+              const nctId = identificationModule.nctId || study.nctId || study.id || '';
+              if (!nctId) return null;
+              
+              // Safely extract all fields with fallbacks
+              const briefTitle = identificationModule.briefTitle || identificationModule.officialTitle || study.title || '';
+              const conditions = (conditionsModule?.conditions || []).map(c => 
+                typeof c === 'string' ? c : (c?.condition || c?.name || '')
+              ).filter(Boolean);
+              const overallStatus = statusModule?.overallStatus || statusModule?.overallStatusList?.overallStatus || study.overallStatus || '';
+              const phases = (designModule?.phases || []).map(p => 
+                typeof p === 'string' ? p : (p?.phase || '')
+              ).filter(Boolean);
+              const briefSummary = descriptionModule?.briefSummary || descriptionModule?.detailedDescription?.text || study.summary || '';
+              
+              // Safely extract locations
+              const locations = contactsLocationsModule?.locations || [];
+              const locationCities = locations.map(loc => loc?.facility?.city || '').filter(Boolean);
+              const locationCountries = locations.map(loc => loc?.facility?.country || '').filter(Boolean);
+              
+              // Convert v2 format to legacy StudyFieldsResponse format for compatibility
+              return {
+                NCTId: [nctId],
+                BriefTitle: [briefTitle],
+                Condition: conditions,
+                OverallStatus: [overallStatus],
+                Phase: phases,
+                BriefSummary: [briefSummary],
+                LocationCity: locationCities,
+                LocationCountry: locationCountries
+              };
+            } catch (error) {
+              console.error('Error processing study in v2 format:', error, study);
+              return null;
+            }
+          }).filter(Boolean); // Remove null entries
+        } else if (responseData.StudyFieldsResponse) {
+          // Legacy format fallback
+          studies = responseData.StudyFieldsResponse.Study || [];
+        }
       } catch (error) {
         console.error('ClinicalTrials.gov API error:', error?.response?.status, error?.message);
         // Return empty array on error
@@ -242,7 +420,26 @@ export async function searchCTGov(params) {
 
     console.log('searchCTGov - after location filters:', trials.length);
 
-    return { success: true, source: 'ClinicalTrials.gov', totalResults: trials.length, trials };
+    // Determine if there are more results available
+    const totalResults = raw?.StudyFieldsResponse?.NStudiesFound || 
+                        raw?.StudyFieldsResponse?.NStudiesReturned || 
+                        trials.length;
+    const pageNumber = params?.pageNumber || 1;
+    const pageSize = params?.pageSize || 50;
+    const hasMore = trials.length >= pageSize && (typeof totalResults === 'number' ? totalResults > pageNumber * pageSize : false);
+    
+    return { 
+      success: true, 
+      source: 'ClinicalTrials.gov', 
+      totalResults: typeof totalResults === 'number' ? totalResults : trials.length, 
+      trials,
+      pagination: {
+        pageNumber,
+        pageSize,
+        totalResults: typeof totalResults === 'number' ? totalResults : null,
+        hasMore
+      }
+    };
   } catch (error) {
     console.error('Error searching ClinicalTrials.gov:', error?.message || error);
     return { success: false, source: 'ClinicalTrials.gov', totalResults: 0, trials: [], error: error.message };
@@ -252,9 +449,14 @@ export async function searchCTGov(params) {
 function buildCTGovExpr(params) {
   const { condition, age, gender } = params || {};
   let expr = '';
-  if (condition) expr += condition;
-  if (gender) expr += ` AND ${gender}`;
-  if (age) expr += ` AND ${age}`;
+  // ClinicalTrials.gov basic search only supports condition/keywords
+  // Age and gender are eligibility criteria, not searchable fields in the basic query
+  // We'll filter by these criteria after getting results
+  if (condition) {
+    expr = condition;
+    // Optionally add age range if provided (but this is often too restrictive)
+    // For now, just search by condition to get more results
+  }
   return expr;
 }
 
@@ -305,6 +507,59 @@ export async function getTrialDetails(trialId) {
 }
 
 /**
+ * Helper function to build search condition with cancer type, subtype, disease status, and mutations
+ * @param {Object} patientProfile - Patient profile with diagnosis, cancerType, currentStatus
+ * @param {Array<string>} additionalTerms - Additional search terms (e.g., gene names, biomarkers)
+ * @returns {string} - Formatted search condition string
+ */
+function buildSearchCondition(patientProfile, additionalTerms = []) {
+  const terms = [];
+  
+  // Primary diagnosis/cancer type
+  if (patientProfile.diagnosis) {
+    terms.push(patientProfile.diagnosis);
+  } else if (patientProfile.cancerType) {
+    terms.push(patientProfile.cancerType);
+  }
+  
+  // Add cancer subtype if available
+  if (patientProfile.currentStatus?.diagnosis && patientProfile.currentStatus.diagnosis !== patientProfile.diagnosis) {
+    terms.push(patientProfile.currentStatus.diagnosis);
+  }
+  
+  // Add cancer type if different from diagnosis
+  if (patientProfile.cancerType && patientProfile.cancerType !== patientProfile.diagnosis && patientProfile.cancerType !== terms[0]) {
+    terms.push(patientProfile.cancerType);
+  }
+  
+  // Add disease status with Boolean operators for better matching
+  if (patientProfile.currentStatus?.diseaseStatus) {
+    const diseaseStatus = patientProfile.currentStatus.diseaseStatus.toLowerCase();
+    // Use Boolean OR operators to capture variations
+    if (diseaseStatus.includes('recurrent') || diseaseStatus.includes('recurrence')) {
+      terms.push('(recurrent OR relapsed OR recurrence)');
+    } else if (diseaseStatus.includes('refractory')) {
+      terms.push('(refractory OR resistant)');
+    } else if (diseaseStatus.includes('metastatic')) {
+      terms.push('(metastatic OR metastasis)');
+    } else if (diseaseStatus.includes('advanced')) {
+      terms.push('(advanced OR stage IV)');
+    } else {
+      // Add the disease status as-is if it doesn't match common patterns
+      terms.push(patientProfile.currentStatus.diseaseStatus);
+    }
+  }
+  
+  // Add any additional terms
+  additionalTerms.forEach(term => {
+    if (term) terms.push(term);
+  });
+  
+  // Join terms with AND operator, preserving OR groups in parentheses
+  return terms.join(' AND ');
+}
+
+/**
  * Search clinical trials by genomic profile
  * @param {Object} genomicProfile - Patient's genomic profile from Firestore
  * @param {Object} patientProfile - Patient demographics
@@ -322,10 +577,15 @@ export async function searchTrialsByGenomicProfile(genomicProfile, patientProfil
   );
 
     if (brcaMutations && brcaMutations.length > 0) {
+    // Build condition with cancer type/subtype, disease status, and BRCA
+    const brcaCondition = buildSearchCondition(patientProfile, ['BRCA']);
+    
     const baseParams = {
-      condition: patientProfile.diagnosis,
+      condition: brcaCondition,
       age: patientProfile.age,
-      gender: patientProfile.gender
+      gender: patientProfile.gender,
+      pageNumber: 1,
+      pageSize: 50
     };
     if (trialLocation) Object.assign(baseParams, {
       country: trialLocation.country,
@@ -340,13 +600,17 @@ export async function searchTrialsByGenomicProfile(genomicProfile, patientProfil
 
   // Search for TMB-high trials (immunotherapy)
     if (genomicProfile.biomarkers?.tumorMutationalBurden?.interpretation === 'high') {
+    const tmbCondition = buildSearchCondition(patientProfile, ['TMB', 'immunotherapy']);
+    
     const baseParamsTMB = {
       biomarker: 'TMB-high',
-      condition: patientProfile.diagnosis,
+      condition: tmbCondition,
       intervention: 'pembrolizumab OR nivolumab OR immunotherapy',
       age: patientProfile.age,
       gender: patientProfile.gender,
-      status: 'recruiting'
+      status: 'recruiting',
+      pageNumber: 1,
+      pageSize: 50
     };
     if (trialLocation) Object.assign(baseParamsTMB, {
       country: trialLocation.country,
@@ -361,13 +625,17 @@ export async function searchTrialsByGenomicProfile(genomicProfile, patientProfil
 
   // Search for MSI-H trials
     if (genomicProfile.biomarkers?.microsatelliteInstability?.status === 'MSI-H') {
+    const msiCondition = buildSearchCondition(patientProfile, ['MSI-H']);
+    
     const baseParamsMSI = {
       biomarker: 'MSI-H',
-      condition: patientProfile.diagnosis,
+      condition: msiCondition,
       intervention: 'pembrolizumab',
       age: patientProfile.age,
       gender: patientProfile.gender,
-      status: 'recruiting'
+      status: 'recruiting',
+      pageNumber: 1,
+      pageSize: 50
     };
     if (trialLocation) Object.assign(baseParamsMSI, {
       country: trialLocation.country,
@@ -382,13 +650,17 @@ export async function searchTrialsByGenomicProfile(genomicProfile, patientProfil
 
   // Search for HRD-positive trials (PARP inhibitors)
     if (genomicProfile.biomarkers?.hrdScore?.interpretation === 'HRD-positive') {
+    const hrdCondition = buildSearchCondition(patientProfile, ['HRD', 'PARP']);
+    
     const baseParamsHRD = {
       biomarker: 'HRD-positive',
-      condition: patientProfile.diagnosis,
+      condition: hrdCondition,
       intervention: 'olaparib OR rucaparib OR niraparib OR PARP inhibitor',
       age: patientProfile.age,
       gender: patientProfile.gender,
-      status: 'recruiting'
+      status: 'recruiting',
+      pageNumber: 1,
+      pageSize: 50
     };
     if (trialLocation) Object.assign(baseParamsHRD, {
       country: trialLocation.country,
@@ -410,12 +682,16 @@ export async function searchTrialsByGenomicProfile(genomicProfile, patientProfil
     // Search for trials targeting specific genes
     const topGenes = otherMutations.slice(0, 3); // Limit to top 3 mutations
     topGenes.forEach(mutation => {
+      // Build condition with cancer type/subtype, disease status, and mutation gene
+      const mutationCondition = buildSearchCondition(patientProfile, [mutation.gene]);
+      
       const gp = {
-        gene: mutation.gene,
-        condition: patientProfile.diagnosis,
+        condition: mutationCondition,
         age: patientProfile.age,
         gender: patientProfile.gender,
-        status: 'recruiting'
+        status: 'recruiting',
+        pageNumber: 1,
+        pageSize: 50
       };
       if (trialLocation) Object.assign(gp, {
         country: trialLocation.country,
@@ -429,12 +705,34 @@ export async function searchTrialsByGenomicProfile(genomicProfile, patientProfil
     });
   }
 
-  // General search by diagnosis
+  // General search by diagnosis - include cancer type, subtype, disease status, and mutations
+  const mutationTerms = [];
+  if (genomicProfile.mutations && genomicProfile.mutations.length > 0) {
+    const importantMutations = genomicProfile.mutations
+      .filter(m => m.gene)
+      .slice(0, 3)
+      .map(m => m.gene);
+    mutationTerms.push(...importantMutations);
+  }
+  
+  // Add important CNVs (like CCNE1)
+  if (genomicProfile.cnvs && genomicProfile.cnvs.length > 0) {
+    const importantCNVs = genomicProfile.cnvs
+      .filter(cnv => cnv.gene)
+      .slice(0, 2)
+      .map(cnv => cnv.gene);
+    mutationTerms.push(...importantCNVs);
+  }
+  
+  const generalCondition = buildSearchCondition(patientProfile, mutationTerms);
+  
   const generalParams = {
-    condition: patientProfile.diagnosis,
+    condition: generalCondition,
     age: patientProfile.age,
     gender: patientProfile.gender,
-    status: 'recruiting'
+    status: 'recruiting',
+    pageNumber: 1,
+    pageSize: 50
   };
   if (trialLocation) Object.assign(generalParams, {
     country: trialLocation.country,

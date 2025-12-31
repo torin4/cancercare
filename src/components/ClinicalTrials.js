@@ -12,6 +12,8 @@ const ClinicalTrials = () => {
   const [searchProgress, setSearchProgress] = useState(null);
   const [savedTrials, setSavedTrials] = useState([]);
   const [selectedTrial, setSelectedTrial] = useState(null);
+  const [pagination, setPagination] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const [patientProfile, setPatientProfile] = useState(null);
   const [genomicProfile, setGenomicProfile] = useState(null);
@@ -91,6 +93,7 @@ const ClinicalTrials = () => {
 
       if (results.success) {
         setSearchResults(results.trials);
+        setPagination(results.pagination || null);
         // prefer explicit searchSources from service, fallback to trial.source
         const sources = results.searchSources && results.searchSources.length > 0
           ? results.searchSources
@@ -99,6 +102,7 @@ const ClinicalTrials = () => {
       } else {
         setError(results.error || 'No trials found');
         setSearchSources(results.searchSources || []);
+        setPagination(null);
       }
     } catch (error) {
       console.error('Error searching trials:', error);
@@ -403,8 +407,45 @@ const ClinicalTrials = () => {
 
               <h2 className="text-xl font-bold text-gray-900 mb-4">
                 Found {searchResults.length} Matching Trials
+                {pagination && pagination.totalResults && (
+                  <span className="text-base font-normal text-gray-600 ml-2">
+                    (of {pagination.totalResults} total)
+                  </span>
+                )}
               </h2>
-              {searchResults.map(trial => renderTrialCard(trial, false))}
+              <div className="space-y-4">
+                {searchResults.map(trial => renderTrialCard(trial, false))}
+                
+                {/* Load More Button */}
+                {pagination && pagination.hasMore && (
+                  <div className="flex justify-center pt-6">
+                    <button
+                      onClick={handleLoadMore}
+                      disabled={loadingMore || searching}
+                      className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {loadingMore ? (
+                        <>
+                          <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Loading...
+                        </>
+                      ) : (
+                        <>
+                          Load More
+                          {pagination.totalResults && (
+                            <span className="text-sm opacity-75">
+                              ({searchResults.length} of {pagination.totalResults})
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

@@ -135,13 +135,14 @@ Return a JSON object with this EXACT structure:
         }
       ],
 
-      // Copy Number Variants
+      // Copy Number Variants (CRITICAL: Always extract CCNE1 if mentioned as amplification/gain)
       "copyNumberVariants": [
         {
           "gene": "CCNE1",
           "type": "amplification|deletion",
           "copyNumber": 6,
-          "significance": "pathogenic"
+          "significance": "pathogenic",
+          "note": "Platinum resistance marker"
         }
       ],
 
@@ -235,12 +236,21 @@ For genomic/genetic test reports (FoundationOne, Guardant360, Tempus xT, Tempus 
 
 GENERAL EXTRACTION:
 - Extract EVERY mutation listed, not just significant ones
-- Use official HUGO gene names (BRCA1 not brca1, TP53 not p53)
+- Use official HUGO gene names (BRCA1 not brca1, TP53 not p53, CCNE1 not ccne1)
 - Include exact alteration notation (c.5266dupC, p.Arg273His, E545K, etc.)
 - Capture Variant Allele Frequency (VAF) percentages
 - Note ALL FDA-approved therapies mentioned
 - Flag genes/biomarkers that make patient eligible for trials
 - Capture test name, lab, dates, specimen type, tumor purity
+
+CRITICAL GENES TO ALWAYS EXTRACT (if present):
+- CCNE1: Extract if mentioned as amplification, copy number gain, or any alteration (CRITICAL for ovarian cancer - platinum resistance marker)
+- BRCA1, BRCA2: Extract all variants (germline or somatic)
+- TP53: Extract all variants
+- PIK3CA: Extract all variants
+- Any gene from the important genes list: CCNE1, BRCA1, BRCA2, PIK3CA, ATM, BRD4, TP53, KRAS, EGFR, CCND1
+- If CCNE1 appears as "amplified", "copy number gain", "CNV", or similar - extract it in copyNumberVariants array
+- If CCNE1 appears as a mutation/variant - extract it in mutations array
 
 BIOMARKERS:
 - Extract TMB as numeric value with unit (e.g., 12.5 mutations/megabase)
@@ -253,8 +263,16 @@ TEMPUS-SPECIFIC:
 - Distinguish somatic vs germline mutations (use mutationType field)
 - Extract RNA-detected fusions (mark source as "RNA sequencing")
 - Note gene expression data if mentioned
-- Extract CCNE1 amplification status (platinum resistance marker)
+- Extract CCNE1 amplification status (platinum resistance marker) - CRITICAL for ovarian cancer
 - Capture ovarian-specific markers for TOP panel
+
+COPY NUMBER VARIANTS (CNVs) - CRITICAL EXTRACTION:
+- ALWAYS extract CCNE1 if it appears as: "amplified", "copy number gain", "CNV", "amplification", "copy number > 2", or similar
+- Extract ALL copy number variants, not just significant ones
+- For CCNE1 specifically: This is a critical platinum resistance marker in ovarian cancer - extract it even if copy number is not explicitly stated
+- Include copy number value if available (e.g., 6, 8, 10+)
+- Note if it's an amplification (gain) or deletion (loss)
+- Extract clinical significance if mentioned
 
 GERMLINE FINDINGS:
 - Separate germline findings in germlineFindings array
