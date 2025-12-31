@@ -106,10 +106,11 @@ async function applyLocationFilters(trials, params) {
       // Check trial locations
       const locations = t.locations || [];
       if (locations.length === 0) {
-        // If no location data and country filter is active, exclude the trial
-        // (we can't verify it's in the requested country)
-        console.warn(`Trial ${t.id} has no location data, excluding from country-filtered results`);
-        return false;
+        // If no location data and country filter is active, include the trial
+        // (we can't verify it's NOT in the requested country, so be permissive)
+        // This is necessary because the API often doesn't return location data
+        console.log(`Trial ${t.id} has no location data, including it (cannot verify country)`);
+        return true;
       }
       
       return locations.some(loc => {
@@ -382,7 +383,12 @@ export async function searchCTGov(params) {
       studies = raw.StudyFieldsResponse.Study || [];
       console.log('Using legacy StudyFieldsResponse format, studies count:', studies.length);
       if (studies.length > 0) {
-        console.log('First study sample:', JSON.stringify(studies[0], null, 2).substring(0, 300));
+        console.log('First study sample:', JSON.stringify(studies[0], null, 2).substring(0, 500));
+        // Log location fields specifically
+        const firstStudy = studies[0];
+        console.log('First study LocationCity:', firstStudy.LocationCity);
+        console.log('First study LocationCountry:', firstStudy.LocationCountry);
+        console.log('First study all keys:', Object.keys(firstStudy));
       }
     } else if (raw && Array.isArray(raw)) {
       studies = raw;
