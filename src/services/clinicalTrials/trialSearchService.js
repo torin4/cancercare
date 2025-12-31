@@ -149,6 +149,17 @@ export async function searchTrials(params) {
     const { cond, term } = buildCTGovExpr(params);
     const fields = ['NCTId', 'BriefTitle', 'Condition', 'OverallStatus', 'Phase', 'BriefSummary', 'LocationCity', 'LocationCountry'].join(',');
     
+    // Log query parameters for debugging
+    console.log('=== ClinicalTrials.gov Query Parameters ===');
+    console.log('query.cond (Condition/Disease):', cond || '(empty)');
+    console.log('query.term (Other terms - genes, subtype, biomarkers):', term || '(empty)');
+    if (params?.country) {
+      console.log('Location filter:', params.country, params.includeAllLocations ? '(including all locations)' : '(specific country only)');
+    }
+    console.log('Page:', pageNumber, '| Page Size:', pageSize);
+    console.log('Fields requested:', fields);
+    console.log('==========================================');
+    
     // Check if query is too long for GET request (limit ~2000 chars for URL)
     const queryLength = encodeURIComponent(cond).length + encodeURIComponent(term).length;
     const maxUrlLength = 2000;
@@ -170,6 +181,11 @@ export async function searchTrials(params) {
         fmt: 'json'
       };
       
+      // Log POST data
+      console.log('=== POST Request Data ===');
+      console.log(JSON.stringify(postData, null, 2));
+      console.log('========================');
+      
       ctRaw = await axios.post(PROXY_BASE, postData, {
         timeout: 20000,
         headers: {
@@ -187,7 +203,10 @@ export async function searchTrials(params) {
       // Use GET request for shorter queries
       const proxyUrl = `${PROXY_BASE}?source=ctgov&query.term=${encodeURIComponent(term || '')}&query.cond=${encodeURIComponent(cond || '')}&fields=${encodeURIComponent(fields)}&pageSize=${pageSize}&pageNumber=${pageNumber}&fmt=json`;
       
-      console.log('Searching ClinicalTrials.gov with URL:', proxyUrl.substring(0, 200) + (proxyUrl.length > 200 ? '...' : ''));
+      // Log full URL (not truncated)
+      console.log('=== GET Request URL ===');
+      console.log(proxyUrl);
+      console.log('========================');
       
       ctRaw = await axios.get(proxyUrl, { 
         timeout: 20000,
