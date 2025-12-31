@@ -492,8 +492,13 @@ export const symptomService = {
 
   // Add symptom
   async addSymptom(symptomData) {
+    // Filter out undefined values to prevent Firestore errors
+    const cleanData = Object.fromEntries(
+      Object.entries(symptomData).filter(([_, value]) => value !== undefined)
+    );
+    
     const docRef = await addDoc(collection(db, COLLECTIONS.SYMPTOMS), {
-      ...symptomData,
+      ...cleanData,
       createdAt: serverTimestamp()
     });
     return docRef.id;

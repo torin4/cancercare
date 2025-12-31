@@ -173,13 +173,20 @@ async function saveExtractedData(extractedData, userId) {
     // Save Symptoms
     if (extractedData.symptoms?.length > 0) {
       for (const symptom of extractedData.symptoms) {
-        const symptomId = await symptomService.addSymptom({
+        // Build symptom data object, only including defined fields
+        const symptomData = {
           patientId: userId,
           name: symptom.name,
-          severity: symptom.severity,
           date: new Date(symptom.date),
           notes: symptom.notes || ''
-        });
+        };
+        
+        // Only add severity if it's defined and not empty
+        if (symptom.severity && symptom.severity.trim() !== '') {
+          symptomData.severity = symptom.severity;
+        }
+        
+        const symptomId = await symptomService.addSymptom(symptomData);
 
         saved.symptoms.push({ symptomId, ...symptom });
       }
