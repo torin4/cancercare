@@ -1049,10 +1049,12 @@ export default function CancerCareApp() {
         const labs = await labService.getLabs(user.uid);
         const transformedLabs = transformLabsData(labs);
         setLabsData(transformedLabs);
+        setHasRealLabData(labs.length > 0);
 
         const vitals = await vitalService.getVitals(user.uid);
         const transformedVitals = transformVitalsData(vitals);
         setVitalsData(transformedVitals);
+        setHasRealVitalData(vitals.length > 0);
 
         // Reload genomic profile
         const genomic = await genomicProfileService.getGenomicProfile(user.uid);
@@ -1373,7 +1375,7 @@ export default function CancerCareApp() {
               const importantLabKeys = Object.keys(labsData)
                 .filter(key => {
                   const lab = labsData[key];
-                  return lab && lab.history && lab.history.length > 0 && lab.relevanceScore >= 2;
+                  return lab && ((lab.data && lab.data.length > 0) || lab.current) && lab.relevanceScore >= 1;
                 })
                 .sort((a, b) => {
                   const labA = labsData[a];
@@ -1382,7 +1384,7 @@ export default function CancerCareApp() {
                   if (labB.relevanceScore !== labA.relevanceScore) {
                     return labB.relevanceScore - labA.relevanceScore;
                   }
-                  const criticalOrder = ['ca125', 'cea', 'wbc', 'hemoglobin', 'platelets'];
+                  const criticalOrder = ['ca125', 'cea', 'wbc', 'hemoglobin', 'platelets', 'creatinine', 'alt', 'ast', 'albumin', 'ldh'];
                   const idxA = criticalOrder.indexOf(a.toLowerCase());
                   const idxB = criticalOrder.indexOf(b.toLowerCase());
                   if (idxA !== -1 && idxB !== -1) return idxA - idxB;
@@ -1390,23 +1392,77 @@ export default function CancerCareApp() {
                   if (idxB !== -1) return 1;
                   return 0;
                 })
-                .slice(0, 3); // Top 3 labs
+                .slice(0, 5); // Top 5 labs
 
-              // Get most important vitals (weight, blood pressure)
+              // Get most important vitals (weight, blood pressure, temperature, heart rate)
               const importantVitalKeys = Object.keys(vitalsData)
                 .filter(key => {
                   const vital = vitalsData[key];
                   return vital && ((vital.data && vital.data.length > 0) || vital.current);
                 })
-                .filter(key => ['weight', 'bp'].includes(key.toLowerCase()))
-                .slice(0, 2); // Top 2 vitals
+                .filter(key => ['weight', 'bp', 'bloodpressure', 'temperature', 'temp', 'heartrate', 'hr', 'pulse'].includes(key.toLowerCase()))
+                .slice(0, 3); // Top 3 vitals
 
               const allImportantItems = [
                 ...importantLabKeys.map(key => ({ type: 'lab', key, data: labsData[key] })),
                 ...importantVitalKeys.map(key => ({ type: 'vital', key, data: vitalsData[key] }))
               ].slice(0, 5); // Max 5 items in the row
 
-              if (allImportantItems.length === 0) return null;
+              // If no important items found, try to show any available data
+              if (allImportantItems.length === 0) {
+                // Fallback: show any labs or vitals with data
+                const anyLabKeys = Object.keys(labsData)
+                  .filter(key => {
+                    const lab = labsData[key];
+                    return lab && ((lab.data && lab.data.length > 0) || lab.current);
+                  })
+                  .slice(0, 3);
+                
+                const anyVitalKeys = Object.keys(vitalsData)
+                  .filter(key => {
+                    const vital = vitalsData[key];
+                    return vital && ((vital.data && vital.data.length > 0) || vital.current);
+                  })
+                  .slice(0, 2);
+                
+                const fallbackItems = [
+                  ...anyLabKeys.map(key => ({ type: 'lab', key, data: labsData[key] })),
+                  ...anyVitalKeys.map(key => ({ type: 'vital', key, data: vitalsData[key] }))
+                ].slice(0, 5);
+                
+                if (fallbackItems.length === 0) return null;
+                
+                // Use fallback items
+                return (
+                  <div className="bg-white rounded-lg sm:rounded-xl p-4 border border-gray-200 shadow-sm">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Key Metrics</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                      {fallbackItems.map((item) => {
+                        const data = item.data;
+                        let latestValue = (data.data && data.data.length > 0)
+                          ? data.data[data.data.length - 1]?.value
+                          : data.current;
+                        const status = data.status || 'normal';
+                        
+                        return (
+                          <div key={`${item.type}-${item.key}`} className="text-center">
+                            <div className="flex items-center justify-center gap-1 mb-1">
+                              <span className="text-xs text-gray-600">{data.name}</span>
+                              <Activity className={`w-3 h-3 ${status === 'warning' ? 'text-orange-500' : status === 'danger' ? 'text-red-500' : 'text-green-500'}`} />
+                            </div>
+                            <p className="text-lg sm:text-xl font-bold text-gray-900">{latestValue}{data.unit ? ` ${data.unit}` : ''}</p>
+                            {status !== 'normal' && (
+                              <p className={`text-xs mt-0.5 ${status === 'warning' ? 'text-orange-600' : 'text-red-600'}`}>
+                                {status === 'warning' ? 'Above normal' : 'High'}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
 
               return (
                 <div className="bg-white rounded-lg sm:rounded-xl p-4 border border-gray-200 shadow-sm">
@@ -1414,11 +1470,11 @@ export default function CancerCareApp() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                     {allImportantItems.map((item) => {
                       const data = item.data;
-                      // Get latest value - labs have history array, vitals have data array or current
+                      // Get latest value - labs and vitals both have data array or current
                       let latestValue;
                       if (item.type === 'lab') {
-                        latestValue = data.history && data.history.length > 0 
-                          ? data.history[data.history.length - 1]?.value 
+                        latestValue = (data.data && data.data.length > 0)
+                          ? data.data[data.data.length - 1]?.value
                           : data.current;
                       } else {
                         // Vitals structure
