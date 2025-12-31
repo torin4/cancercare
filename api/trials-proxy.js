@@ -108,9 +108,17 @@ module.exports = async (req, res) => {
       // Use new v2 API endpoint
       target = `https://clinicaltrials.gov/api/v2/studies?${v2Params.join('&')}`;
       
-      console.log('trials-proxy: CTGov v2 API URL:', target);
-      console.log('trials-proxy: query.term:', queryTermParam || 'none');
-      console.log('trials-proxy: query.cond:', queryCondParam || 'none');
+      // Enhanced logging for debugging
+      console.log('=== trials-proxy: ClinicalTrials.gov v2 API Request ===');
+      console.log('Full API URL:', target);
+      console.log('query.cond (Condition/Disease):', queryCondParam || '(not provided)');
+      console.log('query.term (Other terms):', queryTermParam || '(not provided)');
+      if (country) {
+        console.log('query.locn (Location filter):', country, includeAllLocations ? '(but including all locations)' : '(country-specific)');
+      }
+      console.log('pageSize:', v2PageSize, '| pageNumber:', v2PageNumber);
+      console.log('Fields:', fields || 'default fields');
+      console.log('========================================================');
     } else if (source === 'who') {
       const path = params.get('path') || 'api/v1/trials';
       target = `https://trialsearch.who.int/${path}${forwardQs ? `?${forwardQs}` : ''}`;
