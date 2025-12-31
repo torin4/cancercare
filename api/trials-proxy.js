@@ -77,18 +77,29 @@ module.exports = async (req, res) => {
       if (source === 'ctgov') {
         const d = response.data || {};
         
+        console.log('trials-proxy: CTGov response structure:', {
+          hasStudyFieldsResponse: !!d.StudyFieldsResponse,
+          hasStudies: !!d.studies,
+          hasData: !!d.data,
+          keys: Object.keys(d),
+          status: response.status
+        });
+        
         // Check if it's already in legacy format (fallback from old API)
         if (d.StudyFieldsResponse && d.StudyFieldsResponse.Study) {
+          console.log('trials-proxy: Using legacy StudyFieldsResponse format, studies:', d.StudyFieldsResponse.Study.length);
           res.status(response.status).setHeader('Content-Type', 'application/json');
           return res.json(d);
         }
 
         // v2 API structure: response has `studies` array
-        const items = d.studies || [];
+        const items = d.studies || d.data || [];
         const studies = [];
         
+        console.log('trials-proxy: Processing v2 API format, items count:', items.length);
+        
         if (Array.isArray(items) && items.length > 0) {
-          items.forEach(study => {
+          items.forEach((study, idx) => {
             // v2 API structure: study.protocolSection contains all the data
             const protocolSection = study.protocolSection || {};
             const identificationModule = protocolSection.identificationModule || {};
@@ -98,8 +109,11 @@ module.exports = async (req, res) => {
             const conditionsModule = protocolSection.conditionsModule || {};
             const contactsLocationsModule = protocolSection.contactsLocationsModule || {};
 
-            const id = identificationModule.nctId || '';
-            if (!id) return; // Skip if no ID
+            const id = identificationModule.nctId || study.nctId || '';
+            if (!id) {
+              console.warn(`trials-proxy: Study ${idx} has no nctId, skipping`);
+              return; // Skip if no ID
+            }
 
             // Extract all fields in legacy array format
             const studyObj = {
@@ -130,7 +144,11 @@ module.exports = async (req, res) => {
 
             studies.push(studyObj);
           });
+        } else {
+          console.warn('trials-proxy: No items array found or empty. Response data:', JSON.stringify(d, null, 2).substring(0, 500));
         }
+
+        console.log('trials-proxy: Normalized studies count:', studies.length);
 
         // Return in legacy StudyFieldsResponse format for compatibility
         const out = { 

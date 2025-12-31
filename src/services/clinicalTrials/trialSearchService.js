@@ -122,12 +122,29 @@ export async function searchTrials(params) {
     });
     
     if (ctRaw) {
+      console.log('ClinicalTrials.gov raw response structure:', {
+        hasStudyFieldsResponse: !!ctRaw.StudyFieldsResponse,
+        hasStudies: !!ctRaw.studies,
+        hasData: !!ctRaw.data,
+        keys: Object.keys(ctRaw),
+        studyFieldsResponseKeys: ctRaw.StudyFieldsResponse ? Object.keys(ctRaw.StudyFieldsResponse) : null,
+        studyCount: ctRaw.StudyFieldsResponse?.Study?.length || ctRaw.studies?.length || 0
+      });
       const ctResult = await searchCTGov({ ...params, _rawCTGovResponse: ctRaw });
+      console.log('searchCTGov result:', {
+        success: ctResult.success,
+        trialsLength: ctResult.trials?.length,
+        error: ctResult.error
+      });
       if (ctResult.success && ctResult.trials.length > 0) {
         if (typeof onProgress === 'function') onProgress(`ClinicalTrials.gov returned ${ctResult.trials.length} results`);
         return { ...ctResult, attemptedSources: attempted };
       } else {
         console.warn('ClinicalTrials.gov returned no trials:', ctResult);
+        // Log the raw response for debugging
+        if (ctRaw.StudyFieldsResponse) {
+          console.log('StudyFieldsResponse structure:', JSON.stringify(ctRaw.StudyFieldsResponse, null, 2).substring(0, 500));
+        }
       }
     } else {
       console.warn('ClinicalTrials.gov returned null response');
@@ -147,10 +164,28 @@ export async function searchCTGov(params) {
     // If a raw response was provided (via proxy), normalize it; otherwise attempt direct call
     const raw = params && params._rawCTGovResponse;
     let studies = [];
+    
+    console.log('searchCTGov - raw response check:', {
+      hasRaw: !!raw,
+      rawType: raw ? typeof raw : null,
+      isArray: Array.isArray(raw),
+      hasStudyFieldsResponse: raw?.StudyFieldsResponse ? true : false,
+      studyFieldsResponseKeys: raw?.StudyFieldsResponse ? Object.keys(raw.StudyFieldsResponse) : null
+    });
+    
     if (raw && raw.StudyFieldsResponse) {
       studies = raw.StudyFieldsResponse.Study || [];
+      console.log('Using StudyFieldsResponse format, studies count:', studies.length);
+      if (studies.length > 0) {
+        console.log('First study sample:', JSON.stringify(studies[0], null, 2).substring(0, 300));
+      }
     } else if (raw && Array.isArray(raw)) {
       studies = raw;
+      console.log('Using array format, studies count:', studies.length);
+    } else if (raw && raw.studies) {
+      // Handle v2 API format that might have been normalized differently
+      studies = raw.studies;
+      console.log('Using raw.studies format, studies count:', studies.length);
     } else {
       // Build expression - use proxy instead of direct API call for better reliability
       const { condition, age, gender } = params;
@@ -172,20 +207,40 @@ export async function searchCTGov(params) {
       }
     }
 
-    let trials = studies.map(s => ({
-      id: s.NCTId?.[0] || null,
-      source: 'ClinicalTrials.gov',
-      title: s.BriefTitle?.[0] || '',
-      conditions: s.Condition || [],
-      status: s.OverallStatus?.[0] || '',
-      phase: s.Phase?.[0] || '',
-      summary: s.BriefSummary?.[0] || '',
-      locations: (s.LocationCity || []).map((city, idx) => ({ city, country: s.LocationCountry?.[idx] || '' })),
-      url: s.NCTId?.[0] ? `https://clinicaltrials.gov/study/${s.NCTId[0]}` : null
-    }));
+    console.log('searchCTGov - studies array length:', studies.length);
+    
+    if (studies.length === 0) {
+      console.warn('No studies found in response. Raw response keys:', raw ? Object.keys(raw) : 'no raw');
+      if (raw) {
+        console.warn('Raw response sample:', JSON.stringify(raw, null, 2).substring(0, 1000));
+      }
+      return { success: false, source: 'ClinicalTrials.gov', totalResults: 0, trials: [], error: 'No studies found in API response' };
+    }
+
+    let trials = studies.map(s => {
+      const trial = {
+        id: s.NCTId?.[0] || s.NCTId || null,
+        source: 'ClinicalTrials.gov',
+        title: s.BriefTitle?.[0] || s.BriefTitle || '',
+        conditions: s.Condition || [],
+        status: s.OverallStatus?.[0] || s.OverallStatus || '',
+        phase: s.Phase?.[0] || s.Phase || '',
+        summary: s.BriefSummary?.[0] || s.BriefSummary || '',
+        locations: (s.LocationCity || []).map((city, idx) => ({ 
+          city: typeof city === 'string' ? city : '', 
+          country: (s.LocationCountry?.[idx] || s.LocationCountry?.[0] || '') 
+        })),
+        url: (s.NCTId?.[0] || s.NCTId) ? `https://clinicaltrials.gov/study/${s.NCTId[0] || s.NCTId}` : null
+      };
+      return trial;
+    }).filter(t => t.id); // Filter out trials without IDs
+
+    console.log('searchCTGov - mapped trials count:', trials.length);
 
     // Apply location filters if provided
     trials = await applyLocationFilters(trials, params);
+
+    console.log('searchCTGov - after location filters:', trials.length);
 
     return { success: true, source: 'ClinicalTrials.gov', totalResults: trials.length, trials };
   } catch (error) {
