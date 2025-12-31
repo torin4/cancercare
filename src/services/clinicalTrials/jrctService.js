@@ -68,47 +68,24 @@ async function applyLocationFilters(trials, params) {
   // Country filter (simple string match) when includeAllLocations is false
   if (params.country && !params.includeAllLocations) {
     const countryLower = String(params.country).toLowerCase();
-    out = out.filter(t => (t.country || '').toLowerCase().includes(countryLower) ||
-      (t.locations || []).some(loc => {
-        const q = typeof loc === 'string' ? loc.toLowerCase() : ((loc.country || '') + ' ' + (loc.city || '')).toLowerCase();
-        return q.includes(countryLower);
-      })
-    );
+    out = out.filter(t => {
+      // Check trial's country field
+      if ((t.country || '').toLowerCase().includes(countryLower)) return true;
+      
+      // Check trial locations
+      const locations = t.locations || [];
+      return locations.some(loc => {
+        if (typeof loc === 'string') {
+          return loc.toLowerCase().includes(countryLower);
+        }
+        // Check location object's country field
+        const locCountry = (loc.country || '').toLowerCase();
+        return locCountry.includes(countryLower);
+      });
+    });
   }
 
-  // Radius filter (requires geocoding) — params.searchRadius in miles and params.city/country or params.zip
-  if (params.searchRadius && !params.includeAllLocations) {
-    // Build user location query from provided fields
-    const userParts = [];
-    if (params.city) userParts.push(params.city);
-    if (params.state) userParts.push(params.state);
-    if (params.zip) userParts.push(params.zip);
-    if (params.country) userParts.push(params.country);
-    const userQuery = userParts.join(', ');
-    const userGeo = await geocodeAddress(userQuery);
-    if (!userGeo) return out; // can't apply radius
-
-    const radius = Number(params.searchRadius) || 0;
-    const filtered = [];
-
-    // For each trial, see if any location geocodes within radius
-    for (const trial of out) {
-      const locs = trial.locations || [];
-      let keep = false;
-      for (const loc of locs) {
-        const q = locationToQuery(loc);
-        if (!q) continue;
-        const geo = await geocodeAddress(q);
-        if (!geo) continue;
-        const d = distanceMiles(userGeo.lat, userGeo.lon, geo.lat, geo.lon);
-        if (d <= radius) { keep = true; break; }
-      }
-      if (keep) filtered.push(trial);
-    }
-
-    return filtered;
-  }
-
+  // If includeAllLocations is true, return all trials (no filtering)
   return out;
 }
 

@@ -193,8 +193,6 @@ export async function searchAndMatchTrials(userId, patientProfile, genomicProfil
       };
       if (trialLocation) {
         params.country = trialLocation.country;
-        params.city = trialLocation.city;
-        params.searchRadius = trialLocation.searchRadius;
         params.includeAllLocations = trialLocation.includeAllLocations;
       }
       searchResults = await searchJRCT(params);

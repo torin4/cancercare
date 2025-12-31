@@ -802,15 +802,42 @@ export const accountService = {
       // First clear all health data
       await this.clearHealthData(userId);
 
+      // Delete genomic profile
+      try {
+        await deleteDoc(doc(db, COLLECTIONS.GENOMIC_PROFILES, userId));
+      } catch (error) {
+        // If it doesn't exist, that's okay
+        if (error.code !== 'not-found') {
+          console.warn('Error deleting genomic profile:', error);
+        }
+      }
+
       // Delete remaining profile/location data
-      await deleteDoc(doc(db, COLLECTIONS.PATIENTS, userId));
-      await deleteDoc(doc(db, COLLECTIONS.TRIAL_LOCATIONS, userId));
+      try {
+        await deleteDoc(doc(db, COLLECTIONS.PATIENTS, userId));
+      } catch (error) {
+        if (error.code !== 'not-found') {
+          console.warn('Error deleting patient profile:', error);
+        }
+      }
+
+      try {
+        await deleteDoc(doc(db, COLLECTIONS.TRIAL_LOCATIONS, userId));
+      } catch (error) {
+        if (error.code !== 'not-found') {
+          console.warn('Error deleting trial location:', error);
+        }
+      }
 
       // Delete emergency contacts
-      const q = query(collection(db, COLLECTIONS.EMERGENCY_CONTACTS), where('patientId', '==', userId));
-      const snapshot = await getDocs(q);
-      const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
-      await Promise.all(deletePromises);
+      try {
+        const q = query(collection(db, COLLECTIONS.EMERGENCY_CONTACTS), where('patientId', '==', userId));
+        const snapshot = await getDocs(q);
+        const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
+        await Promise.all(deletePromises);
+      } catch (error) {
+        console.warn('Error deleting emergency contacts:', error);
+      }
 
       console.log('Full user data deleted successfully');
     } catch (error) {
@@ -826,5 +853,6 @@ export const accountService = {
 export { default as trialAggregator } from '../services/clinicalTrials/jrctService';
 export { default as trialMatcher } from '../services/clinicalTrials/trialMatcher';
 export { default as clinicalTrialsService } from '../services/clinicalTrials/clinicalTrialsService';
+
 
 
