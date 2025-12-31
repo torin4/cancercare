@@ -225,7 +225,7 @@ const ClinicalTrials = () => {
             <span className="ml-2 text-gray-600">{trial.sponsor || 'N/A'}</span>
           </div>
           <div>
-            <span className="font-medium text-gray-700">Country:</span>
+            <span className="font-medium text-gray-700">Location:</span>
             <span className="ml-2 text-gray-600">{trial.country || 'Not specified'}</span>
           </div>
         </div>
