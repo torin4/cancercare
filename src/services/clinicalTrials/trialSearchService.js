@@ -118,7 +118,15 @@ async function applyLocationFilters(trials, params) {
         }
         // Check location object's country field
         const locCountry = (loc.country || '').toLowerCase();
-        return searchTerms.some(term => locCountry.includes(term));
+        if (locCountry && searchTerms.some(term => locCountry.includes(term))) {
+          return true;
+        }
+        // Also check city field (some locations might have country in city field)
+        const locCity = (loc.city || '').toLowerCase();
+        if (locCity && searchTerms.some(term => locCity.includes(term))) {
+          return true;
+        }
+        return false;
       });
     });
     
@@ -440,10 +448,34 @@ export async function searchCTGov(params) {
               ).filter(Boolean);
               const briefSummary = descriptionModule?.briefSummary || descriptionModule?.detailedDescription?.text || study.summary || '';
               
-              // Safely extract locations
+              // Safely extract locations from v2 API format
               const locations = contactsLocationsModule?.locations || [];
-              const locationCities = locations.map(loc => loc?.facility?.city || '').filter(Boolean);
-              const locationCountries = locations.map(loc => loc?.facility?.country || '').filter(Boolean);
+              const locationCities = [];
+              const locationCountries = [];
+              
+              locations.forEach(loc => {
+                // v2 API location structure: loc.facility.city, loc.facility.country
+                const city = loc?.facility?.city || loc?.city || '';
+                const country = loc?.facility?.country || loc?.country || '';
+                if (city) locationCities.push(city);
+                if (country) locationCountries.push(country);
+              });
+              
+              // Also check for location data in other possible fields
+              if (locationCities.length === 0 && locationCountries.length === 0) {
+                // Try alternative location fields
+                const altLocations = study.locations || study.locationCountries || [];
+                altLocations.forEach(loc => {
+                  if (typeof loc === 'string') {
+                    // If it's a country name, add it
+                    if (loc.length > 2 && !loc.includes(',')) {
+                      locationCountries.push(loc);
+                    }
+                  } else if (loc?.country) {
+                    locationCountries.push(loc.country);
+                  }
+                });
+              }
               
               // Convert v2 format to legacy StudyFieldsResponse format for compatibility
               return {
@@ -501,12 +533,25 @@ export async function searchCTGov(params) {
         });
       }
       
+      const status = s.OverallStatus?.[0] || s.OverallStatus || '';
+      const statusLower = status.toLowerCase();
+      
+      // Filter out non-recruiting trials
+      // Only include: RECRUITING, ACTIVE_NOT_RECRUITING is excluded
+      const isRecruiting = statusLower.includes('recruiting') && 
+                          !statusLower.includes('not_recruiting') && 
+                          !statusLower.includes('not recruiting');
+      
+      if (!isRecruiting) {
+        return null; // Skip non-recruiting trials
+      }
+
       const trial = {
         id: s.NCTId?.[0] || s.NCTId || null,
         source: 'ClinicalTrials.gov',
         title: s.BriefTitle?.[0] || s.BriefTitle || '',
         conditions: s.Condition || [],
-        status: s.OverallStatus?.[0] || s.OverallStatus || '',
+        status: status,
         phase: s.Phase?.[0] || s.Phase || '',
         summary: s.BriefSummary?.[0] || s.BriefSummary || '',
         locations: locations,
@@ -515,7 +560,7 @@ export async function searchCTGov(params) {
         url: (s.NCTId?.[0] || s.NCTId) ? `https://clinicaltrials.gov/study/${s.NCTId[0] || s.NCTId}` : null
       };
       return trial;
-    }).filter(t => t.id); // Filter out trials without IDs
+    }).filter(t => t && t.id); // Filter out null trials and trials without IDs
 
     console.log('searchCTGov - mapped trials count:', trials.length);
     if (trials.length > 0) {
