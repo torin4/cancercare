@@ -155,9 +155,9 @@ export async function searchTrials(params) {
     
     // Build v2 API compatible query parameters
     const { cond, term } = buildCTGovExpr(params);
-    const fields = ['NCTId', 'BriefTitle', 'Condition', 'OverallStatus', 'Phase', 'BriefSummary', 'LocationCity', 'LocationCountry'].join(',');
-    
-    // Log query parameters for debugging
+    // IMPORTANT: LocationCity and LocationCountry are NOT available in v2 API fields parameter
+    // Location data is only in full study response (protocolSection.contactsLocationsModule.locations)
+    // So we DON'T specify fields parameter - this forces API to return full v2 format with location data
     console.log('=== ClinicalTrials.gov Query Parameters ===');
     console.log('query.cond (Condition/Disease):', cond || '(empty)');
     console.log('query.term (Other terms - genes, subtype, biomarkers):', term || '(empty)');
@@ -209,7 +209,8 @@ export async function searchTrials(params) {
       });
     } else {
       // Use GET request for shorter queries
-      const proxyUrl = `${PROXY_BASE}?source=ctgov&query.term=${encodeURIComponent(term || '')}&query.cond=${encodeURIComponent(cond || '')}&fields=${encodeURIComponent(fields)}&pageSize=${pageSize}&pageNumber=${pageNumber}&fmt=json`;
+      // Don't specify fields parameter - get full study data with locations
+      const proxyUrl = `${PROXY_BASE}?source=ctgov&query.term=${encodeURIComponent(term || '')&query.cond=${encodeURIComponent(cond || '')&pageSize=${pageSize}&pageNumber=${pageNumber}&fmt=json`;
       
       // Log full URL (not truncated)
       console.log('=== GET Request URL ===');
@@ -426,7 +427,7 @@ export async function searchCTGov(params) {
           term = '';
         }
       }
-      
+      // Don't specify fields - get full study data with locations
       const fields = ['NCTId', 'BriefTitle', 'Condition', 'OverallStatus', 'Phase', 'BriefSummary', 'LocationCity', 'LocationCountry'].join(',');
       
       // Use proxy endpoint for better CORS handling and error management
