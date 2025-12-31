@@ -11,7 +11,7 @@ import {
   deleteDoc,
   serverTimestamp
 } from 'firebase/firestore';
-import { searchTrialsByGenomicProfile, matchesTrialEligibility } from './trialSearchService'';
+import { searchTrialsByGenomicProfile, matchesTrialEligibility } from './trialSearchService';
 import { trialLocationService } from '../../firebase/services';
 import { calculateTrialMatchScore, sortTrialsByMatch } from './trialMatcher';
 

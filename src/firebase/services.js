@@ -823,7 +823,7 @@ export const accountService = {
 // ==================== ADVANCED CLINICAL TRIAL SERVICES ====================
 // Import advanced trial services (JRCT integration, matching, etc.)
 // JRCT integration removed — expose the trial aggregation service instead
-export * as trialAggregator from '../services/clinicalTrials/trialSearchService'';
+export * as trialAggregator from '../services/clinicalTrials/trialSearchService';
 export { default as trialMatcher } from '../services/clinicalTrials/trialMatcher';
 export { default as clinicalTrialsService } from '../services/clinicalTrials/clinicalTrialsService';
 
