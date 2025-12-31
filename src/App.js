@@ -595,40 +595,31 @@ export default function CancerCareApp() {
       const today = new Date();
       const age = Math.floor((today - dob) / (365.25 * 24 * 60 * 60 * 1000));
 
-      // Save patient profile
-        await patientService.savePatient(user.uid, {
+      // Save patient profile with only fields collected in onboarding
+      await patientService.savePatient(user.uid, {
         email: user.email,
         name: formData.name,
         displayName: formData.name,
         dateOfBirth: formData.dateOfBirth,
         age: age,
-        gender: formData.gender,
-        phone: formData.phone,
-        address: formData.address,
-        city: formData.city,
-        country: formData.country,
-        height: formData.height,
-        weight: formData.weight,
-        state: formData.state,
-        zip: formData.zip,
-        diagnosis: formData.diagnosis,
-        diagnosisDate: formData.diagnosisDate,
-        cancerType: formData.cancerType,
-        cancerSubtype: formData.subtype,
-        stage: formData.stageOther || formData.stage,
-        oncologist: formData.oncologist,
-        hospital: formData.hospital,
+        gender: formData.gender || '',
+        country: formData.country || '',
+        height: formData.height ? parseFloat(formData.height) : null,
+        weight: formData.weight ? parseFloat(formData.weight) : null,
+        diagnosis: formData.diagnosis || formData.cancerType || '',
+        diagnosisDate: formData.diagnosisDate || '',
+        cancerType: formData.cancerType || '',
+        stage: formData.stage || '',
         // Save initial current status collected during onboarding
         currentStatus: {
-          diagnosis: formData.diagnosis,
-          diagnosisDate: formData.diagnosisDate,
+          diagnosis: formData.diagnosis || formData.cancerType || '',
+          diagnosisDate: formData.diagnosisDate || '',
           treatmentLine: formData.treatmentLine || '',
-          currentRegimen: formData.currentRegimen || '',
+          currentRegimen: '',
           performanceStatus: formData.performanceStatus || '',
           diseaseStatus: formData.diseaseStatus || '',
           baselineCa125: formData.baselineCa125 ? parseFloat(formData.baselineCa125) : null
         },
-        
         createdAt: new Date(),
         updatedAt: new Date(),
         profileComplete: true
@@ -636,19 +627,31 @@ export default function CancerCareApp() {
 
       // No emergency contact or primary care saved during onboarding (managed in app contacts)
 
-      // Update local patientProfile state so UI reflects saved name immediately
+      // Update local patientProfile state so UI reflects saved data immediately
       setPatientProfile(prev => ({
         ...prev,
         name: formData.name,
         age: age,
         dateOfBirth: formData.dateOfBirth,
-        diagnosis: formData.diagnosis || prev.diagnosis,
-        stage: formData.stageOther || formData.stage || prev.stage,
-        oncologist: formData.oncologist || prev.oncologist,
-        hospital: formData.hospital || prev.hospital,
+        gender: formData.gender || prev.gender,
+        diagnosis: formData.diagnosis || formData.cancerType || prev.diagnosis,
+        diagnosisDate: formData.diagnosisDate || prev.diagnosisDate,
+        cancerType: formData.cancerType || prev.cancerType,
+        stage: formData.stage || prev.stage,
         height: formData.height || prev.height,
         weight: formData.weight || prev.weight,
         country: formData.country || prev.country
+      }));
+
+      // Update currentStatus state so it shows in the Current Status section
+      setCurrentStatus(prev => ({
+        ...prev,
+        diagnosis: formData.diagnosis || formData.cancerType || prev.diagnosis,
+        diagnosisDate: formData.diagnosisDate || prev.diagnosisDate,
+        treatmentLine: formData.treatmentLine || prev.treatmentLine,
+        performanceStatus: formData.performanceStatus || prev.performanceStatus,
+        diseaseStatus: formData.diseaseStatus || prev.diseaseStatus,
+        baselineCa125: formData.baselineCa125 ? parseFloat(formData.baselineCa125) : prev.baselineCa125
       }));
 
       console.log('Onboarding completed successfully');
@@ -1201,11 +1204,6 @@ export default function CancerCareApp() {
   // Show login screen if not authenticated
   if (!user) {
     return <Login onLoginSuccess={() => setUser(auth.currentUser)} />;
-  }
-
-  // Show onboarding if the user needs it
-  if (needsOnboarding) {
-    return <Onboarding onComplete={handleOnboardingComplete} />;
   }
 
   return (
@@ -2619,12 +2617,30 @@ export default function CancerCareApp() {
 
                 <div className="flex-1">
                   <h2 className="font-bold text-lg">{patientProfile.name || user?.displayName || 'Patient'}</h2>
-                  <p className="text-sm text-gray-600">Age: {patientProfile.age || '--'}</p>
-                  <p className="text-sm text-gray-600">DOB: {patientProfile.dateOfBirth ? new Date(patientProfile.dateOfBirth).toLocaleDateString() : '--'}</p>
+                  <div className="space-y-1">
+                    <p className="text-sm text-gray-600">Age: {patientProfile.age || '--'}</p>
+                    <p className="text-sm text-gray-600">DOB: {patientProfile.dateOfBirth ? new Date(patientProfile.dateOfBirth).toLocaleDateString() : '--'}</p>
+                    {patientProfile.gender && (
+                      <p className="text-sm text-gray-600">Gender: {patientProfile.gender}</p>
+                    )}
+                    {patientProfile.country && (
+                      <p className="text-sm text-gray-600">Country: {patientProfile.country}</p>
+                    )}
+                    {(patientProfile.height || patientProfile.weight) && (
+                      <div className="flex gap-4 text-sm text-gray-600">
+                        {patientProfile.height && (
+                          <span>Height: {patientProfile.height} cm</span>
+                        )}
+                        {patientProfile.weight && (
+                          <span>Weight: {patientProfile.weight} kg</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   {/* Diagnosis and Stage removed from this Information block — shown under Current Status */}
                   <button
                     onClick={() => setShowEditInfo(true)}
-                    className="text-blue-600 text-sm font-medium mt-1 hover:underline"
+                    className="text-blue-600 text-sm font-medium mt-2 hover:underline"
                   >
                     Edit Information
                   </button>
@@ -4071,6 +4087,20 @@ export default function CancerCareApp() {
                   </div>
 
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                    <select
+                      value={patientProfile.gender || ''}
+                      onChange={(e) => setPatientProfile({ ...patientProfile, gender: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select gender</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis</label>
                     <input
                       type="text"
@@ -4235,6 +4265,7 @@ export default function CancerCareApp() {
                           name: patientProfile.name,
                           age: parseInt(patientProfile.age) || null,
                           dateOfBirth: patientProfile.dateOfBirth,
+                          gender: patientProfile.gender || '',
                           weight: parseFloat(patientProfile.weight) || null,
                           height: parseFloat(patientProfile.height) || null,
                           diagnosis: patientProfile.diagnosis || '',
@@ -4255,13 +4286,15 @@ export default function CancerCareApp() {
                           name: patientProfile.name,
                           age: parseInt(patientProfile.age) || '',
                           dateOfBirth: patientProfile.dateOfBirth,
+                          gender: patientProfile.gender || prev.gender,
                           weight: patientProfile.weight,
                           height: patientProfile.height,
                           diagnosis: patientProfile.diagnosis || prev.diagnosis,
                           diagnosisDate: patientProfile.diagnosisDate || prev.diagnosisDate,
                           cancerType: patientProfile.cancerType || prev.cancerType,
                           stage: patientProfile.stageOther || patientProfile.stage || prev.stage,
-                          stageOther: patientProfile.stageOther || prev.stageOther
+                          stageOther: patientProfile.stageOther || prev.stageOther,
+                          country: patientProfile.country || prev.country
                         }));
                         setShowEditInfo(false);
                         setMessages(prev => [...prev, {
@@ -4809,6 +4842,11 @@ export default function CancerCareApp() {
           </div>
         )
       }
+
+      {/* Patient Onboarding Modal */}
+      {needsOnboarding && (
+        <Onboarding onComplete={handleOnboardingComplete} />
+      )}
     </div >
   );
 }
