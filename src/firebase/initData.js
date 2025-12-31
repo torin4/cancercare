@@ -444,10 +444,10 @@ export const initAllData = async (patientId = 'mary') => {
     await initTrialLocation(patientId);
     console.log('✓ Trial location initialized');
 
-    console.log('✅ All data initialized successfully!');
+    console.log('All data initialized successfully!');
     return true;
   } catch (error) {
-    console.error('❌ Error initializing data:', error);
+    console.error('Error initializing data:', error);
     throw error;
   }
 };

@@ -823,14 +823,14 @@ function buildSearchCondition(patientProfile, additionalTerms = []) {
     // Add subtype to termParts (query.term) instead of cond (query.cond)
     // IMPORTANT: Subtype should be FIRST in query.term to match website search behavior
     termParts.unshift(subtype.trim()); // Use unshift to add at beginning
-    console.log(`buildSearchCondition: ✅ Adding subtype "${subtype.trim()}" to query.term (Other terms)`);
+    console.log(`buildSearchCondition: Adding subtype "${subtype.trim()}" to query.term (Other terms)`);
     console.log(`   Main diagnosis (query.cond): "${mainDiagnosis}"`);
     console.log(`   Subtype (query.term): "${subtype.trim()}"`);
   } else if (subtype && subtype === mainDiagnosis) {
     // Subtype is same as main diagnosis, no need to add it again
-    console.log(`buildSearchCondition: ⚠️ Subtype "${subtype}" is same as main diagnosis "${mainDiagnosis}", not adding to query.term`);
+    console.log(`buildSearchCondition: Subtype "${subtype}" is same as main diagnosis "${mainDiagnosis}", not adding to query.term`);
   } else if (!subtype || subtype.trim() === '') {
-    console.log(`buildSearchCondition: ⚠️ No subtype found - patientProfile.cancerType: "${subtype}"`);
+    console.log(`buildSearchCondition: No subtype found - patientProfile.cancerType: "${subtype}"`);
   }
   
   

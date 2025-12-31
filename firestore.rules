@@ -157,12 +157,17 @@ service cloud.firestore {
 
     // Matched Trials (JRCT Integration) - users can only access their own matched trials
     match /matchedTrials/{trialDocId} {
+      // Allow read if user is authenticated and document belongs to them
+      // This works for both get() and list() queries
       allow read: if request.auth != null &&
                      resource.data.patientId == request.auth.uid;
+      // Allow create if user is authenticated and sets their own patientId
       allow create: if request.auth != null && hasValidPatientId();
+      // Allow update if user is authenticated, owns the document, and keeps their patientId
       allow update: if request.auth != null &&
                        resource.data.patientId == request.auth.uid &&
                        hasValidPatientId();
+      // Allow delete if user is authenticated and owns the document
       allow delete: if request.auth != null &&
                        resource.data.patientId == request.auth.uid;
     }

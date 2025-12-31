@@ -1329,7 +1329,7 @@ export default function CancerCareApp() {
         ...prev.slice(0, -1), // Remove "Processing..." message
         {
           type: 'ai',
-          text: `✅ Document processed successfully!\n\nDocument Type: ${processingResult.documentType}\n\n${summary}\n\nAll data has been automatically saved to your health records.`,
+          text: `Document processed successfully!\n\nDocument Type: ${processingResult.documentType}\n\n${summary}\n\nAll data has been automatically saved to your health records.`,
           isAnalysis: true
         }
       ]);
@@ -1349,7 +1349,7 @@ export default function CancerCareApp() {
         ...prev.slice(0, -1), // Remove "Processing..." message
         {
           type: 'ai',
-          text: `❌ Failed to process document: ${error.message}\n\nThe file was not uploaded. Please try again or contact support if the issue persists.`
+          text: `Failed to process document: ${error.message}\n\nThe file was not uploaded. Please try again or contact support if the issue persists.`
         }
       ]);
 
@@ -3612,8 +3612,8 @@ export default function CancerCareApp() {
                                 <p className="text-xs text-gray-600 mt-1">{cnv.note}</p>
                               )}
                               {cnv.gene === 'CCNE1' && (
-                                <p className="text-xs text-orange-700 font-medium mt-1">
-                                  ⚠️ Platinum resistance marker - important for treatment planning
+                                <p className="text-xs text-orange-700 font-medium mt-1 flex items-center gap-1">
+                                  <AlertCircle className="w-4 h-4" /> Platinum resistance marker - important for treatment planning
                                 </p>
                               )}
                             </div>
@@ -4289,7 +4289,7 @@ export default function CancerCareApp() {
                           // Optionally show a success message
                           setMessages(prev => [...prev, {
                             type: 'ai',
-                            text: `✅ Logged symptom: ${quickLogSymptomForm.name} (${quickLogSymptomForm.severity})`
+                            text: `Logged symptom: ${quickLogSymptomForm.name} (${quickLogSymptomForm.severity})`
                           }]);
                         } catch (error) {
                           console.error('Error saving symptom:', error);
@@ -5114,7 +5114,7 @@ export default function CancerCareApp() {
                       setShowEditLocation(false);
                       setMessages(prev => [...prev, {
                         type: 'ai',
-                        text: '✅ Trial search location updated successfully!'
+                        text: 'Trial search location updated successfully!'
                       }]);
                     } catch (error) {
                       console.error('Error saving trial location:', error);
@@ -5393,7 +5393,7 @@ export default function CancerCareApp() {
                         setShowEditInfo(false);
                         setMessages(prev => [...prev, {
                           type: 'ai',
-                          text: '✅ Patient information updated successfully!'
+                          text: 'Patient information updated successfully!'
                         }]);
                       } catch (error) {
                         console.error('Error saving patient info:', error);
@@ -5633,7 +5633,7 @@ export default function CancerCareApp() {
                           cancerType: finalSubtype || prev.cancerType,
                           stage: currentStatus.stage || prev.stage
                         }));
-                        setMessages(prev => [...prev, { type: 'ai', text: '✅ Current status updated successfully!' }]);
+                        setMessages(prev => [...prev, { type: 'ai', text: 'Current status updated successfully!' }]);
                       } catch (err) {
                         console.error('Failed to save current status', err);
                         alert('Failed to save current status.');
@@ -5951,7 +5951,7 @@ export default function CancerCareApp() {
                         
                         setShowEditGenomic(false);
                         setEditingGenomicProfile(null);
-                        setMessages(prev => [...prev, { type: 'ai', text: '✅ Genomic profile updated successfully!' }]);
+                        setMessages(prev => [...prev, { type: 'ai', text: 'Genomic profile updated successfully!' }]);
                       } catch (err) {
                         console.error('Failed to save genomic profile', err);
                         alert('Failed to save genomic profile. Please try again.');
@@ -6240,7 +6240,7 @@ export default function CancerCareApp() {
                         setShowEditMedicalTeam(false);
                         setMessages(prev => [...prev, {
                           type: 'ai',
-                          text: '✅ Medical team information updated successfully!'
+                          text: 'Medical team information updated successfully!'
                         }]);
                       } catch (error) {
                         console.error('Error saving medical team:', error);

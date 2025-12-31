@@ -158,9 +158,10 @@ export function calculateTrialMatchScore(trial, patientProfile, genomicProfile =
           });
         }
       } else {
+        // Changed from high to medium severity - don't filter out trials, just note the mismatch
         issues.push({
           category: 'Genomic',
-          severity: 'high',
+          severity: 'medium',
           detail: `No genomic criteria match. Trial requires: ${trial.genomicCriteria.join(', ')}`
         });
       }
@@ -174,7 +175,7 @@ export function calculateTrialMatchScore(trial, patientProfile, genomicProfile =
       });
       
       if (eligibilityMatch.negativeMatches.length > 0) {
-        // Negative matches found - don't give points
+        // Negative matches found - don't give points, but keep as high severity (exclusions are important)
         issues.push({
           category: 'Genomic',
           severity: 'high',
@@ -206,6 +207,33 @@ export function calculateTrialMatchScore(trial, patientProfile, genomicProfile =
         category: 'Genomic',
         score: weights.genomic,
         detail: 'No specific genomic requirements'
+      });
+    }
+  }
+
+  // 4b. Bonus Genomic Match - Award bonus points for matching mutations/CNVs even if trial doesn't require them
+  // This increases match percentage when patient's genomic profile aligns with trial focus
+  if (genomicProfile && trial.eligibilityCriteria) {
+    const bonusMatches = findBonusGenomicMatches(trial, genomicProfile);
+    
+    if (bonusMatches.mutationMatches > 0 || bonusMatches.cnvMatches > 0) {
+      // Award bonus points: 2 points per mutation match, 3 points per CNV match (amplifications are more significant)
+      const bonusScore = (bonusMatches.mutationMatches * 2) + (bonusMatches.cnvMatches * 3);
+      totalScore += bonusScore;
+      maxPossibleScore += bonusScore; // Increase max score so percentage calculation includes bonus
+      
+      const bonusDetails = [];
+      if (bonusMatches.mutationMatches > 0) {
+        bonusDetails.push(`${bonusMatches.mutationMatches} mutation${bonusMatches.mutationMatches > 1 ? 's' : ''} (${bonusMatches.matchedMutations.join(', ')})`);
+      }
+      if (bonusMatches.cnvMatches > 0) {
+        bonusDetails.push(`${bonusMatches.cnvMatches} amplification${bonusMatches.cnvMatches > 1 ? 's' : ''} (${bonusMatches.matchedCnvs.join(', ')})`);
+      }
+      
+      matchDetails.push({
+        category: 'Genomic Bonus',
+        score: bonusScore,
+        detail: `Patient genomic profile matches trial focus: ${bonusDetails.join(', ')}`
       });
     }
   }
@@ -336,6 +364,95 @@ function checkGenomicMatches(trialCriteria, genomicProfile) {
     matches,
     mismatches,
     total: trialCriteria.length
+  };
+}
+
+/**
+ * Find bonus genomic matches - mutations/CNVs mentioned in eligibility text (even if not required)
+ * This gives bonus points when patient's genomic profile aligns with trial focus
+ * @param {Object} trial - Trial data with eligibilityCriteria.text
+ * @param {Object} genomicProfile - Patient's genomic profile (mutations, cnvs)
+ * @returns {Object} - Bonus match counts and matched genes
+ */
+function findBonusGenomicMatches(trial, genomicProfile) {
+  const eligibilityText = trial.eligibilityCriteria || '';
+  
+  if (!eligibilityText || typeof eligibilityText !== 'string') {
+    return {
+      mutationMatches: 0,
+      cnvMatches: 0,
+      matchedMutations: [],
+      matchedCnvs: []
+    };
+  }
+  
+  const textLower = eligibilityText.toLowerCase();
+  
+  // Split text into inclusion and exclusion sections
+  const exclusionSection = textLower.includes('exclusion criteria') 
+    ? textLower.split('exclusion criteria')[1] || ''
+    : '';
+  const inclusionSection = textLower.includes('inclusion criteria')
+    ? textLower.split('inclusion criteria')[1]?.split('exclusion criteria')[0] || textLower
+    : textLower;
+  
+  const matchedMutations = [];
+  const matchedCnvs = [];
+  
+  // Check mutations for positive mentions (not in exclusion)
+  if (genomicProfile.mutations && Array.isArray(genomicProfile.mutations)) {
+    genomicProfile.mutations.forEach(mutation => {
+      if (mutation.gene) {
+        const geneName = mutation.gene.toUpperCase();
+        const genePattern = new RegExp(`\\b${geneName}\\b|\\b${mutation.gene}\\b`, 'i');
+        
+        // Check if gene is mentioned in inclusion section or general text (not in exclusion)
+        // Only count if it's a positive mention (not preceded by "negative" or "exclude")
+        const isInExclusion = exclusionSection && genePattern.test(exclusionSection);
+        const isNegativeContext = /\b(?:negative|exclude|exclusion)\s+(?:for\s+)?(?:the\s+)?(?:presence\s+of\s+)?(?:a\s+)?(?:mutation\s+in\s+)?(?:mutation\s+of\s+)?[^.]*?/i.test(textLower);
+        
+        if (!isInExclusion && !isNegativeContext) {
+          // Check if gene is mentioned in inclusion section or general eligibility text
+          if (genePattern.test(inclusionSection) || (genePattern.test(textLower) && !exclusionSection)) {
+            matchedMutations.push(mutation.gene);
+          }
+        }
+      }
+    });
+  }
+  
+  // Check CNVs/amplifications for positive mentions (not in exclusion)
+  if (genomicProfile.cnvs && Array.isArray(genomicProfile.cnvs)) {
+    genomicProfile.cnvs.forEach(cnv => {
+      if (cnv.gene) {
+        const geneName = cnv.gene.toUpperCase();
+        const genePattern = new RegExp(`\\b${geneName}\\b|\\b${cnv.gene}\\b`, 'i');
+        
+        // Also check for amplification-specific terms
+        const amplificationTerms = ['amplification', 'amplified', 'copy number gain', 'cnv', 'copy number variant'];
+        const hasAmplificationTerm = amplificationTerms.some(term => 
+          textLower.includes(term) && genePattern.test(textLower)
+        );
+        
+        // Check if CNV is mentioned in inclusion section or general text (not in exclusion)
+        const isInExclusion = exclusionSection && genePattern.test(exclusionSection);
+        const isNegativeContext = /\b(?:negative|exclude|exclusion)\s+(?:for\s+)?(?:the\s+)?(?:presence\s+of\s+)?(?:a\s+)?(?:amplification\s+of\s+)?(?:deletion\s+of\s+)?/i.test(textLower);
+        
+        if (!isInExclusion && !isNegativeContext) {
+          // Check if gene/amplification is mentioned in inclusion section or general eligibility text
+          if (hasAmplificationTerm || genePattern.test(inclusionSection) || (genePattern.test(textLower) && !exclusionSection)) {
+            matchedCnvs.push(cnv.gene);
+          }
+        }
+      }
+    });
+  }
+  
+  return {
+    mutationMatches: matchedMutations.length,
+    cnvMatches: matchedCnvs.length,
+    matchedMutations: [...new Set(matchedMutations)], // Remove duplicates
+    matchedCnvs: [...new Set(matchedCnvs)] // Remove duplicates
   };
 }
 
@@ -658,12 +775,12 @@ function generateRecommendation(eligibilityLevel, matchDetails, issues) {
   const highIssues = issues.filter(i => i.severity === 'high');
 
   if (eligibilityLevel === 'highly_eligible') {
-    return `✅ Highly recommended. Patient meets all major eligibility criteria with ${matchDetails.length} strong matches. Consider discussing with oncologist.`;
+    return `Highly recommended. Patient meets all major eligibility criteria with ${matchDetails.length} strong matches. Consider discussing with oncologist.`;
   } else if (eligibilityLevel === 'potentially_eligible') {
     if (highIssues.length === 0) {
-      return `⚠️ Potentially eligible. Patient meets most criteria but has minor considerations. Review eligibility details with medical team.`;
+      return `Potentially eligible. Patient meets most criteria but has minor considerations. Review eligibility details with medical team.`;
     } else {
-      return `⚠️ Potentially eligible with considerations. ${highIssues[0].detail}. Consult with oncologist to determine if exceptions apply.`;
+      return `Potentially eligible with considerations. ${highIssues[0].detail}. Consult with oncologist to determine if exceptions apply.`;
     }
   } else {
     // For unlikely_eligible, explicitly list all high severity issues
@@ -671,9 +788,9 @@ function generateRecommendation(eligibilityLevel, matchDetails, issues) {
       const issueList = highIssues.map((issue, idx) => {
         return `${idx + 1}. ${issue.detail}`;
       }).join(' ');
-      return `❌ Unlikely eligible. The following high-severity issues disqualify this trial: ${issueList}. Consider exploring other trial options.`;
+      return `Unlikely eligible. The following high-severity issues disqualify this trial: ${issueList}. Consider exploring other trial options.`;
     } else {
-      return `❌ Not recommended. Patient does not meet sufficient eligibility criteria for this trial.`;
+      return `Not recommended. Patient does not meet sufficient eligibility criteria for this trial.`;
     }
   }
 }

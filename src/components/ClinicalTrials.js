@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { CheckCircle, AlertTriangle, XCircle, Star, Search as SearchIcon } from 'lucide-react';
 import { auth } from '../firebase/config';
 import { patientService, genomicProfileService, clinicalTrialsService, trialLocationService } from '../firebase/services';
 
@@ -164,11 +165,11 @@ const ClinicalTrials = () => {
   const getEligibilityBadge = (level) => {
     switch (level) {
       case 'highly_eligible':
-        return <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">✅ Highly Eligible</span>;
+        return <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Highly Eligible</span>;
       case 'potentially_eligible':
-        return <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-medium">⚠️ Potentially Eligible</span>;
+        return <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-medium flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> Potentially Eligible</span>;
       case 'unlikely_eligible':
-        return <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">❌ Unlikely Eligible</span>;
+        return <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium flex items-center gap-1"><XCircle className="w-4 h-4" /> Unlikely Eligible</span>;
       default:
         return <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">Unknown</span>;
     }
@@ -195,7 +196,7 @@ const ClinicalTrials = () => {
               onClick={() => handleToggleFavorite(trial.id, trial.isFavorite)}
               className="text-2xl ml-3"
             >
-              {trial.isFavorite ? '⭐' : '☆'}
+              <Star className={`w-5 h-5 ${trial.isFavorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
             </button>
           )}
         </div>
@@ -386,7 +387,7 @@ const ClinicalTrials = () => {
               <p><strong>Age:</strong> {patientProfile?.age || 'Not set'}</p>
               <p><strong>Gender:</strong> {patientProfile?.gender || 'Not set'}</p>
               {genomicProfile && (
-                <p><strong>Genomic Profile:</strong> ✅ Available (will be used for matching)</p>
+                <p className="flex items-center gap-1"><strong>Genomic Profile:</strong> <CheckCircle className="w-4 h-4 text-green-600" /> Available (will be used for matching)</p>
               )}
               {trialLocation && (
                 <p>
@@ -406,7 +407,11 @@ const ClinicalTrials = () => {
             disabled={searching || !patientProfile?.diagnosis}
             className="w-full bg-green-600 text-white px-6 py-4 rounded-lg hover:bg-green-700 transition font-medium text-lg mb-6 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            {searching ? '🔍 Searching sources...' : '🔍 Search Clinical Trials'}
+            {searching ? (
+              <span className="flex items-center gap-2"><SearchIcon className="w-5 h-5" /> Searching sources...</span>
+            ) : (
+              <span className="flex items-center gap-2"><SearchIcon className="w-5 h-5" /> Search Clinical Trials</span>
+            )}
           </button>
           {/* Search Results */}
           {searchResults.length > 0 && (
@@ -470,7 +475,7 @@ const ClinicalTrials = () => {
           {/* Error Display */}
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-              <p className="text-red-800 font-medium">⚠️ {error}</p>
+              <p className="text-red-800 font-medium flex items-center gap-2"><AlertTriangle className="w-5 h-5" /> {error}</p>
               {searchSources && searchSources.length > 0 && (
                 <p className="text-sm text-red-600 mt-2">
                   Sources attempted: {searchSources.join(', ')}

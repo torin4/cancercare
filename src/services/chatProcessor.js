@@ -225,28 +225,28 @@ export function generateChatExtractionSummary(extractedData) {
   const parts = [];
 
   if (extractedData.labs?.length > 0) {
-    parts.push(`\n\n✅ Logged ${extractedData.labs.length} lab value(s):`);
+    parts.push(`\n\nLogged ${extractedData.labs.length} lab value(s):`);
     extractedData.labs.forEach(lab => {
       parts.push(`• ${lab.label}: ${lab.value} ${lab.unit}`);
     });
   }
 
   if (extractedData.vitals?.length > 0) {
-    parts.push(`\n✅ Logged ${extractedData.vitals.length} vital sign(s):`);
+    parts.push(`\nLogged ${extractedData.vitals.length} vital sign(s):`);
     extractedData.vitals.forEach(vital => {
       parts.push(`• ${vital.label}: ${vital.value} ${vital.unit}`);
     });
   }
 
   if (extractedData.symptoms?.length > 0) {
-    parts.push(`\n✅ Logged ${extractedData.symptoms.length} symptom(s):`);
+    parts.push(`\nLogged ${extractedData.symptoms.length} symptom(s):`);
     extractedData.symptoms.forEach(symptom => {
       parts.push(`• ${symptom.name} (${symptom.severity})`);
     });
   }
 
   if (extractedData.medications?.length > 0) {
-    parts.push(`\n✅ Updated ${extractedData.medications.length} medication(s):`);
+    parts.push(`\nUpdated ${extractedData.medications.length} medication(s):`);
     extractedData.medications.forEach(med => {
       parts.push(`• ${med.name} - ${med.action}`);
     });

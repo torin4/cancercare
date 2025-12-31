@@ -56,7 +56,7 @@ async function analyzeDocument(base64Data, mimeType) {
   const prompt = `You are a medical document processing AI. Analyze this medical document and extract all relevant information.
 
 ═══════════════════════════════════════════════════════════════════════════════
-🚨 CRITICAL: DATE EXTRACTION IS MANDATORY - DO NOT SKIP THIS STEP 🚨
+CRITICAL: DATE EXTRACTION IS MANDATORY - DO NOT SKIP THIS STEP
 ═══════════════════════════════════════════════════════════════════════════════
 
 BEFORE extracting any other data, you MUST find and extract dates from the document.
@@ -114,13 +114,13 @@ Return a JSON object with this EXACT structure:
         "label": "CA-125",
         "value": 68,
         "unit": "U/mL",
-        "date": "2024-12-14",  // 🚨 MANDATORY: Extract the ACTUAL collection/test date. Search document header, look for "Collection Date", "Test Date", "採取日時", "検査日", or any date field. MUST be in YYYY-MM-DD format.
+        "date": "2024-12-14",  // MANDATORY: Extract the ACTUAL collection/test date. Search document header, look for "Collection Date", "Test Date", "採取日時", "検査日", or any date field. MUST be in YYYY-MM-DD format.
         "normalRange": "0-35",  // If not shown, omit this field entirely
         "status": "high|normal|low"
       }
     ],
 
-    🚨 CRITICAL RULE FOR ALL LAB VALUES:
+    CRITICAL RULE FOR ALL LAB VALUES:
     - ALL lab values in the "labs" array MUST use the SAME date - the collection/test date from the document
     - Do NOT use different dates for different lab values from the same report
     - Do NOT skip the date field - it is MANDATORY
@@ -144,7 +144,7 @@ Return a JSON object with this EXACT structure:
       // Test Information
       "testInfo": {
         "testName": "FoundationOne CDx|Guardant360|Tempus xT|Tempus TOP|BRCA Testing|etc",
-        "testDate": "2024-12-15",  // 🚨 MANDATORY: Extract the ACTUAL test date from the genomic report. Look for "Test Date", "Report Date", "Date of Test", or any date in the report header/metadata. MUST be in YYYY-MM-DD format.
+        "testDate": "2024-12-15",  // MANDATORY: Extract the ACTUAL test date from the genomic report. Look for "Test Date", "Report Date", "Date of Test", or any date in the report header/metadata. MUST be in YYYY-MM-DD format.
         "laboratoryName": "Foundation Medicine|Tempus Labs|etc",
         "specimenType": "FFPE tissue|Blood (ctDNA)|Germline blood",
         "tumorPurity": "70%",
@@ -318,9 +318,9 @@ GENERAL RULES:
 - Return ONLY valid JSON, no markdown or explanations
 - If a field is not present, omit it entirely (DO NOT include fields with null or undefined values)
 - CRITICAL: For normalRange field - only include if explicitly shown in the document. If not shown, DO NOT include the field at all
-- 🚨 CRITICAL: For date fields - ALWAYS extract the actual test/collection/report date from the document. Look carefully for date labels
-- 🚨 VALIDATION: Before returning JSON, verify that EVERY lab has a "date" field, EVERY vital has a "date" field, and genomic testInfo has a "testDate" field
-- 🚨 If you cannot find dates after thorough search, you MUST still include date fields using today's date: ${new Date().toISOString().split('T')[0]}`;
+- CRITICAL: For date fields - ALWAYS extract the actual test/collection/report date from the document. Look carefully for date labels
+- VALIDATION: Before returning JSON, verify that EVERY lab has a "date" field, EVERY vital has a "date" field, and genomic testInfo has a "testDate" field
+- If you cannot find dates after thorough search, you MUST still include date fields using today's date: ${new Date().toISOString().split('T')[0]}`;
 
   const result = await model.generateContent([
     {
@@ -347,19 +347,19 @@ GENERAL RULES:
   if (parsed.data?.labs) {
     const labsWithoutDates = parsed.data.labs.filter(lab => !lab.date);
     if (labsWithoutDates.length > 0) {
-      console.warn(`⚠️ WARNING: ${labsWithoutDates.length} lab value(s) missing dates:`, labsWithoutDates.map(l => l.label));
+      console.warn(`WARNING: ${labsWithoutDates.length} lab value(s) missing dates:`, labsWithoutDates.map(l => l.label));
     }
   }
 
   if (parsed.data?.vitals) {
     const vitalsWithoutDates = parsed.data.vitals.filter(vital => !vital.date);
     if (vitalsWithoutDates.length > 0) {
-      console.warn(`⚠️ WARNING: ${vitalsWithoutDates.length} vital(s) missing dates:`, vitalsWithoutDates.map(v => v.label));
+      console.warn(`WARNING: ${vitalsWithoutDates.length} vital(s) missing dates:`, vitalsWithoutDates.map(v => v.label));
     }
   }
 
   if (parsed.data?.genomic?.testInfo && !parsed.data.genomic.testInfo.testDate) {
-    console.warn('⚠️ WARNING: Genomic test missing testDate');
+    console.warn('WARNING: Genomic test missing testDate');
   }
 
   return parsed;
@@ -388,10 +388,10 @@ async function saveExtractedData(extractedData, userId) {
           if (!isNaN(parsedDate.getTime())) {
             labDate = parsedDate;
           } else {
-            console.warn(`⚠️ Could not parse lab date "${lab.date}" for ${lab.label}, using today's date`);
+            console.warn(`Could not parse lab date "${lab.date}" for ${lab.label}, using today's date`);
           }
         } else {
-          console.warn(`⚠️ Lab ${lab.label} missing date field, using today's date`);
+          console.warn(`Lab ${lab.label} missing date field, using today's date`);
         }
 
         // Ensure all fields have defined values (Firestore doesn't accept undefined)
@@ -433,10 +433,10 @@ async function saveExtractedData(extractedData, userId) {
           if (!isNaN(parsedDate.getTime())) {
             vitalDate = parsedDate;
           } else {
-            console.warn(`⚠️ Could not parse vital date "${vital.date}" for ${vital.label}, using today's date`);
+            console.warn(`Could not parse vital date "${vital.date}" for ${vital.label}, using today's date`);
           }
         } else {
-          console.warn(`⚠️ Vital ${vital.label} missing date field, using today's date`);
+          console.warn(`Vital ${vital.label} missing date field, using today's date`);
         }
 
         // Ensure all fields have defined values (Firestore doesn't accept undefined)
@@ -507,11 +507,11 @@ async function saveExtractedData(extractedData, userId) {
         if (!isNaN(parsedTestDate.getTime())) {
           genomicProfile.testDate = parsedTestDate;
         } else {
-          console.warn(`⚠️ Could not parse genomic testDate "${genomicData.testInfo.testDate}", using today's date`);
+          console.warn(`Could not parse genomic testDate "${genomicData.testInfo.testDate}", using today's date`);
           genomicProfile.testDate = new Date();
         }
       } else {
-        console.warn('⚠️ Genomic test missing testDate field, using today\'s date');
+        console.warn('Genomic test missing testDate field, using today\'s date');
         genomicProfile.testDate = new Date();
       }
       if (genomicData.testInfo?.laboratoryName) {
@@ -623,21 +623,21 @@ export function generateExtractionSummary(extractedData, savedData) {
   const parts = [];
 
   if (savedData.labs.length > 0) {
-    parts.push(`📊 Extracted ${savedData.labs.length} lab value(s):`);
+    parts.push(`Extracted ${savedData.labs.length} lab value(s):`);
     savedData.labs.forEach(lab => {
       parts.push(`  • ${lab.label}: ${lab.value} ${lab.unit} (${lab.status || 'recorded'})`);
     });
   }
 
   if (savedData.vitals.length > 0) {
-    parts.push(`\n💓 Extracted ${savedData.vitals.length} vital sign(s):`);
+    parts.push(`\nExtracted ${savedData.vitals.length} vital sign(s):`);
     savedData.vitals.forEach(vital => {
       parts.push(`  • ${vital.label}: ${vital.value} ${vital.unit}`);
     });
   }
 
   if (savedData.genomic) {
-    parts.push(`\n🧬 Genomic Profile Updated:`);
+    parts.push(`\nGenomic Profile Updated:`);
 
     // Test Information
     if (savedData.genomic.testInfo?.testName) {
@@ -680,12 +680,12 @@ export function generateExtractionSummary(extractedData, savedData) {
 
     // Clinical Trial Eligibility
     if (savedData.genomic.clinicalTrialEligible) {
-      parts.push(`  • ✅ Eligible for clinical trials based on genomic profile`);
+      parts.push(`  • Eligible for clinical trials based on genomic profile`);
     }
   }
 
   if (savedData.medications.length > 0) {
-    parts.push(`\n💊 Extracted ${savedData.medications.length} medication(s):`);
+    parts.push(`\nExtracted ${savedData.medications.length} medication(s):`);
     savedData.medications.forEach(med => {
       parts.push(`  • ${med.name} - ${med.dosage}`);
     });
