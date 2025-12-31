@@ -97,13 +97,14 @@ async function applyLocationFilters(trials, params) {
     console.log(`Trials before filtering: ${out.length}`);
     
     out = out.filter(t => {
-      // Check trial's country field
+      // Check trial's country field (this is the first country from locations, may not be complete)
       const trialCountry = (t.country || '').toLowerCase();
       if (searchTerms.some(term => trialCountry.includes(term))) {
+        console.log(`Trial ${t.id}: Matched top-level country "${t.country}"`);
         return true;
       }
       
-      // Check trial locations
+      // Check trial locations (this is the authoritative source)
       const locations = t.locations || [];
       if (locations.length === 0) {
         // If no location data and country filter is active, exclude the trial
@@ -112,22 +113,43 @@ async function applyLocationFilters(trials, params) {
         return false;
       }
       
-      return locations.some(loc => {
+      // Check if any location matches the search country
+      const hasMatch = locations.some(loc => {
         if (typeof loc === 'string') {
-          return searchTerms.some(term => loc.toLowerCase().includes(term));
+          const matches = searchTerms.some(term => loc.toLowerCase().includes(term));
+          if (matches) {
+            console.log(`Trial ${t.id}: Matched location string "${loc}"`);
+          }
+          return matches;
         }
         // Check location object's country field
         const locCountry = (loc.country || '').toLowerCase();
         if (locCountry && searchTerms.some(term => locCountry.includes(term))) {
+          console.log(`Trial ${t.id}: Matched location country "${loc.country}"`);
           return true;
         }
         // Also check city field (some locations might have country in city field)
         const locCity = (loc.city || '').toLowerCase();
         if (locCity && searchTerms.some(term => locCity.includes(term))) {
+          console.log(`Trial ${t.id}: Matched location city "${loc.city}"`);
           return true;
         }
         return false;
       });
+      
+      if (!hasMatch) {
+        // Log why this trial was excluded
+        const allCountries = [...new Set(locations.map(loc => {
+          if (typeof loc === 'string') {
+            const parts = loc.split(',').map(s => s.trim());
+            return parts[parts.length - 1] || '';
+          }
+          return loc.country || '';
+        }).filter(Boolean))];
+        console.log(`Trial ${t.id}: Excluded - has countries: ${allCountries.join(', ')}, searching for: ${params.country}`);
+      }
+      
+      return hasMatch;
     });
     
     console.log(`Trials after filtering: ${out.length}`);
