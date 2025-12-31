@@ -96,35 +96,19 @@ async function applyLocationFilters(trials, params) {
     console.log(`Applying location filter for country: ${params.country}, search terms:`, searchTerms);
     console.log(`Trials before filtering: ${out.length}`);
     
-    // Check if any trials have location data
-    const trialsWithLocationData = out.filter(t => {
-      const locations = t.locations || [];
-      return locations.length > 0 || (t.country && t.country.trim() !== '');
-    });
-    
-    console.log(`Trials with location data: ${trialsWithLocationData.length} out of ${out.length}`);
-    
-    // If NO trials have location data, we can't filter - show all trials with a warning
-    if (trialsWithLocationData.length === 0) {
-      console.warn('No trials have location data - cannot filter by country. Showing all trials.');
-      return out; // Return all trials since we can't filter
-    }
-    
-    // If some trials have location data, only filter those that have it
-    // Include trials with location data that match, exclude those that don't match
     out = out.filter(t => {
       // Check trial's country field
       const trialCountry = (t.country || '').toLowerCase();
-      if (trialCountry && searchTerms.some(term => trialCountry.includes(term))) {
+      if (searchTerms.some(term => trialCountry.includes(term))) {
         return true;
       }
       
       // Check trial locations
       const locations = t.locations || [];
       if (locations.length === 0) {
-        // If this trial has no location data but others do, exclude it
+        // If no location data and country filter is active, exclude the trial
         // (we can't verify it's in the requested country)
-        console.log(`Trial ${t.id} has no location data, excluding from country-filtered results`);
+        console.warn(`Trial ${t.id} has no location data, excluding from country-filtered results`);
         return false;
       }
       
@@ -171,10 +155,7 @@ export async function searchTrials(params) {
     
     // Build v2 API compatible query parameters
     const { cond, term } = buildCTGovExpr(params);
-    // IMPORTANT: LocationCity and LocationCountry are NOT available in v2 API fields parameter
-    // Location data is only in full study response (protocolSection.contactsLocationsModule.locations)
-    // So we DON'T specify fields parameter - this forces API to return full v2 format with location data
-    // The proxy will extract and normalize the location data for us
+    const fields = ['NCTId', 'BriefTitle', 'Condition', 'OverallStatus', 'Phase', 'BriefSummary', 'LocationCity', 'LocationCountry'].join(',');
     
     // Log query parameters for debugging
     console.log('=== ClinicalTrials.gov Query Parameters ===');
@@ -184,7 +165,7 @@ export async function searchTrials(params) {
       console.log('Location filter:', params.country, params.includeAllLocations ? '(including all locations)' : '(specific country only)');
     }
     console.log('Page:', pageNumber, '| Page Size:', pageSize);
-    console.log('Fields: NOT SPECIFIED (requesting full study data to get location information)');
+    console.log('Fields requested:', fields);
     console.log('==========================================');
     
     // Check if query is too long for GET request (limit ~2000 chars for URL)
@@ -202,7 +183,7 @@ export async function searchTrials(params) {
         source: 'ctgov',
         'query.term': term || '',
         'query.cond': cond || '',
-        // Don't specify fields - get full study data with locations
+        fields: fields,
         pageSize: pageSize,
         pageNumber: pageNumber,
         fmt: 'json'
@@ -228,8 +209,7 @@ export async function searchTrials(params) {
       });
     } else {
       // Use GET request for shorter queries
-      // Don't specify fields parameter - get full study data with locations
-      const proxyUrl = `${PROXY_BASE}?source=ctgov&query.term=${encodeURIComponent(term || '')}&query.cond=${encodeURIComponent(cond || '')}&pageSize=${pageSize}&pageNumber=${pageNumber}&fmt=json`;
+      const proxyUrl = `${PROXY_BASE}?source=ctgov&query.term=${encodeURIComponent(term || '')}&query.cond=${encodeURIComponent(cond || '')}&fields=${encodeURIComponent(fields)}&pageSize=${pageSize}&pageNumber=${pageNumber}&fmt=json`;
       
       // Log full URL (not truncated)
       console.log('=== GET Request URL ===');
@@ -402,12 +382,23 @@ export async function searchCTGov(params) {
       studies = raw.StudyFieldsResponse.Study || [];
       console.log('Using legacy StudyFieldsResponse format, studies count:', studies.length);
       if (studies.length > 0) {
-        console.log('First study sample:', JSON.stringify(studies[0], null, 2).substring(0, 500));
-        // Log location fields specifically
         const firstStudy = studies[0];
+        console.log('First study sample:', JSON.stringify(firstStudy, null, 2).substring(0, 1000));
         console.log('First study LocationCity:', firstStudy.LocationCity);
         console.log('First study LocationCountry:', firstStudy.LocationCountry);
         console.log('First study all keys:', Object.keys(firstStudy));
+        // Check for alternative location field names
+        const locationKeys = Object.keys(firstStudy).filter(k => 
+          k.toLowerCase().includes('location') || 
+          k.toLowerCase().includes('city') || 
+          k.toLowerCase().includes('country')
+        );
+        console.log('Location-related keys in first study:', locationKeys);
+        if (locationKeys.length > 0) {
+          locationKeys.forEach(key => {
+            console.log(`  ${key}:`, firstStudy[key]);
+          });
+        }
       }
     } else if (raw && Array.isArray(raw)) {
       studies = raw;
@@ -474,17 +465,38 @@ export async function searchCTGov(params) {
               const briefSummary = descriptionModule?.briefSummary || descriptionModule?.detailedDescription?.text || study.summary || '';
               
               // Safely extract locations from v2 API format
+              // According to ClinicalTrials.gov API docs: protocolSection.contactsLocationsModule.locations[]
+              // Each location has: facility { name, city, state, zip, country }
               const locations = contactsLocationsModule?.locations || [];
               const locationCities = [];
               const locationCountries = [];
               
               locations.forEach(loc => {
-                // v2 API location structure: loc.facility.city, loc.facility.country
-                const city = loc?.facility?.city || loc?.city || '';
-                const country = loc?.facility?.country || loc?.country || '';
-                if (city) locationCities.push(city);
-                if (country) locationCountries.push(country);
+                try {
+                  const facility = loc?.facility || {};
+                  // Extract city, state, and country according to API structure
+                  const city = facility?.city || loc?.city || '';
+                  const state = facility?.state || facility?.province || '';
+                  const country = facility?.country || loc?.country || '';
+                  
+                  if (city) locationCities.push(city);
+                  if (country) locationCountries.push(country);
+                  
+                  // Log if we find location data for debugging
+                  if (city || country) {
+                    console.log(`trialSearchService: Extracted location for ${nctId}: city=${city}, state=${state}, country=${country}`);
+                  }
+                } catch (e) {
+                  console.warn(`trialSearchService: Error extracting location for ${nctId}:`, e?.message || e);
+                }
               });
+              
+              // Log location extraction summary
+              if (locations.length > 0) {
+                console.log(`trialSearchService: Study ${nctId} has ${locations.length} location(s), extracted ${locationCities.length} cities, ${locationCountries.length} countries`);
+              } else {
+                console.warn(`trialSearchService: Study ${nctId} has no locations in contactsLocationsModule`);
+              }
               
               // Also check for location data in other possible fields
               if (locationCities.length === 0 && locationCountries.length === 0) {
