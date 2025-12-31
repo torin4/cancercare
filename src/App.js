@@ -110,6 +110,98 @@ export default function CancerCareApp() {
     const kind = mutation.type || (mutation.germline ? 'Germline' : mutation.somatic ? 'Somatic' : null);
     return { dna, protein, kind };
   };
+  // Cancer types (matching onboarding)
+  const CANCER_TYPES = [
+    // Gynecological Cancers
+    'Ovarian Cancer',
+    'Endometrial Cancer',
+    'Cervical Cancer',
+    'Uterine Cancer',
+    'Vaginal Cancer',
+    'Vulvar Cancer',
+    'Fallopian Tube Cancer',
+    // Breast Cancer
+    'Breast Cancer',
+    'Male Breast Cancer',
+    'Inflammatory Breast Cancer',
+    'Triple-Negative Breast Cancer',
+    // Lung Cancer
+    'Lung Cancer',
+    'Non-Small Cell Lung Cancer',
+    'Small Cell Lung Cancer',
+    'Mesothelioma',
+    // Gastrointestinal Cancers
+    'Colorectal Cancer',
+    'Colon Cancer',
+    'Rectal Cancer',
+    'Stomach Cancer',
+    'Esophageal Cancer',
+    'Pancreatic Cancer',
+    'Liver Cancer',
+    'Gallbladder Cancer',
+    'Bile Duct Cancer',
+    'Anal Cancer',
+    'Gastrointestinal Stromal Tumor (GIST)',
+    // Blood Cancers
+    'Leukemia',
+    'Acute Lymphoblastic Leukemia (ALL)',
+    'Acute Myeloid Leukemia (AML)',
+    'Chronic Lymphocytic Leukemia (CLL)',
+    'Chronic Myeloid Leukemia (CML)',
+    'Lymphoma',
+    'Hodgkin Lymphoma',
+    'Non-Hodgkin Lymphoma',
+    'Multiple Myeloma',
+    'Myelodysplastic Syndrome',
+    // Skin Cancer
+    'Melanoma',
+    'Basal Cell Carcinoma',
+    'Squamous Cell Carcinoma',
+    'Merkel Cell Carcinoma',
+    // Genitourinary Cancers
+    'Prostate Cancer',
+    'Bladder Cancer',
+    'Kidney Cancer',
+    'Renal Cell Carcinoma',
+    'Testicular Cancer',
+    'Penile Cancer',
+    // Head and Neck Cancers
+    'Head and Neck Cancer',
+    'Thyroid Cancer',
+    'Oral Cancer',
+    'Throat Cancer',
+    'Laryngeal Cancer',
+    'Nasopharyngeal Cancer',
+    'Salivary Gland Cancer',
+    // Brain and Nervous System
+    'Brain Cancer',
+    'Glioblastoma',
+    'Astrocytoma',
+    'Oligodendroglioma',
+    'Meningioma',
+    'Neuroblastoma',
+    'Spinal Cord Tumor',
+    // Bone and Soft Tissue
+    'Bone Cancer',
+    'Osteosarcoma',
+    'Ewing Sarcoma',
+    'Soft Tissue Sarcoma',
+    'Rhabdomyosarcoma',
+    // Endocrine Cancers
+    'Adrenal Cancer',
+    'Pituitary Tumor',
+    'Parathyroid Cancer',
+    'Neuroendocrine Tumor',
+    'Carcinoid Tumor',
+    // Pediatric Cancers
+    'Wilms Tumor',
+    'Retinoblastoma',
+    // Other Cancers
+    'Thymoma',
+    'Carcinoma of Unknown Primary',
+    'Other (Please Specify)'
+  ].sort();
+
   // Common subtype mapping (same options as onboarding)
   const CANCER_SUBTYPES = {
     'Ovarian Cancer': ['High-grade serous', 'Low-grade serous', 'Clear cell', 'Endometrioid', 'Mucinous', 'Other (specify)'],
@@ -117,9 +209,22 @@ export default function CancerCareApp() {
     'Lung Cancer': ['Adenocarcinoma', 'Squamous cell carcinoma', 'Small cell lung cancer', 'Large cell carcinoma', 'Other (specify)'],
     'Colorectal Cancer': ['Adenocarcinoma', 'Mucinous adenocarcinoma', 'Signet ring cell carcinoma', 'Other (specify)'],
     'Endometrial Cancer': ['Endometrioid', 'Serous (Type II)', 'Clear cell', 'Carcinosarcoma', 'Other (specify)'],
-    'Pancreatic Cancer': ['Pancreatic ductal adenocarcinoma', 'Pancreatic neuroendocrine tumor (PNET)', 'Other (specify)']
+    'Pancreatic Cancer': ['Pancreatic ductal adenocarcinoma', 'Pancreatic neuroendocrine tumor (PNET)', 'Other (specify)'],
+    'Kidney Cancer': ['Clear cell RCC', 'Papillary RCC', 'Chromophobe RCC', 'Other (specify)'],
+    'Cervical Cancer': ['Squamous cell carcinoma', 'Adenocarcinoma', 'Adenosquamous', 'Other (specify)'],
+    'Uterine Cancer': ['Endometrial (endometrioid)', 'Serous', 'Carcinosarcoma', 'Other (specify)'],
+    'Brain Cancer': ['Glioblastoma', 'Astrocytoma', 'Oligodendroglioma', 'Other (specify)'],
+    'Skin Cancer': ['Melanoma', 'Basal cell carcinoma', 'Squamous cell carcinoma', 'Other (specify)'],
+    'Thyroid Cancer': ['Papillary', 'Follicular', 'Medullary', 'Anaplastic', 'Other (specify)'],
+    'Bladder Cancer': ['Urothelial (transitional) carcinoma', 'Squamous cell carcinoma', 'Adenocarcinoma', 'Other (specify)'],
+    'Prostate Cancer': ['Adenocarcinoma', 'Neuroendocrine', 'Other (specify)']
   };
-  const STAGE_OPTIONS = ['Unknown','Stage I','Stage II','Stage III','Stage IV','Other (specify)'];
+  
+  // Options matching onboarding Step 2
+  const STAGE_OPTIONS = ['Stage I', 'Stage II', 'Stage III', 'Stage IV', 'Not Applicable', 'Unknown'];
+  const PERFORMANCE_OPTIONS = ['0 - Fully active', '1 - Restricted in physically strenuous activity', '2 - Ambulatory, capable of all self-care', '3 - Limited self-care, confined to bed or chair 50%', '4 - Completely disabled, confined to bed or chair 100%'];
+  const DISEASE_STATUS_OPTIONS = ['Newly Diagnosed', 'In Remission', 'Stable Disease', 'Progressive Disease', 'Recurrent Disease', 'Unknown'];
+  const TREATMENT_STATUS_OPTIONS = ['First-line', 'Second-line', 'Third-line', 'Fourth-line or later', 'Maintenance', 'Adjuvant', 'Neoadjuvant', 'Palliative', 'Other (specify)'];
   // Format mutation labels (remove underscores, title case, map common codes)
   const formatLabel = (raw) => {
     if (!raw && raw !== 0) return '';
@@ -182,6 +287,8 @@ export default function CancerCareApp() {
   const [editStageCustom, setEditStageCustom] = useState(false);
   const [showUpdateStatus, setShowUpdateStatus] = useState(false);
   const [editMode, setEditMode] = useState('ai');
+  const [updateStatusSubtypeCustom, setUpdateStatusSubtypeCustom] = useState(false);
+  const [updateStatusTreatmentCustom, setUpdateStatusTreatmentCustom] = useState(false);
   const [currentStatus, setCurrentStatus] = useState({
     diagnosis: '',
     diagnosisDate: '',
@@ -189,7 +296,9 @@ export default function CancerCareApp() {
     currentRegimen: '',
     performanceStatus: '',
     diseaseStatus: '',
-    baselineCa125: ''
+    baselineCa125: '',
+    stage: '',
+    subtype: '' // Add subtype field
   });
   const [showAddLab, setShowAddLab] = useState(false);
   const [showEditGenomic, setShowEditGenomic] = useState(false);
@@ -642,7 +751,7 @@ export default function CancerCareApp() {
         weight: formData.weight ? parseFloat(formData.weight) : null,
         diagnosis: formData.diagnosis || formData.cancerType || '',
         diagnosisDate: formData.diagnosisDate || '',
-        cancerType: formData.cancerType || '',
+        cancerType: formData.subtype || formData.cancerType || '', // Save subtype to cancerType field
         stage: formData.stage || '',
         // Save initial current status collected during onboarding
         currentStatus: {
@@ -678,6 +787,8 @@ export default function CancerCareApp() {
       }));
 
       // Update currentStatus state so it shows in the Current Status section
+      // Process subtype - if it's "Other (specify)", use the custom value
+      const finalSubtype = formData.subtype === 'Other (specify)' ? '' : (formData.subtype || '');
       setCurrentStatus(prev => ({
         ...prev,
         diagnosis: formData.diagnosis || formData.cancerType || prev.diagnosis,
@@ -685,7 +796,9 @@ export default function CancerCareApp() {
         treatmentLine: formData.treatmentLine || prev.treatmentLine,
         performanceStatus: formData.performanceStatus || prev.performanceStatus,
         diseaseStatus: formData.diseaseStatus || prev.diseaseStatus,
-        baselineCa125: formData.baselineCa125 ? parseFloat(formData.baselineCa125) : prev.baselineCa125
+        baselineCa125: formData.baselineCa125 ? parseFloat(formData.baselineCa125) : prev.baselineCa125,
+        stage: formData.stage || prev.stage,
+        subtype: finalSubtype || prev.subtype
       }));
 
       console.log('Onboarding completed successfully');
@@ -769,7 +882,9 @@ export default function CancerCareApp() {
             currentRegimen: '',
             performanceStatus: '',
             diseaseStatus: '',
-            baselineCa125: ''
+            baselineCa125: '',
+            stage: '',
+            subtype: ''
           });
           
           setShowDeletionConfirm(false);
@@ -5313,87 +5428,163 @@ export default function CancerCareApp() {
 
               <div className="flex-1 overflow-y-auto p-4">
                 <div className="space-y-4">
-
+                  {/* Cancer Type - matching onboarding */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis *</label>
-                    <input
-                      type="text"
-                      value={currentStatus.diagnosis}
-                      onChange={(e) => setCurrentStatus({...currentStatus, diagnosis: e.target.value})}
-                      placeholder="e.g., OCCC Stage IIIC, HGSOC Stage IV"
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Cancer Type *</label>
+                    <select
+                      value={currentStatus.diagnosis || ''}
+                      onChange={(e) => {
+                        const newDiagnosis = e.target.value;
+                        setCurrentStatus({
+                          ...currentStatus,
+                          diagnosis: newDiagnosis,
+                          subtype: '' // Clear subtype when cancer type changes
+                        });
+                        setUpdateStatusSubtypeCustom(false);
+                      }}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                    >
+                      <option value="">Select cancer type</option>
+                      {CANCER_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
                   </div>
 
+                  {/* Cancer Subtype - matching onboarding */}
+                  {currentStatus.diagnosis && (CANCER_SUBTYPES[currentStatus.diagnosis] || []).length > 0 && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Cancer Subtype (optional)</label>
+                      <select
+                        value={currentStatus.subtype === 'Other (specify)' ? 'Other (specify)' : (currentStatus.subtype || '')}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === 'Other (specify)') {
+                            setCurrentStatus({ ...currentStatus, subtype: 'Other (specify)' });
+                            setUpdateStatusSubtypeCustom(true);
+                          } else {
+                            setCurrentStatus({ ...currentStatus, subtype: value });
+                            setUpdateStatusSubtypeCustom(false);
+                          }
+                        }}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select subtype (optional)</option>
+                        {CANCER_SUBTYPES[currentStatus.diagnosis].map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                      {updateStatusSubtypeCustom && (
+                        <input
+                          type="text"
+                          value={currentStatus.subtype === 'Other (specify)' ? '' : currentStatus.subtype}
+                          onChange={(e) => setCurrentStatus({ ...currentStatus, subtype: e.target.value })}
+                          className="w-full mt-2 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Specify subtype"
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  {/* Stage - matching onboarding */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis Date</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Stage *</label>
+                    <select
+                      value={currentStatus.stage || ''}
+                      onChange={(e) => setCurrentStatus({...currentStatus, stage: e.target.value})}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select stage</option>
+                      {STAGE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Diagnosis Date - matching onboarding */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Diagnosis *</label>
                     <input
                       type="date"
-                      value={currentStatus.diagnosisDate}
+                      value={currentStatus.diagnosisDate || ''}
                       onChange={(e) => setCurrentStatus({...currentStatus, diagnosisDate: e.target.value})}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
 
+                  {/* Treatment Status - matching onboarding */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Treatment Line</label>
-                    <input
-                      type="text"
-                      value={currentStatus.treatmentLine}
-                      onChange={(e) => setCurrentStatus({...currentStatus, treatmentLine: e.target.value})}
-                      placeholder="e.g., 1st Line, 2nd Line, Maintenance"
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Treatment Status *</label>
+                    <select
+                      value={currentStatus.treatmentLine === 'Other (specify)' ? 'Other (specify)' : (currentStatus.treatmentLine || '')}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === 'Other (specify)') {
+                          setCurrentStatus({ ...currentStatus, treatmentLine: 'Other (specify)' });
+                          setUpdateStatusTreatmentCustom(true);
+                        } else {
+                          setCurrentStatus({ ...currentStatus, treatmentLine: value });
+                          setUpdateStatusTreatmentCustom(false);
+                        }
+                      }}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                    >
+                      <option value="">Select treatment status</option>
+                      {TREATMENT_STATUS_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                    {updateStatusTreatmentCustom && (
+                      <input
+                        type="text"
+                        value={currentStatus.treatmentLine === 'Other (specify)' ? '' : currentStatus.treatmentLine}
+                        onChange={(e) => setCurrentStatus({ ...currentStatus, treatmentLine: e.target.value })}
+                        className="w-full mt-2 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Specify treatment status"
+                      />
+                    )}
                   </div>
 
+                  {/* Current Regimen - keep this as it's useful */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Current Regimen</label>
                     <input
                       type="text"
-                      value={currentStatus.currentRegimen}
+                      value={currentStatus.currentRegimen || ''}
                       onChange={(e) => setCurrentStatus({...currentStatus, currentRegimen: e.target.value})}
                       placeholder="e.g., Carboplatin + Paclitaxel"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
 
+                  {/* Performance Status - matching onboarding */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Performance Status (ECOG)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">ECOG Performance *</label>
                     <select
-                      value={currentStatus.performanceStatus}
+                      value={currentStatus.performanceStatus || ''}
                       onChange={(e) => setCurrentStatus({...currentStatus, performanceStatus: e.target.value})}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="0">ECOG 0 - Fully active</option>
-                      <option value="1">ECOG 1 - Restricted in strenuous activity</option>
-                      <option value="2">ECOG 2 - Ambulatory, capable of self-care</option>
-                      <option value="3">ECOG 3 - Limited self-care</option>
-                      <option value="4">ECOG 4 - Completely disabled</option>
+                      <option value="">Select ECOG</option>
+                      {PERFORMANCE_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
 
+                  {/* Disease Status - matching onboarding */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Disease Status</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Disease Status *</label>
                     <select
-                      value={currentStatus.diseaseStatus}
+                      value={currentStatus.diseaseStatus || ''}
                       onChange={(e) => setCurrentStatus({...currentStatus, diseaseStatus: e.target.value})}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="stable">Stable Disease</option>
-                      <option value="responding">Responding to Treatment</option>
-                      <option value="progression">Progression Detected</option>
-                      <option value="remission">Complete Remission</option>
-                      <option value="partial">Partial Response</option>
+                      <option value="">Select status</option>
+                      {DISEASE_STATUS_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
                   </div>
 
+                  {/* Baseline CA-125 - matching onboarding */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Baseline CA-125 (U/mL)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Baseline CA-125 (optional)</label>
                     <input
                       type="number"
-                      value={currentStatus.baselineCa125}
+                      step="any"
+                      value={currentStatus.baselineCa125 || ''}
                       onChange={(e) => setCurrentStatus({...currentStatus, baselineCa125: e.target.value})}
-                      placeholder="Initial CA-125 value"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -5411,16 +5602,37 @@ export default function CancerCareApp() {
                   <button
                     onClick={async () => {
                       try {
+                        // Process subtype - if it's "Other (specify)", use the custom value
+                        const finalSubtype = currentStatus.subtype === 'Other (specify)' ? '' : (currentStatus.subtype || '');
+                        // Process treatment status - if it's "Other (specify)", use the custom value
+                        const finalTreatmentStatus = currentStatus.treatmentLine === 'Other (specify)' ? '' : (currentStatus.treatmentLine || '');
+                        
                         // Save current status and top-level diagnosis to patient document
                         await patientService.savePatient(user.uid, {
-                          currentStatus,
+                          currentStatus: {
+                            ...currentStatus,
+                            subtype: finalSubtype,
+                            treatmentLine: finalTreatmentStatus
+                          },
                           diagnosis: currentStatus.diagnosis || '',
-                          diagnosisDate: currentStatus.diagnosisDate || ''
+                          diagnosisDate: currentStatus.diagnosisDate || '',
+                          cancerType: finalSubtype || '', // Save subtype to cancerType field
+                          stage: currentStatus.stage || ''
                         });
                         setShowUpdateStatus(false);
                         // Update local UI state
-                        setCurrentStatus(currentStatus);
-                        setPatientProfile(prev => ({ ...prev, diagnosis: currentStatus.diagnosis || prev.diagnosis, diagnosisDate: currentStatus.diagnosisDate || prev.diagnosisDate }));
+                        setCurrentStatus({
+                          ...currentStatus,
+                          subtype: finalSubtype,
+                          treatmentLine: finalTreatmentStatus
+                        });
+                        setPatientProfile(prev => ({ 
+                          ...prev, 
+                          diagnosis: currentStatus.diagnosis || prev.diagnosis, 
+                          diagnosisDate: currentStatus.diagnosisDate || prev.diagnosisDate,
+                          cancerType: finalSubtype || prev.cancerType,
+                          stage: currentStatus.stage || prev.stage
+                        }));
                         setMessages(prev => [...prev, { type: 'ai', text: '✅ Current status updated successfully!' }]);
                       } catch (err) {
                         console.error('Failed to save current status', err);

@@ -158,6 +158,7 @@ export default function Onboarding({ onComplete }) {
     // Step 2 - Diagnosis Information
     cancerType: '',
     diagnosis: '', // This will store either selected cancerType or a custom entry
+    subtype: '', // Cancer subtype (e.g., "Clear Cell" for Ovarian Cancer)
     stage: '',
     diagnosisDate: '',
     treatmentLine: '',
@@ -168,6 +169,8 @@ export default function Onboarding({ onComplete }) {
 
   // State for managing custom entries for 'Other (specify)'
   const [customDiagnosis, setCustomDiagnosis] = useState('');
+  const [customSubtype, setCustomSubtype] = useState('');
+  const [customTreatmentStatus, setCustomTreatmentStatus] = useState('');
 
   const diagnosisRef = useRef(null);
 
@@ -191,6 +194,7 @@ export default function Onboarding({ onComplete }) {
   const STAGE_OPTIONS = ['Stage I', 'Stage II', 'Stage III', 'Stage IV', 'Not Applicable', 'Unknown'];
   const PERFORMANCE_OPTIONS = ['0 - Fully active', '1 - Restricted in physically strenuous activity', '2 - Ambulatory, capable of all self-care', '3 - Limited self-care, confined to bed or chair 50%', '4 - Completely disabled, confined to bed or chair 100%'];
   const DISEASE_STATUS_OPTIONS = ['Newly Diagnosed', 'In Remission', 'Stable Disease', 'Progressive Disease', 'Recurrent Disease', 'Unknown'];
+  const TREATMENT_STATUS_OPTIONS = ['First-line', 'Second-line', 'Third-line', 'Fourth-line or later', 'Maintenance', 'Adjuvant', 'Neoadjuvant', 'Palliative', 'Other (specify)'];
 
 
   const handleNext = () => { if (step === 1 && isStepValid()) setStep(2); };
@@ -200,6 +204,14 @@ export default function Onboarding({ onComplete }) {
     if (!isStepValid()) return;
     const payload = { ...formData };
     if (!payload.diagnosis && payload.cancerType) payload.diagnosis = payload.cancerType;
+    // Ensure subtype is saved (it's optional, so it might be empty)
+    if (payload.subtype === 'Other (specify)') {
+      payload.subtype = customSubtype || '';
+    }
+    // Ensure treatment status is saved
+    if (payload.treatmentLine === 'Other (specify)') {
+      payload.treatmentLine = customTreatmentStatus || '';
+    }
     onComplete(payload);
   };
 
@@ -305,12 +317,54 @@ export default function Onboarding({ onComplete }) {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Cancer Type *</label>
-                  <select value={formData.cancerType} onChange={(e) => { updateField('cancerType', e.target.value); updateField('diagnosis', e.target.value); }} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg">
+                  <select value={formData.cancerType} onChange={(e) => { 
+                    updateField('cancerType', e.target.value); 
+                    updateField('diagnosis', e.target.value);
+                    // Clear subtype when cancer type changes
+                    updateField('subtype', '');
+                    setCustomSubtype('');
+                  }} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg">
                     <option value="">Select cancer type</option>
                     {CANCER_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
 
+                {/* Cancer Subtype Selection */}
+                {formData.cancerType && (CANCER_SUBTYPES[formData.cancerType] || []).length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Cancer Subtype (optional)</label>
+                    <select 
+                      value={formData.subtype === 'Other (specify)' ? 'Other (specify)' : formData.subtype} 
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === 'Other (specify)') {
+                          updateField('subtype', 'Other (specify)');
+                        } else {
+                          updateField('subtype', value);
+                          setCustomSubtype('');
+                        }
+                      }} 
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg"
+                    >
+                      <option value="">Select subtype (optional)</option>
+                      {CANCER_SUBTYPES[formData.cancerType].map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                    {formData.subtype === 'Other (specify)' && (
+                      <input
+                        type="text"
+                        value={customSubtype}
+                        onChange={(e) => {
+                          setCustomSubtype(e.target.value);
+                          updateField('subtype', e.target.value);
+                        }}
+                        className="w-full mt-2 px-4 py-2.5 border border-gray-300 rounded-lg"
+                        placeholder="Specify subtype"
+                      />
+                    )}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -328,7 +382,34 @@ export default function Onboarding({ onComplete }) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Treatment Status *</label>
-                  <input type="text" value={formData.treatmentLine} onChange={(e) => updateField('treatmentLine', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg" placeholder="e.g., First-line, Maintenance" />
+                  <select
+                    value={formData.treatmentLine === 'Other (specify)' ? 'Other (specify)' : formData.treatmentLine}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === 'Other (specify)') {
+                        updateField('treatmentLine', 'Other (specify)');
+                      } else {
+                        updateField('treatmentLine', value);
+                        setCustomTreatmentStatus('');
+                      }
+                    }}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg"
+                  >
+                    <option value="">Select treatment status</option>
+                    {TREATMENT_STATUS_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                  {formData.treatmentLine === 'Other (specify)' && (
+                    <input
+                      type="text"
+                      value={customTreatmentStatus}
+                      onChange={(e) => {
+                        setCustomTreatmentStatus(e.target.value);
+                        updateField('treatmentLine', e.target.value);
+                      }}
+                      className="w-full mt-2 px-4 py-2.5 border border-gray-300 rounded-lg"
+                      placeholder="Specify treatment status"
+                    />
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

@@ -698,12 +698,23 @@ export async function searchCTGov(params) {
 }
 
 function buildCTGovExpr(params) {
-  const { condition, patientProfile, additionalTerms } = params || {};
+  const { condition, patientProfile, additionalTerms, subtype, otherTerms } = params || {};
   
   // If patientProfile is provided, use buildSearchCondition to separate cond and term
   if (patientProfile) {
     const { cond, term } = buildSearchCondition(patientProfile, additionalTerms || []);
-    return { cond, term };
+    // If manual subtype/otherTerms is provided, it should override the patientProfile subtype
+    // This allows users to manually enter "Other terms" that will go to query.term
+    const finalTerm = (subtype || otherTerms) ? (subtype || otherTerms) : term;
+    return { cond, term: finalTerm };
+  }
+  
+  // If manual subtype/otherTerms is provided without patientProfile, use it for query.term
+  if (subtype || otherTerms) {
+    return {
+      cond: condition || '',
+      term: subtype || otherTerms || ''
+    };
   }
   
   // Legacy: if only condition is provided, try to parse it
@@ -790,19 +801,23 @@ function buildSearchCondition(patientProfile, additionalTerms = []) {
   const termParts = []; // For query.term (biomarkers, status, genes, chromosomal locations)
   
   // Primary diagnosis/cancer type - goes in cond
+  // NOTE: diagnosis is the main disease (e.g., "Ovarian Cancer")
+  // cancerType is the subtype (e.g., "Clear Cell"), NOT the main diagnosis
   if (patientProfile.diagnosis) {
     condTerms.push(patientProfile.diagnosis);
-  } else if (patientProfile.cancerType) {
-    condTerms.push(patientProfile.cancerType);
   }
   
     // Add cancer subtype if available - goes in query.term (Other terms) to match ClinicalTrials.gov interface
   // This matches how users search: Condition = "Ovarian Cancer", Other terms = "Clear Cell Sarcoma"
   // Always add subtype to query.term if it exists and is different from the main diagnosis
-  const mainDiagnosis = patientProfile.diagnosis || patientProfile.cancerType || '';
-  const subtype = patientProfile.currentStatus?.diagnosis || '';
+  const mainDiagnosis = patientProfile.diagnosis || '';
+  // IMPORTANT: Subtype is stored in patientProfile.cancerType, NOT in currentStatus.diagnosis
+  // currentStatus.diagnosis is the same as the main diagnosis, not the subtype
+  const subtype = patientProfile.cancerType || '';
   
-  console.log(`buildSearchCondition: Checking subtype - mainDiagnosis: "${mainDiagnosis}", subtype: "${subtype}", currentStatus:`, patientProfile.currentStatus);
+  console.log(`buildSearchCondition: Checking subtype - mainDiagnosis: "${mainDiagnosis}", subtype: "${subtype}"`);
+  console.log(`   patientProfile.cancerType: "${patientProfile.cancerType}"`);
+  console.log(`   patientProfile.diagnosis: "${patientProfile.diagnosis}"`);
   
   if (subtype && subtype.trim() !== '' && subtype !== mainDiagnosis) {
     // Add subtype to termParts (query.term) instead of cond (query.cond)
@@ -815,8 +830,7 @@ function buildSearchCondition(patientProfile, additionalTerms = []) {
     // Subtype is same as main diagnosis, no need to add it again
     console.log(`buildSearchCondition: ⚠️ Subtype "${subtype}" is same as main diagnosis "${mainDiagnosis}", not adding to query.term`);
   } else if (!subtype || subtype.trim() === '') {
-    console.log(`buildSearchCondition: ⚠️ No subtype found - patientProfile.currentStatus?.diagnosis: "${subtype}"`);
-    console.log(`   Full currentStatus object:`, JSON.stringify(patientProfile.currentStatus, null, 2));
+    console.log(`buildSearchCondition: ⚠️ No subtype found - patientProfile.cancerType: "${subtype}"`);
   }
   
   

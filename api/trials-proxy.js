@@ -205,8 +205,12 @@ module.exports = async (req, res) => {
               console.warn(`trials-proxy: Stopping pagination. Total studies: ${allStudies.length}`);
               break;
             }
-            if (previousToken) {
+            // Only log "Token changed" if tokens are actually different
+            if (previousToken && previousToken !== nextPageToken) {
               console.log(`trials-proxy: Token changed: ${previousToken.substring(0, 20)}... -> ${nextPageToken.substring(0, 20)}...`);
+            } else if (previousToken) {
+              // This shouldn't happen due to the check above, but log for debugging
+              console.log(`trials-proxy: Token appears unchanged (will be caught by duplicate check)`);
             }
           } else {
             console.log(`trials-proxy: No more pages (nextPageToken is null)`);
@@ -214,6 +218,22 @@ module.exports = async (req, res) => {
         } while (nextPageToken && pageCount < 100); // Safety limit: max 100 pages
         
         console.log(`trials-proxy: Fetched ${pageCount} page(s), total studies: ${allStudies.length}`);
+        
+        // Deduplicate studies by NCT ID before filtering
+        const uniqueStudies = [];
+        const seenStudyIds = new Set();
+        for (const study of allStudies) {
+          const id = study?.protocolSection?.identificationModule?.nctId || 
+                     study?.nctId || 
+                     study?.id || 
+                     '';
+          if (id && !seenStudyIds.has(id)) {
+            seenStudyIds.add(id);
+            uniqueStudies.push(study);
+          }
+        }
+        console.log(`trials-proxy: After deduplication: ${uniqueStudies.length} unique studies (removed ${allStudies.length - uniqueStudies.length} duplicates)`);
+        allStudies = uniqueStudies;
         
         // Now process and filter all studies
         const studies = [];
@@ -422,8 +442,12 @@ module.exports = async (req, res) => {
               console.warn(`trials-proxy: Stopping pagination. Total studies: ${allStudies.length}`);
               break;
             }
-            if (previousToken) {
+            // Only log "Token changed" if tokens are actually different
+            if (previousToken && previousToken !== nextPageToken) {
               console.log(`trials-proxy: Token changed: ${previousToken.substring(0, 20)}... -> ${nextPageToken.substring(0, 20)}...`);
+            } else if (previousToken) {
+              // This shouldn't happen due to the check above, but log for debugging
+              console.log(`trials-proxy: Token appears unchanged (will be caught by duplicate check)`);
             }
           } else {
             console.log(`trials-proxy: No more pages (nextPageToken is null)`);
@@ -431,6 +455,22 @@ module.exports = async (req, res) => {
         } while (nextPageToken && pageCount < 100); // Safety limit: max 100 pages
         
         console.log(`trials-proxy: Fetched ${pageCount} page(s), total studies: ${allStudies.length}`);
+        
+        // Deduplicate studies by NCT ID before processing
+        const uniqueStudies = [];
+        const seenStudyIds = new Set();
+        for (const study of allStudies) {
+          const id = study?.protocolSection?.identificationModule?.nctId || 
+                     study?.nctId || 
+                     study?.id || 
+                     '';
+          if (id && !seenStudyIds.has(id)) {
+            seenStudyIds.add(id);
+            uniqueStudies.push(study);
+          }
+        }
+        console.log(`trials-proxy: After deduplication: ${uniqueStudies.length} unique studies (removed ${allStudies.length - uniqueStudies.length} duplicates)`);
+        allStudies = uniqueStudies;
         
         // Now process all studies (no location filtering for global search)
         const d = { studies: allStudies };
