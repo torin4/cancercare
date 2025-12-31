@@ -48,6 +48,28 @@ export function calculateTrialMatchScore(trial, patientProfile, genomicProfile =
     }
   }
 
+  // 1a. Cancer Subtype Match (additional points if subtype matches)
+  if (trial.conditions && patientProfile.currentStatus?.diagnosis && 
+      patientProfile.currentStatus.diagnosis !== patientProfile.diagnosis) {
+    const subtypeMatch = trial.conditions.some(condition => {
+      const conditionLower = condition.toLowerCase();
+      const subtypeLower = patientProfile.currentStatus.diagnosis.toLowerCase();
+      return conditionLower.includes(subtypeLower) || subtypeLower.includes(conditionLower);
+    });
+
+    if (subtypeMatch) {
+      // Add bonus points for subtype match (10 points)
+      const subtypeScore = 10;
+      totalScore += subtypeScore;
+      maxPossibleScore += subtypeScore;
+      matchDetails.push({
+        category: 'Subtype',
+        score: subtypeScore,
+        detail: `Matches cancer subtype: ${patientProfile.currentStatus.diagnosis}`
+      });
+    }
+  }
+
   // 2. Age Match (20 points) - Also check eligibilityCriteria.text for exclusions with unit normalization
   maxPossibleScore += weights.age;
   if (patientProfile.age) {

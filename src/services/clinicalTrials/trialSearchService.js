@@ -937,6 +937,17 @@ export function matchesTrialEligibility(trial, patientProfile, genomicProfile) {
     matches.push(`Diagnosis: ${patientProfile.diagnosis} (matches)`);
   }
 
+  // Cancer subtype check
+  if (patientProfile.currentStatus?.diagnosis && 
+      patientProfile.currentStatus.diagnosis !== patientProfile.diagnosis &&
+      trial.conditions?.some(c => {
+        const conditionLower = c.toLowerCase();
+        const subtypeLower = patientProfile.currentStatus.diagnosis.toLowerCase();
+        return conditionLower.includes(subtypeLower) || subtypeLower.includes(conditionLower);
+      })) {
+    matches.push(`Cancer subtype: ${patientProfile.currentStatus.diagnosis} (matches)`);
+  }
+
   // Genomic criteria checks
   if (genomicProfile) {
     // BRCA mutations
