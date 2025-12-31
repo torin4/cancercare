@@ -78,9 +78,10 @@ module.exports = async (req, res) => {
         v2Params.push(`query.term=${encodeURIComponent(queryTerm)}`);
       }
       
-      // v2 API uses page[size] and page[number] for pagination
-      v2Params.push(`page.size=${v2PageSize}`);
-      v2Params.push(`page.number=${v2PageNumber}`);
+      // v2 API uses pageSize for pagination (not page.size)
+      v2Params.push(`pageSize=${v2PageSize}`);
+      // Note: v2 API doesn't use pageNumber - it uses nextPageToken for pagination
+      // For now, we'll just use pageSize
       
       // Include fields if specified
       const fields = params.get('fields');
@@ -145,11 +146,16 @@ module.exports = async (req, res) => {
           return res.json(d);
         }
 
-        // v2 API structure: response has `studies` array
+        // v2 API structure: response has `studies` array directly at root
         const items = d.studies || d.data || [];
         const studies = [];
         
         console.log('trials-proxy: Processing v2 API format, items count:', items.length);
+        console.log('trials-proxy: Response structure check - has studies:', !!d.studies, 'has data:', !!d.data, 'keys:', Object.keys(d));
+        
+        if (items.length === 0 && d.studies === undefined && d.data === undefined) {
+          console.warn('trials-proxy: No studies array found in response. Full response:', JSON.stringify(d, null, 2).substring(0, 1000));
+        }
         
         if (Array.isArray(items) && items.length > 0) {
           items.forEach((study, idx) => {
