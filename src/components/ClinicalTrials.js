@@ -12,6 +12,8 @@ const ClinicalTrials = () => {
   const [searchProgress, setSearchProgress] = useState(null);
   const [savedTrials, setSavedTrials] = useState([]);
   const [selectedTrial, setSelectedTrial] = useState(null);
+  const [pagination, setPagination] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const [patientProfile, setPatientProfile] = useState(null);
   const [genomicProfile, setGenomicProfile] = useState(null);
@@ -91,6 +93,7 @@ const ClinicalTrials = () => {
 
       if (results.success) {
         setSearchResults(results.trials);
+        setPagination(results.pagination || null);
         // prefer explicit searchSources from service, fallback to trial.source
         const sources = results.searchSources && results.searchSources.length > 0
           ? results.searchSources
@@ -99,6 +102,7 @@ const ClinicalTrials = () => {
       } else {
         setError(results.error || 'No trials found');
         setSearchSources(results.searchSources || []);
+        setPagination(null);
       }
     } catch (error) {
       console.error('Error searching trials:', error);
@@ -222,7 +226,7 @@ const ClinicalTrials = () => {
           </div>
           <div>
             <span className="font-medium text-gray-700">Country:</span>
-            <span className="ml-2 text-gray-600">{trial.country || 'Japan'}</span>
+            <span className="ml-2 text-gray-600">{trial.country || 'Not specified'}</span>
           </div>
         </div>
 
@@ -309,12 +313,12 @@ const ClinicalTrials = () => {
             </button>
           )}
           <a
-            href={trial.url || trial.urlJa}
+            href={trial.url || (trial.id ? `https://clinicaltrials.gov/study/${trial.id}` : '#')}
             target="_blank"
             rel="noopener noreferrer"
             className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition text-sm font-medium text-center"
           >
-            JRCT Page
+            View on ClinicalTrials.gov
           </a>
         </div>
       </div>
@@ -326,7 +330,7 @@ const ClinicalTrials = () => {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Clinical Trials</h1>
-        <p className="text-gray-600">Search and save clinical trials from WHO ICTRP and ClinicalTrials.gov</p>
+        <p className="text-gray-600">Search and save clinical trials from ClinicalTrials.gov</p>
       </div>
 
       {/* Tabs */}
@@ -403,14 +407,64 @@ const ClinicalTrials = () => {
 
               <h2 className="text-xl font-bold text-gray-900 mb-4">
                 Found {searchResults.length} Matching Trials
+                {pagination && pagination.totalResults && (
+                  <span className="text-base font-normal text-gray-600 ml-2">
+                    (of {pagination.totalResults} total)
+                  </span>
+                )}
               </h2>
-              {searchResults.map(trial => renderTrialCard(trial, false))}
+              <div className="space-y-4">
+                {searchResults.map(trial => renderTrialCard(trial, false))}
+                
+                {/* Load More Button */}
+                {pagination && pagination.hasMore && (
+                  <div className="flex justify-center pt-6">
+                    <button
+                      onClick={handleLoadMore}
+                      disabled={loadingMore || searching}
+                      className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {loadingMore ? (
+                        <>
+                          <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Loading...
+                        </>
+                      ) : (
+                        <>
+                          Load More
+                          {pagination.totalResults && (
+                            <span className="text-sm opacity-75">
+                              ({searchResults.length} of {pagination.totalResults})
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Error Display */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <p className="text-red-800 font-medium">⚠️ {error}</p>
+              {searchSources && searchSources.length > 0 && (
+                <p className="text-sm text-red-600 mt-2">
+                  Sources attempted: {searchSources.join(', ')}
+                </p>
+              )}
             </div>
           )}
 
           {!searching && searchResults.length === 0 && !error && (
             <div className="text-center text-gray-500 py-12">
               <p className="text-lg">Click "Search Clinical Trials" to find matching trials</p>
+              <p className="text-sm mt-2">Results will appear here after searching</p>
             </div>
           )}
         </div>
@@ -485,12 +539,12 @@ const ClinicalTrials = () => {
 
               <div className="flex gap-3 pt-4">
                 <a
-                  href={selectedTrial.url || selectedTrial.urlJa}
+                  href={selectedTrial.url || (selectedTrial.id ? `https://clinicaltrials.gov/study/${selectedTrial.id}` : '#')}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-center font-medium"
                 >
-                  View on source
+                  View on ClinicalTrials.gov
                 </a>
                 <button
                   onClick={() => setSelectedTrial(null)}

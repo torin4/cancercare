@@ -14,6 +14,7 @@ import {
 import { searchTrialsByGenomicProfile, matchesTrialEligibility } from './trialSearchService';
 import { trialLocationService } from '../../firebase/services';
 import { calculateTrialMatchScore, sortTrialsByMatch } from './trialMatcher';
+import { IMPORTANT_GENES } from '../../config/importantGenes';
 
 /**
  * Save a matched trial for a patient
@@ -165,7 +166,7 @@ export async function removeSavedTrial(trialDocId) {
  * @param {Object} genomicProfile - Patient's genomic profile (optional)
  * @returns {Promise<Object>} - Search results with matched trials
  */
-export async function searchAndMatchTrials(userId, patientProfile, genomicProfile = null, onProgress = null) {
+export async function searchAndMatchTrials(userId, patientProfile, genomicProfile = null, onProgress = null, pageNumber = 1) {
   try {
     let searchResults;
 
@@ -182,14 +183,53 @@ export async function searchAndMatchTrials(userId, patientProfile, genomicProfil
       const tl = trialLocation ? { ...trialLocation, onProgress } : { onProgress };
       searchResults = await searchTrialsByGenomicProfile(genomicProfile, patientProfile, tl);
     } else {
-      // Otherwise, search by diagnosis only and include location
+      // Build search condition including cancer type, subtype, and mutations if available
+      let searchCondition = patientProfile.diagnosis || patientProfile.cancerType || '';
+      
+      // Add cancer subtype if available
+      if (patientProfile.currentStatus?.diagnosis && patientProfile.currentStatus.diagnosis !== patientProfile.diagnosis) {
+        searchCondition += ` ${patientProfile.currentStatus.diagnosis}`;
+      }
+      
+      // Add cancer type if different from diagnosis
+      if (patientProfile.cancerType && patientProfile.cancerType !== patientProfile.diagnosis) {
+        searchCondition += ` ${patientProfile.cancerType}`;
+      }
+      
+      // Add mutations/variants from genomic profile if available (even if not using genomic search)
+      if (genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0) {
+        // Add top 3 important mutations to search
+        const importantMutations = genomicProfile.mutations
+          .filter(m => m.gene && IMPORTANT_GENES.includes(m.gene.toUpperCase()))
+          .slice(0, 3);
+        
+        if (importantMutations.length > 0) {
+          const mutationGenes = importantMutations.map(m => m.gene).join(' OR ');
+          searchCondition += ` (${mutationGenes})`;
+        }
+      }
+      
+      // Also add CNVs (like CCNE1 amplification)
+      if (genomicProfile && genomicProfile.cnvs && genomicProfile.cnvs.length > 0) {
+        const importantCNVs = genomicProfile.cnvs
+          .filter(cnv => cnv.gene && IMPORTANT_GENES.includes(cnv.gene.toUpperCase()))
+          .slice(0, 2);
+        
+        if (importantCNVs.length > 0) {
+          const cnvGenes = importantCNVs.map(cnv => cnv.gene).join(' OR ');
+          searchCondition += ` (${cnvGenes})`;
+        }
+      }
+      
       const { searchTrials } = await import('./trialSearchService');
       const params = {
-        condition: patientProfile.diagnosis,
+        condition: searchCondition.trim(),
         age: patientProfile.age,
         gender: patientProfile.gender,
         status: 'recruiting',
-        onProgress
+        onProgress,
+        pageNumber: pageNumber,
+        pageSize: 50
       };
       if (trialLocation) {
         params.country = trialLocation.country;
@@ -204,7 +244,8 @@ export async function searchAndMatchTrials(userId, patientProfile, genomicProfil
         totalResults: 0,
         trials: [],
         searchSources: searchResults.attemptedSources || [],
-        error: searchResults.error || 'No trials found'
+        error: searchResults.error || 'No trials found',
+        pagination: searchResults.pagination || null
       };
     }
 

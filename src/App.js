@@ -95,6 +95,7 @@ export default function CancerCareApp() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showQuickLog, setShowQuickLog] = useState(false);
   const [showFabMenu, setShowFabMenu] = useState(false);
+  const [showAddSymptomModal, setShowAddSymptomModal] = useState(false);
   const [healthSection, setHealthSection] = useState('labs');
   const [selectedLab, setSelectedLab] = useState('ca125');
   const [selectedDate, setSelectedDate] = useState(null);
@@ -158,6 +159,21 @@ export default function CancerCareApp() {
   const [messages, setMessages] = useState([]);
   const [quickLogInput, setQuickLogInput] = useState('');
   const [inputText, setInputText] = useState('');
+  const [quickLogMode, setQuickLogMode] = useState('general'); // 'general' or 'symptom'
+  const [quickLogSymptomForm, setQuickLogSymptomForm] = useState({
+    name: '',
+    severity: '',
+    date: new Date().toISOString().split('T')[0],
+    time: new Date().toTimeString().slice(0, 5),
+    notes: ''
+  });
+  const [symptomForm, setSymptomForm] = useState({
+    name: '',
+    severity: '',
+    date: new Date().toISOString().split('T')[0],
+    time: new Date().toTimeString().slice(0, 5),
+    notes: ''
+  });
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
   const [documentOnboardingMethod, setDocumentOnboardingMethod] = useState('picker');
   const [hasUploadedDocument, setHasUploadedDocument] = useState(false);
@@ -544,7 +560,7 @@ export default function CancerCareApp() {
 
   const [genomicProfile, setGenomicProfile] = useState(null);
 
-  // Mock data removed - app now uses real data from Firestore and JRCT API
+  // Mock data removed - app now uses real data from Firestore and ClinicalTrials.gov API
 
   // Monitor authentication state and create patient profile if needed
   useEffect(() => {
@@ -1351,29 +1367,86 @@ export default function CancerCareApp() {
               </div>
             </div>
 
-            {/* Quick Stats - Responsive Grid */}
-            {hasRealLabData || hasRealVitalData ? (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                {/* Show real lab/vital data from Firestore */}
-                {Object.keys(labsData).slice(0, 4).map((labKey) => {
-                  const lab = labsData[labKey];
-                  if (!lab || !lab.history || lab.history.length === 0) return null;
-                  const latestValue = lab.history[lab.history.length - 1]?.value;
-                  return (
-                    <div key={labKey} className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 border border-gray-200">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs sm:text-sm text-gray-600">{lab.name}</span>
-                        <Activity className={`w-4 h-4 ${lab.status === 'warning' ? 'text-orange-500' : lab.status === 'danger' ? 'text-red-500' : 'text-green-500'}`} />
-                      </div>
-                      <p className="text-xl sm:text-2xl font-bold text-gray-900">{latestValue}</p>
-                      <p className={`text-xs mt-1 ${lab.status === 'warning' ? 'text-orange-600' : lab.status === 'danger' ? 'text-red-600' : 'text-green-600'}`}>
-                        {lab.status === 'normal' ? 'Normal range' : lab.status === 'warning' ? 'Above normal' : 'High'}
-                      </p>
-                    </div>
-                  );
-                }).filter(Boolean)}
-              </div>
-            ) : (
+            {/* Most Important Labs & Vitals - Single Row */}
+            {hasRealLabData || hasRealVitalData ? (() => {
+              // Get most important labs (prioritize by relevance score, then by critical list)
+              const importantLabKeys = Object.keys(labsData)
+                .filter(key => {
+                  const lab = labsData[key];
+                  return lab && lab.history && lab.history.length > 0 && lab.relevanceScore >= 2;
+                })
+                .sort((a, b) => {
+                  const labA = labsData[a];
+                  const labB = labsData[b];
+                  // Sort by relevance score (higher first), then by critical list order
+                  if (labB.relevanceScore !== labA.relevanceScore) {
+                    return labB.relevanceScore - labA.relevanceScore;
+                  }
+                  const criticalOrder = ['ca125', 'cea', 'wbc', 'hemoglobin', 'platelets'];
+                  const idxA = criticalOrder.indexOf(a.toLowerCase());
+                  const idxB = criticalOrder.indexOf(b.toLowerCase());
+                  if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                  if (idxA !== -1) return -1;
+                  if (idxB !== -1) return 1;
+                  return 0;
+                })
+                .slice(0, 3); // Top 3 labs
+
+              // Get most important vitals (weight, blood pressure)
+              const importantVitalKeys = Object.keys(vitalsData)
+                .filter(key => {
+                  const vital = vitalsData[key];
+                  return vital && ((vital.data && vital.data.length > 0) || vital.current);
+                })
+                .filter(key => ['weight', 'bp'].includes(key.toLowerCase()))
+                .slice(0, 2); // Top 2 vitals
+
+              const allImportantItems = [
+                ...importantLabKeys.map(key => ({ type: 'lab', key, data: labsData[key] })),
+                ...importantVitalKeys.map(key => ({ type: 'vital', key, data: vitalsData[key] }))
+              ].slice(0, 5); // Max 5 items in the row
+
+              if (allImportantItems.length === 0) return null;
+
+              return (
+                <div className="bg-white rounded-lg sm:rounded-xl p-4 border border-gray-200 shadow-sm">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Key Metrics</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                    {allImportantItems.map((item) => {
+                      const data = item.data;
+                      // Get latest value - labs have history array, vitals have data array or current
+                      let latestValue;
+                      if (item.type === 'lab') {
+                        latestValue = data.history && data.history.length > 0 
+                          ? data.history[data.history.length - 1]?.value 
+                          : data.current;
+                      } else {
+                        // Vitals structure
+                        latestValue = (data.data && data.data.length > 0)
+                          ? data.data[data.data.length - 1]?.value
+                          : data.current;
+                      }
+                      const status = data.status || 'normal';
+                      
+                      return (
+                        <div key={`${item.type}-${item.key}`} className="text-center">
+                          <div className="flex items-center justify-center gap-1 mb-1">
+                            <span className="text-xs text-gray-600">{data.name}</span>
+                            <Activity className={`w-3 h-3 ${status === 'warning' ? 'text-orange-500' : status === 'danger' ? 'text-red-500' : 'text-green-500'}`} />
+                          </div>
+                          <p className="text-lg sm:text-xl font-bold text-gray-900">{latestValue}{data.unit ? ` ${data.unit}` : ''}</p>
+                          {status !== 'normal' && (
+                            <p className={`text-xs mt-0.5 ${status === 'warning' ? 'text-orange-600' : 'text-red-600'}`}>
+                              {status === 'warning' ? 'Above normal' : 'High'}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })() : (
               <div className="bg-white rounded-lg p-6 text-center border-2 border-dashed border-gray-300">
                 <Activity className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                 <p className="text-gray-600 mb-2 font-medium">No health data tracked yet</p>
@@ -2039,12 +2112,21 @@ export default function CancerCareApp() {
                           </button>
                         )}
 
-                        <button
-                          onClick={() => setShowAddLab(true)}
-                          className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 transition"
-                        >
-                          + Add Lab Value to Track
-                        </button>
+                        <div className="space-y-2">
+                          <button
+                            onClick={() => setShowAddLab(true)}
+                            className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 transition"
+                          >
+                            + Add Lab Value to Track
+                          </button>
+                          <button
+                            onClick={() => simulateDocumentUpload('lab')}
+                            className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium flex items-center justify-center gap-2"
+                          >
+                            <Upload className="w-4 h-4" />
+                            Upload Lab Report
+                          </button>
+                        </div>
                       </>
                     )}
                   </>
@@ -2219,7 +2301,7 @@ export default function CancerCareApp() {
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-gray-800">December 2024</h3>
                     <button
-                      onClick={() => setShowQuickLog(true)}
+                      onClick={() => setShowAddSymptomModal(true)}
                       className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2882,7 +2964,7 @@ export default function CancerCareApp() {
               )}
 
               {/* Expanded Details */}
-              {genomicExpanded && genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 && (
+              {genomicExpanded && genomicProfile && ((genomicProfile.mutations && genomicProfile.mutations.length > 0) || (genomicProfile.cnvs && genomicProfile.cnvs.length > 0) || genomicProfile.tmb || genomicProfile.msi || genomicProfile.hrd) && (
                 <div className="space-y-3 animate-fade-scale">
                   {/* Key Mutations */}
                   <div className="bg-white rounded-lg p-4">
@@ -2927,6 +3009,52 @@ export default function CancerCareApp() {
                       })}
                     </div>
                   </div>
+
+                  {/* Copy Number Variants (CNVs) */}
+                  {genomicProfile.cnvs && genomicProfile.cnvs.length > 0 && (
+                    <div className="bg-white rounded-lg p-4">
+                      <h3 className="font-semibold text-gray-800 mb-3 text-sm flex items-center gap-2">
+                        <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        Copy Number Variants (CNVs)
+                      </h3>
+                      <div className="space-y-2">
+                        {genomicProfile.cnvs.map((cnv, idx) => (
+                          <div key={idx} className="flex items-start justify-between p-2 bg-orange-50 border border-orange-200 rounded">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className={`font-semibold text-gray-900 text-sm ${IMPORTANT_GENES.includes((cnv.gene||'').toUpperCase()) ? 'text-yellow-700' : ''}`}>
+                                  {cnv.gene}
+                                </span>
+                                <span className="px-2 py-0.5 bg-orange-100 text-orange-800 rounded text-xs font-medium">
+                                  {cnv.type === 'amplification' || cnv.type === 'gain' || (cnv.copyNumber && cnv.copyNumber > 2) ? 'Amplification' : 'Deletion'}
+                                </span>
+                                {IMPORTANT_GENES.includes((cnv.gene||'').toUpperCase()) && (
+                                  <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded text-xs font-medium">
+                                    Important
+                                  </span>
+                                )}
+                              </div>
+                              {cnv.copyNumber && (
+                                <p className="text-xs text-gray-700 mt-1">
+                                  <span className="font-medium">Copy Number:</span> {cnv.copyNumber}
+                                </p>
+                              )}
+                              {cnv.note && (
+                                <p className="text-xs text-gray-600 mt-1">{cnv.note}</p>
+                              )}
+                              {cnv.gene === 'CCNE1' && (
+                                <p className="text-xs text-orange-700 font-medium mt-1">
+                                  ⚠️ Platinum resistance marker - important for treatment planning
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Biomarkers */}
                   <div className="bg-white rounded-lg p-4">
@@ -2995,7 +3123,13 @@ export default function CancerCareApp() {
                         {genomicProfile.testDate && (
                           <div className="flex justify-between">
                             <span className="text-gray-600">Test Date:</span>
-                            <span className="font-medium text-gray-900">{genomicProfile.testDate}</span>
+                            <span className="font-medium text-gray-900">
+                              {genomicProfile.testDate instanceof Date 
+                                ? genomicProfile.testDate.toLocaleDateString() 
+                                : typeof genomicProfile.testDate === 'string' 
+                                  ? genomicProfile.testDate 
+                                  : new Date(genomicProfile.testDate).toLocaleDateString()}
+                            </span>
                           </div>
                         )}
                         {genomicProfile.genesAnalyzed && (
@@ -3300,14 +3434,36 @@ export default function CancerCareApp() {
         showQuickLog && (
           <div className="fixed inset-0 z-50">
             <div
-              onClick={() => setShowQuickLog(false)}
+              onClick={() => {
+                setShowQuickLog(false);
+                setQuickLogMode('general');
+                setQuickLogInput('');
+                setQuickLogSymptomForm({
+                  name: '',
+                  severity: '',
+                  date: new Date().toISOString().split('T')[0],
+                  time: new Date().toTimeString().slice(0, 5),
+                  notes: ''
+                });
+              }}
               className="absolute inset-0 bg-black bg-opacity-50"
             />
-            <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl animate-slide-up" style={{ height: '50vh' }}>
+            <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl animate-slide-up" style={{ height: quickLogMode === 'symptom' ? '85vh' : '50vh' }}>
               <div className="p-4 border-b flex items-center justify-between">
                 <h3 className="font-bold text-lg">Quick Health Log</h3>
                 <button
-                  onClick={() => setShowQuickLog(false)}
+                  onClick={() => {
+                    setShowQuickLog(false);
+                    setQuickLogMode('general');
+                    setQuickLogInput('');
+                    setQuickLogSymptomForm({
+                      name: '',
+                      severity: '',
+                      date: new Date().toISOString().split('T')[0],
+                      time: new Date().toTimeString().slice(0, 5),
+                      notes: ''
+                    });
+                  }}
                   className="text-gray-500 hover:text-gray-700"
                 >
                   <X size={24} />
@@ -3315,49 +3471,276 @@ export default function CancerCareApp() {
               </div>
 
               <div className="p-4 flex-1 overflow-y-auto">
-                <p className="text-sm text-gray-600 mb-4">
-                  Tell me about symptoms, energy levels, or anything you'd like to track for Mary.
-                </p>
+                {/* Mode Toggle */}
+                <div className="flex gap-2 mb-4">
+                  <button
+                    onClick={() => setQuickLogMode('general')}
+                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition ${
+                      quickLogMode === 'general'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    General Log
+                  </button>
+                  <button
+                    onClick={() => setQuickLogMode('symptom')}
+                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition ${
+                      quickLogMode === 'symptom'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Log Symptom
+                  </button>
+                </div>
 
-                <textarea
-                  value={quickLogInput}
-                  onChange={(e) => setQuickLogInput(e.target.value)}
-                  placeholder="e.g., 'Fatigue 6/10 today, mild nausea after breakfast'"
-                  className="w-full h-32 border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  autoFocus
-                />
+                {quickLogMode === 'general' ? (
+                  <>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Tell me about symptoms, energy levels, or anything you'd like to track.
+                    </p>
 
-                <button
-                  onClick={() => {
-                    if (quickLogInput.trim()) {
-                      setMessages([...messages,
-                      { type: 'user', text: quickLogInput },
-                      { type: 'ai', text: 'Logged! I\'ve added this to Mary\'s health timeline.' }
-                      ]);
-                      setQuickLogInput('');
-                      setShowQuickLog(false);
-                      setActiveTab('chat');
-                    }
-                  }}
-                  className="w-full mt-4 bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition"
-                >
-                  Log & Save
-                </button>
+                    <textarea
+                      value={quickLogInput}
+                      onChange={(e) => setQuickLogInput(e.target.value)}
+                      placeholder="e.g., 'Fatigue 6/10 today, mild nausea after breakfast'"
+                      className="w-full h-32 border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      autoFocus
+                    />
+
+                    <button
+                      onClick={async () => {
+                        if (quickLogInput.trim() && user) {
+                          const userMessage = quickLogInput;
+                          setQuickLogInput('');
+                          setShowQuickLog(false);
+                          setQuickLogMode('general');
+                          
+                          // Add user message immediately
+                          setMessages(prev => [...prev, { type: 'user', text: userMessage }]);
+                          
+                          try {
+                            // Process message with AI to extract and save medical data
+                            const result = await processChatMessage(
+                              userMessage,
+                              user.uid,
+                              messages.slice(-10).map(msg => ({
+                                role: msg.type === 'user' ? 'user' : 'assistant',
+                                content: msg.text
+                              }))
+                            );
+
+                            // Build response text
+                            let responseText = result.response;
+
+                            // Add extraction summary if data was extracted
+                            if (result.extractedData) {
+                              const summary = generateChatExtractionSummary(result.extractedData);
+                              if (summary) {
+                                responseText += summary;
+                              }
+                            }
+
+                            // Add AI response
+                            setMessages(prev => [...prev, {
+                              type: 'ai',
+                              text: responseText,
+                              isAnalysis: !!result.extractedData
+                            }]);
+
+                            // Reload health data if values were extracted
+                            if (result.extractedData) {
+                              await reloadHealthData();
+                            }
+                            
+                            // Switch to chat tab to show the conversation
+                            setActiveTab('chat');
+                          } catch (error) {
+                            console.error('Error processing quick log message:', error);
+                            setMessages(prev => [...prev, {
+                              type: 'ai',
+                              text: 'Sorry, I\'m having trouble processing your message right now. Please try again in a moment.'
+                            }]);
+                            setActiveTab('chat');
+                          }
+                        }
+                      }}
+                      className="w-full mt-4 bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition"
+                    >
+                      Log & Save
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-4">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-blue-900">Quick Symptom Logging</p>
+                            <p className="text-xs text-blue-700 mt-1">
+                              Track your symptoms to help identify patterns and inform your care team.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Symptom Type <span className="text-red-600">*</span>
+                        </label>
+                        <select 
+                          value={quickLogSymptomForm.name}
+                          onChange={(e) => setQuickLogSymptomForm({...quickLogSymptomForm, name: e.target.value})}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Select symptom type...</option>
+                          <option value="Fatigue">Fatigue</option>
+                          <option value="Pain">Pain</option>
+                          <option value="Nausea">Nausea</option>
+                          <option value="Headache">Headache</option>
+                          <option value="Dizziness">Dizziness</option>
+                          <option value="Fever">Fever</option>
+                          <option value="Shortness of Breath">Shortness of Breath</option>
+                          <option value="Loss of Appetite">Loss of Appetite</option>
+                          <option value="Sleep Issues">Sleep Issues</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Severity <span className="text-red-600">*</span>
+                        </label>
+                        <div className="grid grid-cols-3 gap-2">
+                          <button 
+                            onClick={() => setQuickLogSymptomForm({...quickLogSymptomForm, severity: 'mild'})}
+                            className={`border-2 rounded-lg py-3 text-center transition ${quickLogSymptomForm.severity === 'mild' ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-green-500 hover:bg-green-50'}`}
+                          >
+                            <div className="w-3 h-3 bg-green-500 rounded-full mx-auto mb-1"></div>
+                            <div className="text-sm font-medium text-gray-700">Mild</div>
+                          </button>
+                          <button 
+                            onClick={() => setQuickLogSymptomForm({...quickLogSymptomForm, severity: 'moderate'})}
+                            className={`border-2 rounded-lg py-3 text-center transition ${quickLogSymptomForm.severity === 'moderate' ? 'border-yellow-500 bg-yellow-50' : 'border-gray-300 hover:border-yellow-500 hover:bg-yellow-50'}`}
+                          >
+                            <div className="w-3 h-3 bg-yellow-500 rounded-full mx-auto mb-1"></div>
+                            <div className="text-sm font-medium text-gray-700">Moderate</div>
+                          </button>
+                          <button 
+                            onClick={() => setQuickLogSymptomForm({...quickLogSymptomForm, severity: 'severe'})}
+                            className={`border-2 rounded-lg py-3 text-center transition ${quickLogSymptomForm.severity === 'severe' ? 'border-red-500 bg-red-50' : 'border-gray-300 hover:border-red-500 hover:bg-red-50'}`}
+                          >
+                            <div className="w-3 h-3 bg-red-500 rounded-full mx-auto mb-1"></div>
+                            <div className="text-sm font-medium text-gray-700">Severe</div>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                          <input
+                            type="date"
+                            value={quickLogSymptomForm.date}
+                            onChange={(e) => setQuickLogSymptomForm({...quickLogSymptomForm, date: e.target.value})}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
+                          <input
+                            type="time"
+                            value={quickLogSymptomForm.time}
+                            onChange={(e) => setQuickLogSymptomForm({...quickLogSymptomForm, time: e.target.value})}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Notes <span className="text-gray-500 text-xs">(optional)</span>
+                        </label>
+                        <textarea
+                          rows="3"
+                          value={quickLogSymptomForm.notes}
+                          onChange={(e) => setQuickLogSymptomForm({...quickLogSymptomForm, notes: e.target.value})}
+                          placeholder="Additional details about the symptom..."
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                        ></textarea>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={async () => {
+                        if (!quickLogSymptomForm.name || !quickLogSymptomForm.severity) {
+                          alert('Please fill in all required fields (Symptom Type and Severity)');
+                          return;
+                        }
+                        
+                        if (!user) {
+                          alert('Please log in to save symptoms');
+                          return;
+                        }
+
+                        try {
+                          // Combine date and time into a single datetime
+                          const dateTime = new Date(`${quickLogSymptomForm.date}T${quickLogSymptomForm.time}`);
+                          
+                          await symptomService.addSymptom({
+                            patientId: user.uid,
+                            name: quickLogSymptomForm.name,
+                            severity: quickLogSymptomForm.severity,
+                            date: dateTime,
+                            notes: quickLogSymptomForm.notes || ''
+                          });
+
+                          // Reset form and close modal
+                          setQuickLogSymptomForm({
+                            name: '',
+                            severity: '',
+                            date: new Date().toISOString().split('T')[0],
+                            time: new Date().toTimeString().slice(0, 5),
+                            notes: ''
+                          });
+                          setShowQuickLog(false);
+                          setQuickLogMode('general');
+                          
+                          // Symptoms will automatically update via the subscription
+                          // Optionally show a success message
+                          setMessages(prev => [...prev, {
+                            type: 'ai',
+                            text: `✅ Logged symptom: ${quickLogSymptomForm.name} (${quickLogSymptomForm.severity})`
+                          }]);
+                        } catch (error) {
+                          console.error('Error saving symptom:', error);
+                          alert('Failed to save symptom. Please try again.');
+                        }
+                      }}
+                      className="w-full mt-4 bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition"
+                    >
+                      Log Symptom
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
         )
       }
 
-      {/* Quick Log Symptom Modal */}
+      {/* Add Symptom Modal - Only show in health page symptoms section */}
       {
-        showQuickLog && (
+        showAddSymptomModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 md:p-4">
             <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
               <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
                 <h3 className="font-bold text-lg text-gray-800">Log Symptom</h3>
                 <button
-                  onClick={() => setShowQuickLog(false)}
+                  onClick={() => setShowAddSymptomModal(false)}
                   className="text-gray-500 hover:text-gray-700"
                 >
                   <X size={24} />
@@ -3382,18 +3765,22 @@ export default function CancerCareApp() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Symptom Type <span className="text-red-600">*</span>
                     </label>
-                    <select className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select 
+                      value={symptomForm.name}
+                      onChange={(e) => setSymptomForm({...symptomForm, name: e.target.value})}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
                       <option value="">Select symptom type...</option>
-                      <option value="fatigue">Fatigue</option>
-                      <option value="pain">Pain</option>
-                      <option value="nausea">Nausea</option>
-                      <option value="headache">Headache</option>
-                      <option value="dizziness">Dizziness</option>
-                      <option value="fever">Fever</option>
-                      <option value="shortness">Shortness of Breath</option>
-                      <option value="appetite">Loss of Appetite</option>
-                      <option value="sleep">Sleep Issues</option>
-                      <option value="other">Other</option>
+                      <option value="Fatigue">Fatigue</option>
+                      <option value="Pain">Pain</option>
+                      <option value="Nausea">Nausea</option>
+                      <option value="Headache">Headache</option>
+                      <option value="Dizziness">Dizziness</option>
+                      <option value="Fever">Fever</option>
+                      <option value="Shortness of Breath">Shortness of Breath</option>
+                      <option value="Loss of Appetite">Loss of Appetite</option>
+                      <option value="Sleep Issues">Sleep Issues</option>
+                      <option value="Other">Other</option>
                     </select>
                   </div>
 
@@ -3402,15 +3789,24 @@ export default function CancerCareApp() {
                       Severity <span className="text-red-600">*</span>
                     </label>
                     <div className="grid grid-cols-3 gap-2">
-                      <button className="border-2 border-gray-300 hover:border-green-500 hover:bg-green-50 rounded-lg py-3 text-center transition">
+                      <button 
+                        onClick={() => setSymptomForm({...symptomForm, severity: 'mild'})}
+                        className={`border-2 rounded-lg py-3 text-center transition ${symptomForm.severity === 'mild' ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-green-500 hover:bg-green-50'}`}
+                      >
                         <div className="w-3 h-3 bg-green-500 rounded-full mx-auto mb-1"></div>
                         <div className="text-sm font-medium text-gray-700">Mild</div>
                       </button>
-                      <button className="border-2 border-gray-300 hover:border-yellow-500 hover:bg-yellow-50 rounded-lg py-3 text-center transition">
+                      <button 
+                        onClick={() => setSymptomForm({...symptomForm, severity: 'moderate'})}
+                        className={`border-2 rounded-lg py-3 text-center transition ${symptomForm.severity === 'moderate' ? 'border-yellow-500 bg-yellow-50' : 'border-gray-300 hover:border-yellow-500 hover:bg-yellow-50'}`}
+                      >
                         <div className="w-3 h-3 bg-yellow-500 rounded-full mx-auto mb-1"></div>
                         <div className="text-sm font-medium text-gray-700">Moderate</div>
                       </button>
-                      <button className="border-2 border-gray-300 hover:border-red-500 hover:bg-red-50 rounded-lg py-3 text-center transition">
+                      <button 
+                        onClick={() => setSymptomForm({...symptomForm, severity: 'severe'})}
+                        className={`border-2 rounded-lg py-3 text-center transition ${symptomForm.severity === 'severe' ? 'border-red-500 bg-red-50' : 'border-gray-300 hover:border-red-500 hover:bg-red-50'}`}
+                      >
                         <div className="w-3 h-3 bg-red-500 rounded-full mx-auto mb-1"></div>
                         <div className="text-sm font-medium text-gray-700">Severe</div>
                       </button>
@@ -3422,7 +3818,8 @@ export default function CancerCareApp() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                       <input
                         type="date"
-                        defaultValue="2024-12-28"
+                        value={symptomForm.date}
+                        onChange={(e) => setSymptomForm({...symptomForm, date: e.target.value})}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -3431,7 +3828,8 @@ export default function CancerCareApp() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
                       <input
                         type="time"
-                        defaultValue="14:30"
+                        value={symptomForm.time}
+                        onChange={(e) => setSymptomForm({...symptomForm, time: e.target.value})}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -3443,6 +3841,8 @@ export default function CancerCareApp() {
                     </label>
                     <textarea
                       rows="3"
+                      value={symptomForm.notes}
+                      onChange={(e) => setSymptomForm({...symptomForm, notes: e.target.value})}
                       placeholder="Additional details about the symptom..."
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                     ></textarea>
@@ -3469,15 +3869,59 @@ export default function CancerCareApp() {
               <div className="flex-shrink-0 border-t p-4 bg-white">
                 <div className="flex gap-3">
                   <button
-                    onClick={() => setShowQuickLog(false)}
+                    onClick={() => {
+                      setShowAddSymptomModal(false);
+                      setSymptomForm({
+                        name: '',
+                        severity: '',
+                        date: new Date().toISOString().split('T')[0],
+                        time: new Date().toTimeString().slice(0, 5),
+                        notes: ''
+                      });
+                    }}
                     className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition"
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={() => {
-                      setShowQuickLog(false);
-                      alert('Symptom logged successfully!');
+                    onClick={async () => {
+                      if (!symptomForm.name || !symptomForm.severity) {
+                        alert('Please fill in all required fields (Symptom Type and Severity)');
+                        return;
+                      }
+                      
+                      if (!user) {
+                        alert('Please log in to save symptoms');
+                        return;
+                      }
+
+                      try {
+                        // Combine date and time into a single datetime
+                        const dateTime = new Date(`${symptomForm.date}T${symptomForm.time}`);
+                        
+                        await symptomService.addSymptom({
+                          patientId: user.uid,
+                          name: symptomForm.name,
+                          severity: symptomForm.severity,
+                          date: dateTime,
+                          notes: symptomForm.notes || ''
+                        });
+
+                        // Reset form and close modal
+                        setSymptomForm({
+                          name: '',
+                          severity: '',
+                          date: new Date().toISOString().split('T')[0],
+                          time: new Date().toTimeString().slice(0, 5),
+                          notes: ''
+                        });
+                        setShowAddSymptomModal(false);
+                        
+                        // Symptoms will automatically update via the subscription
+                      } catch (error) {
+                        console.error('Error saving symptom:', error);
+                        alert('Failed to save symptom. Please try again.');
+                      }
                     }}
                     className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"
                   >
