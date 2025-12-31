@@ -2244,41 +2244,335 @@ export default function CancerCareApp() {
                                   <p className="text-xs sm:text-sm text-gray-600">Normal range: {currentVital.normalRange} {currentVital.unit}</p>
                                 </div>
 
-                                {/* Chart */}
-                                <div className="h-48 sm:h-64">
-                                  <div className="relative h-full border-l-2 border-b-2 border-gray-300">
-                                    <svg className="w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="none">
-                                      <polyline
-                                        fill="none"
-                                        stroke="#10b981"
-                                        strokeWidth="3"
-                                        points={currentVital.data.map((point, idx) => {
-                                          const dataLength = Math.max(currentVital.data.length - 1, 1); // Prevent division by zero
-                                          const x = (idx / dataLength) * 380 + 10;
-                                          const maxVal = Math.max(...currentVital.data.map(d => selectedVital === 'bp' ? d.systolic : d.value));
-                                          const minVal = Math.min(...currentVital.data.map(d => selectedVital === 'bp' ? (d.diastolic || d.value) : d.value));
-                                          const range = maxVal - minVal || 1;
-                                          const val = selectedVital === 'bp' ? point.systolic : point.value;
-                                          const y = 180 - ((val - minVal) / range) * 160;
-                                          return `${x},${y}`;
-                                        }).join(' ')}
-                                      />
-                                      {currentVital.data.map((point, idx) => {
-                                        const dataLength = Math.max(currentVital.data.length - 1, 1); // Prevent division by zero
-                                        const x = (idx / dataLength) * 380 + 10;
-                                        const maxVal = Math.max(...currentVital.data.map(d => selectedVital === 'bp' ? d.systolic : d.value));
-                                        const minVal = Math.min(...currentVital.data.map(d => selectedVital === 'bp' ? (d.diastolic || d.value) : d.value));
-                                        const range = maxVal - minVal || 1;
-                                        const val = selectedVital === 'bp' ? point.systolic : point.value;
-                                        const y = 180 - ((val - minVal) / range) * 160;
+                                {/* Chart - Responsive with Y-axis and hover tooltips */}
+                                <div className="flex gap-3">
+                                  {/* Y-axis labels */}
+                                  <div className="flex flex-col justify-between text-xs text-gray-600 font-medium py-2" style={{ paddingBottom: '1.5rem' }}>
+                                    {(() => {
+                                      // Filter out non-numeric values and ensure we have valid numbers
+                                      const values = currentVital.data
+                                        .map(d => {
+                                          if (selectedVital === 'bp' || selectedVital === 'bloodpressure') {
+                                            return parseFloat(d.systolic || d.value);
+                                          }
+                                          return parseFloat(d.value);
+                                        })
+                                        .filter(v => !isNaN(v) && isFinite(v));
+
+                                      if (values.length === 0) {
+                                        return <div className="text-right pr-2 w-10">--</div>;
+                                      }
+
+                                      let minVal = Math.min(...values);
+                                      let maxVal = Math.max(...values);
+
+                                      // Parse normal range if available (formats: "0-35", "24.0-34.0", "< 0.5", "> 60")
+                                      if (currentVital.normalRange) {
+                                        // Try standard range format "X-Y"
+                                        let rangeMatch = currentVital.normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+                                        if (rangeMatch) {
+                                          const normMin = parseFloat(rangeMatch[1]);
+                                          const normMax = parseFloat(rangeMatch[2]);
+                                          if (!isNaN(normMin) && !isNaN(normMax)) {
+                                            minVal = Math.min(minVal, normMin);
+                                            maxVal = Math.max(maxVal, normMax);
+                                          }
+                                        } else {
+                                          // Try "< X" format
+                                          const lessThanMatch = currentVital.normalRange.match(/<\s*(\d+\.?\d*)/);
+                                          if (lessThanMatch) {
+                                            const threshold = parseFloat(lessThanMatch[1]);
+                                            if (!isNaN(threshold)) {
+                                              minVal = Math.min(minVal, 0);
+                                              maxVal = Math.max(maxVal, threshold);
+                                            }
+                                          } else {
+                                            // Try "> X" format
+                                            const greaterThanMatch = currentVital.normalRange.match(/>\s*(\d+\.?\d*)/);
+                                            if (greaterThanMatch) {
+                                              const threshold = parseFloat(greaterThanMatch[1]);
+                                              if (!isNaN(threshold)) {
+                                                minVal = Math.min(minVal, threshold);
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+
+                                      const range = maxVal - minVal;
+                                      const padding = range * 0.2 || 10; // Fallback if range is 0
+                                      const yMin = Math.floor(minVal - padding);
+                                      const yMax = Math.ceil(maxVal + padding);
+                                      const step = (yMax - yMin) / 4;
+
+                                      return [4, 3, 2, 1, 0].map(i => (
+                                        <div key={i} className="text-right pr-2 w-10" style={{ lineHeight: '1' }}>
+                                          {(yMin + (step * i)).toFixed(maxVal > 100 ? 0 : 1)}
+                                        </div>
+                                      ));
+                                    })()}
+                                  </div>
+
+                                  {/* Chart area */}
+                                  <div className="flex-1">
+                                    <div className="relative h-40 mb-3">
+                                      {/* Horizontal grid lines */}
+                                      <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                                        {[0, 1, 2, 3, 4].map(i => (
+                                          <div key={i} className="border-t border-gray-200"></div>
+                                        ))}
+                                      </div>
+
+                                      {/* SVG Graph */}
+                                      {(() => {
+                                        // Filter out non-numeric values and ensure we have valid numbers
+                                        const values = currentVital.data
+                                          .map(d => {
+                                            if (selectedVital === 'bp' || selectedVital === 'bloodpressure') {
+                                              return parseFloat(d.systolic || d.value);
+                                            }
+                                            return parseFloat(d.value);
+                                          })
+                                          .filter(v => !isNaN(v) && isFinite(v));
+
+                                        if (values.length === 0) {
+                                          return (
+                                            <div className="flex items-center justify-center h-full text-gray-400">
+                                              <p>No numeric data available for charting</p>
+                                            </div>
+                                          );
+                                        }
+
+                                        let minVal = Math.min(...values);
+                                        let maxVal = Math.max(...values);
+
+                                        // Parse normal range if available
+                                        if (currentVital.normalRange) {
+                                          // Try standard range format "X-Y"
+                                          let rangeMatch = currentVital.normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+                                          if (rangeMatch) {
+                                            const normMin = parseFloat(rangeMatch[1]);
+                                            const normMax = parseFloat(rangeMatch[2]);
+                                            if (!isNaN(normMin) && !isNaN(normMax)) {
+                                              minVal = Math.min(minVal, normMin);
+                                              maxVal = Math.max(maxVal, normMax);
+                                            }
+                                          } else {
+                                            // Try "< X" format
+                                            const lessThanMatch = currentVital.normalRange.match(/<\s*(\d+\.?\d*)/);
+                                            if (lessThanMatch) {
+                                              const threshold = parseFloat(lessThanMatch[1]);
+                                              if (!isNaN(threshold)) {
+                                                minVal = Math.min(minVal, 0);
+                                                maxVal = Math.max(maxVal, threshold);
+                                              }
+                                            } else {
+                                              // Try "> X" format
+                                              const greaterThanMatch = currentVital.normalRange.match(/>\s*(\d+\.?\d*)/);
+                                              if (greaterThanMatch) {
+                                                const threshold = parseFloat(greaterThanMatch[1]);
+                                                if (!isNaN(threshold)) {
+                                                  minVal = Math.min(minVal, threshold);
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+
+                                        const range = maxVal - minVal;
+                                        const padding = range * 0.2 || 10; // Fallback if range is 0
+                                        const yMin = Math.floor(minVal - padding);
+                                        const yMax = Math.ceil(maxVal + padding);
+                                        const yRange = yMax - yMin || 1; // Prevent division by zero
+
                                         return (
-                                          <g key={idx}>
-                                            <circle cx={x} cy={y} r="4" fill="#10b981" />
-                                            <text x={x} y="195" textAnchor="middle" fontSize="10" fill="#666">{point.date}</text>
-                                          </g>
+                                          <>
+                                            <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 400 160" preserveAspectRatio="none">
+                                              <defs>
+                                                <linearGradient id={`gradient-vital-${selectedVital}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                                  <stop offset="0%" stopColor={currentVital.status === 'warning' ? '#f97316' : '#10b981'} stopOpacity="0.2" />
+                                                  <stop offset="100%" stopColor={currentVital.status === 'warning' ? '#f97316' : '#10b981'} stopOpacity="0.05" />
+                                                </linearGradient>
+                                              </defs>
+
+                                              {/* Normal range boundaries (if available) */}
+                                              {currentVital.normalRange && (() => {
+                                                // Try standard range format "X-Y"
+                                                let rangeMatch = currentVital.normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+                                                if (rangeMatch) {
+                                                  const normMin = parseFloat(rangeMatch[1]);
+                                                  const normMax = parseFloat(rangeMatch[2]);
+                                                  if (!isNaN(normMin) && !isNaN(normMax) && isFinite(normMin) && isFinite(normMax)) {
+                                                    const normMinY = 160 - ((normMin - yMin) / yRange) * 160;
+                                                    const normMaxY = 160 - ((normMax - yMin) / yRange) * 160;
+                                                    return (
+                                                      <>
+                                                        {/* Normal range shaded area */}
+                                                        <rect
+                                                          x="0"
+                                                          y={normMaxY}
+                                                          width="400"
+                                                          height={normMinY - normMaxY}
+                                                          fill="#10b981"
+                                                          opacity="0.08"
+                                                        />
+                                                        {/* Normal range boundary lines */}
+                                                        <line x1="0" y1={normMinY} x2="400" y2={normMinY} stroke="#10b981" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                        <line x1="0" y1={normMaxY} x2="400" y2={normMaxY} stroke="#10b981" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                      </>
+                                                    );
+                                                  }
+                                                } else {
+                                                  // Try "< X" format
+                                                  const lessThanMatch = currentVital.normalRange.match(/<\s*(\d+\.?\d*)/);
+                                                  if (lessThanMatch) {
+                                                    const threshold = parseFloat(lessThanMatch[1]);
+                                                    if (!isNaN(threshold) && isFinite(threshold)) {
+                                                      const thresholdY = 160 - ((threshold - yMin) / yRange) * 160;
+                                                      return (
+                                                        <>
+                                                          {/* Shaded area below threshold */}
+                                                          <rect
+                                                            x="0"
+                                                            y={thresholdY}
+                                                            width="400"
+                                                            height={160 - thresholdY}
+                                                            fill="#10b981"
+                                                            opacity="0.08"
+                                                          />
+                                                          {/* Threshold line */}
+                                                          <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#10b981" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                        </>
+                                                      );
+                                                    }
+                                                  } else {
+                                                    // Try "> X" format
+                                                    const greaterThanMatch = currentVital.normalRange.match(/>\s*(\d+\.?\d*)/);
+                                                    if (greaterThanMatch) {
+                                                      const threshold = parseFloat(greaterThanMatch[1]);
+                                                      if (!isNaN(threshold) && isFinite(threshold)) {
+                                                        const thresholdY = 160 - ((threshold - yMin) / yRange) * 160;
+                                                        return (
+                                                          <>
+                                                            {/* Shaded area above threshold */}
+                                                            <rect
+                                                              x="0"
+                                                              y="0"
+                                                              width="400"
+                                                              height={thresholdY}
+                                                              fill="#10b981"
+                                                              opacity="0.08"
+                                                            />
+                                                            {/* Threshold line */}
+                                                            <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#10b981" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                          </>
+                                                        );
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                                return null;
+                                              })()}
+
+                                              {/* Area under line */}
+                                              <polygon
+                                                points={(() => {
+                                                  const dataLength = Math.max(currentVital.data.length - 1, 1); // Prevent division by zero
+                                                  const topPoints = currentVital.data.map((d, i) => {
+                                                    const val = (selectedVital === 'bp' || selectedVital === 'bloodpressure') ? (d.systolic || d.value) : d.value;
+                                                    return `${(i / dataLength) * 400},${160 - ((parseFloat(val) - yMin) / yRange) * 160}`;
+                                                  }).join(' ');
+                                                  return `${topPoints} 400,160 0,160`;
+                                                })()}
+                                                fill={`url(#gradient-vital-${selectedVital})`}
+                                              />
+
+                                              {/* Line */}
+                                              <polyline
+                                                points={(() => {
+                                                  const dataLength = Math.max(currentVital.data.length - 1, 1); // Prevent division by zero
+                                                  return currentVital.data.map((d, i) => {
+                                                    const val = (selectedVital === 'bp' || selectedVital === 'bloodpressure') ? (d.systolic || d.value) : d.value;
+                                                    return `${(i / dataLength) * 400},${160 - ((parseFloat(val) - yMin) / yRange) * 160}`;
+                                                  }).join(' ');
+                                                })()}
+                                                fill="none"
+                                                stroke={currentVital.status === 'warning' ? '#f97316' : '#10b981'}
+                                                strokeWidth="3"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                              />
+                                            </svg>
+
+                                            {/* Interactive data points with tooltips */}
+                                            {currentVital.data.map((d, i) => {
+                                              const dataLength = Math.max(currentVital.data.length - 1, 1); // Prevent division by zero
+                                              const val = (selectedVital === 'bp' || selectedVital === 'bloodpressure') ? (d.systolic || d.value) : d.value;
+                                              const x = (i / dataLength) * 100;
+                                              const y = ((parseFloat(val) - yMin) / yRange) * 100;
+                                              const isLatest = i === currentVital.data.length - 1;
+
+                                              return (
+                                                <div
+                                                  key={i}
+                                                  className="absolute group cursor-pointer"
+                                                  style={{
+                                                    left: `${x}%`,
+                                                    bottom: `${y}%`,
+                                                    transform: 'translate(-50%, 50%)'
+                                                  }}
+                                                >
+                                                  {/* Hover area */}
+                                                  <div className="absolute inset-0 w-10 h-10 -m-5"></div>
+
+                                                  {/* Outer ring on hover */}
+                                                  <div
+                                                    className="absolute inset-0 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                                                    style={{
+                                                      width: '20px',
+                                                      height: '20px',
+                                                      margin: '-10px',
+                                                      border: `2px solid ${currentVital.status === 'warning' ? '#f97316' : '#10b981'}`,
+                                                      backgroundColor: currentVital.status === 'warning' ? 'rgba(249, 115, 22, 0.1)' : 'rgba(16, 185, 129, 0.1)'
+                                                    }}
+                                                  />
+
+                                                  {/* Data point dot */}
+                                                  <div
+                                                    className={`rounded-full transition-all relative z-10 group-hover:scale-125 ${isLatest ? 'w-3.5 h-3.5' : 'w-3 h-3'
+                                                      }`}
+                                                    style={{
+                                                      backgroundColor: currentVital.status === 'warning' ? '#f97316' : '#10b981',
+                                                      border: '2px solid white',
+                                                      boxShadow: isLatest
+                                                        ? '0 2px 8px rgba(0,0,0,0.25)'
+                                                        : '0 1px 4px rgba(0,0,0,0.15)'
+                                                    }}
+                                                  />
+
+                                                  {/* Tooltip */}
+                                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
+                                                    <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap shadow-xl">
+                                                      <div className="font-bold text-sm">
+                                                        {selectedVital === 'bp' || selectedVital === 'bloodpressure' 
+                                                          ? `${d.systolic || d.value}/${d.diastolic || ''} ${currentVital.unit}`
+                                                          : `${d.value} ${currentVital.unit}`
+                                                        }
+                                                      </div>
+                                                      <div className="text-gray-300 text-center text-xs mt-0.5">{d.date}</div>
+                                                      {/* Arrow */}
+                                                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                                                        <div className="border-4 border-transparent border-t-gray-900"></div>
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
+                                          </>
                                         );
-                                      })}
-                                    </svg>
+                                      })()}
+                                    </div>
                                   </div>
                                 </div>
                               </>
