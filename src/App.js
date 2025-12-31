@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight } from 'lucide-react';
 import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
-import { uploadDocument, deleteUserDirectory } from './firebase/storage';
+import { uploadDocument, deleteUserDirectory, deleteDocument } from './firebase/storage';
 import { documentService, labService, vitalService, patientService, accountService, genomicProfileService, emergencyContactService, medicationService, symptomService, trialLocationService } from './firebase/services';
 import { IMPORTANT_GENES } from './config/importantGenes';
 import { processDocument, generateExtractionSummary } from './services/documentProcessor';
@@ -3055,37 +3055,77 @@ export default function CancerCareApp() {
                       };
 
                       const iconConfig = getIconConfig(doc.type);
+                      
+                      // Get descriptive label for document type
+                      const getTypeLabel = (type) => {
+                        switch (type) {
+                          case 'Lab':
+                            return 'Lab Results';
+                          case 'Genomic':
+                            return 'Genomic Test';
+                          case 'Scan':
+                            return 'Imaging Scan';
+                          case 'Report':
+                            return 'Clinical Report';
+                          default:
+                            return type || 'Document';
+                        }
+                      };
+                      
+                      // Get file name - try multiple possible fields
+                      const fileName = doc.fileName || doc.name || 'Untitled Document';
+                      
+                      const handleDelete = async (e) => {
+                        e.stopPropagation();
+                        if (window.confirm(`Are you sure you want to delete "${fileName}"? This action cannot be undone.`)) {
+                          try {
+                            await deleteDocument(doc.id, doc.storagePath);
+                            // Reload documents
+                            const updatedDocs = await documentService.getDocuments(user.uid);
+                            setDocuments(updatedDocs);
+                          } catch (error) {
+                            console.error('Error deleting document:', error);
+                            alert('Failed to delete document. Please try again.');
+                          }
+                        }
+                      };
 
                       return (
                         <div key={doc.id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition">
-                          <div className={`w-10 h-10 ${iconConfig.bgColor} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                          <div className={`w-12 h-12 ${iconConfig.bgColor} rounded-lg flex items-center justify-center flex-shrink-0`}>
                             <div className={iconConfig.iconColor}>
                               {iconConfig.icon}
                             </div>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{doc.name}</p>
-                            <p className="text-xs text-gray-600">
-                              {new Date(doc.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} • {doc.type}
+                            <p className="text-sm font-semibold text-gray-900 truncate">{fileName}</p>
+                            <p className="text-xs text-gray-600 mt-0.5">
+                              {getTypeLabel(doc.type)}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {new Date(doc.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                             </p>
                           </div>
-                          {doc.fileUrl ? (
-                            <a
-                              href={doc.fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex-shrink-0 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition"
-                              onClick={(e) => e.stopPropagation()}
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {doc.fileUrl ? (
+                              <a
+                                href={doc.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                View
+                              </a>
+                            ) : null}
+                            <button
+                              onClick={handleDelete}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition"
+                              title="Delete document"
                             >
-                              View
-                            </a>
-                          ) : (
-                            <div className="flex-shrink-0">
-                              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                              </svg>
-                            </div>
-                          )}
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
