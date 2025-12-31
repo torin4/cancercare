@@ -744,11 +744,19 @@ function buildSearchCondition(patientProfile, additionalTerms = []) {
     condTerms.push(patientProfile.cancerType);
   }
   
-  // Add cancer subtype if available - goes in query.term (Other terms) to match ClinicalTrials.gov interface
+    // Add cancer subtype if available - goes in query.term (Other terms) to match ClinicalTrials.gov interface
   // This matches how users search: Condition = "Ovarian Cancer", Other terms = "Clear Cell Sarcoma"
-  if (patientProfile.currentStatus?.diagnosis && patientProfile.currentStatus.diagnosis !== patientProfile.diagnosis) {
+  // Always add subtype to query.term if it exists and is different from the main diagnosis
+  const mainDiagnosis = patientProfile.diagnosis || patientProfile.cancerType || '';
+  const subtype = patientProfile.currentStatus?.diagnosis || '';
+  
+  if (subtype && subtype.trim() !== '' && subtype !== mainDiagnosis) {
     // Add subtype to termParts (query.term) instead of cond (query.cond)
-    termParts.push(patientProfile.currentStatus.diagnosis);
+    termParts.push(subtype.trim());
+    console.log(`buildSearchCondition: Adding subtype "${subtype}" to query.term (Other terms), main diagnosis: "${mainDiagnosis}"`);
+  } else if (subtype && subtype === mainDiagnosis) {
+    // Subtype is same as main diagnosis, no need to add it again
+    console.log(`buildSearchCondition: Subtype "${subtype}" is same as main diagnosis "${mainDiagnosis}", not adding to query.term`);
   }
   
   // Add disease status with Boolean operators for better matching - goes in term
