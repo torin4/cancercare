@@ -2576,10 +2576,10 @@ export default function CancerCareApp() {
                 
                 // Use fallback items
                 return (
-                  <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-medical-accent-200 shadow-sm">
+                  <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-medical-primary-200 shadow-sm">
                     <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
-                      <div className="bg-medical-accent-50 p-2 rounded-lg">
-                        <Activity className="w-5 h-5 text-medical-accent-600" />
+                      <div className="bg-medical-primary-50 p-2 rounded-lg">
+                        <ClipboardList className="w-5 h-5 text-medical-primary-600" />
                       </div>
                       Key Metrics
                     </h3>
@@ -2646,10 +2646,10 @@ export default function CancerCareApp() {
               }
 
               return (
-                <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-medical-accent-200 shadow-sm">
+                <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-medical-primary-200 shadow-sm">
                   <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
-                    <div className="bg-medical-accent-50 p-2 rounded-lg">
-                      <Activity className="w-5 h-5 text-medical-accent-600" />
+                    <div className="bg-medical-primary-50 p-2 rounded-lg">
+                      <ClipboardList className="w-5 h-5 text-medical-primary-600" />
                     </div>
                     Key Metrics
                   </h3>
@@ -2723,7 +2723,7 @@ export default function CancerCareApp() {
                 </div>
               );
             })() : (
-              <div className="bg-medical-primary-50 rounded-lg sm:rounded-xl p-6 sm:p-8 text-center border-2 border-medical-primary-200 shadow-sm">
+              <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center border-2 border-medical-primary-200 shadow-sm">
                 <div className="w-16 h-16 bg-medical-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <ClipboardList className="w-8 h-8 text-medical-primary-600" />
                 </div>
