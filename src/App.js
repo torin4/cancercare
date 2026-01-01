@@ -5950,7 +5950,7 @@ export default function CancerCareApp() {
             className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 ${activeTab === 'health' ? 'text-medical-primary-600 bg-medical-primary-50' : 'text-medical-neutral-600 hover:text-medical-primary-600 hover:bg-medical-neutral-50'
               }`}
           >
-            <Activity className="w-5 h-5 sm:w-6 sm:h-6" />
+            <ClipboardList className="w-5 h-5 sm:w-6 sm:h-6" />
             <span className="text-xs font-medium">Health</span>
           </button>
 
