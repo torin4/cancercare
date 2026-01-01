@@ -16,20 +16,20 @@ import DocumentUploadOnboarding from './components/DocumentUploadOnboarding';
 import Onboarding from './components/Onboarding';
 
 // Chat suggestions covering common app actions (only capabilities the chatbot can handle)
-// These use natural language templates that users can fill in
+// Short labels for buttons, but populateText contains the natural language template
 const chatSuggestions = [
-  { text: "I had [symptom] yesterday", icon: Thermometer, color: "bg-medical-primary-500/80" },
-  { text: "My CA-125 was [value] on [date]", icon: BarChart, color: "bg-medical-accent-500/80" },
-  { text: "My blood pressure is [value] this morning", icon: Heart, color: "bg-medical-accent-400/80" },
-  { text: "I started taking [medication] [dosage]", icon: Pill, color: "bg-medical-primary-500/80" },
-  { text: "What does my CA-125 of [value] mean?", icon: Info, color: "bg-medical-accent-500/80" },
-  { text: "Explain my latest lab results", icon: FileText, color: "bg-medical-secondary-500/80" },
-  { text: "How is my treatment progressing?", icon: TrendingUp, color: "bg-medical-primary-600/80" },
-  { text: "What are common side effects of [medication]?", icon: AlertCircle, color: "bg-medical-accent-600/80" },
-  { text: "I'm experiencing [symptom] with [severity] severity", icon: Activity, color: "bg-medical-secondary-600/80" },
-  { text: "What should I ask my doctor about [topic]?", icon: MessageSquare, color: "bg-medical-secondary-400/80" },
-  { text: "Show me trends in my [lab/vital]", icon: TrendingUp, color: "bg-medical-primary-500/80" },
-  { text: "My heart rate is [value] bpm", icon: Heart, color: "bg-medical-accent-500/80" },
+  { text: "Log a symptom", populateText: "I had [symptom] yesterday", icon: Thermometer, color: "bg-medical-primary-500/80" },
+  { text: "Add lab value", populateText: "My CA-125 was [value] on [date]", icon: BarChart, color: "bg-medical-accent-500/80" },
+  { text: "Add vital sign", populateText: "My blood pressure is [value] this morning", icon: Heart, color: "bg-medical-accent-400/80" },
+  { text: "Add medication", populateText: "I started taking [medication] [dosage]", icon: Pill, color: "bg-medical-primary-500/80" },
+  { text: "What does my CA-125 mean?", populateText: "What does my CA-125 of [value] mean?", icon: Info, color: "bg-medical-accent-500/80" },
+  { text: "Explain my lab results", populateText: "Explain my latest lab results", icon: FileText, color: "bg-medical-secondary-500/80" },
+  { text: "How is my treatment progressing?", populateText: "How is my treatment progressing?", icon: TrendingUp, color: "bg-medical-primary-600/80" },
+  { text: "What are common side effects?", populateText: "What are common side effects of [medication]?", icon: AlertCircle, color: "bg-medical-accent-600/80" },
+  { text: "Explain my symptoms", populateText: "I'm experiencing [symptom] with [severity] severity", icon: Activity, color: "bg-medical-secondary-600/80" },
+  { text: "What should I ask my doctor?", populateText: "What should I ask my doctor about [topic]?", icon: MessageSquare, color: "bg-medical-secondary-400/80" },
+  { text: "Analyze my health trends", populateText: "Show me trends in my [lab/vital]", icon: TrendingUp, color: "bg-medical-primary-500/80" },
+  { text: "What do my vitals mean?", populateText: "My heart rate is [value] bpm", icon: Heart, color: "bg-medical-accent-500/80" },
 ];
 
 // Comprehensive list of countries for dropdowns
@@ -3159,7 +3159,7 @@ export default function CancerCareApp() {
                   <button
                     key={idx}
                     onClick={() => {
-                      setInputText(suggestion.text);
+                      setInputText(suggestion.populateText || suggestion.text);
                       // Focus on input after setting text
                       setTimeout(() => {
                         const input = document.querySelector('input[type="text"]');
