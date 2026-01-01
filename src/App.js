@@ -3454,21 +3454,30 @@ export default function CancerCareApp() {
                   <>
                     {/* Empty State - No Lab Data */}
                     {!hasRealLabData && Object.keys(labsData).length === 0 && (
-                      <div className="border border-medical-primary-500 rounded-lg p-6 text-center">
+                      <div className="border-2 border-medical-primary-500 rounded-lg p-6 text-center bg-white">
                         <div className="flex flex-col items-center gap-3">
                           <BarChart className="w-12 h-12 text-medical-primary-400" />
                           <div>
                             <h3 className="font-semibold text-medical-primary-900 mb-1">No Lab Data Yet</h3>
                             <p className="text-sm text-medical-primary-700 mb-4">
-                              Upload lab reports to automatically extract and track your lab values
+                              Start tracking your lab values by uploading a report or adding a metric manually
                             </p>
-                            <button
-                              onClick={() => openDocumentOnboarding('lab-report')}
-                              className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center gap-2 mx-auto"
-                            >
-                              <Upload className="w-4 h-4" />
-                              Upload Lab Report
-                            </button>
+                            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                              <button
+                                onClick={() => setShowAddLab(true)}
+                                className="px-6 py-3 bg-white border-2 border-medical-primary-500 text-medical-primary-600 rounded-lg hover:bg-medical-primary-50 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                              >
+                                <Plus className="w-4 h-4" />
+                                Add Metric
+                              </button>
+                              <button
+                                onClick={() => openDocumentOnboarding('lab-report')}
+                                className="px-6 py-3 bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                              >
+                                <Upload className="w-4 h-4" />
+                                Upload Lab Report
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
