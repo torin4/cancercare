@@ -1972,6 +1972,7 @@ export default function CancerCareApp() {
 
       if (!grouped[canonicalKey]) {
         grouped[canonicalKey] = {
+          id: vital.id, // Store vital document ID
           name: displayName,
           unit: vital.unit,
           current: vital.currentValue,
@@ -5044,7 +5045,7 @@ export default function CancerCareApp() {
                                                 setOpenDeleteMenu(null);
                                                 // Open add vital modal for this specific vital
                                                 const vitalDoc = allVitalsData[key];
-                                                if (vitalDoc && vitalDoc.id) {
+                                                if (vitalDoc) {
                                                   setNewVital({ 
                                                     vitalType: key, 
                                                     value: '', 
