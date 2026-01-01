@@ -155,9 +155,27 @@ export const labService = {
     return docRef.id;
   },
 
-  // Delete lab
+  // Delete individual lab document (one data point)
   async deleteLab(labId) {
     await deleteDoc(doc(db, COLLECTIONS.LABS, labId));
+  },
+
+  // Delete individual lab value (from subcollection if used)
+  async deleteLabValue(labId, valueId) {
+    await deleteDoc(doc(db, COLLECTIONS.LABS, labId, 'values', valueId));
+  },
+
+  // Delete all labs of a specific type for a patient
+  async deleteAllLabsByType(patientId, labType) {
+    const q = query(
+      collection(db, COLLECTIONS.LABS),
+      where('patientId', '==', patientId),
+      where('labType', '==', labType)
+    );
+    const querySnapshot = await getDocs(q);
+    const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deletePromises);
+    return querySnapshot.docs.length;
   }
 };
 
@@ -249,9 +267,27 @@ export const vitalService = {
     return docRef.id;
   },
 
-  // Delete vital
+  // Delete individual vital document (one data point)
   async deleteVital(vitalId) {
     await deleteDoc(doc(db, COLLECTIONS.VITALS, vitalId));
+  },
+
+  // Delete individual vital value (from subcollection if used)
+  async deleteVitalValue(vitalId, valueId) {
+    await deleteDoc(doc(db, COLLECTIONS.VITALS, vitalId, 'values', valueId));
+  },
+
+  // Delete all vitals of a specific type for a patient
+  async deleteAllVitalsByType(patientId, vitalType) {
+    const q = query(
+      collection(db, COLLECTIONS.VITALS),
+      where('patientId', '==', patientId),
+      where('vitalType', '==', vitalType)
+    );
+    const querySnapshot = await getDocs(q);
+    const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deletePromises);
+    return querySnapshot.docs.length;
   }
 };
 
@@ -831,6 +867,7 @@ export const accountService = {
 export * as trialAggregator from '../services/clinicalTrials/trialSearchService';
 export { default as trialMatcher } from '../services/clinicalTrials/trialMatcher';
 export { default as clinicalTrialsService } from '../services/clinicalTrials/clinicalTrialsService';
+
 
 
 

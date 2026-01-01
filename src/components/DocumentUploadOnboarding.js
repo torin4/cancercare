@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Upload, Activity, Dna, FileText, X, CheckCircle } from 'lucide-react';
+import { Upload, Activity, Dna, FileText, X, CheckCircle, ChevronRight } from 'lucide-react';
 
 const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true }) => {
   const [selectedType, setSelectedType] = useState(null);
+  const [documentDate, setDocumentDate] = useState('');
+  const [showDateInput, setShowDateInput] = useState(false);
 
   const documentTypes = [
     {
@@ -54,9 +56,18 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
   ];
 
   const handleContinue = () => {
-    if (selectedType) {
-      onUploadClick(selectedType);
+    if (selectedType && !showDateInput) {
+      // Show date input step
+      setShowDateInput(true);
+    } else if (selectedType && showDateInput) {
+      // Proceed to upload with date (or null if skipped)
+      onUploadClick(selectedType, documentDate || null);
     }
+  };
+
+  const handleSkipDate = () => {
+    // Skip date and proceed to upload
+    onUploadClick(selectedType, null);
   };
 
   return (
@@ -80,7 +91,9 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
 
         {/* Content */}
         <div className="p-6 space-y-4">
-          {documentTypes.map((type) => {
+          {!showDateInput ? (
+            // Document type selection
+            documentTypes.map((type) => {
             const Icon = type.icon;
             const isSelected = selectedType === type.id;
             const colorClasses = {
@@ -165,29 +178,86 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                 </div>
               </div>
             );
-          })}
+          })
+          ) : (
+            // Date input step
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Document Date</h3>
+                <p className="text-sm text-gray-700 mb-4">
+                  When was this document created or when were these tests performed? This helps us accurately track your health data over time.
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Document Date <span className="text-gray-500 text-xs">(optional)</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={documentDate}
+                      onChange={(e) => setDocumentDate(e.target.value)}
+                      max={new Date().toISOString().split('T')[0]}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      If you don't know the date, you can skip and we'll try to extract it from the document.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
         <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex items-center justify-between">
-          <button
-            onClick={onClose}
-            className="text-gray-600 hover:text-gray-900 font-medium transition"
-          >
-            Skip for Now
-          </button>
-          <button
-            onClick={handleContinue}
-            disabled={!selectedType}
-            className={`px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 ${
-              selectedType
-                ? 'bg-green-600 text-white hover:bg-green-700'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            <Upload className="w-5 h-5" />
-            {isOnboarding ? 'Continue to Upload' : 'Upload'}
-          </button>
+          {!showDateInput ? (
+            <>
+              <button
+                onClick={onClose}
+                className="text-gray-600 hover:text-gray-900 font-medium transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleContinue}
+                disabled={!selectedType}
+                className={`px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 ${
+                  selectedType
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                Continue
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setShowDateInput(false)}
+                className="text-gray-600 hover:text-gray-900 font-medium transition flex items-center gap-2"
+              >
+                <ChevronRight className="w-4 h-4 rotate-180" />
+                Back
+              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleSkipDate}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-900 font-medium transition"
+                >
+                  Skip Date
+                </button>
+                <button
+                  onClick={handleContinue}
+                  className="px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 bg-green-600 text-white hover:bg-green-700"
+                >
+                  <Upload className="w-5 h-5" />
+                  {isOnboarding ? 'Continue to Upload' : 'Upload'}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -11,17 +11,18 @@ const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY || pro
  * @param {File} file - The document file
  * @param {string} userId - User ID
  * @param {Object} patientProfile - Patient demographics (age, gender, weight) for normal range adjustments
+ * @param {string|null} documentDate - Optional date provided by user (YYYY-MM-DD format)
  */
-export async function processDocument(file, userId, patientProfile = null) {
+export async function processDocument(file, userId, patientProfile = null, documentDate = null) {
   try {
     // Convert file to base64 for Gemini API
     const base64Data = await fileToBase64(file);
 
     // Step 1: Analyze document and extract data
-    const extractedData = await analyzeDocument(base64Data, file.type, patientProfile);
+    const extractedData = await analyzeDocument(base64Data, file.type, patientProfile, documentDate);
 
     // Step 2: Save extracted data to Firestore
-    const savedData = await saveExtractedData(extractedData, userId);
+    const savedData = await saveExtractedData(extractedData, userId, documentDate);
 
     return {
       success: true,
@@ -55,8 +56,9 @@ async function fileToBase64(file) {
  * @param {string} base64Data - Base64 encoded document
  * @param {string} mimeType - MIME type of the document
  * @param {Object} patientProfile - Patient demographics for normal range adjustments
+ * @param {string|null} documentDate - Optional date provided by user (YYYY-MM-DD format)
  */
-async function analyzeDocument(base64Data, mimeType, patientProfile = null) {
+async function analyzeDocument(base64Data, mimeType, patientProfile = null, documentDate = null) {
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
   // Build patient demographics section if provided
@@ -97,8 +99,41 @@ IMPORTANT FOR NORMAL RANGES:
     }
   }
 
+  // Add document date information to prompt if provided
+  let dateInstruction = '';
+  if (documentDate) {
+    dateInstruction = `
+
+═══════════════════════════════════════════════════════════════════════════════
+DOCUMENT DATE PROVIDED BY USER: ${documentDate}
+═══════════════════════════════════════════════════════════════════════════════
+
+The user has provided the document date: ${documentDate}
+- FIRST, try to extract the date from the document itself (test date, collection date, report date)
+- If the document shows a different date, prefer the date from the document itself
+- If NO date is found in the document after thorough search, use the user-provided date: ${documentDate}
+- Format dates consistently as YYYY-MM-DD
+
+═══════════════════════════════════════════════════════════════════════════════`;
+  } else {
+    dateInstruction = `
+
+═══════════════════════════════════════════════════════════════════════════════
+DOCUMENT DATE: NOT PROVIDED BY USER
+═══════════════════════════════════════════════════════════════════════════════
+
+The user did not provide a document date. You MUST extract the date from the document itself.
+- Look for dates in the document (test date, report date, collection date, etc.)
+- Use the most relevant date for the medical data (prefer test/collection date over report date)
+- If no date is found, use today's date as a last resort: ${new Date().toISOString().split('T')[0]}
+- Format dates consistently as YYYY-MM-DD
+
+═══════════════════════════════════════════════════════════════════════════════`;
+  }
+
   const prompt = `You are a medical document processing AI. Analyze this medical document and extract all relevant information.
 ${patientDemographicsSection}
+${dateInstruction}
 
 ═══════════════════════════════════════════════════════════════════════════════
 CRITICAL: DATE EXTRACTION IS MANDATORY - DO NOT SKIP THIS STEP
@@ -126,7 +161,7 @@ STEP 3: DATE ASSIGNMENT RULES:
 - For GENOMIC REPORTS: Use the test date (testDate) from testInfo section
 - For VITALS: Use the measurement date
 - If multiple dates exist, use the MOST RECENT test/collection date
-- If NO date is found after thorough search, ONLY THEN use: ${new Date().toISOString().split('T')[0]}
+${documentDate ? `- If NO date is found after thorough search, use the user-provided date: ${documentDate}` : `- If NO date is found after thorough search, ONLY THEN use: ${new Date().toISOString().split('T')[0]}`}
 
 STEP 4: VALIDATION:
 - Every lab value MUST have a "date" field
@@ -412,8 +447,11 @@ GENERAL RULES:
 
 /**
  * Save extracted data to Firestore collections
+ * @param {Object} extractedData - Extracted data from AI
+ * @param {string} userId - User ID
+ * @param {string|null} documentDate - Optional date provided by user (YYYY-MM-DD format)
  */
-async function saveExtractedData(extractedData, userId) {
+async function saveExtractedData(extractedData, userId, documentDate = null) {
   const savedData = {
     labs: [],
     vitals: [],
@@ -425,7 +463,7 @@ async function saveExtractedData(extractedData, userId) {
     // Save Lab Results
     if (extractedData.data?.labs) {
       for (const lab of extractedData.data.labs) {
-        // Parse date - try multiple formats and fallback to today if missing
+        // Parse date - try multiple formats and fallback to user-provided date or today if missing
         let labDate = new Date();
         if (lab.date) {
           // Try parsing the date string
@@ -433,10 +471,24 @@ async function saveExtractedData(extractedData, userId) {
           if (!isNaN(parsedDate.getTime())) {
             labDate = parsedDate;
           } else {
-            console.warn(`Could not parse lab date "${lab.date}" for ${lab.label}, using today's date`);
+            console.warn(`Could not parse lab date "${lab.date}" for ${lab.label}, using fallback date`);
+            // Try user-provided date, otherwise use today
+            if (documentDate) {
+              const userDate = new Date(documentDate);
+              if (!isNaN(userDate.getTime())) {
+                labDate = userDate;
+              }
+            }
           }
         } else {
-          console.warn(`Lab ${lab.label} missing date field, using today's date`);
+          console.warn(`Lab ${lab.label} missing date field, using fallback date`);
+          // Use user-provided date if available, otherwise use today
+          if (documentDate) {
+            const userDate = new Date(documentDate);
+            if (!isNaN(userDate.getTime())) {
+              labDate = userDate;
+            }
+          }
         }
 
         // Ensure all fields have defined values (Firestore doesn't accept undefined)
@@ -471,17 +523,31 @@ async function saveExtractedData(extractedData, userId) {
     // Save Vitals
     if (extractedData.data?.vitals) {
       for (const vital of extractedData.data.vitals) {
-        // Parse date - try multiple formats and fallback to today if missing
+        // Parse date - try multiple formats and fallback to user-provided date or today if missing
         let vitalDate = new Date();
         if (vital.date) {
           const parsedDate = new Date(vital.date);
           if (!isNaN(parsedDate.getTime())) {
             vitalDate = parsedDate;
           } else {
-            console.warn(`Could not parse vital date "${vital.date}" for ${vital.label}, using today's date`);
+            console.warn(`Could not parse vital date "${vital.date}" for ${vital.label}, using fallback date`);
+            // Try user-provided date, otherwise use today
+            if (documentDate) {
+              const userDate = new Date(documentDate);
+              if (!isNaN(userDate.getTime())) {
+                vitalDate = userDate;
+              }
+            }
           }
         } else {
-          console.warn(`Vital ${vital.label} missing date field, using today's date`);
+          console.warn(`Vital ${vital.label} missing date field, using fallback date`);
+          // Use user-provided date if available, otherwise use today
+          if (documentDate) {
+            const userDate = new Date(documentDate);
+            if (!isNaN(userDate.getTime())) {
+              vitalDate = userDate;
+            }
+          }
         }
 
         // Ensure all fields have defined values (Firestore doesn't accept undefined)

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import Lottie from 'lottie-react';
 import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
 import { uploadDocument, deleteUserDirectory, deleteDocument } from './firebase/storage';
 import { documentService, labService, vitalService, patientService, accountService, genomicProfileService, emergencyContactService, medicationService, symptomService, trialLocationService, messageService } from './firebase/services';
@@ -304,6 +305,7 @@ export default function CancerCareApp() {
   const [deletionType, setDeletionType] = useState(null); // 'data' or 'account'
   const [isDeleting, setIsDeleting] = useState(false);
   const [profileImage, setProfileImage] = useState(null);
+  const [documentScanAnimation, setDocumentScanAnimation] = useState(null);
   const [patientProfile, setPatientProfile] = useState({
     name: '',
     age: '',
@@ -384,6 +386,7 @@ export default function CancerCareApp() {
     'Others': false
   });
   const [labTooltip, setLabTooltip] = useState(null); // { labName, description, position: { x, y } }
+  const [openDeleteMenu, setOpenDeleteMenu] = useState(null); // Track which lab/vital has menu open: 'lab:ca125' or 'vital:bp'
 
   const [documents, setDocuments] = useState([]);
   const [emergencyContacts, setEmergencyContacts] = useState([]);
@@ -667,6 +670,14 @@ export default function CancerCareApp() {
   const [genomicProfile, setGenomicProfile] = useState(null);
 
   // Mock data removed - app now uses real data from Firestore and ClinicalTrials.gov API
+
+  // Load Lottie animation
+  useEffect(() => {
+    fetch('/animations/Document OCR Scan.json')
+      .then(response => response.json())
+      .then(data => setDocumentScanAnimation(data))
+      .catch(error => console.error('Error loading Lottie animation:', error));
+  }, []);
 
   // Monitor authentication state and create patient profile if needed
   useEffect(() => {
@@ -1118,6 +1129,7 @@ export default function CancerCareApp() {
       grouped[labType].current = lab.currentValue;
       const timestamp = lab.createdAt?.toDate ? lab.createdAt.toDate() : (lab.createdAt ? new Date(lab.createdAt) : new Date());
       grouped[labType].data.push({
+        id: lab.id, // Store lab document ID for deletion
         date: timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         value: lab.currentValue,
         timestamp: timestamp.getTime() // Store timestamp for calculations
@@ -1158,125 +1170,485 @@ export default function CancerCareApp() {
   };
 
   // Brief descriptions for common lab values
+  // Vital Value Normalization System
+  // Maps all variations to canonical keys for consistent display and descriptions
+  const vitalSynonymMap = {
+    'blood_pressure': ['bloodpressure', 'bp', 'blood pressure', 'systolic', 'diastolic', 'bp_systolic', 'bp_diastolic'],
+    'heart_rate': ['heartrate', 'hr', 'heart rate', 'pulse', 'pulse rate', 'bpm'],
+    'temperature': ['temp', 'temperature', 'body temperature', 'body temp', 'fever'],
+    'weight': ['weight', 'body weight', 'bodyweight', 'mass'],
+    'oxygen_saturation': ['o2sat', 'o2 saturation', 'spo2', 'oxygen saturation', 'o2', 'sat'],
+    'respiratory_rate': ['rr', 'respiratory rate', 'breathing rate', 'respiration', 'breathing']
+  };
+
+  // Reverse map: create lookup from any variation to canonical key
+  const vitalKeyMap = {};
+  Object.entries(vitalSynonymMap).forEach(([canonicalKey, variations]) => {
+    variations.forEach(variation => {
+      vitalKeyMap[variation.toLowerCase()] = canonicalKey;
+    });
+  });
+
+  // Display name mapping: canonical key -> user-friendly display name
+  const vitalDisplayNames = {
+    'blood_pressure': 'Blood Pressure',
+    'heart_rate': 'Heart Rate',
+    'temperature': 'Temperature',
+    'weight': 'Weight',
+    'oxygen_saturation': 'Oxygen Saturation',
+    'respiratory_rate': 'Respiratory Rate'
+  };
+
+  // Vital descriptions
+  const vitalDescriptions = {
+    'blood_pressure': 'Blood pressure measures the force of blood against artery walls. Systolic (top number) is pressure when heart beats, diastolic (bottom number) is pressure when heart rests. Normal is typically <120/80 mmHg.',
+    'heart_rate': 'Heart rate (pulse) measures how many times your heart beats per minute. Normal resting heart rate is typically 60-100 beats per minute for adults.',
+    'temperature': 'Body temperature indicates whether you have a fever or hypothermia. Normal body temperature is typically 97.5-99.5°F (36.4-37.5°C).',
+    'weight': 'Body weight is an important vital sign that can indicate fluid retention, nutritional status, or response to treatment. Significant changes may require medical attention.',
+    'oxygen_saturation': 'Oxygen saturation (SpO2) measures how much oxygen your blood is carrying. Normal levels are typically >95%. Low levels may indicate breathing problems or lung issues.',
+    'respiratory_rate': 'Respiratory rate measures how many breaths you take per minute. Normal rate is typically 12-20 breaths per minute for adults at rest.'
+  };
+
+  // Normalize vital name to canonical key
+  const normalizeVitalName = (rawName) => {
+    if (!rawName) return null;
+    
+    // Clean the raw name
+    const cleaned = rawName.toString().toLowerCase().trim()
+      .replace(/[^\w\s]/g, ' ') // Replace special chars with spaces
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim();
+    
+    // Look up in vital key map
+    if (vitalKeyMap[cleaned]) {
+      return vitalKeyMap[cleaned];
+    }
+    
+    // Try partial matches
+    for (const [canonicalKey, variations] of Object.entries(vitalSynonymMap)) {
+      if (variations.some(v => cleaned.includes(v) || v.includes(cleaned))) {
+        return canonicalKey;
+      }
+    }
+    
+    return null; // Unknown vital
+  };
+
+  // Get display name for vital
+  const getVitalDisplayName = (vitalKeyOrName) => {
+    // First try to normalize
+    const canonicalKey = normalizeVitalName(vitalKeyOrName);
+    if (canonicalKey && vitalDisplayNames[canonicalKey]) {
+      return vitalDisplayNames[canonicalKey];
+    }
+    
+    // Fallback: return original with basic formatting
+    if (!vitalKeyOrName) return 'Unknown Vital';
+    const name = vitalKeyOrName.toString();
+    return name.charAt(0).toUpperCase() + name.slice(1).replace(/_/g, ' ');
+  };
+
+  // Lab Value Normalization System
+  // Maps all variations to canonical keys for consistent categorization and descriptions
+  
+  // Synonym mapping: all variations -> canonical key
+  const labSynonymMap = {
+    // Disease-Specific Markers
+    'ca125': ['ca125', 'ca-125', 'ca 125', 'ca_125'],
+    'ca199': ['ca199', 'ca 19-9', 'ca-19-9', 'ca19-9', 'ca 19 9'],
+    'ca153': ['ca153', 'ca 15-3', 'ca-15-3', 'ca15-3', 'ca 15 3'],
+    'ca724': ['ca724', 'ca 72-4', 'ca-72-4', 'ca72-4', 'ca 72 4'],
+    'ca242': ['ca242', 'ca 242', 'ca-242'],
+    'ca50': ['ca50', 'ca 50', 'ca-50'],
+    'cea': ['cea'],
+    'afp': ['afp'],
+    'psa': ['psa'],
+    'he4': ['he4'],
+    'inhibinb': ['inhibinb', 'inhibin b'],
+    'romaindex': ['romaindex', 'roma index', 'roma'],
+    'ca2729': ['ca2729', 'ca 27-29', 'ca-27-29', 'ca27-29', 'ca 27 29'],
+    'scc_antigen': ['scc antigen', 'scc', 'squamous cell carcinoma antigen'],
+    'cyfra211': ['cyfra211', 'cyfra 21-1', 'cyfra-21-1', 'cyfra21-1'],
+    'nse': ['nse', 'neuron-specific enolase', 'neuron specific enolase'],
+    'betahcg': ['betahcg', 'beta-hcg', 'β-hcg', 'bhcg', 'b-hcg', 'beta hcg'],
+    
+    // Liver Function
+    'alt': ['alt', 'gpt'],
+    'ast': ['ast', 'got'],
+    'ast_alt_ratio': ['astalt', 'ast/alt', 'ast alt ratio', 'ast_alt'],
+    'alp': ['alp', 'alkphos', 'alkalinephosphatase', 'alkaline phosphatase'],
+    'alp_ifcc': ['alpifcc', 'alp ifcc', 'alp (ifcc)'],
+    'bilirubin_total': ['tbil', 't-bil', 'totalbilirubin', 'total bilirubin', 'bilirubin'],
+    'bilirubin_direct': ['direct bilirubin', 'conjugated bilirubin', 'dbil', 'd-bil'],
+    'bilirubin_indirect': ['indirect bilirubin', 'unconjugated bilirubin', 'ibil', 'i-bil'],
+    'albumin': ['alb', 'albumin'],
+    'ggt': ['ggt', 'γgt', 'gamma gt'],
+    'ldh': ['ldh', 'ld', 'ldifcc', 'ld ifcc'],
+    
+    // Kidney Function
+    'creatinine': ['creatinine', 'cre'],
+    'egfr': ['egfr', 'e gfr'],
+    'bun': ['bun'],
+    'urea': ['urea'],
+    'urineprotein': ['urineprotein', 'urine protein', 'protein urine'],
+    'urinecreatinine': ['urinecreatinine', 'urine creatinine'],
+    
+    // Blood Counts
+    'wbc': ['wbc'],
+    'rbc': ['rbc'],
+    'hemoglobin': ['hemoglobin', 'hgb'],
+    'hematocrit': ['hematocrit', 'hct'],
+    'platelets': ['platelets', 'plt'],
+    'anc': ['anc'],
+    'neutrophils_abs': ['neutro#', 'neut#', 'neutrophilsabs', 'neutrophil abs'],
+    'neutrophils_pct': ['neutro%', 'neut%', 'neutrophil%'],
+    'lymphocytes_abs': ['lymph#', 'lym#', 'lymphocytesabs'],
+    'lymphocytes_pct': ['lymph%', 'lym%', 'lymphocytes%'],
+    'monocytes_abs': ['mono#', 'mon#'],
+    'monocytes_pct': ['mono%', 'mon%'],
+    'eosinophils_abs': ['eo#'],
+    'eosinophils_pct': ['eo%'],
+    'basophils_abs': ['ba#'],
+    'basophils_pct': ['ba%'],
+    'mcv': ['mcv'],
+    'mch': ['mch'],
+    'mchc': ['mchc'],
+    'rdw': ['rdw'],
+    'rdw_cv': ['rdwcv', 'rdw-cv'],
+    'mpv': ['mpv', 'mean platelet volume'],
+    'nrbc': ['nrbc', 'nucleated red blood cells', 'nucleated rbc'],
+    'nrbc_pct': ['nrbc%', 'nrbc percentage', 'nrbc percent'],
+    'reticulocyte_count': ['reticulocyte count', 'retic count', 'reticulocytes'],
+    'reticulocyte_pct': ['reticulocyte%', 'reticulocyte percentage', 'reticulocyte percent', 'retic%'],
+    
+    // Thyroid Function
+    'tsh': ['tsh'],
+    't3': ['t3'],
+    't4': ['t4'],
+    'ft3': ['ft3', 'free t3', 'freet3'],
+    'ft4': ['ft4', 'free t4', 'freet4'],
+    'thyroglobulin': ['thyroglobulin', 'tg'],
+    
+    // Cardiac Markers
+    'troponin': ['troponin', 'trop'],
+    'bnp': ['bnp'],
+    'ntprobnp': ['ntprobnp', 'nt-probnp'],
+    'ckmb': ['ckmb', 'ck-mb'],
+    'myoglobin': ['myoglobin'],
+    
+    // Inflammation
+    'ferritin': ['ferritin', 'フェリチン', 'ferritinjapanese'],
+    'crp': ['crp'],
+    'esr': ['esr'],
+    
+    // Electrolytes
+    'sodium': ['sodium', 'na'],
+    'potassium': ['potassium', 'k'],
+    'chloride': ['chloride', 'cl', 'ci'],
+    'bicarbonate': ['bicarbonate', 'hco3', 'bicarb'],
+    'co2': ['co2'],
+    'magnesium': ['magnesium', 'mg'],
+    'phosphorus': ['phosphorus', 'p', 'phos'],
+    'calcium': ['calcium', 'ca'],
+    'calcium_ionized': ['ionized calcium', 'ca2+', 'ca²⁺', 'ca++', 'ionized ca'],
+    'phosphate': ['phosphate', 'phosphorus', 'p', 'phos', 'po4'],
+    
+    // Coagulation
+    'pt': ['pt', 'ptactivity', 'pt activity', 'pt活性値', 'pt activity value'],
+    'inr': ['inr'],
+    'aptt': ['aptt'],
+    'ddimer': ['ddimer', 'd-dimer', 'dimer', 'd-ダイマー'],
+    'fdp': ['fdp'],
+    'fibrinogen': ['fibrinogen', 'fbg'],
+    'antithrombin_iii': ['antithrombin iii', 'at-iii', 'at3', 'antithrombin'],
+    'protein_c': ['protein c', 'proteinc'],
+    'protein_s': ['protein s', 'proteins'],
+    
+    // Other
+    'glucose': ['glucose', 'glu', '血糖'],
+    'hba1c': ['hba1c'],
+    'iga': ['iga'],
+    'igg': ['igg'],
+    'igm': ['igm'],
+    'vitamin_d': ['vitamin d', 'vitamind', '25(oh)d', '25ohd'],
+    'beta2_microglobulin': ['beta2 microglobulin', 'beta-2 microglobulin', 'β2 microglobulin', 'b2m'],
+    'procalcitonin': ['procalcitonin', 'pct'],
+    'il6': ['il6', 'il-6', 'interleukin-6', 'interleukin 6']
+  };
+
+  // Reverse map: create lookup from any variation to canonical key
+  const labKeyMap = {};
+  Object.entries(labSynonymMap).forEach(([canonicalKey, variations]) => {
+    variations.forEach(variation => {
+      labKeyMap[variation.toLowerCase()] = canonicalKey;
+    });
+  });
+
+  // Display name mapping: canonical key -> user-friendly display name
+  const labDisplayNames = {
+    'ca125': 'CA-125',
+    'ca199': 'CA 19-9',
+    'ca153': 'CA 15-3',
+    'ca724': 'CA 72-4',
+    'ca242': 'CA 242',
+    'ca50': 'CA 50',
+    'cea': 'CEA',
+    'afp': 'AFP',
+    'psa': 'PSA',
+    'he4': 'HE4',
+    'inhibinb': 'Inhibin B',
+    'romaindex': 'ROMA Index',
+    'ca2729': 'CA 27-29',
+    'scc_antigen': 'SCC Antigen',
+    'cyfra211': 'CYFRA 21-1',
+    'nse': 'NSE',
+    'betahcg': 'Beta-hCG',
+    'alt': 'ALT',
+    'ast': 'AST',
+    'ast_alt_ratio': 'AST/ALT Ratio',
+    'alp': 'ALP',
+    'alp_ifcc': 'ALP (IFCC)',
+    'bilirubin_total': 'Total Bilirubin',
+    'bilirubin_direct': 'Direct Bilirubin',
+    'bilirubin_indirect': 'Indirect Bilirubin',
+    'albumin': 'Albumin',
+    'ggt': 'GGT',
+    'ldh': 'LDH',
+    'creatinine': 'Creatinine',
+    'egfr': 'eGFR',
+    'bun': 'BUN',
+    'urea': 'Urea',
+    'urineprotein': 'Urine Protein',
+    'urinecreatinine': 'Urine Creatinine',
+    'wbc': 'WBC',
+    'rbc': 'RBC',
+    'hemoglobin': 'Hemoglobin',
+    'hematocrit': 'Hematocrit',
+    'platelets': 'Platelets',
+    'anc': 'ANC',
+    'neutrophils_abs': 'Neutrophil Absolute Count',
+    'neutrophils_pct': 'Neutrophil Percentage',
+    'lymphocytes_abs': 'Lymphocyte Absolute Count',
+    'lymphocytes_pct': 'Lymphocyte Percentage',
+    'monocytes_abs': 'Monocyte Absolute Count',
+    'monocytes_pct': 'Monocyte Percentage',
+    'eosinophils_abs': 'Eosinophil Absolute Count',
+    'eosinophils_pct': 'Eosinophil Percentage',
+    'basophils_abs': 'Basophil Absolute Count',
+    'basophils_pct': 'Basophil Percentage',
+    'mcv': 'MCV',
+    'mch': 'MCH',
+    'mchc': 'MCHC',
+    'rdw': 'RDW',
+    'rdw_cv': 'RDW-CV',
+    'mpv': 'MPV',
+    'nrbc': 'NRBC',
+    'nrbc_pct': 'NRBC Percentage',
+    'reticulocyte_count': 'Reticulocyte Count',
+    'reticulocyte_pct': 'Reticulocyte Percentage',
+    'tsh': 'TSH',
+    't3': 'T3',
+    't4': 'T4',
+    'ft3': 'Free T3',
+    'ft4': 'Free T4',
+    'thyroglobulin': 'Thyroglobulin',
+    'troponin': 'Troponin',
+    'bnp': 'BNP',
+    'ntprobnp': 'NT-proBNP',
+    'ckmb': 'CK-MB',
+    'myoglobin': 'Myoglobin',
+    'ferritin': 'Ferritin',
+    'crp': 'CRP',
+    'esr': 'ESR',
+    'sodium': 'Sodium',
+    'potassium': 'Potassium',
+    'chloride': 'Chloride',
+    'bicarbonate': 'Bicarbonate',
+    'co2': 'CO2',
+    'magnesium': 'Magnesium',
+    'phosphorus': 'Phosphorus',
+    'calcium': 'Calcium',
+    'calcium_ionized': 'Ionized Calcium',
+    'phosphate': 'Phosphate',
+    'pt': 'PT',
+    'inr': 'INR',
+    'aptt': 'APTT',
+    'ddimer': 'D-dimer',
+    'fdp': 'FDP',
+    'fibrinogen': 'Fibrinogen',
+    'antithrombin_iii': 'Antithrombin III',
+    'protein_c': 'Protein C',
+    'protein_s': 'Protein S',
+    'glucose': 'Glucose',
+    'hba1c': 'HbA1c',
+    'iga': 'IgA',
+    'igg': 'IgG',
+    'igm': 'IgM',
+    'vitamin_d': 'Vitamin D',
+    'beta2_microglobulin': 'Beta-2 Microglobulin',
+    'procalcitonin': 'Procalcitonin',
+    'il6': 'IL-6'
+  };
+
+  // Normalize lab name to canonical key
+  const normalizeLabName = (rawName) => {
+    if (!rawName) return null;
+    
+    // Clean the raw name
+    let cleaned = rawName.toString().trim();
+    
+    // Convert to lowercase for matching
+    cleaned = cleaned.toLowerCase();
+    
+    // Remove common separators
+    cleaned = cleaned.replace(/[\s\-_\/\.]/g, '');
+    
+    // Normalize common variants
+    cleaned = cleaned.replace(/ntprobnp/g, 'ntprobnp');
+    cleaned = cleaned.replace(/ckmb/g, 'ckmb');
+    cleaned = cleaned.replace(/ca199/g, 'ca199');
+    cleaned = cleaned.replace(/ca125/g, 'ca125');
+    cleaned = cleaned.replace(/freet3/g, 'ft3');
+    cleaned = cleaned.replace(/freet4/g, 'ft4');
+    
+    // Look up in synonym map
+    const canonicalKey = labKeyMap[cleaned];
+    return canonicalKey || null;
+  };
+
+  // Get display name for a lab (canonical key or raw name)
+  const getLabDisplayName = (labKeyOrName) => {
+    // First try to normalize
+    const canonicalKey = normalizeLabName(labKeyOrName);
+    if (canonicalKey && labDisplayNames[canonicalKey]) {
+      return labDisplayNames[canonicalKey];
+    }
+    
+    // If no canonical key found, return title case of original
+    if (labKeyOrName) {
+      const str = labKeyOrName.toString();
+      return str.split(/[\s\-_]/).map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+      ).join(' ');
+    }
+    
+    return labKeyOrName || 'Unknown Lab';
+  };
+
+  // Lab value descriptions - using ONLY canonical keys
   const labValueDescriptions = {
-    'CA-125': 'Tumor marker for ovarian cancer. Elevated levels may indicate disease activity or recurrence.',
-    'CA 19-9': 'Tumor marker for pancreatic and gastrointestinal cancers. Used to monitor treatment response.',
-    'CA 15-3': 'Tumor marker for breast cancer. Helps monitor disease progression and treatment effectiveness.',
-    'CA 72-4': 'Tumor marker for gastrointestinal cancers, particularly gastric cancer. Used to monitor treatment response and recurrence.',
-    'CA 242': 'Tumor marker for pancreatic and colorectal cancers. Used in combination with other markers for diagnosis and monitoring.',
-    'CA 50': 'Tumor marker for pancreatic and gastrointestinal cancers. Elevated levels may indicate disease activity.',
-    'Inhibin B': 'Hormone marker for ovarian cancer, particularly granulosa cell tumors. Also used in fertility assessment.',
-    'ROMA Index': 'Risk of Ovarian Malignancy Algorithm. Combines CA-125 and HE4 levels to assess ovarian cancer risk.',
-    'CEA': 'Carcinoembryonic antigen. Used to monitor colorectal, lung, and other cancers. Elevated levels may indicate recurrence.',
-    'AFP': 'Alpha-fetoprotein. Marker for liver cancer and germ cell tumors. Also elevated in pregnancy.',
-    'PSA': 'Prostate-specific antigen. Used to screen and monitor prostate cancer. Age-specific normal ranges apply.',
-    'HE4': 'Human epididymis protein 4. Ovarian cancer biomarker, often used with CA-125 for better accuracy.',
-    'WBC': 'White blood cell count. Measures immune system cells. Low counts (neutropenia) increase infection risk during chemotherapy.',
-    'RBC': 'Red blood cell count. Measures oxygen-carrying cells. Low levels indicate anemia.',
-    'Hemoglobin': 'Protein in red blood cells that carries oxygen. Low levels (anemia) cause fatigue and weakness.',
-    'HGB': 'Hemoglobin. Protein in red blood cells that carries oxygen. Low levels (anemia) cause fatigue and weakness.',
-    'Hematocrit': 'Percentage of red blood cells in blood. Low levels indicate anemia.',
-    'HCT': 'Hematocrit. Percentage of red blood cells in blood. Low levels indicate anemia.',
-    'Platelets': 'Blood cells that help with clotting. Low levels (thrombocytopenia) increase bleeding risk.',
-    'PLT': 'Platelets. Blood cells that help with clotting. Low levels (thrombocytopenia) increase bleeding risk.',
-    'ANC': 'Absolute neutrophil count. Critical for infection risk. Should be >1500/μL to reduce infection risk.',
-    'Neutrophils': 'Type of white blood cell that fights bacterial infections. Low levels increase infection risk.',
-    'NEUTRO#': 'Neutrophil absolute count. Total number of neutrophils in blood. Critical for fighting bacterial infections. Low levels (neutropenia) increase infection risk.',
-    'NEUTRO%': 'Neutrophil percentage. Percentage of white blood cells that are neutrophils. Normal range is typically 48.0-61.0%. Low levels increase infection risk.',
-    'Lymphocytes': 'Type of white blood cell important for immune function. Low levels may indicate immune suppression.',
-    'LYMPH#': 'Lymphocyte absolute count. Total number of lymphocytes in blood. Important for immune function. Low levels may indicate immune suppression.',
-    'LYMPH%': 'Lymphocyte percentage. Percentage of white blood cells that are lymphocytes. Normal range is typically 25.0-45.0%. Low levels may indicate immune suppression.',
-    'Monocytes': 'Type of white blood cell that fights infections and removes dead cells. Elevated in chronic infections or inflammatory conditions.',
-    'MONO#': 'Monocyte absolute count. Total number of monocytes in blood. Elevated in chronic infections or inflammatory conditions.',
-    'MONO%': 'Monocyte percentage. Percentage of white blood cells that are monocytes. Normal range is typically 4.0-7.0%. Elevated in chronic infections or inflammatory conditions.',
-    'Eosinophils': 'Type of white blood cell involved in allergic reactions and parasite defense. Elevated in allergies, asthma, or parasitic infections.',
-    'EO#': 'Eosinophil absolute count. Total number of eosinophils in blood. Elevated in allergies, asthma, or parasitic infections.',
-    'EO%': 'Eosinophil percentage. Percentage of white blood cells that are eosinophils. Normal range is typically 1.0-5.0%. Elevated in allergies or parasitic infections.',
-    'Basophils': 'Type of white blood cell involved in allergic reactions. Usually present in very small numbers. Elevated in rare conditions.',
-    'BA#': 'Basophil absolute count. Total number of basophils in blood. Usually very low. Elevated in rare conditions like chronic myeloid leukemia.',
-    'BA%': 'Basophil percentage. Percentage of white blood cells that are basophils. Normal range is typically 0.0-1.0%.',
-    'MCV': 'Mean corpuscular volume. Average size of red blood cells. Used to classify types of anemia.',
-    'MCH': 'Mean corpuscular hemoglobin. Average amount of hemoglobin per red blood cell. Low in iron deficiency anemia.',
-    'MCHC': 'Mean corpuscular hemoglobin concentration. Average concentration of hemoglobin in red blood cells. Used in anemia diagnosis.',
-    'RDW': 'Red cell distribution width. Measures variation in red blood cell size. Elevated in iron deficiency or other anemias.',
-    'RDW-CV': 'Red cell distribution width - coefficient of variation. Measures variation in red blood cell size as a percentage. Elevated in iron deficiency or other anemias.',
-    'Creatinine': 'Waste product filtered by kidneys. High levels indicate kidney dysfunction or dehydration.',
-    'CRE': 'Creatinine. Waste product filtered by the kidneys. Normal levels indicate adequate kidney filtration and overall renal function.',
-    'eGFR': 'Estimated glomerular filtration rate. Measures kidney filtering capacity. Adjusted for age, gender, and race.',
-    'BUN': 'Blood urea nitrogen. Waste product from protein breakdown. High levels may indicate kidney dysfunction.',
-    'Urea': 'Waste product from protein metabolism. Filtered by kidneys. High levels indicate kidney dysfunction or dehydration.',
-    'Urine Protein': 'Protein in urine. Normally minimal. Elevated levels (proteinuria) indicate kidney damage or disease.',
-    'Urine Creatinine': 'Creatinine in urine. Used with blood creatinine to calculate kidney function and detect kidney disease.',
-    'ALT': 'Alanine aminotransferase. Liver enzyme. Elevated levels indicate liver damage, often from medications or disease.',
-    'AST': 'Aspartate aminotransferase. Liver enzyme. Elevated levels indicate liver or muscle damage.',
-    'AST/ALT Ratio': 'Ratio of aspartate aminotransferase to alanine aminotransferase. Used to assess patterns of liver injury; abnormal values may suggest specific liver conditions such as alcoholic liver disease or advanced fibrosis.',
-    'AST/ALT': 'Ratio of aspartate aminotransferase to alanine aminotransferase. Used to assess patterns of liver injury; abnormal values may suggest specific liver conditions such as alcoholic liver disease or advanced fibrosis.',
-    'ALP': 'Alkaline phosphatase. Liver and bone enzyme. Elevated in liver disease or bone disorders.',
-    'ALP (IFCC)': 'Alkaline phosphatase. Liver and bone enzyme. Abnormal levels may indicate bile duct obstruction, liver disease, or bone disorders.',
-    'ALP IFCC': 'Alkaline phosphatase. Liver and bone enzyme. Abnormal levels may indicate bile duct obstruction, liver disease, or bone disorders.',
-    'Bilirubin': 'Breakdown product of red blood cells. High levels cause jaundice and indicate liver dysfunction.',
-    'T-Bil': 'Total Bilirubin. Breakdown product of red blood cells. High levels cause jaundice and indicate liver dysfunction.',
-    'Total Bilirubin': 'Total bilirubin. Breakdown product of red blood cells. High levels cause jaundice and indicate liver dysfunction.',
-    'ALB': 'Albumin. Major blood protein made by the liver. Low levels indicate impaired liver function, inflammation, protein loss, or poor nutritional status.',
-    'Albumin': 'Main protein in blood. Low levels indicate malnutrition, liver disease, or kidney disease.',
-    'GGT': 'Gamma-glutamyl transferase. Liver enzyme. Elevated levels indicate liver disease, bile duct obstruction, or alcohol use.',
-    'TSH': 'Thyroid-stimulating hormone. Regulates thyroid function. High levels indicate hypothyroidism, low levels indicate hyperthyroidism.',
-    'T3': 'Triiodothyronine. Active thyroid hormone. Regulates metabolism.',
-    'T4': 'Thyroxine. Thyroid hormone. Regulates metabolism and energy.',
-    'Free T3': 'Free triiodothyronine. Unbound active thyroid hormone. More accurate than total T3 for assessing thyroid function.',
-    'Free T4': 'Free thyroxine. Unbound thyroid hormone. More accurate than total T4 for assessing thyroid function.',
-    'Thyroglobulin': 'Protein produced by thyroid gland. Used as tumor marker for thyroid cancer monitoring after treatment.',
-    'Troponin': 'Heart muscle protein. Elevated levels indicate heart damage from heart attack or other cardiac events.',
-    'BNP': 'B-type natriuretic peptide. Marker for heart failure. Elevated levels indicate heart stress.',
-    'NT-proBNP': 'N-terminal pro-B-type natriuretic peptide. More stable marker for heart failure than BNP. Used for diagnosis and monitoring.',
-    'CK-MB': 'Creatine kinase-MB. Heart muscle enzyme. Elevated levels indicate heart muscle damage from heart attack.',
-    'Myoglobin': 'Protein found in heart and skeletal muscle. Rapidly elevated after heart attack or muscle injury.',
-    'CRP': 'C-reactive protein. Measures inflammation in the body. Elevated in infection, inflammation, or autoimmune conditions.',
-    'ESR': 'Erythrocyte sedimentation rate. Non-specific marker of inflammation. Elevated in many conditions including infection and autoimmune disease.',
-    'Ferritin': 'Iron storage protein. Low levels indicate iron deficiency. High levels may indicate iron overload or inflammation.',
-    'フェリチン': 'Ferritin. Iron storage protein. Low levels indicate iron deficiency. High levels may indicate iron overload or inflammation.',
-    'Ferritin (Japanese)': 'Ferritin. Iron storage protein. Low levels indicate iron deficiency. High levels may indicate iron overload or inflammation.',
-    'Fibrinogen': 'Blood clotting protein. Elevated in inflammation or infection. Low levels increase bleeding risk.',
-    'Fbg': 'Fibrinogen. Blood clotting protein. Elevated in inflammation or infection. Low levels increase bleeding risk.',
-    'Sodium': 'Essential electrolyte. Regulates fluid balance and nerve function. Imbalances can cause confusion or seizures.',
-    'NA': 'Sodium. Essential electrolyte. Regulates fluid balance and nerve function. Imbalances can cause confusion or seizures.',
-    'Potassium': 'Essential electrolyte. Important for heart and muscle function. Dangerous if too high or too low.',
-    'K': 'Potassium. Essential electrolyte. Important for heart and muscle function. Dangerous if too high or too low.',
-    'Calcium': 'Mineral essential for bones, muscles, and nerve function. Regulated by parathyroid hormone and vitamin D.',
-    'CA': 'Calcium. Mineral essential for bones, muscles, and nerve function. Regulated by parathyroid hormone and vitamin D.',
-    'Ca': 'Calcium. Mineral essential for bones, muscles, and nerve function. Regulated by parathyroid hormone and vitamin D.',
-    'Magnesium': 'Essential mineral for muscle and nerve function. Low levels can cause muscle cramps and irregular heartbeat.',
-    'Mg': 'Magnesium. Essential mineral for muscle and nerve function. Low levels can cause muscle cramps and irregular heartbeat.',
-    'Chloride': 'Essential electrolyte. Works with sodium to maintain fluid balance and acid-base balance in the body.',
-    'CI': 'Chloride. Essential electrolyte. Works with sodium to maintain fluid balance and acid-base balance in the body.',
-    'Bicarbonate': 'Buffer that maintains blood pH. Low levels indicate acidosis. High levels indicate alkalosis.',
-    'HCO3': 'Bicarbonate. Buffer that maintains blood pH. Low levels indicate acidosis. High levels indicate alkalosis.',
-    'Bicarb': 'Bicarbonate. Buffer that maintains blood pH. Low levels indicate acidosis. High levels indicate alkalosis.',
-    'CO2': 'Carbon dioxide. Reflects acid-base balance and respiratory function. Used to assess metabolic and respiratory status.',
-    'Phosphorus': 'Essential mineral for bone health, energy production, and cell function. Imbalances can affect multiple body systems.',
-    'P': 'Phosphorus. Essential mineral for bone health, energy production, and cell function. Imbalances can affect multiple body systems.',
-    'Phos': 'Phosphorus. Essential mineral for bone health, energy production, and cell function. Imbalances can affect multiple body systems.',
-    'Glucose': 'Blood sugar. High levels indicate diabetes or prediabetes. Low levels (hypoglycemia) can be dangerous.',
-    'GLU': 'Glucose. Blood sugar. High levels indicate diabetes or prediabetes. Low levels (hypoglycemia) can be dangerous.',
-    '血糖': 'Glucose (Blood Sugar). High levels indicate diabetes or prediabetes. Low levels (hypoglycemia) can be dangerous.',
-    'PT': 'Prothrombin time. Measures blood clotting function. Important for monitoring anticoagulant medications.',
-    'PT活性値': 'PT Activity. Measures blood clotting function as a percentage of normal. Important for monitoring anticoagulant medications and liver function.',
-    'PT Activity': 'PT Activity. Measures blood clotting function as a percentage of normal. Important for monitoring anticoagulant medications and liver function.',
-    'PT Activity Value': 'PT Activity. Measures blood clotting function as a percentage of normal. Important for monitoring anticoagulant medications and liver function.',
-    'INR': 'International normalized ratio. Standardized measure of blood clotting. Used to monitor warfarin therapy.',
-    'APTT': 'Activated partial thromboplastin time. Measures intrinsic clotting pathway. Used to monitor heparin therapy.',
-    'D-dimer': 'Fragment from blood clots. Elevated in deep vein thrombosis, pulmonary embolism, and DIC.',
-    'Dimer': 'Fragment from blood clots. Elevated in deep vein thrombosis, pulmonary embolism, and DIC.',
-    'D-ダイマー': 'D-dimer. Fragment from blood clots. Elevated in deep vein thrombosis, pulmonary embolism, and DIC.',
-    'FDP': 'Fibrin degradation products. Fragments from blood clot breakdown. Elevated in conditions involving blood clotting such as DIC, deep vein thrombosis, or pulmonary embolism.',
-    'LDH': 'Lactate dehydrogenase. Enzyme found in many tissues. Elevated in tissue damage, hemolysis, or cancer.',
-    'LD IFCC': 'Lactate dehydrogenase (IFCC method). Enzyme found in many tissues. Elevated in tissue damage, hemolysis, or cancer.',
-    'LD': 'Lactate dehydrogenase. Enzyme found in many tissues. Elevated in tissue damage, hemolysis, or cancer.',
-    'IgA': 'Immunoglobulin A. Antibody found in mucous membranes and blood. Important for immune defense in respiratory and digestive tracts. Abnormal levels may indicate immune disorders.',
-    'IgG': 'Immunoglobulin G. Most abundant antibody in blood. Provides long-term immunity against infections. Elevated in chronic infections or autoimmune conditions. Low levels increase infection risk.',
-    'IgM': 'Immunoglobulin M. First antibody produced in response to infection. Elevated in acute infections. Low levels may indicate immune deficiency.',
-    'Vitamin D': 'Essential vitamin for bone health and immune function. Low levels are common and may require supplementation.',
-    'HbA1c': 'Hemoglobin A1c. Average blood sugar over 2-3 months. Used to diagnose and monitor diabetes.'
+    // Disease-Specific Markers
+    'ca125': 'Tumor marker for ovarian cancer. Elevated levels may indicate disease activity or recurrence.',
+    'ca199': 'Tumor marker for pancreatic and gastrointestinal cancers. Used to monitor treatment response.',
+    'ca153': 'Tumor marker for breast cancer. Helps monitor disease progression and treatment effectiveness.',
+    'ca724': 'Tumor marker for gastrointestinal cancers, particularly gastric cancer. Used to monitor treatment response and recurrence.',
+    'ca242': 'Tumor marker for pancreatic and colorectal cancers. Used in combination with other markers for diagnosis and monitoring.',
+    'ca50': 'Tumor marker for pancreatic and gastrointestinal cancers. Elevated levels may indicate disease activity.',
+    'cea': 'Carcinoembryonic antigen. Used to monitor colorectal, lung, and other cancers. Elevated levels may indicate recurrence.',
+    'afp': 'Alpha-fetoprotein. Marker for liver cancer and germ cell tumors. Also elevated in pregnancy.',
+    'psa': 'Prostate-specific antigen. Used to screen and monitor prostate cancer. Age-specific normal ranges apply.',
+    'he4': 'Human epididymis protein 4. Ovarian cancer biomarker, often used with CA-125 for better accuracy.',
+    'inhibinb': 'Hormone marker for ovarian cancer, particularly granulosa cell tumors. Also used in fertility assessment.',
+    'romaindex': 'Risk of Ovarian Malignancy Algorithm. Combines CA-125 and HE4 levels to assess ovarian cancer risk.',
+    'ca2729': 'CA 27-29. A tumor marker primarily used in breast cancer to monitor treatment response and detect disease recurrence.',
+    'scc_antigen': 'SCC Antigen (Squamous Cell Carcinoma Antigen). A tumor marker associated with squamous cell carcinomas, including cervical, lung, and head and neck cancers.',
+    'cyfra211': 'CYFRA 21-1. A fragment of cytokeratin 19 commonly elevated in non-small cell lung cancer and used to assess tumor burden.',
+    'nse': 'NSE (Neuron-Specific Enolase). A marker associated with neuroendocrine tumors and small cell lung cancer, often reflecting disease activity.',
+    'betahcg': 'Beta-hCG (β-hCG). A tumor marker used in germ cell tumors and trophoblastic disease, and occasionally elevated in other malignancies.',
+    // Blood Counts
+    'wbc': 'White blood cell count. Measures immune system cells. Low counts (neutropenia) increase infection risk during chemotherapy.',
+    'rbc': 'Red blood cell count. Measures oxygen-carrying cells. Low levels indicate anemia.',
+    'hemoglobin': 'Protein in red blood cells that carries oxygen. Low levels (anemia) cause fatigue and weakness.',
+    'hematocrit': 'Percentage of red blood cells in blood. Low levels indicate anemia.',
+    'platelets': 'Blood cells that help with clotting. Low levels (thrombocytopenia) increase bleeding risk.',
+    'anc': 'Absolute neutrophil count. Critical for infection risk. Should be >1500/μL to reduce infection risk.',
+    'neutrophils_abs': 'Neutrophil absolute count. Total number of neutrophils in blood. Critical for fighting bacterial infections. Low levels (neutropenia) increase infection risk.',
+    'neutrophils_pct': 'Neutrophil percentage. Percentage of white blood cells that are neutrophils. Normal range is typically 48.0-61.0%. Low levels increase infection risk.',
+    'lymphocytes_abs': 'Lymphocyte absolute count. Total number of lymphocytes in blood. Important for immune function. Low levels may indicate immune suppression.',
+    'lymphocytes_pct': 'Lymphocyte percentage. Percentage of white blood cells that are lymphocytes. Normal range is typically 25.0-45.0%. Low levels may indicate immune suppression.',
+    'monocytes_abs': 'Monocyte absolute count. Total number of monocytes in blood. Elevated in chronic infections or inflammatory conditions.',
+    'monocytes_pct': 'Monocyte percentage. Percentage of white blood cells that are monocytes. Normal range is typically 4.0-7.0%. Elevated in chronic infections or inflammatory conditions.',
+    'eosinophils_abs': 'Eosinophil absolute count. Total number of eosinophils in blood. Elevated in allergies, asthma, or parasitic infections.',
+    'eosinophils_pct': 'Eosinophil percentage. Percentage of white blood cells that are eosinophils. Normal range is typically 1.0-5.0%. Elevated in allergies or parasitic infections.',
+    'basophils_abs': 'Basophil absolute count. Total number of basophils in blood. Usually very low. Elevated in rare conditions like chronic myeloid leukemia.',
+    'basophils_pct': 'Basophil percentage. Percentage of white blood cells that are basophils. Normal range is typically 0.0-1.0%.',
+    'mcv': 'Mean corpuscular volume. Average size of red blood cells. Used to classify types of anemia.',
+    'mch': 'Mean corpuscular hemoglobin. Average amount of hemoglobin per red blood cell. Low in iron deficiency anemia.',
+    'mchc': 'Mean corpuscular hemoglobin concentration. Average concentration of hemoglobin in red blood cells. Used in anemia diagnosis.',
+    'rdw': 'Red cell distribution width. Measures variation in red blood cell size. Elevated in iron deficiency or other anemias.',
+    'rdw_cv': 'Red cell distribution width - coefficient of variation. Measures variation in red blood cell size as a percentage. Elevated in iron deficiency or other anemias.',
+    'mpv': 'Mean platelet volume. Average size of platelets in the blood. Changes can indicate altered bone marrow activity, platelet destruction, or effects of chemotherapy.',
+    'nrbc': 'Nucleated red blood cells. Immature red blood cells circulating in the bloodstream. Their presence suggests severe bone marrow stress, hypoxia, or marrow infiltration by cancer.',
+    'nrbc_pct': 'NRBC percentage. Proportion of nucleated red blood cells relative to total white blood cells. Used to assess bone marrow response or failure during intensive cancer treatment.',
+    'reticulocyte_count': 'Reticulocyte count. Number of immature red blood cells released from the bone marrow. Reflects marrow response to anemia, bleeding, or chemotherapy-induced suppression.',
+    'reticulocyte_pct': 'Reticulocyte percentage. Percentage of reticulocytes among total red blood cells. Helps distinguish whether anemia is due to decreased production or increased destruction.',
+    // Kidney Function
+    'creatinine': 'Waste product filtered by kidneys. High levels indicate kidney dysfunction or dehydration.',
+    'egfr': 'Estimated glomerular filtration rate. Measures kidney filtering capacity. Adjusted for age, gender, and race.',
+    'bun': 'Blood urea nitrogen. Waste product from protein breakdown. High levels may indicate kidney dysfunction.',
+    'urea': 'Waste product from protein metabolism. Filtered by kidneys. High levels indicate kidney dysfunction or dehydration.',
+    'urineprotein': 'Protein in urine. Normally minimal. Elevated levels (proteinuria) indicate kidney damage or disease.',
+    'urinecreatinine': 'Creatinine in urine. Used with blood creatinine to calculate kidney function and detect kidney disease.',
+    // Liver Function
+    'alt': 'Alanine aminotransferase. Liver enzyme. Elevated levels indicate liver damage, often from medications or disease.',
+    'ast': 'Aspartate aminotransferase. Liver enzyme. Elevated levels indicate liver or muscle damage.',
+    'ast_alt_ratio': 'Ratio of aspartate aminotransferase to alanine aminotransferase. Used to assess patterns of liver injury; abnormal values may suggest specific liver conditions such as alcoholic liver disease or advanced fibrosis.',
+    'alp': 'Alkaline phosphatase. Liver and bone enzyme. Elevated in liver disease or bone disorders.',
+    'alp_ifcc': 'Alkaline phosphatase (IFCC method). Liver and bone enzyme. Abnormal levels may indicate bile duct obstruction, liver disease, or bone disorders.',
+    'bilirubin_total': 'Total bilirubin. Breakdown product of red blood cells. High levels cause jaundice and indicate liver dysfunction.',
+    'bilirubin_direct': 'Direct bilirubin (conjugated bilirubin). Bilirubin that has been processed by the liver. Elevated levels suggest bile duct obstruction, liver metastases, or impaired hepatic excretion.',
+    'bilirubin_indirect': 'Indirect bilirubin (unconjugated bilirubin). Bilirubin prior to liver conjugation. Elevation may indicate hemolysis, ineffective erythropoiesis, or impaired hepatic uptake.',
+    'albumin': 'Main protein in blood. Low levels indicate malnutrition, liver disease, or kidney disease.',
+    'ggt': 'Gamma-glutamyl transferase. Liver enzyme. Elevated levels indicate liver disease, bile duct obstruction, or alcohol use.',
+    'ldh': 'Lactate dehydrogenase. Enzyme found in many tissues. Elevated in tissue damage, hemolysis, or cancer.',
+    // Thyroid Function
+    'tsh': 'Thyroid-stimulating hormone. Regulates thyroid function. High levels indicate hypothyroidism, low levels indicate hyperthyroidism.',
+    't3': 'Triiodothyronine. Active thyroid hormone. Regulates metabolism.',
+    't4': 'Thyroxine. Thyroid hormone. Regulates metabolism and energy.',
+    'ft3': 'Free triiodothyronine. Unbound active thyroid hormone. More accurate than total T3 for assessing thyroid function.',
+    'ft4': 'Free thyroxine. Unbound thyroid hormone. More accurate than total T4 for assessing thyroid function.',
+    'thyroglobulin': 'Protein produced by thyroid gland. Used as tumor marker for thyroid cancer monitoring after treatment.',
+    // Cardiac Markers
+    'troponin': 'Heart muscle protein. Elevated levels indicate heart damage from heart attack or other cardiac events.',
+    'bnp': 'B-type natriuretic peptide. Marker for heart failure. Elevated levels indicate heart stress.',
+    'ntprobnp': 'N-terminal pro-B-type natriuretic peptide. More stable marker for heart failure than BNP. Used for diagnosis and monitoring.',
+    'ckmb': 'Creatine kinase-MB. Heart muscle enzyme. Elevated levels indicate heart muscle damage from heart attack.',
+    'myoglobin': 'Protein found in heart and skeletal muscle. Rapidly elevated after heart attack or muscle injury.',
+    // Inflammation
+    'crp': 'C-reactive protein. Measures inflammation in the body. Elevated in infection, inflammation, or autoimmune conditions.',
+    'esr': 'Erythrocyte sedimentation rate. Non-specific marker of inflammation. Elevated in many conditions including infection and autoimmune disease.',
+    'ferritin': 'Iron storage protein. Low levels indicate iron deficiency. High levels may indicate iron overload or inflammation.',
+    // Coagulation
+    'pt': 'Prothrombin time. Measures blood clotting function. Important for monitoring anticoagulant medications.',
+    'inr': 'International normalized ratio. Standardized measure of blood clotting. Used to monitor warfarin therapy.',
+    'aptt': 'Activated partial thromboplastin time. Measures intrinsic clotting pathway. Used to monitor heparin therapy.',
+    'ddimer': 'D-dimer. Fragment from blood clots. Elevated in deep vein thrombosis, pulmonary embolism, and DIC.',
+    'fdp': 'Fibrin degradation products. Fragments from blood clot breakdown. Elevated in conditions involving blood clotting such as DIC, deep vein thrombosis, or pulmonary embolism.',
+    'fibrinogen': 'Blood clotting protein. Elevated in inflammation or infection. Low levels increase bleeding risk.',
+    'antithrombin_iii': 'Antithrombin III. A natural anticoagulant protein that inhibits clot formation. Reduced levels increase thrombosis risk and are common in cancer and during chemotherapy.',
+    'protein_c': 'Protein C. A vitamin K-dependent anticoagulant protein. Deficiency contributes to hypercoagulable states frequently seen in malignancy.',
+    'protein_s': 'Protein S. A cofactor for Protein C that enhances anticoagulant activity. Low levels increase the risk of venous thromboembolism in cancer patients.',
+    // Electrolytes
+    'sodium': 'Essential electrolyte. Regulates fluid balance and nerve function. Imbalances can cause confusion or seizures.',
+    'potassium': 'Essential electrolyte. Important for heart and muscle function. Dangerous if too high or too low.',
+    'calcium': 'Mineral essential for bones, muscles, and nerve function. Regulated by parathyroid hormone and vitamin D.',
+    'calcium_ionized': 'Ionized calcium (Ca²⁺). The biologically active form of calcium in the blood. Abnormal levels are common in bone metastases, multiple myeloma, and paraneoplastic syndromes.',
+    'phosphate': 'Phosphate. An essential electrolyte involved in cellular energy and bone metabolism. Abnormalities are common in tumor lysis syndrome and advanced malignancy.',
+    'magnesium': 'Essential mineral for muscle and nerve function. Low levels can cause muscle cramps and irregular heartbeat.',
+    'chloride': 'Essential electrolyte. Works with sodium to maintain fluid balance and acid-base balance in the body.',
+    'bicarbonate': 'Buffer that maintains blood pH. Low levels indicate acidosis. High levels indicate alkalosis.',
+    'co2': 'Carbon dioxide. Reflects acid-base balance and respiratory function. Used to assess metabolic and respiratory status.',
+    'phosphorus': 'Essential mineral for bone health, energy production, and cell function. Imbalances can affect multiple body systems.',
+    // Other
+    'glucose': 'Blood sugar. High levels indicate diabetes or prediabetes. Low levels (hypoglycemia) can be dangerous.',
+    'hba1c': 'Hemoglobin A1c. Average blood sugar over 2-3 months. Used to diagnose and monitor diabetes.',
+    'iga': 'Immunoglobulin A. Antibody found in mucous membranes and blood. Important for immune defense in respiratory and digestive tracts. Abnormal levels may indicate immune disorders.',
+    'igg': 'Immunoglobulin G. Most abundant antibody in blood. Provides long-term immunity against infections. Elevated in chronic infections or autoimmune conditions. Low levels increase infection risk.',
+    'igm': 'Immunoglobulin M. First antibody produced in response to infection. Elevated in acute infections. Low levels may indicate immune deficiency.',
+    'vitamin_d': 'Essential vitamin for bone health and immune function. Low levels are common and may require supplementation.',
+    'beta2_microglobulin': 'Beta-2 Microglobulin. A protein associated with tumor burden and prognosis in lymphomas and multiple myeloma.',
+    'procalcitonin': 'Procalcitonin. A biomarker of bacterial infection that helps distinguish infection from inflammation or immune-related adverse events in cancer patients.',
+    'il6': 'IL-6 (Interleukin-6). An inflammatory cytokine often elevated in cancer, infection, and cytokine release syndromes, useful for monitoring immune-related toxicity.'
   };
 
   // Categorize labs by organ function and type
@@ -1316,54 +1688,127 @@ export default function CancerCareApp() {
     // Track categorized labs to prevent duplicates
     const categorizedKeys = new Set();
 
+    // Category mapping: canonical key -> category name
+    const categoryMap = {
+      'disease_specific_markers': 'Disease-Specific Markers',
+      'liver_function': 'Liver Function',
+      'kidney_function': 'Kidney Function',
+      'blood_counts': 'Blood Counts',
+      'thyroid_function': 'Thyroid Function',
+      'cardiac_markers': 'Cardiac Markers',
+      'inflammation': 'Inflammation',
+      'electrolytes': 'Electrolytes',
+      'coagulation': 'Coagulation',
+      'other': 'Others'
+    };
+
+    // Map canonical keys to categories
+    const canonicalKeyToCategory = {
+      // Disease-Specific Markers
+      'ca125': 'disease_specific_markers', 'ca199': 'disease_specific_markers', 'ca153': 'disease_specific_markers',
+      'ca724': 'disease_specific_markers', 'ca242': 'disease_specific_markers', 'ca50': 'disease_specific_markers',
+      'ca2729': 'disease_specific_markers', 'cea': 'disease_specific_markers', 'afp': 'disease_specific_markers',
+      'psa': 'disease_specific_markers', 'he4': 'disease_specific_markers', 'inhibinb': 'disease_specific_markers',
+      'romaindex': 'disease_specific_markers', 'scc_antigen': 'disease_specific_markers',
+      'cyfra211': 'disease_specific_markers', 'nse': 'disease_specific_markers', 'betahcg': 'disease_specific_markers',
+      
+      // Liver Function
+      'alt': 'liver_function', 'ast': 'liver_function', 'ast_alt_ratio': 'liver_function',
+      'alp': 'liver_function', 'alp_ifcc': 'liver_function', 'bilirubin_total': 'liver_function',
+      'bilirubin_direct': 'liver_function', 'bilirubin_indirect': 'liver_function',
+      'albumin': 'liver_function', 'ggt': 'liver_function', 'ldh': 'liver_function',
+      
+      // Kidney Function
+      'creatinine': 'kidney_function', 'egfr': 'kidney_function', 'bun': 'kidney_function',
+      'urea': 'kidney_function', 'urineprotein': 'kidney_function', 'urinecreatinine': 'kidney_function',
+      
+      // Blood Counts
+      'wbc': 'blood_counts', 'rbc': 'blood_counts', 'hemoglobin': 'blood_counts',
+      'hematocrit': 'blood_counts', 'platelets': 'blood_counts', 'anc': 'blood_counts',
+      'neutrophils_abs': 'blood_counts', 'neutrophils_pct': 'blood_counts',
+      'lymphocytes_abs': 'blood_counts', 'lymphocytes_pct': 'blood_counts',
+      'monocytes_abs': 'blood_counts', 'monocytes_pct': 'blood_counts',
+      'eosinophils_abs': 'blood_counts', 'eosinophils_pct': 'blood_counts',
+      'basophils_abs': 'blood_counts', 'basophils_pct': 'blood_counts',
+      'mcv': 'blood_counts', 'mch': 'blood_counts', 'mchc': 'blood_counts',
+      'rdw': 'blood_counts', 'rdw_cv': 'blood_counts',
+      'mpv': 'blood_counts', 'nrbc': 'blood_counts', 'nrbc_pct': 'blood_counts',
+      'reticulocyte_count': 'blood_counts', 'reticulocyte_pct': 'blood_counts',
+      
+      // Thyroid Function
+      'tsh': 'thyroid_function', 't3': 'thyroid_function', 't4': 'thyroid_function',
+      'ft3': 'thyroid_function', 'ft4': 'thyroid_function', 'thyroglobulin': 'thyroid_function',
+      
+      // Cardiac Markers
+      'troponin': 'cardiac_markers', 'bnp': 'cardiac_markers', 'ntprobnp': 'cardiac_markers',
+      'ckmb': 'cardiac_markers', 'myoglobin': 'cardiac_markers',
+      
+      // Inflammation
+      'crp': 'inflammation', 'esr': 'inflammation', 'ferritin': 'inflammation',
+      'il6': 'inflammation',
+      
+      // Electrolytes
+      'sodium': 'electrolytes', 'potassium': 'electrolytes', 'chloride': 'electrolytes',
+      'bicarbonate': 'electrolytes', 'co2': 'electrolytes', 'magnesium': 'electrolytes',
+      'phosphorus': 'electrolytes', 'calcium': 'electrolytes', 'calcium_ionized': 'electrolytes',
+      'phosphate': 'electrolytes',
+      
+      // Coagulation (precedence: coagulation wins over liver_function for PT, INR, APTT, etc.)
+      'pt': 'coagulation', 'inr': 'coagulation', 'aptt': 'coagulation',
+      'ddimer': 'coagulation', 'fdp': 'coagulation', 'fibrinogen': 'coagulation',
+      'antithrombin_iii': 'coagulation', 'protein_c': 'coagulation', 'protein_s': 'coagulation',
+      
+      // Other
+      'glucose': 'other', 'hba1c': 'other', 'iga': 'other', 'igg': 'other', 'igm': 'other', 'vitamin_d': 'other',
+      'beta2_microglobulin': 'other', 'procalcitonin': 'other'
+    };
+
     Object.entries(labs).forEach(([key, lab]) => {
       // Skip if already categorized
       if (categorizedKeys.has(key)) return;
 
-      const labKey = key.toLowerCase();
-      const labName = (lab.name || '').toLowerCase();
+      // Normalize lab name to canonical key
+      const canonicalKey = normalizeLabName(lab.name || key);
+      
+      // Determine category
+      let category = 'other';
+      if (canonicalKey && canonicalKeyToCategory[canonicalKey]) {
+        category = canonicalKeyToCategory[canonicalKey];
+      } else {
+        // Fallback: try to match by name/key patterns
+        const labKey = key.toLowerCase();
+        const labName = (lab.name || '').toLowerCase();
+        
+        if (diseaseMarkers.some(m => labKey.includes(m) || labName.includes(m)) ||
+            tumorMarkers.some(m => labKey.includes(m) || labName.includes(m))) {
+          category = 'disease_specific_markers';
+        } else if (coagulation.some(m => labKey.includes(m) || labName.includes(m))) {
+          // Coagulation has precedence
+          category = 'coagulation';
+        } else if (liverFunction.some(m => labKey.includes(m) || labName.includes(m))) {
+          category = 'liver_function';
+        } else if (kidneyFunction.some(m => labKey.includes(m) || labName.includes(m))) {
+          category = 'kidney_function';
+        } else if (bloodCounts.some(m => labKey.includes(m) || labName.includes(m))) {
+          category = 'blood_counts';
+        } else if (thyroidFunction.some(m => labKey.includes(m) || labName.includes(m))) {
+          category = 'thyroid_function';
+        } else if (cardiacMarkers.some(m => labKey.includes(m) || labName.includes(m))) {
+          category = 'cardiac_markers';
+        } else if (inflammation.some(m => labKey.includes(m) || labName.includes(m))) {
+          category = 'inflammation';
+        } else if (electrolytes.some(m => labKey.includes(m) || labName.includes(m))) {
+          category = 'electrolytes';
+        }
+      }
 
+      // Map to UI category name
+      const uiCategory = categoryMap[category] || 'Others';
+      
       // Note: "Custom Values" should only contain manually added labs (via Add Lab modal)
       // Document-extracted labs that don't fit categories go to "Others"
-      // Since we can't easily distinguish manually added vs document-extracted at this level,
-      // we'll put all unknown labs in "Others" by default. Custom Values will be populated
-      // when we add the capability to mark labs as manually added.
-
-      // Categorize (using if-else to ensure only one category)
-      if (diseaseMarkers.includes(labKey) || tumorMarkers.some(m => labKey.includes(m) || labName.includes(m))) {
-        categories['Disease-Specific Markers'].push([key, lab]);
-        categorizedKeys.add(key);
-      } else if (liverFunction.includes(labKey) || liverFunction.some(m => labKey.includes(m) || labName.includes(m) || lab.name?.toLowerCase().includes(m))) {
-        categories['Liver Function'].push([key, lab]);
-        categorizedKeys.add(key);
-      } else if (kidneyFunction.includes(labKey) || kidneyFunction.some(m => labKey.includes(m) || labName.includes(m) || lab.name?.toLowerCase().includes(m))) {
-        categories['Kidney Function'].push([key, lab]);
-        categorizedKeys.add(key);
-      } else if (bloodCounts.includes(labKey) || bloodCounts.some(m => labKey.includes(m) || labName.includes(m) || lab.name?.toLowerCase().includes(m))) {
-        categories['Blood Counts'].push([key, lab]);
-        categorizedKeys.add(key);
-      } else if (thyroidFunction.includes(labKey) || thyroidFunction.some(m => labKey.includes(m) || labName.includes(m) || lab.name?.toLowerCase().includes(m))) {
-        categories['Thyroid Function'].push([key, lab]);
-        categorizedKeys.add(key);
-      } else if (cardiacMarkers.includes(labKey) || cardiacMarkers.some(m => labKey.includes(m) || labName.includes(m) || lab.name?.toLowerCase().includes(m))) {
-        categories['Cardiac Markers'].push([key, lab]);
-        categorizedKeys.add(key);
-      } else if (inflammation.includes(labKey) || inflammation.some(m => labKey.includes(m) || labName.includes(m) || lab.name?.toLowerCase().includes(m))) {
-        categories['Inflammation'].push([key, lab]);
-        categorizedKeys.add(key);
-      } else if (electrolytes.includes(labKey) || electrolytes.some(m => labKey.includes(m) || labName.includes(m) || lab.name?.toLowerCase().includes(m))) {
-        categories['Electrolytes'].push([key, lab]);
-        categorizedKeys.add(key);
-      } else if (coagulation.includes(labKey) || coagulation.some(m => labKey.includes(m) || labName.includes(m) || lab.name?.toLowerCase().includes(m))) {
-        categories['Coagulation'].push([key, lab]);
-        categorizedKeys.add(key);
-      } else {
-        // Labs that don't fit any category go to "Others"
-        // (Document-extracted labs that don't match categories)
-        // "Custom Values" is reserved for manually added labs (to be implemented)
-        categories['Others'].push([key, lab]);
-        categorizedKeys.add(key);
-      }
+      categories[uiCategory].push([key, lab]);
+      categorizedKeys.add(key);
     });
 
     // Remove duplicates within each category (same lab name)
@@ -1398,10 +1843,14 @@ export default function CancerCareApp() {
 
     vitals.forEach(vital => {
       const vitalType = vital.vitalType || 'unknown';
+      
+      // Normalize vital type to canonical key
+      const canonicalKey = normalizeVitalName(vitalType) || normalizeVitalName(vital.label) || vitalType;
+      const displayName = getVitalDisplayName(canonicalKey);
 
-      if (!grouped[vitalType]) {
-        grouped[vitalType] = {
-          name: vital.label,
+      if (!grouped[canonicalKey]) {
+        grouped[canonicalKey] = {
+          name: displayName,
           unit: vital.unit,
           current: vital.currentValue,
           status: 'normal',
@@ -1411,8 +1860,9 @@ export default function CancerCareApp() {
         };
       }
 
-      grouped[vitalType].current = vital.currentValue;
-      grouped[vitalType].data.push({
+      grouped[canonicalKey].current = vital.currentValue;
+      grouped[canonicalKey].data.push({
+        id: vital.id, // Store vital document ID for deletion
         date: new Date(vital.createdAt?.toDate ? vital.createdAt.toDate() : vital.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         value: vital.currentValue
       });
@@ -1677,6 +2127,11 @@ export default function CancerCareApp() {
       setIsUploading(true);
       setUploadProgress('Reading document...');
 
+      // Get document date (user-provided or null)
+      const providedDate = pendingDocumentDate;
+      // Clear pending date after use
+      setPendingDocumentDate(null);
+
       // Show processing message
       setMessages([...messages,
       { type: 'user', text: `Uploading: ${file.name}`, isUpload: true },
@@ -1685,7 +2140,7 @@ export default function CancerCareApp() {
 
       // Step 1: Process document with AI to extract medical data
       setUploadProgress('Analyzing document with AI...');
-      const processingResult = await processDocument(file, user.uid, patientProfile);
+      const processingResult = await processDocument(file, user.uid, patientProfile, providedDate);
       console.log('Document processing result:', processingResult);
 
       // Step 2: Upload file to Firebase Storage
@@ -1700,11 +2155,13 @@ export default function CancerCareApp() {
       setUploadProgress('Saving extracted data...');
 
       // Step 3: Add to local documents state
+      // Use user-provided date or today
+      const docDate = providedDate || new Date().toISOString().split('T')[0];
       const newDoc = {
         id: uploadResult.id,
         name: file.name,
         type: processingResult.documentType || docType,
-        date: new Date().toISOString().split('T')[0],
+        date: docDate,
         fileUrl: uploadResult.fileUrl,
         storagePath: uploadResult.storagePath,
         icon: (processingResult.documentType || docType).toLowerCase()
@@ -1870,18 +2327,19 @@ export default function CancerCareApp() {
             {/* Quick Action Buttons */}
             <div className="bg-white border-b border-medical-neutral-200 px-4 sm:px-6 py-4 sm:py-5">
               <div className="max-w-6xl mx-auto">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                <h2 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-3 sm:mb-4">Quick Actions</h2>
+                <div className="flex flex-row items-stretch justify-between gap-2 sm:gap-4">
                   <button
                     onClick={() => {
                       setShowAddSymptomModal(true);
                     }}
-                    className="group relative flex flex-col sm:flex-row items-center sm:items-center justify-center sm:justify-start gap-3 sm:gap-3 px-4 sm:px-5 py-4 sm:py-3.5 bg-gradient-to-br from-medical-primary-50 to-medical-primary-100/50 hover:from-medical-primary-100 hover:to-medical-primary-200/50 border border-medical-primary-200/60 hover:border-medical-primary-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+                    className="group relative flex flex-row items-center justify-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-3.5 flex-1 bg-gradient-to-br from-medical-primary-50 to-medical-primary-100/50 hover:from-medical-primary-100 hover:to-medical-primary-200/50 border border-medical-primary-200/60 hover:border-medical-primary-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
                   >
-                    <div className="w-10 h-10 sm:w-9 sm:h-9 bg-medical-primary-500 group-hover:bg-medical-primary-600 rounded-lg flex items-center justify-center transition-colors duration-200 shadow-sm">
-                      <Activity className="w-5 h-5 sm:w-4 sm:h-4 text-white" />
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 bg-medical-primary-500 group-hover:bg-medical-primary-600 rounded-lg flex items-center justify-center transition-colors duration-200 shadow-sm flex-shrink-0">
+                      <Activity className="w-4 h-4 sm:w-4 sm:h-4 text-white" />
                     </div>
-                    <div className="flex flex-col items-center sm:items-start">
-                      <span className="text-sm sm:text-base font-semibold text-medical-primary-800 group-hover:text-medical-primary-900">Log Symptom</span>
+                    <div className="flex flex-col items-start min-w-0">
+                      <span className="text-xs sm:text-sm font-semibold text-medical-primary-800 group-hover:text-medical-primary-900 whitespace-nowrap">Log Symptom</span>
                       <span className="text-xs text-medical-primary-600/80 hidden sm:block">Track how you're feeling</span>
                     </div>
                   </button>
@@ -1895,13 +2353,13 @@ export default function CancerCareApp() {
                         setShowAddLab(true);
                       }, 300);
                     }}
-                    className="group relative flex flex-col sm:flex-row items-center sm:items-center justify-center sm:justify-start gap-3 sm:gap-3 px-4 sm:px-5 py-4 sm:py-3.5 bg-gradient-to-br from-medical-accent-50 to-medical-accent-100/50 hover:from-medical-accent-100 hover:to-medical-accent-200/50 border border-medical-accent-200/60 hover:border-medical-accent-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+                    className="group relative flex flex-row items-center justify-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-3.5 flex-1 bg-gradient-to-br from-medical-accent-50 to-medical-accent-100/50 hover:from-medical-accent-100 hover:to-medical-accent-200/50 border border-medical-accent-200/60 hover:border-medical-accent-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
                   >
-                    <div className="w-10 h-10 sm:w-9 sm:h-9 bg-medical-accent-500 group-hover:bg-medical-accent-600 rounded-lg flex items-center justify-center transition-colors duration-200 shadow-sm">
-                      <TrendingUp className="w-5 h-5 sm:w-4 sm:h-4 text-white" />
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 bg-medical-accent-500 group-hover:bg-medical-accent-600 rounded-lg flex items-center justify-center transition-colors duration-200 shadow-sm flex-shrink-0">
+                      <TrendingUp className="w-4 h-4 sm:w-4 sm:h-4 text-white" />
                     </div>
-                    <div className="flex flex-col items-center sm:items-start">
-                      <span className="text-sm sm:text-base font-semibold text-medical-accent-800 group-hover:text-medical-accent-900">Add Lab Value</span>
+                    <div className="flex flex-col items-start min-w-0">
+                      <span className="text-xs sm:text-sm font-semibold text-medical-accent-800 group-hover:text-medical-accent-900 whitespace-nowrap">Add Lab Value</span>
                       <span className="text-xs text-medical-accent-600/80 hidden sm:block">Record test results</span>
                     </div>
                   </button>
@@ -1910,14 +2368,14 @@ export default function CancerCareApp() {
                     onClick={() => {
                       openDocumentOnboarding('general');
                     }}
-                    className="group relative flex flex-col sm:flex-row items-center sm:items-center justify-center sm:justify-start gap-3 sm:gap-3 px-4 sm:px-5 py-4 sm:py-3.5 bg-gradient-to-br from-medical-secondary-50 to-medical-secondary-100/50 hover:from-medical-secondary-100 hover:to-medical-secondary-200/50 border border-medical-secondary-200/60 hover:border-medical-secondary-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+                    className="group relative flex flex-row items-center justify-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-3.5 flex-1 bg-gradient-to-br from-medical-secondary-50 to-medical-secondary-100/50 hover:from-medical-secondary-100 hover:to-medical-secondary-200/50 border border-medical-secondary-200/60 hover:border-medical-secondary-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
                   >
-                    <div className="w-10 h-10 sm:w-9 sm:h-9 bg-medical-secondary-500 group-hover:bg-medical-secondary-600 rounded-lg flex items-center justify-center transition-colors duration-200 shadow-sm">
-                      <Upload className="w-5 h-5 sm:w-4 sm:h-4 text-white" />
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 bg-medical-secondary-500 group-hover:bg-medical-secondary-600 rounded-lg flex items-center justify-center transition-colors duration-200 shadow-sm flex-shrink-0">
+                      <Upload className="w-4 h-4 sm:w-4 sm:h-4 text-white" />
                     </div>
-                    <div className="flex flex-col items-center sm:items-start">
-                      <span className="text-sm sm:text-base font-semibold text-medical-secondary-800 group-hover:text-medical-secondary-900">Upload Document</span>
-                      <span className="text-xs text-medical-secondary-600/80 hidden sm:block">Add medical records</span>
+                    <div className="flex flex-col items-start min-w-0">
+                      <span className="text-xs sm:text-sm font-semibold text-medical-secondary-800 group-hover:text-medical-secondary-900 whitespace-nowrap">Smart Scan</span>
+                      <span className="text-xs text-medical-secondary-600/80 hidden sm:block">Upload & extract data</span>
                     </div>
                   </button>
                 </div>
@@ -1981,14 +2439,14 @@ export default function CancerCareApp() {
             <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
               {/* Dynamic CA-125 Alert */}
               {ca125Alert && (
-                <div className={`border-l-4 p-3 sm:p-4 rounded ${ca125Alert.type === 'up' ? 'bg-amber-50 border-amber-500' : 'bg-green-50 border-green-500'}`}>
-                  <div className="flex items-start gap-2 sm:gap-3">
-                    <AlertCircle className={`flex-shrink-0 mt-0.5 ${ca125Alert.type === 'up' ? 'text-amber-600' : 'text-medical-accent-600'}`} size={20} />
-                    <div>
-                      <p className={`font-medium text-sm ${ca125Alert.type === 'up' ? 'text-amber-800' : 'text-medical-accent-800'}`}>
+                <div className={`bg-white rounded-lg sm:rounded-xl border-l-4 p-4 sm:p-5 shadow-sm ${ca125Alert.type === 'up' ? 'border-amber-500' : 'border-green-500'}`}>
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className={`flex-shrink-0 w-5 h-5 mt-0.5 ${ca125Alert.type === 'up' ? 'text-amber-600' : 'text-green-600'}`} />
+                    <div className="flex-1">
+                      <h3 className={`text-base font-semibold mb-1 ${ca125Alert.type === 'up' ? 'text-amber-900' : 'text-green-900'}`}>
                         CA-125 {ca125Alert.type === 'up' ? 'Trending Up' : 'Trending Down'}
-                      </p>
-                      <p className={`text-xs sm:text-sm mt-1 ${ca125Alert.type === 'up' ? 'text-amber-700' : 'text-medical-accent-700'}`}>
+                      </h3>
+                      <p className={`text-sm ${ca125Alert.type === 'up' ? 'text-amber-700' : 'text-green-700'}`}>
                         {ca125Alert.message}
                       </p>
                     </div>
@@ -2061,9 +2519,12 @@ export default function CancerCareApp() {
                 
                 // Use fallback items
                 return (
-                  <div className="bg-white rounded-lg sm:rounded-xl p-4 border border-medical-neutral-200 shadow-sm">
-                    <h3 className="text-sm font-semibold text-medical-neutral-700 mb-3">Key Metrics</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                  <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border border-medical-neutral-200 shadow-sm">
+                    <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-medical-primary-600" />
+                      Key Metrics
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
                       {fallbackItems.map((item) => {
                         const data = item.data;
                         let latestValue = (data.data && data.data.length > 0)
@@ -2071,15 +2532,49 @@ export default function CancerCareApp() {
                           : data.current;
                         const status = data.status || 'normal';
                         
+                        // Get description using normalized system (for labs and vitals)
+                        let description = '';
+                        let displayName = data.name;
+                        if (item.type === 'lab') {
+                          const canonicalKey = normalizeLabName(data.name || item.key);
+                          if (canonicalKey && labValueDescriptions[canonicalKey]) {
+                            description = labValueDescriptions[canonicalKey];
+                            displayName = getLabDisplayName(data.name || item.key);
+                          }
+                        } else if (item.type === 'vital') {
+                          const canonicalKey = normalizeVitalName(data.name || item.key);
+                          if (canonicalKey && vitalDescriptions[canonicalKey]) {
+                            description = vitalDescriptions[canonicalKey];
+                            displayName = getVitalDisplayName(data.name || item.key);
+                          }
+                        }
+                        
                         return (
-                          <div key={`${item.type}-${item.key}`} className="text-center">
-                            <div className="flex items-center justify-center gap-1 mb-1">
-                              <span className="text-xs text-medical-neutral-600">{data.name}</span>
-                              <Activity className={`w-3 h-3 ${status === 'warning' ? 'text-orange-500' : status === 'danger' ? 'text-red-500' : 'text-medical-accent-500'}`} />
+                          <div key={`${item.type}-${item.key}`} className="text-center p-3 bg-medical-neutral-50 rounded-lg">
+                            <div className="flex items-center justify-center gap-1.5 mb-2">
+                              <span className="text-xs font-medium text-medical-neutral-700">{displayName}</span>
+                              <div className="flex items-center gap-1">
+                                <Activity className={`w-3.5 h-3.5 ${status === 'warning' ? 'text-orange-500' : status === 'danger' ? 'text-red-500' : 'text-medical-accent-500'}`} />
+                                {description && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setLabTooltip({
+                                        labName: displayName,
+                                        description: description
+                                      });
+                                    }}
+                                    className="text-medical-primary-500 hover:text-medical-primary-700 transition-colors"
+                                    title="Learn more about this value"
+                                  >
+                                    <Info className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
                             </div>
                             <p className="text-lg sm:text-xl font-bold text-medical-neutral-900">{latestValue}{data.unit ? ` ${data.unit}` : ''}</p>
                             {status !== 'normal' && (
-                              <p className={`text-xs mt-0.5 ${status === 'warning' ? 'text-orange-600' : 'text-red-600'}`}>
+                              <p className={`text-xs mt-1 font-medium ${status === 'warning' ? 'text-orange-600' : 'text-red-600'}`}>
                                 {status === 'warning' ? 'Above normal' : 'High'}
                               </p>
                             )}
@@ -2092,9 +2587,12 @@ export default function CancerCareApp() {
               }
 
               return (
-                <div className="bg-white rounded-lg sm:rounded-xl p-4 border border-gray-200 shadow-sm">
-                  <h3 className="text-sm font-semibold text-medical-neutral-700 mb-3">Key Metrics</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border border-medical-neutral-200 shadow-sm">
+                  <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-medical-primary-600" />
+                    Key Metrics
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
                     {allImportantItems.map((item) => {
                       const data = item.data;
                       // Get latest value - labs and vitals both have data array or current
@@ -2111,15 +2609,49 @@ export default function CancerCareApp() {
                       }
                       const status = data.status || 'normal';
                       
+                      // Get description using normalized system (for labs and vitals)
+                      let description = '';
+                      let displayName = data.name;
+                      if (item.type === 'lab') {
+                        const canonicalKey = normalizeLabName(data.name || item.key);
+                        if (canonicalKey && labValueDescriptions[canonicalKey]) {
+                          description = labValueDescriptions[canonicalKey];
+                          displayName = getLabDisplayName(data.name || item.key);
+                        }
+                      } else if (item.type === 'vital') {
+                        const canonicalKey = normalizeVitalName(data.name || item.key);
+                        if (canonicalKey && vitalDescriptions[canonicalKey]) {
+                          description = vitalDescriptions[canonicalKey];
+                          displayName = getVitalDisplayName(data.name || item.key);
+                        }
+                      }
+                      
                       return (
-                        <div key={`${item.type}-${item.key}`} className="text-center">
-                          <div className="flex items-center justify-center gap-1 mb-1">
-                            <span className="text-xs text-medical-neutral-600">{data.name}</span>
-                            <Activity className={`w-3 h-3 ${status === 'warning' ? 'text-orange-500' : status === 'danger' ? 'text-red-500' : 'text-medical-accent-500'}`} />
+                        <div key={`${item.type}-${item.key}`} className="text-center p-3 bg-medical-neutral-50 rounded-lg">
+                          <div className="flex items-center justify-center gap-1.5 mb-2">
+                            <span className="text-xs font-medium text-medical-neutral-700">{displayName}</span>
+                            <div className="flex items-center gap-1">
+                              <Activity className={`w-3.5 h-3.5 ${status === 'warning' ? 'text-orange-500' : status === 'danger' ? 'text-red-500' : 'text-medical-accent-500'}`} />
+                              {description && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLabTooltip({
+                                      labName: displayName,
+                                      description: description
+                                    });
+                                  }}
+                                  className="text-medical-primary-500 hover:text-medical-primary-700 transition-colors"
+                                  title="Learn more about this value"
+                                >
+                                  <Info className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                           <p className="text-lg sm:text-xl font-bold text-medical-neutral-900">{latestValue}{data.unit ? ` ${data.unit}` : ''}</p>
                           {status !== 'normal' && (
-                            <p className={`text-xs mt-0.5 ${status === 'warning' ? 'text-orange-600' : 'text-red-600'}`}>
+                            <p className={`text-xs mt-1 font-medium ${status === 'warning' ? 'text-orange-600' : 'text-red-600'}`}>
                               {status === 'warning' ? 'Above normal' : 'High'}
                             </p>
                           )}
@@ -2130,14 +2662,14 @@ export default function CancerCareApp() {
                 </div>
               );
             })() : (
-              <div className="bg-white rounded-lg p-6 text-center border-2 border-dashed border-medical-neutral-300">
-                <Activity className="w-12 h-12 text-medical-neutral-400 mx-auto mb-3" />
-                <p className="text-medical-neutral-600 mb-2 font-medium">No health data tracked yet</p>
-                <p className="text-sm text-medical-neutral-500 mb-4">Start by uploading lab results or chatting with the AI assistant</p>
-                <div className="flex gap-3 justify-center">
+              <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center border border-medical-neutral-200 shadow-sm">
+                <Activity className="w-12 h-12 text-medical-neutral-400 mx-auto mb-4" />
+                <h3 className="text-base font-semibold text-medical-neutral-900 mb-2">No health data tracked yet</h3>
+                <p className="text-sm text-medical-neutral-600 mb-6">Start by uploading lab results or chatting with the AI assistant</p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   <button
                     onClick={() => setActiveTab('chat')}
-                    className="px-4 py-2 bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition text-sm font-medium"
+                    className="px-5 py-2.5 bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition-colors text-sm font-medium shadow-sm"
                   >
                     Chat with AI
                   </button>
@@ -2149,7 +2681,7 @@ export default function CancerCareApp() {
                         setActiveTab('files');
                       }
                     }}
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm"
+                    className="px-5 py-2.5 bg-medical-secondary-500 text-white rounded-lg hover:bg-medical-secondary-600 transition-colors text-sm font-medium shadow-sm"
                   >
                     Upload Labs
                   </button>
@@ -2158,43 +2690,43 @@ export default function CancerCareApp() {
             )}
 
           {/* Two Column Layout on larger screens */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               {/* Genomic Profile Card */}
-              <div className="w-full bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg shadow p-4 border border-purple-200 lg:col-span-2">
-                <h3 className="font-semibold text-gray-800 mb-3 flex items-center">
-                  <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-full bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border border-medical-neutral-200 shadow-sm lg:col-span-2">
+                <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-medical-secondary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
                   Genomic Profile
                 </h3>
                 {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 ? (
                   <>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 mb-4">
                       {genomicProfile.mutations.slice(0, 5).map((mutation, idx) => {
                         const { dna, protein, kind } = parseMutation(mutation);
                         return (
-                          <span key={idx} className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                          <span key={idx} className="px-3 py-1.5 bg-medical-secondary-100 text-medical-secondary-800 rounded-lg text-xs font-medium">
                             <span className="font-semibold mr-1">{mutation.gene}</span>
                             <span>{formatLabel(dna || protein || kind || mutation.type)}</span>
                           </span>
                         );
                       })}
                       {genomicProfile.tmb && (
-                        <span className="px-3 py-1 bg-medical-primary-100 text-medical-primary-800 rounded-full text-xs font-medium">
+                        <span className="px-3 py-1.5 bg-medical-primary-100 text-medical-primary-800 rounded-lg text-xs font-medium">
                           TMB: {genomicProfile.tmb}
                         </span>
                       )}
                     </div>
                     <button
                       onClick={() => setActiveTab('profile')}
-                      className="text-purple-600 text-sm font-medium mt-3 hover:underline"
+                      className="text-medical-secondary-600 text-sm font-medium hover:text-medical-secondary-700 transition-colors"
                     >
                       View Full Profile →
                     </button>
                   </>
                 ) : (
-                  <div className="text-center py-4">
-                    <p className="text-gray-500 text-sm mb-3">No genomic data yet</p>
+                  <div className="text-center py-6">
+                    <p className="text-medical-neutral-600 text-sm mb-4">No genomic data yet</p>
                     <button
                       onClick={() => {
                         if (!hasUploadedDocument) {
@@ -2203,7 +2735,7 @@ export default function CancerCareApp() {
                           setActiveTab('files');
                         }
                       }}
-                      className="text-medical-primary-600 text-sm font-medium hover:underline"
+                      className="text-medical-primary-600 text-sm font-medium hover:text-medical-primary-700 transition-colors"
                     >
                       Upload Genomic Report →
                     </button>
@@ -2213,56 +2745,56 @@ export default function CancerCareApp() {
             </div>
 
             {/* Saved Trials */}
-            <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="font-semibold text-gray-800 mb-3 flex items-center">
-                <Bookmark size={18} className="mr-2" />
+            <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border border-medical-neutral-200 shadow-sm">
+              <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
+                <Bookmark className="w-5 h-5 text-medical-primary-600" />
                 Saved Trials
               </h3>
               {loadingSavedTrials ? (
-                <div className="text-center py-6">
-                  <p className="text-gray-500 text-sm">Loading saved trials...</p>
+                <div className="text-center py-8">
+                  <p className="text-medical-neutral-600 text-sm">Loading saved trials...</p>
                 </div>
               ) : savedTrials.length > 0 ? (
                 <div className="space-y-3">
                   {savedTrials.map((trial) => (
                     <div
                       key={trial.id}
-                      className="border border-medical-neutral-200 rounded-lg p-3 hover:border-medical-primary-300 transition cursor-pointer"
+                      className="border border-medical-neutral-200 rounded-lg p-3 sm:p-4 hover:border-medical-primary-300 hover:shadow-sm transition-all cursor-pointer bg-medical-neutral-50/50"
                       onClick={() => setActiveTab('trials')}
                     >
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-gray-900 text-sm mb-1 truncate">
+                          <h4 className="font-semibold text-medical-neutral-900 text-sm sm:text-base mb-1.5 truncate">
                             {trial.title || trial.titleJa || 'Untitled Trial'}
                           </h4>
                           {trial.matchResult && (
                             <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs text-gray-600">
+                              <span className="text-xs text-medical-neutral-600 font-medium">
                                 Match: {trial.matchResult.matchPercentage}%
                               </span>
                               {trial.isFavorite && (
-                                <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+                                <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
                               )}
                             </div>
                           )}
                         </div>
-                        <ChevronRight className="w-4 h-4 text-gray-400 ml-2 flex-shrink-0" />
+                        <ChevronRight className="w-5 h-5 text-medical-neutral-400 ml-2 flex-shrink-0" />
                       </div>
                     </div>
                   ))}
                   <button
                     onClick={() => setActiveTab('trials')}
-                    className="w-full text-center text-medical-primary-600 text-sm font-medium hover:underline mt-2"
+                    className="w-full text-center text-medical-primary-600 text-sm font-medium hover:text-medical-primary-700 transition-colors mt-3"
                   >
                     View All Saved Trials →
                   </button>
                 </div>
               ) : (
-                <div className="text-center py-6">
-                  <p className="text-gray-500 text-sm mb-3">No saved trials yet</p>
+                <div className="text-center py-8">
+                  <p className="text-medical-neutral-600 text-sm mb-4">No saved trials yet</p>
                   <button
                     onClick={() => setActiveTab('trials')}
-                    className="text-medical-primary-600 text-sm font-medium hover:underline"
+                    className="text-medical-primary-600 text-sm font-medium hover:text-medical-primary-700 transition-colors"
                   >
                     Search Clinical Trials →
                   </button>
@@ -2847,11 +3379,35 @@ export default function CancerCareApp() {
                                               }}
                                             />
 
-                                            {/* Tooltip */}
-                                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
+                                            {/* Tooltip with delete button */}
+                                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4 opacity-0 group-hover:opacity-100 transition-opacity z-30">
                                               <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap shadow-xl">
-                                                <div className="font-bold text-sm">{d.value} {currentLab.unit}</div>
-                                                <div className="text-gray-300 text-center text-xs mt-0.5">{d.date}</div>
+                                                <div className="flex items-center justify-between gap-3">
+                                                  <div>
+                                                    <div className="font-bold text-sm">{d.value} {currentLab.unit}</div>
+                                                    <div className="text-gray-300 text-center text-xs mt-0.5">{d.date}</div>
+                                                  </div>
+                                                  {d.id && (
+                                                    <button
+                                                      onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        if (window.confirm(`Delete this ${currentLab.name} reading (${d.value} ${currentLab.unit} on ${d.date})?`)) {
+                                                          try {
+                                                            await labService.deleteLab(d.id);
+                                                            // Data will update via subscription
+                                                          } catch (error) {
+                                                            console.error('Error deleting lab:', error);
+                                                            alert('Failed to delete lab reading. Please try again.');
+                                                          }
+                                                        }
+                                                      }}
+                                                      className="text-red-400 hover:text-red-300 transition-colors p-1 rounded hover:bg-red-900/20"
+                                                      title="Delete this reading"
+                                                    >
+                                                      <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                  )}
+                                                </div>
                                                 {/* Arrow */}
                                                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-px">
                                                   <div className="border-4 border-transparent border-t-gray-900"></div>
@@ -2903,7 +3459,10 @@ export default function CancerCareApp() {
                                 gray: { dot: 'bg-medical-neutral-400', text: 'text-medical-neutral-600' }
                               };
                               const colors = statusColors[labStatus.color];
-                              const labDescription = labValueDescriptions[lab.name] || '';
+                              // Normalize lab name to canonical key for description lookup
+                              const canonicalKey = normalizeLabName(lab.name);
+                              const labDescription = canonicalKey ? (labValueDescriptions[canonicalKey] || '') : '';
+                              const displayName = getLabDisplayName(lab.name);
 
                               return (
                                 <div
@@ -2916,13 +3475,13 @@ export default function CancerCareApp() {
                                   <div className="flex items-start justify-between mb-2">
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2 mb-1">
-                                        <p className="text-sm font-semibold text-medical-neutral-900">{lab.name}</p>
+                                        <p className="text-sm font-semibold text-medical-neutral-900">{displayName}</p>
                                         {labDescription && (
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
                                               setLabTooltip({
-                                                labName: lab.name,
+                                                labName: displayName,
                                                 description: labDescription
                                               });
                                             }}
@@ -2942,13 +3501,58 @@ export default function CancerCareApp() {
                                         <p className="text-xs text-medical-neutral-500 mt-1">Normal: {lab.normalRange}</p>
                                       )}
                                     </div>
-                                    <button
-                                      onClick={() => setSelectedLab(key)}
-                                      className="ml-2 p-1.5 text-medical-primary-600 hover:bg-medical-primary-50 rounded transition-colors"
-                                      title="View chart"
-                                    >
-                                      <TrendingUp className="w-4 h-4" />
-                                    </button>
+                                    <div className="flex items-center gap-1 ml-2">
+                                      <button
+                                        onClick={() => setSelectedLab(key)}
+                                        className="p-1.5 text-medical-primary-600 hover:bg-medical-primary-50 rounded transition-colors"
+                                        title="View chart"
+                                      >
+                                        <TrendingUp className="w-4 h-4" />
+                                      </button>
+                                      <div className="relative">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setOpenDeleteMenu(openDeleteMenu === `lab:${key}` ? null : `lab:${key}`);
+                                          }}
+                                          className="p-1.5 text-medical-neutral-500 hover:bg-medical-neutral-100 rounded transition-colors"
+                                          title="More options"
+                                        >
+                                          <MoreVertical className="w-4 h-4" />
+                                        </button>
+                                        {openDeleteMenu === `lab:${key}` && (
+                                          <>
+                                            <div
+                                              className="fixed inset-0 z-40"
+                                              onClick={() => setOpenDeleteMenu(null)}
+                                            />
+                                            <div className="absolute right-0 top-8 z-50 bg-white rounded-lg shadow-lg border border-medical-neutral-200 py-1 min-w-[160px]">
+                                              <button
+                                                onClick={async (e) => {
+                                                  e.stopPropagation();
+                                                  setOpenDeleteMenu(null);
+                                                  const labType = key;
+                                                  const count = lab.data?.length || 0;
+                                                  if (window.confirm(`Delete all ${displayName} data? This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'}. This action cannot be undone.`)) {
+                                                    try {
+                                                      await labService.deleteAllLabsByType(user.uid, labType);
+                                                      // Data will update via subscription
+                                                    } catch (error) {
+                                                      console.error('Error deleting labs:', error);
+                                                      alert('Failed to delete lab data. Please try again.');
+                                                    }
+                                                  }
+                                                }}
+                                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                                              >
+                                                <Trash2 className="w-4 h-4" />
+                                                Delete All {displayName}
+                                              </button>
+                                            </div>
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
                               );
@@ -3094,15 +3698,67 @@ export default function CancerCareApp() {
                         <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200">
                           <div className="flex items-center justify-between mb-4">
                             <h2 className="text-base sm:text-lg font-semibold text-gray-900">Vital Signs</h2>
-                            <select
-                              value={selectedVital}
-                              onChange={(e) => setSelectedVital(e.target.value)}
-                              className="text-sm border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 focus:ring-2 focus:ring-green-500"
-                            >
-                              {Object.keys(allVitalsData).map(key => (
-                                <option key={key} value={key}>{allVitalsData[key].name}</option>
-                              ))}
-                            </select>
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={selectedVital}
+                                onChange={(e) => setSelectedVital(e.target.value)}
+                                className="text-sm border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 focus:ring-2 focus:ring-green-500"
+                              >
+                                {Object.keys(allVitalsData).map(key => {
+                                  const vital = allVitalsData[key];
+                                  // Use normalized display name
+                                  const displayName = getVitalDisplayName(vital.name || key);
+                                  return (
+                                    <option key={key} value={key}>{displayName}</option>
+                                  );
+                                })}
+                              </select>
+                              <div className="relative">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenDeleteMenu(openDeleteMenu === `vital:${selectedVital}` ? null : `vital:${selectedVital}`);
+                                  }}
+                                  className="p-1.5 text-medical-neutral-500 hover:bg-medical-neutral-100 rounded transition-colors"
+                                  title="More options"
+                                >
+                                  <MoreVertical className="w-4 h-4" />
+                                </button>
+                                {openDeleteMenu === `vital:${selectedVital}` && (
+                                  <>
+                                    <div
+                                      className="fixed inset-0 z-40"
+                                      onClick={() => setOpenDeleteMenu(null)}
+                                    />
+                                    <div className="absolute right-0 top-8 z-50 bg-white rounded-lg shadow-lg border border-medical-neutral-200 py-1 min-w-[160px]">
+                                      <button
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          setOpenDeleteMenu(null);
+                                          const vitalType = selectedVital;
+                                          const vital = allVitalsData[vitalType];
+                                          const displayName = getVitalDisplayName(vital?.name || vitalType);
+                                          const count = vital?.data?.length || 0;
+                                          if (window.confirm(`Delete all ${displayName} data? This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'}. This action cannot be undone.`)) {
+                                            try {
+                                              await vitalService.deleteAllVitalsByType(user.uid, vitalType);
+                                              // Data will update via subscription
+                                            } catch (error) {
+                                              console.error('Error deleting vitals:', error);
+                                              alert('Failed to delete vital data. Please try again.');
+                                            }
+                                          }
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                        Delete All {getVitalDisplayName(allVitalsData[selectedVital]?.name || selectedVital)}
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
                           </div>
 
                           {(() => {
@@ -3427,16 +4083,44 @@ export default function CancerCareApp() {
                                                     }}
                                                   />
 
-                                                  {/* Tooltip */}
-                                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
-                                                    <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap shadow-xl">
-                                                      <div className="font-bold text-sm">
-                                                        {selectedVital === 'bp' || selectedVital === 'bloodpressure' 
-                                                          ? `${d.systolic || d.value}/${d.diastolic || ''} ${currentVital.unit}`
-                                                          : `${d.value} ${currentVital.unit}`
-                                                        }
+                                                  {/* Tooltip with delete button */}
+                                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4 opacity-0 group-hover:opacity-100 transition-opacity z-30">
+                                                    <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl">
+                                                      <div className="flex items-center justify-between gap-3">
+                                                        <div>
+                                                          <div className="font-bold text-sm">
+                                                            {selectedVital === 'bp' || selectedVital === 'bloodpressure' 
+                                                              ? `${d.systolic || d.value}/${d.diastolic || ''} ${currentVital.unit}`
+                                                              : `${d.value} ${currentVital.unit}`
+                                                            }
+                                                          </div>
+                                                          <div className="text-gray-300 text-center text-xs mt-0.5">{d.date}</div>
+                                                        </div>
+                                                        {d.id && (
+                                                          <button
+                                                            onClick={async (e) => {
+                                                              e.stopPropagation();
+                                                              const displayName = getVitalDisplayName(currentVital.name || selectedVital);
+                                                              const valueDisplay = selectedVital === 'bp' || selectedVital === 'bloodpressure' 
+                                                                ? `${d.systolic || d.value}/${d.diastolic || ''}`
+                                                                : d.value;
+                                                              if (window.confirm(`Delete this ${displayName} reading (${valueDisplay} ${currentVital.unit} on ${d.date})?`)) {
+                                                                try {
+                                                                  await vitalService.deleteVital(d.id);
+                                                                  // Data will update via subscription
+                                                                } catch (error) {
+                                                                  console.error('Error deleting vital:', error);
+                                                                  alert('Failed to delete vital reading. Please try again.');
+                                                                }
+                                                              }
+                                                            }}
+                                                            className="text-red-400 hover:text-red-300 transition-colors p-1 rounded hover:bg-red-900/20 flex-shrink-0"
+                                                            title="Delete this reading"
+                                                          >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                          </button>
+                                                        )}
                                                       </div>
-                                                      <div className="text-gray-300 text-center text-xs mt-0.5">{d.date}</div>
                                                       {/* Arrow */}
                                                       <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
                                                         <div className="border-4 border-transparent border-t-gray-900"></div>
@@ -3449,6 +4133,15 @@ export default function CancerCareApp() {
                                           </>
                                         );
                                       })()}
+                                    </div>
+
+                                    {/* X-axis labels */}
+                                    <div className="flex justify-between border-t border-gray-300 pt-2 text-xs text-gray-600">
+                                      {currentVital.data.map((d, i) => (
+                                        <span key={i} className="hidden sm:inline">{d.date}</span>
+                                      ))}
+                                      <span className="sm:hidden">{currentVital.data[0]?.date}</span>
+                                      <span className="sm:hidden">{currentVital.data[currentVital.data.length - 1]?.date}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -3561,6 +4254,7 @@ export default function CancerCareApp() {
                           symptomsByDate[day] = [];
                         }
                         symptomsByDate[day].push({
+                          id: symptom.id,
                           type: symptom.name || symptom.type,
                           severity: symptom.severity,
                           time: symptom.time || new Date(symptom.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
@@ -3588,7 +4282,9 @@ export default function CancerCareApp() {
                       for (let day = 1; day <= daysInMonth; day++) {
                         const dayStr = day.toString();
                         const hasSymptoms = symptomsByDate[dayStr];
-                        const isToday = day === 28;
+                        // Check if this is today's date
+                        const today = new Date();
+                        const isToday = today.getDate() === day && today.getMonth() === 11 && today.getFullYear() === 2024;
                         const uniqueSymptomTypes = hasSymptoms ? [...new Set(hasSymptoms.map(s => s.type))] : [];
 
                         calendar.push(
@@ -3650,18 +4346,38 @@ export default function CancerCareApp() {
                               <div className="space-y-2">
                                 {symptomsByDate[selectedDate].map((symptom, idx) => (
                                   <div
-                                    key={idx}
-                                    className={`border-l-4 pl-3 py-2 rounded-r ${symptom.severity === 'Severe' ? 'border-red-400 bg-red-50' :
+                                    key={symptom.id || idx}
+                                    className={`border-l-4 pl-3 py-2 pr-2 rounded-r ${symptom.severity === 'Severe' ? 'border-red-400 bg-red-50' :
                                       symptom.severity === 'Moderate' ? 'border-yellow-400 bg-yellow-50' :
                                         'border-green-400 bg-green-50'
                                       }`}
                                   >
                                     <div className="flex items-center justify-between mb-1">
-                                      <div className="flex items-center gap-2">
-                                        <div className={`w-2 h-2 rounded-full ${symptomColors[symptom.type] || symptomColors['Other']}`}></div>
-                                        <p className="text-sm font-medium">{symptom.type}</p>
+                                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${symptomColors[symptom.type] || symptomColors['Other']}`}></div>
+                                        <p className="text-sm font-medium truncate">{symptom.type}</p>
                                       </div>
-                                      <span className="text-xs text-gray-600">{symptom.time}</span>
+                                      <div className="flex items-center gap-2 flex-shrink-0">
+                                        <span className="text-xs text-gray-600">{symptom.time}</span>
+                                        <button
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            if (window.confirm('Are you sure you want to delete this symptom entry?')) {
+                                              try {
+                                                await symptomService.deleteSymptom(symptom.id);
+                                                // Symptoms will automatically update via the subscription
+                                              } catch (error) {
+                                                console.error('Error deleting symptom:', error);
+                                                alert('Failed to delete symptom. Please try again.');
+                                              }
+                                            }
+                                          }}
+                                          className="text-red-500 hover:text-red-700 transition-colors p-1 rounded hover:bg-red-100"
+                                          title="Delete symptom"
+                                        >
+                                          <X className="w-4 h-4" />
+                                        </button>
+                                      </div>
                                     </div>
                                     <p className={`text-xs font-medium ${symptom.severity === 'Severe' ? 'text-red-700' :
                                       symptom.severity === 'Moderate' ? 'text-yellow-700' :
@@ -5370,8 +6086,10 @@ export default function CancerCareApp() {
           <DocumentUploadOnboarding
             isOnboarding={!hasUploadedDocument}
             onClose={() => setShowDocumentOnboarding(false)}
-            onUploadClick={(documentType) => {
+            onUploadClick={(documentType, documentDate = null) => {
               setShowDocumentOnboarding(false);
+              // Store document date for use in upload
+              setPendingDocumentDate(documentDate);
               // Check if mobile device
               const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
               
@@ -5443,7 +6161,7 @@ export default function CancerCareApp() {
                   >
                     <option value="">Select a lab marker by category...</option>
 
-                    <optgroup label="Disease-Specific Markers - Tumor markers for monitoring cancer progression">
+                    <optgroup label={`Disease-Specific Markers - ${categoryDescriptions['Disease-Specific Markers']}`}>
                       <option value={JSON.stringify({ name: 'CA-125', range: '<35', unit: 'U/mL' })}>CA-125 (Ovarian) - &lt;35 U/mL</option>
                       <option value={JSON.stringify({ name: 'CA 19-9', range: '<37', unit: 'U/mL' })}>CA 19-9 (Pancreatic) - &lt;37 U/mL</option>
                       <option value={JSON.stringify({ name: 'CA 15-3', range: '<30', unit: 'U/mL' })}>CA 15-3 (Breast) - &lt;30 U/mL</option>
@@ -5453,7 +6171,7 @@ export default function CancerCareApp() {
                       <option value={JSON.stringify({ name: 'HE4', range: '<70', unit: 'pmol/L' })}>HE4 (Ovarian) - &lt;70 pmol/L</option>
                     </optgroup>
 
-                    <optgroup label="Blood Counts - Complete blood count components">
+                    <optgroup label={`Blood Counts - ${categoryDescriptions['Blood Counts']}`}>
                       <option value={JSON.stringify({ name: 'WBC', range: '4.5-11.0', unit: 'K/μL' })}>WBC (White Blood Cells) - 4.5-11.0 K/μL</option>
                       <option value={JSON.stringify({ name: 'RBC', range: '4.5-5.5', unit: 'M/μL' })}>RBC (Red Blood Cells) - 4.5-5.5 M/μL</option>
                       <option value={JSON.stringify({ name: 'Hemoglobin', range: '12.0-16.0', unit: 'g/dL' })}>Hemoglobin - 12.0-16.0 g/dL</option>
@@ -5464,13 +6182,13 @@ export default function CancerCareApp() {
                       <option value={JSON.stringify({ name: 'Lymphocytes', range: '20-40', unit: '%' })}>Lymphocytes - 20-40%</option>
                     </optgroup>
 
-                    <optgroup label="Kidney Function - Markers for kidney health and filtration">
+                    <optgroup label={`Kidney Function - ${categoryDescriptions['Kidney Function']}`}>
                       <option value={JSON.stringify({ name: 'Creatinine', range: '0.6-1.2', unit: 'mg/dL' })}>Creatinine - 0.6-1.2 mg/dL</option>
                       <option value={JSON.stringify({ name: 'eGFR', range: '>60', unit: 'mL/min' })}>eGFR - &gt;60 mL/min</option>
                       <option value={JSON.stringify({ name: 'BUN', range: '7-20', unit: 'mg/dL' })}>BUN (Blood Urea Nitrogen) - 7-20 mg/dL</option>
                     </optgroup>
 
-                    <optgroup label="Liver Function - Enzymes and proteins for liver health">
+                    <optgroup label={`Liver Function - ${categoryDescriptions['Liver Function']}`}>
                       <option value={JSON.stringify({ name: 'ALT', range: '7-56', unit: 'U/L' })}>ALT - 7-56 U/L</option>
                       <option value={JSON.stringify({ name: 'AST', range: '10-40', unit: 'U/L' })}>AST - 10-40 U/L</option>
                       <option value={JSON.stringify({ name: 'ALP', range: '44-147', unit: 'U/L' })}>ALP (Alkaline Phosphatase) - 44-147 U/L</option>
@@ -5478,7 +6196,7 @@ export default function CancerCareApp() {
                       <option value={JSON.stringify({ name: 'Albumin', range: '3.5-5.5', unit: 'g/dL' })}>Albumin - 3.5-5.5 g/dL</option>
                     </optgroup>
 
-                    <optgroup label="Electrolytes - Essential minerals for fluid balance">
+                    <optgroup label={`Electrolytes - ${categoryDescriptions['Electrolytes']}`}>
                       <option value={JSON.stringify({ name: 'Sodium', range: '136-145', unit: 'mmol/L' })}>Sodium - 136-145 mmol/L</option>
                       <option value={JSON.stringify({ name: 'Potassium', range: '3.5-5.0', unit: 'mmol/L' })}>Potassium - 3.5-5.0 mmol/L</option>
                       <option value={JSON.stringify({ name: 'Calcium', range: '8.5-10.5', unit: 'mg/dL' })}>Calcium - 8.5-10.5 mg/dL</option>
@@ -5486,28 +6204,32 @@ export default function CancerCareApp() {
                       <option value={JSON.stringify({ name: 'Glucose', range: '70-100', unit: 'mg/dL' })}>Glucose (Fasting) - 70-100 mg/dL</option>
                     </optgroup>
 
-                    <optgroup label="Thyroid Function - Hormones for thyroid health">
+                    <optgroup label={`Thyroid Function - ${categoryDescriptions['Thyroid Function']}`}>
                       <option value={JSON.stringify({ name: 'TSH', range: '0.4-4.0', unit: 'mIU/L' })}>TSH (Thyroid) - 0.4-4.0 mIU/L</option>
                     </optgroup>
 
-                    <optgroup label="Cardiac Markers - Biomarkers for heart health">
+                    <optgroup label={`Cardiac Markers - ${categoryDescriptions['Cardiac Markers']}`}>
                       <option value={JSON.stringify({ name: 'Troponin', range: '<0.04', unit: 'ng/mL' })}>Troponin - &lt;0.04 ng/mL</option>
                       <option value={JSON.stringify({ name: 'BNP', range: '<100', unit: 'pg/mL' })}>BNP - &lt;100 pg/mL</option>
                     </optgroup>
 
-                    <optgroup label="Inflammation - Markers for inflammation and immune activity">
+                    <optgroup label={`Inflammation - ${categoryDescriptions['Inflammation']}`}>
                       <option value={JSON.stringify({ name: 'CRP', range: '<3', unit: 'mg/L' })}>CRP (C-Reactive Protein) - &lt;3 mg/L</option>
                       <option value={JSON.stringify({ name: 'ESR', range: '0-20', unit: 'mm/hr' })}>ESR (Erythrocyte Sedimentation Rate) - 0-20 mm/hr</option>
                       <option value={JSON.stringify({ name: 'Ferritin', range: '15-200', unit: 'ng/mL' })}>Ferritin - 15-200 ng/mL</option>
                     </optgroup>
 
-                    <optgroup label="Coagulation - Blood clotting function tests">
+                    <optgroup label={`Coagulation - ${categoryDescriptions['Coagulation']}`}>
                       <option value={JSON.stringify({ name: 'PT', range: '11-13', unit: 'seconds' })}>PT (Prothrombin Time) - 11-13 seconds</option>
                       <option value={JSON.stringify({ name: 'INR', range: '0.9-1.1', unit: '' })}>INR - 0.9-1.1</option>
                       <option value={JSON.stringify({ name: 'D-dimer', range: '<0.5', unit: 'mg/L' })}>D-dimer - &lt;0.5 mg/L</option>
                     </optgroup>
 
-                    <optgroup label="Other Important Markers">
+                    <optgroup label={`Custom Values - ${categoryDescriptions['Custom Values']}`}>
+                      <option disabled value="">(Add custom labs using the form below)</option>
+                    </optgroup>
+
+                    <optgroup label={`Others - ${categoryDescriptions['Others']}`}>
                       <option value={JSON.stringify({ name: 'LDH', range: '140-280', unit: 'U/L' })}>LDH (Lactate Dehydrogenase) - 140-280 U/L</option>
                       <option value={JSON.stringify({ name: 'Vitamin D', range: '30-100', unit: 'ng/mL' })}>Vitamin D - 30-100 ng/mL</option>
                       <option value={JSON.stringify({ name: 'HbA1c', range: '<5.7', unit: '%' })}>HbA1c (Diabetes) - &lt;5.7%</option>
@@ -7000,13 +7722,23 @@ export default function CancerCareApp() {
           <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
             <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 animate-fade-scale">
               <div className="text-center">
-                {/* Animated spinner */}
-                <div className="inline-flex items-center justify-center w-20 h-20 mb-6">
-                  <div className="relative">
-                    <div className="w-20 h-20 border-4 border-blue-200 rounded-full"></div>
-                    <div className="w-20 h-20 border-4 border-blue-600 rounded-full absolute top-0 left-0 animate-spin border-t-transparent"></div>
+                {/* Lottie Animation */}
+                {documentScanAnimation ? (
+                  <div className="inline-flex items-center justify-center mb-6">
+                    <Lottie 
+                      animationData={documentScanAnimation}
+                      loop={true}
+                      style={{ width: 200, height: 200 }}
+                    />
                   </div>
-                </div>
+                ) : (
+                  <div className="inline-flex items-center justify-center w-20 h-20 mb-6">
+                    <div className="relative">
+                      <div className="w-20 h-20 border-4 border-blue-200 rounded-full"></div>
+                      <div className="w-20 h-20 border-4 border-blue-600 rounded-full absolute top-0 left-0 animate-spin border-t-transparent"></div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Progress text */}
                 <h3 className="text-xl font-bold text-gray-900 mb-2">Processing Document</h3>
