@@ -3500,18 +3500,34 @@ export default function CancerCareApp() {
                                                         if (window.confirm(`Delete this ${currentLab.name} reading (${d.value} ${currentLab.unit} on ${d.date})?`)) {
                                                           try {
                                                             console.log('Deleting lab with ID:', d.id);
+                                                            
+                                                            // Optimistically update UI immediately
+                                                            const updatedLabsData = { ...labsData };
+                                                            if (updatedLabsData[selectedLab] && updatedLabsData[selectedLab].data) {
+                                                              const filteredData = updatedLabsData[selectedLab].data.filter(item => item.id !== d.id);
+                                                              // Get most recent value (first item after sorting by timestamp)
+                                                              const sortedData = [...filteredData].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                                                              updatedLabsData[selectedLab] = {
+                                                                ...updatedLabsData[selectedLab],
+                                                                data: filteredData,
+                                                                current: sortedData.length > 0 ? sortedData[0].value : '--'
+                                                              };
+                                                              setLabsData(updatedLabsData);
+                                                            }
+                                                            
+                                                            // Delete from Firestore in background
                                                             await labService.deleteLab(d.id);
-                                                            console.log('Lab deleted, waiting for Firestore to sync...');
-                                                            // Wait a moment for Firestore to sync, then reload
-                                                            await new Promise(resolve => setTimeout(resolve, 500));
-                                                            // Reload data to reflect deletion
-                                                            const labs = await labService.getLabs(user.uid);
-                                                            console.log('Reloaded labs:', labs.length);
-                                                            const transformedLabs = transformLabsData(labs);
-                                                            setLabsData(transformedLabs);
-                                                            console.log('Updated labs data:', Object.keys(transformedLabs));
+                                                            
+                                                            // Reload to ensure sync (but UI already updated)
+                                                            setTimeout(async () => {
+                                                              const labs = await labService.getLabs(user.uid);
+                                                              const transformedLabs = transformLabsData(labs);
+                                                              setLabsData(transformedLabs);
+                                                            }, 300);
                                                           } catch (error) {
                                                             console.error('Error deleting lab:', error);
+                                                            // Revert optimistic update on error
+                                                            reloadHealthData();
                                                             alert('Failed to delete lab reading. Please try again.');
                                                           }
                                                         }
@@ -3651,17 +3667,34 @@ export default function CancerCareApp() {
                                                   if (window.confirm(`Delete all ${displayName} data? This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'}. This action cannot be undone.`)) {
                                                     try {
                                                       console.log('Deleting all labs of type:', labType);
+                                                      
+                                                      // Optimistically update UI immediately
+                                                      const updatedLabsData = { ...labsData };
+                                                      delete updatedLabsData[labType];
+                                                      setLabsData(updatedLabsData);
+                                                      
+                                                      // If deleted lab was selected, select first available
+                                                      if (selectedLab === labType) {
+                                                        const firstAvailable = Object.keys(updatedLabsData).find(key => updatedLabsData[key].isNumeric);
+                                                        if (firstAvailable) {
+                                                          setSelectedLab(firstAvailable);
+                                                        }
+                                                      }
+                                                      
+                                                      // Delete from Firestore in background
                                                       const deletedCount = await labService.deleteAllLabsByType(user.uid, labType);
                                                       console.log('Deleted labs count:', deletedCount);
-                                                      // Wait a moment for Firestore to sync
-                                                      await new Promise(resolve => setTimeout(resolve, 500));
-                                                      // Reload data to reflect deletion
-                                                      const labs = await labService.getLabs(user.uid);
-                                                      console.log('Reloaded labs after bulk delete:', labs.length);
-                                                      const transformedLabs = transformLabsData(labs);
-                                                      setLabsData(transformedLabs);
+                                                      
+                                                      // Reload to ensure sync (but UI already updated)
+                                                      setTimeout(async () => {
+                                                        const labs = await labService.getLabs(user.uid);
+                                                        const transformedLabs = transformLabsData(labs);
+                                                        setLabsData(transformedLabs);
+                                                      }, 300);
                                                     } catch (error) {
                                                       console.error('Error deleting labs:', error);
+                                                      // Revert optimistic update on error
+                                                      reloadHealthData();
                                                       alert('Failed to delete lab data. Please try again.');
                                                     }
                                                   }
@@ -3906,17 +3939,36 @@ export default function CancerCareApp() {
                                               if (window.confirm(`Delete all ${displayName} data? This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'}. This action cannot be undone.`)) {
                                                 try {
                                                   console.log('Deleting all vitals of type:', vitalType);
+                                                  
+                                                  // Optimistically update UI immediately
+                                                  const updatedVitalsData = { ...vitalsData };
+                                                  delete updatedVitalsData[vitalType];
+                                                  setVitalsData(updatedVitalsData);
+                                                  
+                                                  // If deleted vital was selected, select first available
+                                                  if (selectedVital === vitalType) {
+                                                    const firstAvailable = Object.keys(updatedVitalsData).find(key => 
+                                                      updatedVitalsData[key] && updatedVitalsData[key].data && updatedVitalsData[key].data.length > 0
+                                                    );
+                                                    if (firstAvailable) {
+                                                      setSelectedVital(firstAvailable);
+                                                    }
+                                                  }
+                                                  
+                                                  // Delete from Firestore in background
                                                   const deletedCount = await vitalService.deleteAllVitalsByType(user.uid, vitalType);
                                                   console.log('Deleted vitals count:', deletedCount);
-                                                  // Wait a moment for Firestore to sync
-                                                  await new Promise(resolve => setTimeout(resolve, 500));
-                                                  // Reload data to reflect deletion
-                                                  const vitals = await vitalService.getVitals(user.uid);
-                                                  console.log('Reloaded vitals after bulk delete:', vitals.length);
-                                                  const transformedVitals = transformVitalsData(vitals);
-                                                  setVitalsData(transformedVitals);
+                                                  
+                                                  // Reload to ensure sync (but UI already updated)
+                                                  setTimeout(async () => {
+                                                    const vitals = await vitalService.getVitals(user.uid);
+                                                    const transformedVitals = transformVitalsData(vitals);
+                                                    setVitalsData(transformedVitals);
+                                                  }, 300);
                                                 } catch (error) {
                                                   console.error('Error deleting vitals:', error);
+                                                  // Revert optimistic update on error
+                                                  reloadHealthData();
                                                   alert('Failed to delete vital data. Please try again.');
                                                 }
                                               }
@@ -4300,18 +4352,34 @@ export default function CancerCareApp() {
                                                               if (window.confirm(`Delete this ${displayName} reading (${valueDisplay} ${currentVital.unit} on ${d.date})?`)) {
                                                                 try {
                                                                   console.log('Deleting vital with ID:', d.id);
+                                                                  
+                                                                  // Optimistically update UI immediately
+                                                                  const updatedVitalsData = { ...vitalsData };
+                                                                  if (updatedVitalsData[selectedVital] && updatedVitalsData[selectedVital].data) {
+                                                                    const filteredData = updatedVitalsData[selectedVital].data.filter(item => item.id !== d.id);
+                                                                    // Get most recent value (first item after sorting by timestamp)
+                                                                    const sortedData = [...filteredData].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                                                                    updatedVitalsData[selectedVital] = {
+                                                                      ...updatedVitalsData[selectedVital],
+                                                                      data: filteredData,
+                                                                      current: sortedData.length > 0 ? sortedData[0].value : '--'
+                                                                    };
+                                                                    setVitalsData(updatedVitalsData);
+                                                                  }
+                                                                  
+                                                                  // Delete from Firestore in background
                                                                   await vitalService.deleteVital(d.id);
-                                                                  console.log('Vital deleted, waiting for Firestore to sync...');
-                                                                  // Wait a moment for Firestore to sync, then reload
-                                                                  await new Promise(resolve => setTimeout(resolve, 500));
-                                                                  // Reload data to reflect deletion
-                                                                  const vitals = await vitalService.getVitals(user.uid);
-                                                                  console.log('Reloaded vitals:', vitals.length);
-                                                                  const transformedVitals = transformVitalsData(vitals);
-                                                                  setVitalsData(transformedVitals);
-                                                                  console.log('Updated vitals data:', Object.keys(transformedVitals));
+                                                                  
+                                                                  // Reload to ensure sync (but UI already updated)
+                                                                  setTimeout(async () => {
+                                                                    const vitals = await vitalService.getVitals(user.uid);
+                                                                    const transformedVitals = transformVitalsData(vitals);
+                                                                    setVitalsData(transformedVitals);
+                                                                  }, 300);
                                                                 } catch (error) {
                                                                   console.error('Error deleting vital:', error);
+                                                                  // Revert optimistic update on error
+                                                                  reloadHealthData();
                                                                   alert('Failed to delete vital reading. Please try again.');
                                                                 }
                                                               }
