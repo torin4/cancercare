@@ -4262,7 +4262,7 @@ export default function CancerCareApp() {
               <>
                 {/* Empty State - No Vital Data */}
                 {!hasRealVitalData && Object.keys(vitalsData).length === 0 && (
-                      <div className="border border-medical-primary-500 rounded-lg p-6 text-center">
+                      <div className="border-2 border-medical-primary-500 rounded-lg p-6 text-center bg-white">
                         <div className="flex flex-col items-center gap-3">
                           <Heart className="w-12 h-12 text-medical-primary-400" />
                           <div>
@@ -4900,7 +4900,7 @@ export default function CancerCareApp() {
             {healthSection === 'symptoms' && (
               <>
                 {symptoms.length === 0 ? (
-                  <div className="border border-medical-primary-500 rounded-lg p-6 text-center">
+                  <div className="border-2 border-medical-primary-500 rounded-lg p-6 text-center bg-white">
                     <div className="flex flex-col items-center gap-3">
                       <Thermometer className="w-12 h-12 text-medical-primary-400" />
                       <div>
@@ -5237,7 +5237,7 @@ export default function CancerCareApp() {
             {healthSection === 'medications' && (
               <>
                 {medications.length === 0 ? (
-                  <div className="border border-medical-primary-500 rounded-lg p-6 text-center">
+                  <div className="border-2 border-medical-primary-500 rounded-lg p-6 text-center bg-white">
                     <div className="flex flex-col items-center gap-3">
                       <Pill className="w-12 h-12 text-medical-primary-400" />
                       <div>
