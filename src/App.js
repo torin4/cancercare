@@ -2883,6 +2883,30 @@ export default function CancerCareApp() {
                       </div>
                     )}
                   </div>
+                  {msg.type === 'user' && (
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden shadow-sm">
+                      {profileImage ? (
+                        <img 
+                          src={profileImage} 
+                          alt="Profile" 
+                          className="w-full h-full object-cover" 
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-medical-primary-500 to-medical-secondary-500 flex items-center justify-center text-white text-xs font-bold">
+                          {(() => {
+                            const name = patientProfile.firstName || patientProfile.lastName 
+                              ? `${patientProfile.firstName || ''} ${patientProfile.middleName ? patientProfile.middleName + ' ' : ''}${patientProfile.lastName || ''}`.trim()
+                              : patientProfile.name || user?.displayName || 'U';
+                            const parts = name.trim().split(/\s+/);
+                            if (parts.length >= 2) {
+                              return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+                            }
+                            return name.substring(0, 2).toUpperCase();
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
