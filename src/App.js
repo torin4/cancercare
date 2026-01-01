@@ -4375,7 +4375,7 @@ export default function CancerCareApp() {
                             className="w-full py-2 border-2 border-dashed border-medical-neutral-300 rounded-lg text-medical-neutral-600 hover:border-medical-primary-500 hover:text-medical-primary-600 transition flex items-center justify-center gap-2"
                           >
                             <Plus className="w-4 h-4" />
-                            Add Lab Value to Track
+                            Add Lab Metric to Track
                           </button>
                           <button
                             onClick={() => simulateDocumentUpload('lab')}
@@ -7725,7 +7725,7 @@ export default function CancerCareApp() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 md:p-4">
             <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
               <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
-                <h3 className="font-bold text-lg text-gray-800">Add Lab Value to Track</h3>
+                <h3 className="font-bold text-lg text-gray-800">Add Lab Metric to Track</h3>
                 <button
                   onClick={(e) => {
                     e.preventDefault();
@@ -7747,7 +7747,7 @@ export default function CancerCareApp() {
                     <div className="flex-1">
                       <p className="text-sm font-medium text-blue-900">Custom Lab Tracking</p>
                       <p className="text-xs text-blue-700 mt-1">
-                        Select a common marker or add your own custom lab value. The AI will track trends and alert you to significant changes.
+                        Select a common marker or add your own custom lab metric. The AI will track trends and alert you to significant changes.
                       </p>
                     </div>
                   </div>
@@ -7755,7 +7755,7 @@ export default function CancerCareApp() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Lab Value to Track <span className="text-red-600">*</span>
+                    Lab Metric to Track <span className="text-red-600">*</span>
                   </label>
                   <select
                     value=""
@@ -7847,7 +7847,7 @@ export default function CancerCareApp() {
                       <option value={JSON.stringify({ name: 'HbA1c', range: '<5.7', unit: '%' })}>HbA1c (Diabetes) - &lt;5.7%</option>
                     </optgroup>
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">Common cancer-related lab values</p>
+                  <p className="text-xs text-gray-500 mt-1">Common cancer-related lab metrics</p>
                 </div>
 
                 <div className="relative">
@@ -7860,7 +7860,7 @@ export default function CancerCareApp() {
                 </div>
 
                 <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                  <h4 className="font-semibold text-gray-800 text-sm">Custom Lab Value</h4>
+                  <h4 className="font-semibold text-gray-800 text-sm">Custom Lab Metric</h4>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Lab Name *</label>
@@ -7899,7 +7899,7 @@ export default function CancerCareApp() {
 
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
                     <p className="text-xs text-blue-700">
-                      <span className="font-semibold">Tip:</span> You can add any lab value from your medical records - the AI will learn what's normal for you over time.
+                      <span className="font-semibold">Tip:</span> You can add any lab metric from your medical records - the AI will learn what's normal for you over time.
                     </p>
                   </div>
                 </div>
@@ -7962,7 +7962,7 @@ export default function CancerCareApp() {
                     disabled={!newLabData.label || !newLabData.normalRange || !newLabData.unit}
                   >
                     <Plus className="w-4 h-4" />
-                    Add Lab Value
+                    Add Lab Metric
                   </button>
                 </div>
               </div>
