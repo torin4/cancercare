@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, AlertTriangle, XCircle, Star, Search as SearchIcon, MapPin, Globe, X, AlertCircle, MessageSquare } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, Star, Search as SearchIcon, MapPin, Globe, X, AlertCircle, MessageSquare, Bookmark } from 'lucide-react';
 import { auth } from '../firebase/config';
 import { patientService, genomicProfileService, clinicalTrialsService, trialLocationService } from '../firebase/services';
 import { getTrialDetails } from '../services/clinicalTrials/trialSearchService';
@@ -496,22 +496,24 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
       <div className="flex gap-4 mb-6 border-b border-medical-neutral-200">
         <button
           onClick={() => setActiveTab('search')}
-          className={`pb-3 px-4 font-medium transition-all duration-200 ${
+          className={`pb-3 px-4 font-medium transition-all duration-200 flex items-center gap-2 ${
             activeTab === 'search'
               ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
               : 'text-medical-neutral-600 hover:text-medical-primary-600'
           }`}
         >
+          <SearchIcon className="w-4 h-4" />
           Search Trials
         </button>
         <button
           onClick={() => setActiveTab('saved')}
-          className={`pb-3 px-4 font-medium transition-all duration-200 ${
+          className={`pb-3 px-4 font-medium transition-all duration-200 flex items-center gap-2 ${
             activeTab === 'saved'
               ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
               : 'text-medical-neutral-600 hover:text-medical-primary-600'
           }`}
         >
+          <Bookmark className="w-4 h-4" />
           Saved Trials ({savedTrials.length})
         </button>
       </div>
