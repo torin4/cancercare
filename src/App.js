@@ -5245,12 +5245,12 @@ export default function CancerCareApp() {
             </div>
 
             {/* Current Status - Full Width */}
-            <div className="bg-gradient-to-br from-medical-accent-50 to-medical-accent-100/50 rounded-lg shadow-sm p-4 sm:p-6 border border-medical-accent-200">
+            <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-medical-neutral-200">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold text-medical-neutral-900 text-lg">Current Status</h2>
+                <h2 className="font-semibold text-gray-800 text-lg">Current Status</h2>
                 <button
                   onClick={() => setShowUpdateStatus(true)}
-                  className="text-medical-accent-600 hover:text-medical-accent-700"
+                  className="text-blue-600 hover:text-blue-700"
                 >
                   <Edit2 size={18} />
                 </button>
