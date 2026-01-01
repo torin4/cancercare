@@ -1,0 +1,809 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Bot, Trash2, Send, Paperclip } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import { useAuth } from '../../contexts/AuthContext';
+import { usePatientContext } from '../../contexts/PatientContext';
+import { useHealthContext } from '../../contexts/HealthContext';
+import { messageService, labService, vitalService, symptomService } from '../../firebase/services';
+import { getSavedTrials } from '../../services/clinicalTrials/clinicalTrialsService';
+import { processChatMessage, generateChatExtractionSummary } from '../../services/chatProcessor';
+import { processDocument, generateExtractionSummary } from '../../services/documentProcessor';
+import { uploadDocument } from '../../firebase/storage';
+import { chatSuggestions, trialSuggestions } from '../../constants/chatSuggestions';
+import DocumentUploadOnboarding from '../DocumentUploadOnboarding';
+import UploadProgressOverlay from '../UploadProgressOverlay';
+
+export default function ChatTab({ onTabChange }) {
+  const { user } = useAuth();
+  const { patientProfile, hasUploadedDocument } = usePatientContext();
+  const { reloadHealthData } = useHealthContext();
+
+  // Chat state
+  const [messages, setMessages] = useState([]);
+  const [chatHistoryLoaded, setChatHistoryLoaded] = useState(false);
+  const messagesEndRef = useRef(null);
+  const [inputText, setInputText] = useState('');
+  const [currentTrialContext, setCurrentTrialContext] = useState(null);
+  const [currentHealthContext, setCurrentHealthContext] = useState(null);
+  const [suggestionIndex, setSuggestionIndex] = useState(0);
+  const [profileImage, setProfileImage] = useState(null);
+
+  // Document upload state
+  const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
+  const [documentOnboardingMethod, setDocumentOnboardingMethod] = useState('picker');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
+  const [pendingDocumentDate, setPendingDocumentDate] = useState(null);
+  const [pendingDocumentNote, setPendingDocumentNote] = useState(null);
+  const [documents, setDocuments] = useState([]);
+
+  // Load profile image from user photoURL or patient profile
+  useEffect(() => {
+    if (user?.photoURL) {
+      setProfileImage(user.photoURL);
+    } else if (patientProfile?.photoURL) {
+      setProfileImage(patientProfile.photoURL);
+    } else {
+      setProfileImage(null);
+    }
+  }, [user, patientProfile]);
+
+  // Check sessionStorage for trial/health context when component mounts
+  useEffect(() => {
+    // Check for trial context from TrialsTab
+    const trialContextStr = sessionStorage.getItem('currentTrialContext');
+    if (trialContextStr) {
+      try {
+        const trialContext = JSON.parse(trialContextStr);
+        setCurrentTrialContext(trialContext);
+        sessionStorage.removeItem('currentTrialContext');
+        
+        // Check for trial context message
+        const trialMessageStr = sessionStorage.getItem('trialContextMessage');
+        if (trialMessageStr) {
+          const trialMessage = JSON.parse(trialMessageStr);
+          setMessages(prev => [...prev, trialMessage]);
+          sessionStorage.removeItem('trialContextMessage');
+        }
+      } catch (error) {
+        console.error('Error parsing trial context:', error);
+      }
+    }
+
+    // Check for health context from HealthTab
+    const healthContextStr = sessionStorage.getItem('currentHealthContext');
+    if (healthContextStr) {
+      try {
+        const healthContext = JSON.parse(healthContextStr);
+        setCurrentHealthContext(healthContext);
+        sessionStorage.removeItem('currentHealthContext');
+      } catch (error) {
+        console.error('Error parsing health context:', error);
+      }
+    }
+
+    // Pending Quick Log messages are handled in a separate useEffect below
+  }, []);
+
+  // Load chat history when chat tab is opened (only once per session)
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      if (user && !chatHistoryLoaded) {
+        try {
+          const savedMessages = await messageService.getMessages(user.uid, 100);
+          if (savedMessages.length > 0) {
+            setMessages(savedMessages.map(msg => ({
+              type: msg.type,
+              text: msg.text,
+              isAnalysis: msg.isAnalysis || false
+            })));
+          }
+          setChatHistoryLoaded(true);
+        } catch (error) {
+          console.error('Error loading chat history:', error);
+          setChatHistoryLoaded(true); // Mark as loaded even on error to prevent retry loops
+        }
+      }
+    };
+    loadChatHistory();
+  }, [user, chatHistoryLoaded]);
+
+  // Process pending Quick Log message
+  useEffect(() => {
+    const pendingMessageStr = sessionStorage.getItem('pendingQuickLogMessage');
+    if (pendingMessageStr && user) {
+      try {
+        const pendingMessage = JSON.parse(pendingMessageStr);
+        if (pendingMessage.type === 'user') {
+          sessionStorage.removeItem('pendingQuickLogMessage');
+          // Process the message
+          const processPendingMessage = async () => {
+            const userMessage = pendingMessage.text;
+            
+            // Add user message immediately
+            const userMsg = { type: 'user', text: userMessage };
+            setMessages(prev => [...prev, userMsg]);
+            
+            // Save user message to Firestore
+            messageService.addMessage({
+              patientId: user.uid,
+              type: 'user',
+              text: userMessage,
+              isAnalysis: false
+            }).catch(err => console.error('Error saving user message:', err));
+
+            try {
+              // Process message with AI
+              const result = await processChatMessage(
+                userMessage,
+                user.uid,
+                [],
+                null,
+                null,
+                patientProfile
+              );
+
+              let responseText = result.response;
+              if (result.extractedData) {
+                const summary = generateChatExtractionSummary(result.extractedData);
+                if (summary) {
+                  responseText += summary;
+                }
+              }
+
+              const aiMsg = {
+                type: 'ai',
+                text: responseText,
+                isAnalysis: !!result.extractedData
+              };
+              setMessages(prev => [...prev, aiMsg]);
+
+              // Save AI message to Firestore
+              messageService.addMessage({
+                patientId: user.uid,
+                type: 'ai',
+                text: responseText,
+                isAnalysis: !!result.extractedData,
+                extractedData: result.extractedData || null
+              }).catch(err => console.error('Error saving AI message:', err));
+
+              // Reload health data if values were extracted
+              if (result.extractedData) {
+                await reloadHealthData();
+              }
+            } catch (error) {
+              console.error('Error processing pending message:', error);
+              const errorMsg = {
+                type: 'ai',
+                text: 'Sorry, I\'m having trouble processing your message right now. Please try again in a moment.'
+              };
+              setMessages(prev => [...prev, errorMsg]);
+            }
+          };
+          
+          // Process after a brief delay to ensure component is ready
+          setTimeout(processPendingMessage, 200);
+        }
+      } catch (error) {
+        console.error('Error processing pending Quick Log message:', error);
+        sessionStorage.removeItem('pendingQuickLogMessage');
+      }
+    }
+  }, [user, patientProfile, reloadHealthData]);
+
+  // Cycle suggestions when entering chat
+  useEffect(() => {
+    setSuggestionIndex(prev => (prev + 1) % Math.ceil(chatSuggestions.length / 4));
+  }, []);
+
+  // Auto-scroll when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [messages.length]);
+
+  // Cleanup old messages (older than 90 days) - run once per day
+  useEffect(() => {
+    if (!user) return;
+
+    const cleanupOldMessages = async () => {
+      try {
+        const allMessages = await messageService.getMessages(user.uid, 1000);
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        
+        const oldMessages = allMessages.filter(msg => {
+          const msgDate = msg.createdAt?.toDate ? msg.createdAt.toDate() : new Date(msg.createdAt);
+          return msgDate < ninetyDaysAgo;
+        });
+
+        // Delete old messages (limit to 50 at a time to avoid rate limits)
+        for (const msg of oldMessages.slice(0, 50)) {
+          try {
+            await messageService.deleteMessage(msg.id);
+          } catch (err) {
+            console.error('Error deleting old message:', err);
+          }
+        }
+      } catch (error) {
+        console.error('Error cleaning up old messages:', error);
+      }
+    };
+
+    // Run cleanup once per day (check localStorage for last cleanup time)
+    const lastCleanup = localStorage.getItem(`chatCleanup_${user.uid}`);
+    const now = Date.now();
+    const oneDay = 24 * 60 * 60 * 1000;
+
+    if (!lastCleanup || (now - parseInt(lastCleanup)) > oneDay) {
+      cleanupOldMessages();
+      localStorage.setItem(`chatCleanup_${user.uid}`, now.toString());
+    }
+  }, [user]);
+
+  const handleSendMessage = async () => {
+    if (!inputText.trim() || !user) return;
+
+    const userMessage = inputText;
+    setInputText('');
+
+    // Add user message immediately
+    const userMsg = { type: 'user', text: userMessage };
+    setMessages(prev => [...prev, userMsg]);
+    
+    // Auto-scroll to bottom after user message
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 50);
+
+    // Save user message to Firestore (async, don't wait)
+    if (user) {
+      messageService.addMessage({
+        patientId: user.uid,
+        type: 'user',
+        text: userMessage,
+        isAnalysis: false
+      }).catch(err => console.error('Error saving user message:', err));
+    }
+
+    try {
+      // Auto-load health context if user asks about health data but context isn't set
+      let healthContextToUse = currentHealthContext;
+      const requiresHealthData = /(explain|analyze|what does|how is|trend|progress|mean|interpret|my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications)|ca-125|hemoglobin|blood pressure|heart rate|temperature|weight)/i.test(userMessage);
+      
+      if (requiresHealthData && !healthContextToUse && user) {
+        try {
+          const labs = await labService.getLabs(user.uid);
+          const vitals = await vitalService.getVitals(user.uid);
+          const symptoms = await symptomService.getSymptoms(user.uid);
+          healthContextToUse = {
+            labs: labs,
+            vitals: vitals,
+            symptoms: symptoms
+          };
+          // Optionally set it for future messages
+          setCurrentHealthContext(healthContextToUse);
+        } catch (error) {
+          console.error('Error loading health data for context:', error);
+        }
+      }
+
+      // Auto-load trial context if user asks about trials but context isn't set
+      const requiresTrialData = !currentTrialContext && /(saved trial|saved trials|my trial|my trials|clinical trial|clinical trials|trial i saved|trials i saved|what trials|which trials|show me trials|tell me about trials|ask about trial)/i.test(userMessage);
+      
+      if (requiresTrialData && user) {
+        try {
+          const savedTrials = await getSavedTrials(user.uid);
+          if (savedTrials && savedTrials.length > 0) {
+            // Set the first saved trial as context, or the most recent one
+            // Handle Firestore Timestamp objects properly
+            const trialToUse = savedTrials.sort((a, b) => {
+              let aTime = 0;
+              let bTime = 0;
+              
+              if (a.savedAt) {
+                if (typeof a.savedAt.toMillis === 'function') {
+                  aTime = a.savedAt.toMillis();
+                } else if (typeof a.savedAt === 'number') {
+                  aTime = a.savedAt;
+                } else if (a.savedAt.seconds) {
+                  aTime = a.savedAt.seconds * 1000;
+                }
+              }
+              
+              if (b.savedAt) {
+                if (typeof b.savedAt.toMillis === 'function') {
+                  bTime = b.savedAt.toMillis();
+                } else if (typeof b.savedAt === 'number') {
+                  bTime = b.savedAt;
+                } else if (b.savedAt.seconds) {
+                  bTime = b.savedAt.seconds * 1000;
+                }
+              }
+              
+              return bTime - aTime;
+            })[0];
+            
+            // Ensure trial has required fields for context
+            if (trialToUse) {
+              setCurrentTrialContext(trialToUse);
+              setMessages(prev => [...prev, {
+                type: 'ai',
+                text: `I'm ready to answer questions about "${trialToUse.title || 'your saved trials'}". You can ask me about the drugs being used, what phase the study is in, eligibility criteria, or anything else about the trial.`
+              }]);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading saved trials for context:', error);
+          // Don't block message processing if trial loading fails
+        }
+      }
+
+      // Process message with AI to extract and save medical data
+      const result = await processChatMessage(
+        userMessage,
+        user.uid,
+        messages.slice(-10).map(msg => ({
+          role: msg.type === 'user' ? 'user' : 'assistant',
+          content: msg.text
+        })),
+        currentTrialContext, // Pass trial context if available
+        healthContextToUse, // Pass health context (auto-loaded if needed)
+        patientProfile // Pass patient profile for demographic-based normal ranges
+      );
+
+      // Build response text
+      let responseText = result.response;
+
+      // Add extraction summary if data was extracted
+      if (result.extractedData) {
+        const summary = generateChatExtractionSummary(result.extractedData);
+        if (summary) {
+          responseText += summary;
+        }
+      }
+
+      // Add AI response
+      const aiMsg = {
+        type: 'ai',
+        text: responseText,
+        isAnalysis: !!result.extractedData
+      };
+      setMessages(prev => [...prev, aiMsg]);
+      
+      // Auto-scroll to bottom after AI response
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+
+      // Save AI message to Firestore (async, don't wait)
+      if (user) {
+        messageService.addMessage({
+          patientId: user.uid,
+          type: 'ai',
+          text: responseText,
+          isAnalysis: !!result.extractedData,
+          extractedData: result.extractedData || null
+        }).catch(err => console.error('Error saving AI message:', err));
+      }
+
+      // Reload health data if values were extracted
+      if (result.extractedData) {
+        await reloadHealthData();
+      }
+
+    } catch (error) {
+      console.error('Error processing message:', error);
+      const errorMsg = {
+        type: 'ai',
+        text: 'Sorry, I\'m having trouble processing your message right now. Please try again in a moment.'
+      };
+      setMessages(prev => [...prev, errorMsg]);
+      
+      // Auto-scroll to bottom after error message
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+      
+      // Save error message to Firestore (async, don't wait)
+      if (user) {
+        messageService.addMessage({
+          patientId: user.uid,
+          type: 'ai',
+          text: errorMsg.text,
+          isAnalysis: false
+        }).catch(err => console.error('Error saving error message:', err));
+      }
+    }
+  };
+
+  const openDocumentOnboarding = (docType = null, method = 'picker') => {
+    console.log('openDocumentOnboarding called, hasUploadedDocument=', hasUploadedDocument, 'docType=', docType, 'method=', method);
+    setDocumentOnboardingMethod(method || 'picker');
+    setShowDocumentOnboarding(true);
+  };
+
+  const handleRealFileUpload = async (file, docType) => {
+    console.log('handleRealFileUpload called', file?.name, docType);
+    if (!user) {
+      alert('Please log in to upload files');
+      return;
+    }
+
+    try {
+      // Ensure we're on the chat tab before starting
+      onTabChange('chat');
+
+      // Show loading overlay
+      setIsUploading(true);
+      setUploadProgress('Reading document...');
+
+      // Get document date and note (user-provided or null)
+      const providedDate = pendingDocumentDate;
+      const providedNote = pendingDocumentNote;
+      // Clear pending date and note after use
+      setPendingDocumentDate(null);
+      setPendingDocumentNote(null);
+
+      // Show processing message
+      setMessages(prev => [...prev,
+        { type: 'user', text: `Uploading: ${file.name}`, isUpload: true },
+        { type: 'ai', text: `Processing document... This may take a moment.`, isAnalysis: true }
+      ]);
+
+      // Step 1: Process document with AI to extract medical data
+      setUploadProgress('Analyzing document with AI...');
+      // Note: documentId will be null for new uploads, set after document is saved
+      const processingResult = await processDocument(file, user.uid, patientProfile, providedDate, providedNote, null);
+      console.log('Document processing result:', processingResult);
+
+      // Step 2: Upload file to Firebase Storage
+      setUploadProgress('Uploading to secure storage...');
+      const uploadResult = await uploadDocument(file, user.uid, {
+        category: processingResult.documentType || docType,
+        documentType: processingResult.documentType || docType,
+        note: providedNote || null // Store note with document record
+      });
+
+      console.log('File uploaded successfully:', uploadResult);
+
+      setUploadProgress('Saving extracted data...');
+
+      // Step 3: Add to local documents state
+      // Use user-provided date or today
+      const docDate = providedDate || new Date().toISOString().split('T')[0];
+      const newDoc = {
+        id: uploadResult.id,
+        name: file.name,
+        type: processingResult.documentType || docType,
+        date: docDate,
+        fileUrl: uploadResult.fileUrl,
+        storagePath: uploadResult.storagePath,
+        icon: (processingResult.documentType || docType).toLowerCase(),
+        note: providedNote || null // Include note in local state
+      };
+
+      setDocuments(prev => [newDoc, ...prev]);
+
+      // Step 4: Generate summary of extracted data
+      const summary = generateExtractionSummary(
+        processingResult.extractedData,
+        processingResult.extractedData
+      );
+
+      // Update messages with extraction results
+      setMessages(prev => [
+        ...prev.slice(0, -1), // Remove "Processing..." message
+        {
+          type: 'ai',
+          text: `Document processed successfully!\n\nDocument Type: ${processingResult.documentType}\n\n${summary}\n\nAll data has been automatically saved to your health records.`,
+          isAnalysis: true
+        }
+      ]);
+
+      // Reload health data to show new values
+      setUploadProgress('Refreshing your health data...');
+      await reloadHealthData();
+
+      onTabChange('chat');
+      setIsUploading(false);
+      setUploadProgress('');
+    } catch (error) {
+      console.error('Upload error:', error);
+
+      // Update messages with error
+      setMessages(prev => [
+        ...prev.slice(0, -1), // Remove "Processing..." message
+        {
+          type: 'ai',
+          text: `Failed to process document: ${error.message}\n\nThe file was not uploaded. Please try again or contact support if the issue persists.`
+        }
+      ]);
+
+      setIsUploading(false);
+      setUploadProgress('');
+    }
+  };
+
+  const simulateDocumentUpload = (docType) => {
+    console.log('simulateDocumentUpload called, docType=', docType);
+    // Create a file input element
+    const input = document.createElement('input');
+    input.type = 'file';
+    // Accept common document and genomic data file types (vcf, maf, bed, txt, csv, tsv, compressed)
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls';
+
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        console.log('simulateDocumentUpload - file selected:', file.name, 'docType=', docType);
+        await handleRealFileUpload(file, docType);
+      }
+    };
+
+    console.log('simulateDocumentUpload invoking file picker');
+    input.click();
+  };
+
+  const simulateCameraUpload = (docType) => {
+    console.log('simulateCameraUpload called, docType=', docType);
+    const input = document.createElement('input');
+    input.type = 'file';
+    // Accept common document types and images
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls,image/*';
+    // Hint mobile devices to open camera (this enables camera option in file picker)
+    input.capture = 'environment';
+
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        console.log('simulateCameraUpload - file selected:', file.name, 'docType=', docType);
+        await handleRealFileUpload(file, docType);
+      }
+    };
+
+    input.click();
+  };
+
+  return (
+    <>
+      <div className="flex flex-col h-full">
+        {/* Clear Chat History Button */}
+        {messages.length > 0 && (
+          <div className="px-4 pt-3 pb-2 flex justify-end">
+            <button
+              onClick={async () => {
+                if (!user) return;
+                if (window.confirm('Are you sure you want to clear all chat history? This will remove the conversation but keep your health data context. This cannot be undone.')) {
+                  try {
+                    await messageService.deleteAllMessages(user.uid);
+                    setMessages([]);
+                    // Don't clear health/trial contexts - those represent the user's actual data, not conversation history
+                    // The AI can still access health data and trials from the database when needed
+                    setChatHistoryLoaded(false);
+                  } catch (error) {
+                    console.error('Error clearing chat history:', error);
+                    alert('Error clearing chat history. Please try again.');
+                  }
+                }
+              }}
+              className="text-medical-neutral-500 hover:text-medical-neutral-700 text-sm flex items-center gap-1.5 transition-colors"
+              title="Clear chat history"
+            >
+              <Trash2 className="w-4 h-4" />
+              Clear History
+            </button>
+          </div>
+        )}
+        <div 
+          ref={messagesEndRef}
+          className="flex-1 overflow-y-auto p-4 space-y-3"
+        >
+          {messages.map((msg, idx) => (
+            <div key={idx} className={`flex items-start gap-2 ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+              {msg.type === 'ai' && (
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-medical-primary-500 to-medical-accent-500 flex items-center justify-center shadow-sm">
+                  <Bot className="w-5 h-5 text-white" />
+                </div>
+              )}
+              <div className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 ${msg.type === 'user'
+                ? 'bg-medical-primary-500 text-white'
+                : msg.isAnalysis
+                  ? 'bg-medical-secondary-50 border border-medical-secondary-200 text-medical-neutral-800'
+                  : 'bg-white border border-medical-neutral-200 text-medical-neutral-900'
+                }`}>
+                {msg.type === 'user' ? (
+                  <p className="text-sm sm:text-base whitespace-pre-wrap">{msg.text}</p>
+                ) : (
+                  <div className="text-sm sm:text-base prose prose-sm max-w-none">
+                    <ReactMarkdown
+                      components={{
+                        p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                        ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 space-y-1" {...props} />,
+                        ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2 space-y-1" {...props} />,
+                        li: ({node, ...props}) => <li className="ml-2" {...props} />,
+                        strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
+                        em: ({node, ...props}) => <em className="italic" {...props} />,
+                        code: ({node, ...props}) => <code className="bg-medical-neutral-100 px-1.5 py-0.5 rounded text-xs font-mono" {...props} />,
+                        h1: ({node, ...props}) => <h1 className="text-lg font-bold mb-2 mt-3 first:mt-0" {...props} />,
+                        h2: ({node, ...props}) => <h2 className="text-base font-bold mb-2 mt-3 first:mt-0" {...props} />,
+                        h3: ({node, ...props}) => <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0" {...props} />,
+                        blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-medical-neutral-300 pl-3 italic my-2" {...props} />,
+                        a: ({node, ...props}) => <a className="text-medical-primary-600 underline hover:text-medical-primary-800" {...props} />,
+                      }}
+                    >
+                      {msg.text}
+                    </ReactMarkdown>
+                  </div>
+                )}
+              </div>
+              {msg.type === 'user' && (
+                <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden shadow-sm">
+                  {profileImage ? (
+                    <img 
+                      src={profileImage} 
+                      alt="Profile" 
+                      className="w-full h-full object-cover" 
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-medical-primary-500 to-medical-secondary-500 flex items-center justify-center text-white text-xs font-bold">
+                      {(() => {
+                        const name = patientProfile.firstName || patientProfile.lastName 
+                          ? `${patientProfile.firstName || ''} ${patientProfile.middleName ? patientProfile.middleName + ' ' : ''}${patientProfile.lastName || ''}`.trim()
+                          : patientProfile.name || user?.displayName || 'U';
+                        const parts = name.trim().split(/\s+/);
+                        if (parts.length >= 2) {
+                          return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+                        }
+                        return name.substring(0, 2).toUpperCase();
+                      })()}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Trial Context Indicator */}
+        {currentTrialContext && (
+          <div className="p-3 bg-medical-accent-50 border-b border-medical-accent-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-medical-accent-600 text-sm font-medium">Discussing:</span>
+              <span className="text-medical-accent-800 text-sm">{currentTrialContext.title || 'Trial'}</span>
+            </div>
+            <button
+              onClick={() => {
+                setCurrentTrialContext(null);
+                setMessages(prev => [...prev, {
+                  type: 'ai',
+                  text: 'Trial context cleared. You can now ask general questions or ask about a different trial.'
+                }]);
+              }}
+              className="text-medical-accent-600 hover:text-medical-accent-800 text-sm underline"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+
+        {/* Health Context Indicator */}
+        {currentHealthContext && (
+          <div className="p-3 bg-medical-primary-50 border-b border-medical-primary-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-medical-primary-600 text-sm font-medium">Discussing:</span>
+              <span className="text-medical-primary-800 text-sm">Your Health Data (Labs, Vitals, Symptoms)</span>
+            </div>
+            <button
+              onClick={() => {
+                setCurrentHealthContext(null);
+                setMessages(prev => [...prev, {
+                  type: 'ai',
+                  text: 'Health context cleared. You can now ask general questions or ask about different health data.'
+                }]);
+              }}
+              className="text-medical-primary-600 hover:text-medical-primary-800 text-sm underline"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+
+        {/* Chat Suggestions */}
+        <div className="px-4 py-3 bg-medical-neutral-50 border-t border-medical-neutral-200">
+          <div className="flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}>
+            {(currentTrialContext ? trialSuggestions : chatSuggestions).map((suggestion, idx) => (
+              <button
+                key={idx}
+                onClick={() => {
+                  setInputText(suggestion.populateText || suggestion.text);
+                  // Focus on input after setting text
+                  setTimeout(() => {
+                    const input = document.querySelector('input[type="text"]');
+                    if (input) input.focus();
+                  }, 0);
+                }}
+                className={`${suggestion.color} text-white px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap hover:opacity-100 opacity-90 transition-opacity flex-shrink-0 flex items-center gap-2`}
+              >
+                {suggestion.icon && <suggestion.icon className="w-4 h-4" />}
+                {suggestion.text}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-4 bg-white border-t">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+              placeholder={
+                currentTrialContext 
+                  ? `Ask about ${currentTrialContext.title || 'this trial'}...` 
+                  : currentHealthContext 
+                    ? "Ask about your labs, vitals, or symptoms..." 
+                    : "Ask about symptoms, treatments, or upload results..."
+              }
+              className="flex-1 border border-medical-neutral-300 rounded-full px-4 py-2.5 text-sm sm:text-base focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all duration-200"
+            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => openDocumentOnboarding(null, 'picker')}
+                title="Attach file or take photo"
+                className="bg-medical-neutral-100 text-medical-neutral-700 p-2 rounded-full hover:bg-medical-neutral-200 transition flex-shrink-0"
+              >
+                <Paperclip className="w-5 h-5" />
+              </button>
+              <button
+                onClick={handleSendMessage}
+                className="bg-medical-primary-500 text-white w-10 h-10 rounded-full hover:bg-medical-primary-600 transition flex-shrink-0 shadow-sm flex items-center justify-center"
+              >
+                <Send className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Document Upload Onboarding Modal */}
+      {showDocumentOnboarding && (
+        <DocumentUploadOnboarding
+          show={showDocumentOnboarding}
+          onClose={() => {
+            setShowDocumentOnboarding(false);
+            setDocumentOnboardingMethod('picker');
+          }}
+          onFileSelect={async (file, docType, date, note) => {
+            setPendingDocumentDate(date);
+            setPendingDocumentNote(note);
+            if (documentOnboardingMethod === 'camera') {
+              await handleRealFileUpload(file, docType);
+            } else {
+              await handleRealFileUpload(file, docType);
+            }
+            setShowDocumentOnboarding(false);
+          }}
+          method={documentOnboardingMethod}
+          hasUploadedDocument={hasUploadedDocument}
+        />
+      )}
+
+      {/* Upload Progress Overlay */}
+      {isUploading && (
+        <UploadProgressOverlay
+          progress={uploadProgress}
+          onCancel={() => {
+            setIsUploading(false);
+            setUploadProgress('');
+          }}
+        />
+      )}
+    </>
+  );
+}
+

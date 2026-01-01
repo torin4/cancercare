@@ -1,0 +1,2984 @@
+import React, { useState, useEffect } from 'react';
+import { MessageSquare, BarChart, Heart, Thermometer, Pill, Plus, Upload, Edit2, X, TrendingUp, TrendingDown, Minus, Activity, Info, Calendar, Clock, Check, AlertCircle, Trash2, MoreVertical, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { usePatientContext } from '../../contexts/PatientContext';
+import { useHealthContext } from '../../contexts/HealthContext';
+import { labService, vitalService, symptomService, medicationService } from '../../firebase/services';
+import { getLabStatus, getVitalStatus, getWeightNormalRange } from '../../utils/healthUtils';
+import { normalizeLabName, getLabDisplayName, labValueDescriptions, normalizeVitalName, getVitalDisplayName, vitalDescriptions, categorizeLabs } from '../../utils/normalizationUtils';
+import { categoryIcons, categoryDescriptions } from '../../constants/categories';
+import { getTodayLocalDate } from '../../utils/helpers';
+import AddSymptomModal from '../modals/AddSymptomModal';
+import AddMedicationModal from '../modals/AddMedicationModal';
+import AddLabModal from '../modals/AddLabModal';
+import AddVitalModal from '../modals/AddVitalModal';
+import AddVitalValueModal from '../modals/AddVitalValueModal';
+import AddLabValueModal from '../modals/AddLabValueModal';
+import DocumentUploadOnboarding from '../DocumentUploadOnboarding';
+
+export default function HealthTab({ onTabChange }) {
+  const { user } = useAuth();
+  const { hasUploadedDocument, patientProfile } = usePatientContext();
+  const { labsData, setLabsData, vitalsData, setVitalsData, hasRealLabData, hasRealVitalData, reloadHealthData } = useHealthContext();
+
+  // Tab-specific state
+  const [healthSection, setHealthSection] = useState('labs');
+  const [selectedLab, setSelectedLab] = useState('ca125');
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [symptomCalendarDate, setSymptomCalendarDate] = useState(new Date());
+  const [showAddMedication, setShowAddMedication] = useState(false);
+  const [selectedVital, setSelectedVital] = useState('bp');
+  const [showAddVital, setShowAddVital] = useState(false);
+  const [showAddVitalValue, setShowAddVitalValue] = useState(false);
+  const [selectedVitalForValue, setSelectedVitalForValue] = useState(null);
+  const [newVitalValue, setNewVitalValue] = useState({ value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
+  const [isEditingVitalValue, setIsEditingVitalValue] = useState(false);
+  const [editingVitalValueId, setEditingVitalValueId] = useState(null);
+  const [newVital, setNewVital] = useState({ vitalType: '', value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
+  const [isEditingVital, setIsEditingVital] = useState(false);
+  const [showAddSymptomModal, setShowAddSymptomModal] = useState(false);
+  const [symptomForm, setSymptomForm] = useState({
+    name: '',
+    severity: '',
+    date: getTodayLocalDate(),
+    time: new Date().toTimeString().slice(0, 5),
+    notes: '',
+    customSymptomName: '',
+    tags: []
+  });
+  const [symptoms, setSymptoms] = useState([]);
+  const [medications, setMedications] = useState([]);
+  const [medicationLog, setMedicationLog] = useState([]);
+  const [showAddLab, setShowAddLab] = useState(false);
+  const [showAddLabValue, setShowAddLabValue] = useState(false);
+  const [selectedLabForValue, setSelectedLabForValue] = useState(null);
+  const [newLabValue, setNewLabValue] = useState({ value: '', date: getTodayLocalDate(), notes: '' });
+  const [isEditingLabValue, setIsEditingLabValue] = useState(false);
+  const [editingLabValueId, setEditingLabValueId] = useState(null);
+  const [newLabData, setNewLabData] = useState({
+    label: '',
+    normalRange: '',
+    unit: ''
+  });
+  const [showAllLabs, setShowAllLabs] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState({
+    'Disease-Specific Markers': true,
+    'Liver Function': false,
+    'Kidney Function': false,
+    'Blood Counts': false,
+    'Thyroid Function': false,
+    'Cardiac Markers': false,
+    'Inflammation': false,
+    'Electrolytes': false,
+    'Coagulation': false,
+    'Custom Values': false,
+    'Others': false
+  });
+  const [labTooltip, setLabTooltip] = useState(null);
+  const [openDeleteMenu, setOpenDeleteMenu] = useState(null);
+  const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
+  const [documentOnboardingMethod, setDocumentOnboardingMethod] = useState('picker');
+
+  const allLabData = labsData;
+  const allVitalsData = vitalsData;
+
+  // Get current lab for display
+  const currentLab = allLabData[selectedLab] || Object.values(allLabData).find(lab => lab.isNumeric) || Object.values(allLabData)[0] || {
+    name: 'No Lab Selected',
+    current: '--',
+    unit: '',
+    data: [],
+    isNumeric: false
+  };
+
+  const isMedicationTaken = (medId, scheduledTime) => {
+    const today = new Date().toDateString();
+    return medicationLog.some(log => {
+      const logDate = new Date(log.takenAt).toDateString();
+      return log.medId === medId &&
+        log.scheduledTime === scheduledTime &&
+        logDate === today;
+    });
+  };
+
+  const markMedicationTaken = (medId, scheduledTime) => {
+    const now = new Date().toISOString();
+    setMedicationLog([...medicationLog, {
+      medId: medId,
+      scheduledTime: scheduledTime,
+      takenAt: now
+    }]);
+  };
+
+  const openDocumentOnboarding = (docType = null, method = 'picker') => {
+    setDocumentOnboardingMethod(method || 'picker');
+    setShowDocumentOnboarding(true);
+  };
+
+  // Real-time subscription for symptoms
+  useEffect(() => {
+    if (!user) return;
+    const unsub = symptomService.subscribeSymptoms(user.uid, (items) => {
+      setSymptoms(items);
+    });
+    return () => unsub && unsub();
+  }, [user]);
+
+  // Load medications
+  useEffect(() => {
+    const loadMedications = async () => {
+      if (user) {
+        try {
+          const meds = await medicationService.getMedications(user.uid);
+          setMedications(meds);
+        } catch (error) {
+          console.error('Error loading medications:', error);
+        }
+      }
+    };
+    loadMedications();
+  }, [user]);
+
+  // Auto-select first numeric lab when labs data changes
+  useEffect(() => {
+    if (Object.keys(allLabData).length > 0 && !allLabData[selectedLab]?.isNumeric) {
+      const firstNumericLab = Object.keys(allLabData).find(key => allLabData[key]?.isNumeric);
+      if (firstNumericLab) {
+        setSelectedLab(firstNumericLab);
+      }
+    }
+  }, [allLabData, selectedLab]);
+
+  // Auto-select first vital when vitals data changes
+  useEffect(() => {
+    if (Object.keys(allVitalsData).length > 0 && !allVitalsData[selectedVital]) {
+      const firstVital = Object.keys(allVitalsData)[0];
+      if (firstVital) {
+        setSelectedVital(firstVital);
+      }
+    }
+  }, [allVitalsData, selectedVital]);
+
+  // Auto-locate to today when symptoms section is opened
+  useEffect(() => {
+    if (healthSection === 'symptoms') {
+      const today = new Date();
+      const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      setSymptomCalendarDate(localToday);
+      const todayDay = localToday.getDate().toString();
+      const hasSymptomsToday = symptoms.some(s => {
+        const symptomDate = s.date instanceof Date ? s.date : new Date(s.date);
+        const localSymptomDate = new Date(symptomDate.getFullYear(), symptomDate.getMonth(), symptomDate.getDate());
+        return localSymptomDate.getDate().toString() === todayDay && 
+               localSymptomDate.getMonth() === localToday.getMonth() && 
+               localSymptomDate.getFullYear() === localToday.getFullYear();
+      });
+      if (hasSymptomsToday) {
+        setSelectedDate(todayDay);
+      }
+    }
+  }, [healthSection, symptoms]);
+
+  // Check for showAddLab flag from sessionStorage (set by DashboardTab)
+  useEffect(() => {
+    const showAddLabFlag = sessionStorage.getItem('showAddLab');
+    if (showAddLabFlag === 'true') {
+      setShowAddLab(true);
+      sessionStorage.removeItem('showAddLab');
+    }
+  }, []);
+
+  // Handle "Ask About Health" button - needs to set context and switch to chat
+  const handleAskAboutHealth = async () => {
+    if (!user) return;
+    try {
+      const labs = await labService.getLabs(user.uid);
+      const vitals = await vitalService.getVitals(user.uid);
+      const symptomData = await symptomService.getSymptoms(user.uid);
+      
+      // Store in sessionStorage for ChatTab to access
+      sessionStorage.setItem('currentHealthContext', JSON.stringify({
+        labs: labs,
+        vitals: vitals,
+        symptoms: symptomData
+      }));
+      
+      // Store message to add
+      sessionStorage.setItem('healthContextMessage', JSON.stringify({
+        type: 'ai',
+        text: `I'm ready to answer questions about your health data. I can see your labs, vitals, and symptoms. You can ask me about trends, what values mean, or any concerns you have.`
+      }));
+      
+      onTabChange('chat');
+    } catch (error) {
+      console.error('Error loading health data:', error);
+      alert('Error loading health data. Please try again.');
+    }
+  };
+
+  return (
+    <div className="p-4 space-y-4">
+      {/* Ask About Health Button */}
+      <div className="bg-medical-primary-50 rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Ask About Your Health Data</h3>
+            <p className="text-sm text-gray-600">Get insights about your labs, vitals, and symptoms</p>
+          </div>
+          <button
+            onClick={handleAskAboutHealth}
+            className="bg-white text-medical-primary-600 px-6 py-2.5 rounded-lg hover:bg-medical-primary-100 transition font-medium flex items-center gap-2 shadow-sm border border-medical-primary-200"
+          >
+            <MessageSquare className="w-5 h-5 text-medical-primary-600" />
+            Ask About Health
+          </button>
+        </div>
+      </div>
+
+      {/* Health Section Tabs */}
+      <div className="flex gap-4 mb-6 border-b border-medical-neutral-200">
+        {['labs', 'vitals', 'symptoms', 'medications'].map(section => (
+          <button
+            key={section}
+            onClick={() => setHealthSection(section)}
+            className={`pb-3 px-4 font-medium transition-all duration-200 flex items-center gap-2 ${
+              healthSection === section
+                ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
+                : 'text-medical-neutral-600 hover:text-medical-primary-600'
+            }`}
+          >
+            {section === 'labs' && (
+              <>
+                <BarChart className="w-4 h-4" />
+                Labs
+              </>
+            )}
+            {section === 'vitals' && (
+              <>
+                <Heart className="w-4 h-4" />
+                Vitals
+              </>
+            )}
+            {section === 'symptoms' && (
+              <>
+                <Thermometer className="w-4 h-4" />
+                Symptoms
+              </>
+            )}
+            {section === 'medications' && (
+              <>
+                <Pill className="w-4 h-4" />
+                Medications
+              </>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {healthSection === 'labs' && (
+                  <>
+                    {/* Empty State - No Lab Data */}
+                    {!hasRealLabData && Object.keys(labsData).length === 0 && (
+                      <div className="border-2 border-medical-primary-500 rounded-lg p-6 text-center bg-white">
+                        <div className="flex flex-col items-center gap-3">
+                          <BarChart className="w-12 h-12 text-medical-primary-400" />
+                          <div>
+                            <h3 className="font-semibold text-medical-primary-900 mb-1">No Lab Data Yet</h3>
+                            <p className="text-sm text-medical-primary-700 mb-4">
+                              Start tracking your lab values by uploading a report or adding a metric manually
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                            <button
+                                onClick={() => setShowAddLab(true)}
+                                className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2"
+                              >
+                                <Plus className="w-4 h-4" />
+                                Add Metric
+                              </button>
+                              <button
+                                onClick={() => openDocumentOnboarding('lab-report')}
+                                className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center justify-center gap-2"
+                              >
+                                <Upload className="w-4 h-4" />
+                                Upload Lab Report
+                            </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Show data if available */}
+                    {(hasRealLabData || Object.keys(labsData).length > 0) && (
+                      <>
+
+                        {/* Lab Trend Chart - only show if we have numeric labs */}
+                        {Object.values(allLabData).some(lab => lab.isNumeric) && (
+                          <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200">
+                            <div className="flex items-center justify-between mb-4">
+                              <h2 className="text-base sm:text-lg font-semibold text-gray-900">Lab Trends</h2>
+                              <select
+                                value={selectedLab}
+                                onChange={(e) => setSelectedLab(e.target.value)}
+                                className="text-sm border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 focus:ring-2 focus:ring-green-500"
+                              >
+                                {(() => {
+                                  // Organize labs by category
+                                  const categoryMap = {
+                                    'disease_specific_markers': 'Disease-Specific Markers',
+                                    'liver_function': 'Liver Function',
+                                    'kidney_function': 'Kidney Function',
+                                    'blood_counts': 'Blood Counts',
+                                    'thyroid_function': 'Thyroid Function',
+                                    'cardiac_markers': 'Cardiac Markers',
+                                    'inflammation': 'Inflammation',
+                                    'electrolytes': 'Electrolytes',
+                                    'coagulation': 'Coagulation',
+                                    'other': 'Others'
+                                  };
+
+                                  // Map canonical keys to categories (from categorizeLabs function)
+                                  const canonicalKeyToCategory = {
+                                    'ca125': 'disease_specific_markers', 'ca199': 'disease_specific_markers', 'ca153': 'disease_specific_markers',
+                                    'ca724': 'disease_specific_markers', 'ca242': 'disease_specific_markers', 'ca50': 'disease_specific_markers',
+                                    'ca2729': 'disease_specific_markers', 'cea': 'disease_specific_markers', 'afp': 'disease_specific_markers',
+                                    'psa': 'disease_specific_markers', 'he4': 'disease_specific_markers', 'inhibinb': 'disease_specific_markers',
+                                    'romaindex': 'disease_specific_markers', 'scc_antigen': 'disease_specific_markers',
+                                    'cyfra211': 'disease_specific_markers', 'nse': 'disease_specific_markers', 'betahcg': 'disease_specific_markers',
+                                    'alt': 'liver_function', 'ast': 'liver_function', 'ast_alt_ratio': 'liver_function',
+                                    'alp': 'liver_function', 'alp_ifcc': 'liver_function', 'bilirubin_total': 'liver_function',
+                                    'bilirubin_direct': 'liver_function', 'bilirubin_indirect': 'liver_function',
+                                    'albumin': 'liver_function', 'ggt': 'liver_function', 'ldh': 'liver_function',
+                                    'creatinine': 'kidney_function', 'egfr': 'kidney_function', 'bun': 'kidney_function',
+                                    'urea': 'kidney_function', 'urineprotein': 'kidney_function', 'urinecreatinine': 'kidney_function',
+                                    'wbc': 'blood_counts', 'rbc': 'blood_counts', 'hemoglobin': 'blood_counts',
+                                    'hematocrit': 'blood_counts', 'platelets': 'blood_counts', 'anc': 'blood_counts',
+                                    'neutrophils_abs': 'blood_counts', 'neutrophils_pct': 'blood_counts',
+                                    'lymphocytes_abs': 'blood_counts', 'lymphocytes_pct': 'blood_counts',
+                                    'monocytes_abs': 'blood_counts', 'monocytes_pct': 'blood_counts',
+                                    'eosinophils_abs': 'blood_counts', 'eosinophils_pct': 'blood_counts',
+                                    'basophils_abs': 'blood_counts', 'basophils_pct': 'blood_counts',
+                                    'mcv': 'blood_counts', 'mch': 'blood_counts', 'mchc': 'blood_counts',
+                                    'rdw': 'blood_counts', 'rdw_cv': 'blood_counts',
+                                    'mpv': 'blood_counts', 'nrbc': 'blood_counts', 'nrbc_pct': 'blood_counts',
+                                    'reticulocyte_count': 'blood_counts', 'reticulocyte_pct': 'blood_counts',
+                                    'tsh': 'thyroid_function', 't3': 'thyroid_function', 't4': 'thyroid_function',
+                                    'ft3': 'thyroid_function', 'ft4': 'thyroid_function', 'thyroglobulin': 'thyroid_function',
+                                    'troponin': 'cardiac_markers', 'bnp': 'cardiac_markers', 'ntprobnp': 'cardiac_markers',
+                                    'ckmb': 'cardiac_markers', 'myoglobin': 'cardiac_markers',
+                                    'crp': 'inflammation', 'esr': 'inflammation', 'ferritin': 'inflammation',
+                                    'il6': 'inflammation',
+                                    'sodium': 'electrolytes', 'potassium': 'electrolytes', 'chloride': 'electrolytes',
+                                    'bicarbonate': 'electrolytes', 'co2': 'electrolytes', 'magnesium': 'electrolytes',
+                                    'phosphorus': 'electrolytes', 'calcium': 'electrolytes', 'calcium_ionized': 'electrolytes',
+                                    'phosphate': 'electrolytes',
+                                    'pt': 'coagulation', 'inr': 'coagulation', 'aptt': 'coagulation',
+                                    'ddimer': 'coagulation', 'fdp': 'coagulation', 'fibrinogen': 'coagulation',
+                                    'antithrombin_iii': 'coagulation', 'protein_c': 'coagulation', 'protein_s': 'coagulation',
+                                    'glucose': 'other', 'hba1c': 'other', 'iga': 'other', 'igg': 'other', 'igm': 'other', 'vitamin_d': 'other',
+                                    'beta2_microglobulin': 'other', 'procalcitonin': 'other'
+                                  };
+
+                                  // Group labs by category - similar to vitals approach
+                                  const labsByCategory = {};
+                                  Object.keys(allLabData)
+                                    .filter(key => allLabData[key] && allLabData[key].isNumeric)
+                                    .forEach(key => {
+                                      const lab = allLabData[key];
+                                      const canonicalKey = normalizeLabName(lab?.name || key) || key.toLowerCase();
+                                      const category = canonicalKeyToCategory[canonicalKey] || 'other';
+                                      const uiCategory = categoryMap[category] || 'Others';
+                                      
+                                      if (!labsByCategory[uiCategory]) {
+                                        labsByCategory[uiCategory] = [];
+                                      }
+                                      labsByCategory[uiCategory].push({
+                                        key,
+                                        displayName: getLabDisplayName(lab?.name || key) || lab?.name || key
+                                      });
+                                    });
+
+                                  // Sort categories by predefined order
+                                  const categoryOrder = [
+                                    'Disease-Specific Markers', 'Blood Counts', 'Liver Function', 'Kidney Function',
+                                    'Electrolytes', 'Coagulation', 'Thyroid Function', 'Cardiac Markers',
+                                    'Inflammation', 'Others'
+                                  ];
+
+                                  // Render optgroups
+                                  return categoryOrder
+                                    .filter(cat => labsByCategory[cat] && labsByCategory[cat].length > 0)
+                                    .map(category => (
+                                      <optgroup key={category} label={category}>
+                                        {labsByCategory[category]
+                                          .sort((a, b) => a.displayName.localeCompare(b.displayName))
+                                          .map(({ key, displayName }) => (
+                                            <option key={key} value={key}>{displayName}</option>
+                                          ))}
+                                      </optgroup>
+                                    ));
+                                })()}
+                              </select>
+                            </div>
+
+                            {currentLab && currentLab.isNumeric ? (
+                            <>
+                              <div className="mb-4">
+                                <div className="flex items-baseline gap-2 mb-1">
+                                  <span className="text-2xl sm:text-3xl font-bold text-gray-900">{currentLab.current}</span>
+                                  <span className="text-sm text-gray-600">{currentLab.unit}</span>
+                                  {(() => {
+                                    const labStatus = getLabStatus(currentLab.current, currentLab.normalRange);
+                                    const statusColors = {
+                                      green: 'bg-green-100 text-green-700',
+                                      yellow: 'bg-amber-100 text-amber-700',
+                                      red: 'bg-red-100 text-red-700',
+                                      gray: 'bg-gray-100 text-gray-700'
+                                    };
+                                    return (
+                                      <span className={`ml-auto text-xs px-2 py-1 rounded-full ${statusColors[labStatus.color] || statusColors.gray}`}>
+                                        {labStatus.label}
+                                      </span>
+                                    );
+                                  })()}
+                                </div>
+                                <p className="text-xs sm:text-sm text-gray-600">Normal range: {currentLab.normalRange} {currentLab.unit}</p>
+                              </div>
+
+                              {/* Chart - Responsive with Y-axis and hover tooltips */}
+                              <div className="flex gap-3">
+                            {/* Y-axis labels */}
+                            <div className="flex flex-col justify-between text-xs text-gray-600 font-medium py-2" style={{ paddingBottom: '1.5rem' }}>
+                              {(() => {
+                                // Filter out non-numeric values and ensure we have valid numbers
+                                const values = currentLab.data
+                                  .map(d => parseFloat(d.value))
+                                  .filter(v => !isNaN(v) && isFinite(v));
+
+                                if (values.length === 0) {
+                                  return <div className="text-right pr-2 w-10">--</div>;
+                                }
+
+                                let minVal = Math.min(...values);
+                                let maxVal = Math.max(...values);
+
+                                // Parse normal range if available (formats: "0-35", "24.0-34.0", "< 0.5", "> 60")
+                                if (currentLab.normalRange) {
+                                  // Try standard range format "X-Y"
+                                  let rangeMatch = currentLab.normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+                                  if (rangeMatch) {
+                                    const normMin = parseFloat(rangeMatch[1]);
+                                    const normMax = parseFloat(rangeMatch[2]);
+                                    if (!isNaN(normMin) && !isNaN(normMax)) {
+                                      minVal = Math.min(minVal, normMin);
+                                      maxVal = Math.max(maxVal, normMax);
+                                    }
+                                  } else {
+                                    // Try "< X" format (e.g., D-dimer: "< 0.5")
+                                    const lessThanMatch = currentLab.normalRange.match(/<\s*(\d+\.?\d*)/);
+                                    if (lessThanMatch) {
+                                      const threshold = parseFloat(lessThanMatch[1]);
+                                      if (!isNaN(threshold)) {
+                                        minVal = Math.min(minVal, 0);
+                                        maxVal = Math.max(maxVal, threshold);
+                                      }
+                                    } else {
+                                      // Try "> X" format (e.g., eGFR: "> 60")
+                                      const greaterThanMatch = currentLab.normalRange.match(/>\s*(\d+\.?\d*)/);
+                                      if (greaterThanMatch) {
+                                        const threshold = parseFloat(greaterThanMatch[1]);
+                                        if (!isNaN(threshold)) {
+                                          minVal = Math.min(minVal, threshold);
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+
+                                const range = maxVal - minVal;
+                                const padding = range * 0.2 || 10; // Fallback if range is 0
+                                const yMin = Math.floor(minVal - padding);
+                                const yMax = Math.ceil(maxVal + padding);
+                                const step = (yMax - yMin) / 4;
+
+                                return [4, 3, 2, 1, 0].map(i => (
+                                  <div key={i} className="text-right pr-2 w-10" style={{ lineHeight: '1' }}>
+                                    {(yMin + (step * i)).toFixed(maxVal > 100 ? 0 : 1)}
+                                  </div>
+                                ));
+                              })()}
+                            </div>
+
+                            {/* Chart area */}
+                            <div className="flex-1">
+                              <div className="relative h-40 mb-3">
+                                {/* Horizontal grid lines */}
+                                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                                  {[0, 1, 2, 3, 4].map(i => (
+                                    <div key={i} className="border-t border-gray-200"></div>
+                                  ))}
+                                </div>
+
+                                {/* SVG Graph */}
+                                {(() => {
+                                  // Filter out non-numeric values and ensure we have valid numbers
+                                  const values = currentLab.data
+                                    .map(d => parseFloat(d.value))
+                                    .filter(v => !isNaN(v) && isFinite(v));
+
+                                  if (values.length === 0) {
+                                    return (
+                                      <div className="flex items-center justify-center h-full text-gray-400">
+                                        <p>No numeric data available for charting</p>
+                                      </div>
+                                    );
+                                  }
+
+                                  let minVal = Math.min(...values);
+                                  let maxVal = Math.max(...values);
+
+                                  // Parse normal range if available (formats: "0-35", "24.0-34.0", "< 0.5", "> 60")
+                                  if (currentLab.normalRange) {
+                                    // Try standard range format "X-Y"
+                                    let rangeMatch = currentLab.normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+                                    if (rangeMatch) {
+                                      const normMin = parseFloat(rangeMatch[1]);
+                                      const normMax = parseFloat(rangeMatch[2]);
+                                      if (!isNaN(normMin) && !isNaN(normMax)) {
+                                        minVal = Math.min(minVal, normMin);
+                                        maxVal = Math.max(maxVal, normMax);
+                                      }
+                                    } else {
+                                      // Try "< X" format (e.g., D-dimer: "< 0.5")
+                                      const lessThanMatch = currentLab.normalRange.match(/<\s*(\d+\.?\d*)/);
+                                      if (lessThanMatch) {
+                                        const threshold = parseFloat(lessThanMatch[1]);
+                                        if (!isNaN(threshold)) {
+                                          minVal = Math.min(minVal, 0);
+                                          maxVal = Math.max(maxVal, threshold);
+                                        }
+                                      } else {
+                                        // Try "> X" format (e.g., eGFR: "> 60")
+                                        const greaterThanMatch = currentLab.normalRange.match(/>\s*(\d+\.?\d*)/);
+                                        if (greaterThanMatch) {
+                                          const threshold = parseFloat(greaterThanMatch[1]);
+                                          if (!isNaN(threshold)) {
+                                            minVal = Math.min(minVal, threshold);
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+
+                                  const range = maxVal - minVal;
+                                  const padding = range * 0.2 || 10; // Fallback if range is 0
+                                  const yMin = Math.floor(minVal - padding);
+                                  const yMax = Math.ceil(maxVal + padding);
+                                  const yRange = yMax - yMin || 1; // Prevent division by zero
+
+                                  return (
+                                    <>
+                                      <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 400 160" preserveAspectRatio="none">
+                                        <defs>
+                                          <linearGradient id={`gradient-${selectedLab}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.2" />
+                                            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.05" />
+                                          </linearGradient>
+                                        </defs>
+
+                                        {/* Normal range boundaries (if available) */}
+                                        {currentLab.normalRange && (() => {
+                                          // Try standard range format "X-Y"
+                                          let rangeMatch = currentLab.normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+                                          if (rangeMatch) {
+                                            const normMin = parseFloat(rangeMatch[1]);
+                                            const normMax = parseFloat(rangeMatch[2]);
+                                            if (!isNaN(normMin) && !isNaN(normMax) && isFinite(normMin) && isFinite(normMax)) {
+                                              const normMinY = 160 - ((normMin - yMin) / yRange) * 160;
+                                              const normMaxY = 160 - ((normMax - yMin) / yRange) * 160;
+                                              return (
+                                                <>
+                                                  {/* Normal range shaded area */}
+                                                  <rect
+                                                    x="0"
+                                                    y={normMaxY}
+                                                    width="400"
+                                                    height={normMinY - normMaxY}
+                                                    fill="#3b82f6"
+                                                    opacity="0.08"
+                                                  />
+                                                  {/* Normal range boundary lines */}
+                                                  <line x1="0" y1={normMinY} x2="400" y2={normMinY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                  <line x1="0" y1={normMaxY} x2="400" y2={normMaxY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                </>
+                                              );
+                                            }
+                                          } else {
+                                            // Try "< X" format (e.g., D-dimer: "< 0.5")
+                                            const lessThanMatch = currentLab.normalRange.match(/<\s*(\d+\.?\d*)/);
+                                            if (lessThanMatch) {
+                                              const threshold = parseFloat(lessThanMatch[1]);
+                                              if (!isNaN(threshold) && isFinite(threshold)) {
+                                                const thresholdY = 160 - ((threshold - yMin) / yRange) * 160;
+                                                return (
+                                                  <>
+                                                    {/* Shaded area below threshold */}
+                                                    <rect
+                                                      x="0"
+                                                      y={thresholdY}
+                                                      width="400"
+                                                      height={160 - thresholdY}
+                                                      fill="#3b82f6"
+                                                      opacity="0.08"
+                                                    />
+                                                    {/* Threshold line */}
+                                                    <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                  </>
+                                                );
+                                              }
+                                            } else {
+                                              // Try "> X" format (e.g., eGFR: "> 60")
+                                              const greaterThanMatch = currentLab.normalRange.match(/>\s*(\d+\.?\d*)/);
+                                              if (greaterThanMatch) {
+                                                const threshold = parseFloat(greaterThanMatch[1]);
+                                                if (!isNaN(threshold) && isFinite(threshold)) {
+                                                  const thresholdY = 160 - ((threshold - yMin) / yRange) * 160;
+                                                  return (
+                                                    <>
+                                                      {/* Shaded area above threshold */}
+                                                      <rect
+                                                        x="0"
+                                                        y="0"
+                                                        width="400"
+                                                        height={thresholdY}
+                                                          fill="#3b82f6"
+                                                          opacity="0.08"
+                                                        />
+                                                        {/* Threshold line */}
+                                                        <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                    </>
+                                                  );
+                                                }
+                                              }
+                                            }
+                                          }
+                                          return null;
+                                        })()}
+
+                                        {/* Area under line */}
+                                        <polygon
+                                          points={(() => {
+                                            const dataLength = Math.max(currentLab.data.length - 1, 1); // Prevent division by zero
+                                            const topPoints = currentLab.data.map((d, i) =>
+                                              `${(i / dataLength) * 400},${160 - ((d.value - yMin) / yRange) * 160}`
+                                            ).join(' ');
+                                            return `${topPoints} 400,160 0,160`;
+                                          })()}
+                                          fill={`url(#gradient-${selectedLab})`}
+                                        />
+
+                                        {/* Line */}
+                                        <polyline
+                                          points={(() => {
+                                            const dataLength = Math.max(currentLab.data.length - 1, 1); // Prevent division by zero
+                                            return currentLab.data.map((d, i) =>
+                                              `${(i / dataLength) * 400},${160 - ((d.value - yMin) / yRange) * 160}`
+                                            ).join(' ');
+                                          })()}
+                                          fill="none"
+                                          stroke="#3b82f6"
+                                          strokeWidth="3"
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                        />
+                                      </svg>
+
+                                      {/* Interactive data points with tooltips */}
+                                      {currentLab.data.map((d, i) => {
+                                        const dataLength = Math.max(currentLab.data.length - 1, 1); // Prevent division by zero
+                                        const x = (i / dataLength) * 100;
+                                        const y = ((d.value - yMin) / yRange) * 100;
+                                        const isLatest = i === currentLab.data.length - 1;
+                                        
+                                        // Calculate lab status for this data point
+                                        const labStatus = getLabStatus(parseFloat(d.value), currentLab.normalRange);
+                                        const statusColors = {
+                                          green: '#10b981',
+                                          yellow: '#f59e0b',
+                                          red: '#ef4444',
+                                          gray: '#6b7280'
+                                        };
+                                        const dotColor = statusColors[labStatus.color] || statusColors.gray;
+                                        const statusBadgeColors = {
+                                          green: 'bg-green-100 text-green-700',
+                                          yellow: 'bg-amber-100 text-amber-700',
+                                          red: 'bg-red-100 text-red-700',
+                                          gray: 'bg-gray-100 text-gray-700'
+                                        };
+
+                                        return (
+                                          <div
+                                            key={i}
+                                            className="absolute group cursor-pointer"
+                                            style={{
+                                              left: `${x}%`,
+                                              bottom: `${y}%`,
+                                              transform: 'translate(-50%, 50%)'
+                                            }}
+                                          >
+                                            {/* Hover area */}
+                                            <div className="absolute inset-0 w-10 h-10 -m-5"></div>
+
+                                            {/* Outer ring on hover */}
+                                            <div
+                                              className="absolute inset-0 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                                              style={{
+                                                width: '20px',
+                                                height: '20px',
+                                                margin: '-10px',
+                                                border: `2px solid ${dotColor}`,
+                                                backgroundColor: `${dotColor}20`
+                                              }}
+                                            />
+
+                                            {/* Data point dot */}
+                                            <div
+                                              className={`rounded-full transition-all relative z-10 group-hover:scale-125 ${isLatest ? 'w-3.5 h-3.5' : 'w-3 h-3'
+                                                }`}
+                                              style={{
+                                                backgroundColor: dotColor,
+                                                border: '2px solid white',
+                                                boxShadow: isLatest
+                                                  ? '0 2px 8px rgba(0,0,0,0.25)'
+                                                  : '0 1px 4px rgba(0,0,0,0.15)'
+                                              }}
+                                            />
+
+                                            {/* Tooltip with edit and delete buttons */}
+                                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4 opacity-0 group-hover:opacity-100 transition-opacity z-30">
+                                              <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl">
+                                                <div className="flex items-center justify-between gap-3">
+                                                  <div>
+                                                <div className="font-bold text-sm">{d.value} {currentLab.unit}</div>
+                                                  </div>
+                                                  {d.id && (
+                                                    <div className="flex items-center gap-2">
+                                                      <button
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          const currentLabDoc = allLabData[selectedLab];
+                                                          if (currentLabDoc && currentLabDoc.id) {
+                                                            setSelectedLabForValue({ id: currentLabDoc.id, name: getLabDisplayName(currentLabDoc.name || selectedLab), unit: currentLabDoc.unit, key: selectedLab });
+                                                            // Pre-fill with existing value data
+                                                            const valueData = currentLab.data.find(item => item.id === d.id);
+                                                            // Use dateOriginal if available, otherwise fall back to timestamp, then formatted date
+                                                            let dateValue = getTodayLocalDate();
+                                                            if (valueData?.dateOriginal) {
+                                                              dateValue = valueData.dateOriginal.toISOString().split('T')[0];
+                                                            } else if (valueData?.timestamp) {
+                                                              dateValue = new Date(valueData.timestamp).toISOString().split('T')[0];
+                                                            } else if (valueData?.date) {
+                                                              // Try to parse the formatted date string (e.g., "Dec 14")
+                                                              const parsed = new Date(valueData.date);
+                                                              if (!isNaN(parsed.getTime())) {
+                                                                dateValue = parsed.toISOString().split('T')[0];
+                                                              }
+                                                            }
+                                                            setNewLabValue({ 
+                                                              value: valueData?.value || '', 
+                                                              date: dateValue, 
+                                                              notes: valueData?.notes || '' 
+                                                            });
+                                                            setEditingLabValueId(d.id); // Store the value ID being edited
+                                                            setIsEditingLabValue(true);
+                                                            setShowAddLabValue(true);
+                                                          }
+                                                        }}
+                                                        className="text-blue-400 hover:text-blue-300 transition-colors p-1 rounded hover:bg-blue-900/20"
+                                                        title="Edit this reading"
+                                                      >
+                                                        <Edit2 className="w-3.5 h-3.5" />
+                                                      </button>
+                                                      <button
+                                                        onClick={async (e) => {
+                                                          e.stopPropagation();
+                                                          if (window.confirm(`Delete this ${currentLab.name} reading (${d.value} ${currentLab.unit} on ${d.date})?`)) {
+                                                            try {
+                                                              console.log('Deleting lab with ID:', d.id);
+                                                              
+                                                              // Optimistically update UI immediately
+                                                              const updatedLabsData = { ...labsData };
+                                                              if (updatedLabsData[selectedLab] && updatedLabsData[selectedLab].data) {
+                                                                const filteredData = updatedLabsData[selectedLab].data.filter(item => item.id !== d.id);
+                                                                // Get most recent value (first item after sorting by timestamp)
+                                                                const sortedData = [...filteredData].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                                                                updatedLabsData[selectedLab] = {
+                                                                  ...updatedLabsData[selectedLab],
+                                                                  data: filteredData,
+                                                                  current: sortedData.length > 0 ? sortedData[0].value : '--'
+                                                                };
+                                                                setLabsData(updatedLabsData);
+                                                              }
+                                                              
+                                                              // Delete from Firestore in background
+                                                              // Verify user is authenticated before deletion
+                                                              if (!user || !user.uid) {
+                                                                throw new Error('User not authenticated');
+                                                              }
+                                                              // d.id is the value ID in the subcollection, not the lab document ID
+                                                              // Get the lab document ID from currentLab
+                                                              const currentLabDoc = allLabData[selectedLab];
+                                                              if (!currentLabDoc || !currentLabDoc.id) {
+                                                                throw new Error('Lab document ID not found');
+                                                              }
+                                                              await labService.deleteLabValue(currentLabDoc.id, d.id);
+                                                              
+                                                              // Reload to ensure sync (but UI already updated)
+                                                              // Use reloadHealthData to properly reload all data
+                                                              setTimeout(async () => {
+                                                                await reloadHealthData();
+                                                              }, 300);
+                                                            } catch (error) {
+                                                              console.error('Error deleting lab:', error);
+                                                              // Revert optimistic update on error
+                                                              reloadHealthData();
+                                                              alert('Failed to delete lab reading. Please try again.');
+                                                            }
+                                                          }
+                                                        }}
+                                                        className="text-red-400 hover:text-red-300 transition-colors p-1 rounded hover:bg-red-900/20"
+                                                        title="Delete this reading"
+                                                      >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                      </button>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                                {/* Arrow */}
+                                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-px">
+                                                  <div className="border-4 border-transparent border-t-gray-900"></div>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+
+                              {/* X-axis labels */}
+                              <div className="flex justify-between border-t border-gray-300 pt-2 text-xs text-gray-600">
+                                {currentLab.data.map((d, i) => (
+                                  <span key={i} className="hidden sm:inline">{d.date}</span>
+                                ))}
+                                <span className="sm:hidden">{currentLab.data[0].date}</span>
+                                <span className="sm:hidden">{currentLab.data[currentLab.data.length - 1].date}</span>
+                              </div>
+                            </div>
+                          </div>
+                            </>
+                          ) : (
+                            // Non-numeric lab - show text info instead of chart
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+                              <p className="text-sm text-blue-700 mb-2">This lab value contains non-numeric data</p>
+                              <p className="text-2xl font-bold text-blue-900 mb-2">{currentLab.current}</p>
+                              <p className="text-xs text-blue-600">
+                                Most recent: {currentLab.data[currentLab.data.length - 1]?.date}
+                              </p>
+                            </div>
+                          )}
+                          </div>
+                        )}
+
+                        {/* Lab Value Cards - Organized by Category with Expandable Cards */}
+                          {(() => {
+                          // Helper function to render lab card (smaller, cleaner)
+                          const renderLabCard = (key, lab) => {
+                            if (lab.isNumeric) {
+                                  const labStatus = getLabStatus(lab.current, lab.normalRange);
+                                  const statusColors = {
+                                green: { dot: 'bg-medical-accent-500', text: 'text-medical-accent-700' },
+                                yellow: { dot: 'bg-amber-500', text: 'text-amber-700' },
+                                    red: { dot: 'bg-red-500', text: 'text-red-700' },
+                                gray: { dot: 'bg-medical-neutral-400', text: 'text-medical-neutral-600' }
+                                  };
+                                  const colors = statusColors[labStatus.color];
+                              // Normalize lab name to canonical key for description lookup
+                              const canonicalKey = normalizeLabName(lab.name);
+                              const labDescription = canonicalKey ? (labValueDescriptions[canonicalKey] || '') : '';
+                              const displayName = getLabDisplayName(lab.name);
+
+                                  return (
+                                <div
+                                      key={key}
+                                  className={`relative bg-white rounded-lg shadow-sm p-4 border-2 transition-all cursor-pointer ${
+                                    selectedLab === key
+                                      ? 'border-medical-primary-500 bg-medical-primary-50'
+                                      : 'border-medical-neutral-200 hover:border-medical-neutral-300 hover:shadow-md'
+                                  }`}
+                                  onClick={() => setSelectedLab(key)}
+                                >
+
+                                  <div className="flex items-start justify-between mb-2">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <p className="text-sm font-semibold text-medical-neutral-900">{displayName}</p>
+                                        {labDescription && (
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setLabTooltip({
+                                                labName: displayName,
+                                                description: labDescription
+                                              });
+                                            }}
+                                            className="text-medical-primary-500 hover:text-medical-primary-700 transition-colors"
+                                            title="Learn more about this lab value"
+                                          >
+                                            <Info className="w-3.5 h-3.5" />
+                                          </button>
+                                        )}
+                                      </div>
+                                      <div className="flex items-baseline gap-2">
+                                        <p className="text-xl font-bold text-medical-neutral-900">{lab.current}</p>
+                                        {lab.trend && lab.data && lab.data.length > 0 && (
+                                          lab.trend === 'up' ? (
+                                            <TrendingUp className="w-4 h-4 text-red-500" />
+                                          ) : lab.trend === 'down' ? (
+                                            <TrendingDown className="w-4 h-4 text-green-500" />
+                                          ) : (
+                                            <Minus className="w-4 h-4 text-gray-400" />
+                                          )
+                                        )}
+                                        <p className="text-xs text-medical-neutral-500">{lab.unit}</p>
+                                      </div>
+                                      <p className={`text-xs ${colors.text} font-medium mt-1`}>{labStatus.label}</p>
+                                      {lab.normalRange && (
+                                        <p className="text-xs text-medical-neutral-500 mt-1">Normal: {lab.normalRange}</p>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1 ml-2">
+                                      <div className="relative">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setOpenDeleteMenu(openDeleteMenu === `lab:${key}` ? null : `lab:${key}`);
+                                          }}
+                                          className="p-1.5 text-medical-neutral-500 hover:bg-medical-neutral-100 rounded transition-colors"
+                                          title="More options"
+                                        >
+                                          <MoreVertical className="w-4 h-4" />
+                                        </button>
+                                        {openDeleteMenu === `lab:${key}` && (
+                                          <>
+                                            <div
+                                              className="fixed inset-0 z-40"
+                                              onClick={() => setOpenDeleteMenu(null)}
+                                            />
+                                            <div className="absolute right-0 top-8 z-[100] bg-white rounded-lg shadow-lg border border-medical-neutral-200 py-1 min-w-[160px]">
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setOpenDeleteMenu(null);
+                                                  // Find the lab document ID
+                                                  const labDoc = allLabData[key];
+                                                  if (labDoc && labDoc.id) {
+                                                    setSelectedLabForValue({ id: labDoc.id, name: displayName, unit: lab.unit, key: key });
+                                                    setNewLabValue({ value: '', date: getTodayLocalDate(), notes: '' });
+                                                    setIsEditingLabValue(false);
+                                                    setShowAddLabValue(true);
+                                                  }
+                                                }}
+                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                              >
+                                                <Plus className="w-4 h-4" />
+                                                Add Value
+                                              </button>
+                                              <button
+                                                onClick={async (e) => {
+                                                  e.stopPropagation();
+                                                  setOpenDeleteMenu(null);
+                                                  const labType = key;
+                                                  const count = lab.data?.length || 0;
+                                                  if (window.confirm(`Delete all ${displayName} data? This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'}. This action cannot be undone.`)) {
+                                                    try {
+                                                      console.log('Deleting all labs of type:', labType);
+                                                      
+                                                      // Optimistically update UI immediately
+                                                      const updatedLabsData = { ...labsData };
+                                                      delete updatedLabsData[labType];
+                                                      setLabsData(updatedLabsData);
+                                                      
+                                                      // If deleted lab was selected, select first available
+                                                      if (selectedLab === labType) {
+                                                        const firstAvailable = Object.keys(updatedLabsData).find(key => updatedLabsData[key].isNumeric);
+                                                        if (firstAvailable) {
+                                                          setSelectedLab(firstAvailable);
+                                                        }
+                                                      }
+                                                      
+                                                      // Delete from Firestore in background
+                                                      const deletedCount = await labService.deleteAllLabsByType(user.uid, labType);
+                                                      console.log('Deleted labs count:', deletedCount);
+                                                      
+                                                      // Reload to ensure sync (but UI already updated)
+                                                      setTimeout(async () => {
+                                                        await reloadHealthData();
+                                                      }, 300);
+                                                    } catch (error) {
+                                                      console.error('Error deleting labs:', error);
+                                                      // Revert optimistic update on error
+                                                      reloadHealthData();
+                                                      alert('Failed to delete lab data. Please try again.');
+                                                    }
+                                                  }
+                                                }}
+                                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                                              >
+                                                <Trash2 className="w-4 h-4" />
+                                                {(() => {
+                                                  const hasValues = lab.data && Array.isArray(lab.data) && (
+                                                    lab.data.length > 1 || 
+                                                    (lab.data.length === 1 && lab.data[0].value != null && lab.data[0].value !== undefined)
+                                                  );
+                                                  return hasValues ? 'Delete All' : 'Delete Metric';
+                                                })()}
+                                              </button>
+                                            </div>
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            } else {
+                              // Non-numeric labs (or labs without values yet)
+                              const displayName = getLabDisplayName(lab.name || key);
+                              return (
+                                <div
+                                  key={key}
+                                  className="relative bg-white rounded-lg shadow-sm p-4 border border-medical-neutral-200 hover:shadow-md transition-all"
+                                >
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-semibold text-medical-neutral-900 mb-1">{displayName}</p>
+                                      {lab.current ? (
+                                        <>
+                                          <p className="text-base font-bold text-medical-neutral-900">{lab.current}</p>
+                                          {lab.unit && <p className="text-xs text-medical-neutral-500">{lab.unit}</p>}
+                                        </>
+                                      ) : (
+                                        <p className="text-sm text-medical-neutral-500 italic">No values yet</p>
+                                      )}
+                                      {lab.normalRange && (
+                                        <p className="text-xs text-medical-neutral-500 mt-1">Normal: {lab.normalRange}</p>
+                                      )}
+                                  </div>
+                                    <div className="flex items-center gap-1 ml-2">
+                                      <div className="relative">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setOpenDeleteMenu(openDeleteMenu === `lab:${key}` ? null : `lab:${key}`);
+                                          }}
+                                          className="p-1.5 text-medical-neutral-500 hover:bg-medical-neutral-100 rounded transition-colors"
+                                          title="More options"
+                                        >
+                                          <MoreVertical className="w-4 h-4" />
+                                        </button>
+                                        {openDeleteMenu === `lab:${key}` && (
+                                          <>
+                                            <div
+                                              className="fixed inset-0 z-40"
+                                              onClick={() => setOpenDeleteMenu(null)}
+                                            />
+                                            <div className="absolute right-0 top-8 z-[100] bg-white rounded-lg shadow-lg border border-medical-neutral-200 py-1 min-w-[160px]">
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setOpenDeleteMenu(null);
+                                                  // Find the lab document ID
+                                                  const labDoc = allLabData[key];
+                                                  if (labDoc && labDoc.id) {
+                                                    setSelectedLabForValue({ id: labDoc.id, name: displayName, unit: lab.unit || '', key: key });
+                                                    setNewLabValue({ value: '', date: getTodayLocalDate(), notes: '' });
+                                                    setShowAddLabValue(true);
+                                                  }
+                                                }}
+                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                              >
+                                                <Plus className="w-4 h-4" />
+                                                Add Value
+                                              </button>
+                                              <button
+                                                onClick={async (e) => {
+                                                  e.stopPropagation();
+                                                  setOpenDeleteMenu(null);
+                                                  const labType = key;
+                                                  const count = lab.data?.length || 0;
+                                                  if (window.confirm(`Delete all ${displayName} data? This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'}. This action cannot be undone.`)) {
+                                                    try {
+                                                      console.log('Deleting all labs of type:', labType);
+                                                      
+                                                      // Optimistically update UI immediately
+                                                      const updatedLabsData = { ...labsData };
+                                                      delete updatedLabsData[labType];
+                                                      setLabsData(updatedLabsData);
+                                                      
+                                                      // If deleted lab was selected, select first available
+                                                      if (selectedLab === labType) {
+                                                        const firstAvailable = Object.keys(updatedLabsData).find(key => updatedLabsData[key].isNumeric);
+                                                        if (firstAvailable) {
+                                                          setSelectedLab(firstAvailable);
+                                                        }
+                                                      }
+                                                      
+                                                      // Delete from Firestore in background
+                                                      const deletedCount = await labService.deleteAllLabsByType(user.uid, labType);
+                                                      console.log('Deleted labs count:', deletedCount);
+                                                      
+                                                      // Reload to ensure sync (but UI already updated)
+                                                      setTimeout(async () => {
+                                                        await reloadHealthData();
+                                                      }, 300);
+                                                    } catch (error) {
+                                                      console.error('Error deleting labs:', error);
+                                                      // Revert optimistic update on error
+                                                      reloadHealthData();
+                                                      alert('Failed to delete lab data. Please try again.');
+                                                    }
+                                                  }
+                                                }}
+                                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                                              >
+                                                <Trash2 className="w-4 h-4" />
+                                                {(() => {
+                                                  const hasValues = lab.data && Array.isArray(lab.data) && (
+                                                    lab.data.length > 1 || 
+                                                    (lab.data.length === 1 && lab.data[0].value != null && lab.data[0].value !== undefined)
+                                                  );
+                                                  return hasValues ? 'Delete All' : 'Delete Metric';
+                                                })()}
+                                              </button>
+                                </div>
+                                          </>
+                                        )}
+                        </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
+                          };
+
+                          const categorizedLabs = categorizeLabs(allLabData);
+                          const categoryOrder = [
+                            'Disease-Specific Markers',
+                            'Liver Function',
+                            'Kidney Function',
+                            'Blood Counts',
+                            'Thyroid Function',
+                            'Cardiac Markers',
+                            'Inflammation',
+                            'Electrolytes',
+                            'Coagulation',
+                            'Custom Values',
+                            'Others'
+                          ];
+
+                          return (
+                            <div className="space-y-4 mt-6">
+                              {/* Upload Lab Report and Add Lab Metric Buttons */}
+                              <div className="flex justify-end gap-3 mb-2">
+                          <button
+                                  onClick={() => simulateDocumentUpload('lab')}
+                                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+                          >
+                                  <Upload className="w-4 h-4" />
+                                  <span className="text-sm font-medium">Upload Lab Report</span>
+                          </button>
+                          <button
+                                  onClick={() => setShowAddLab(true)}
+                                  className="flex items-center gap-2 text-medical-primary-600 hover:text-medical-primary-700 transition-colors"
+                          >
+                                  <Plus className="w-4 h-4" />
+                                  <span className="text-sm font-medium">Add Lab Metric</span>
+                          </button>
+                              </div>
+                              {categoryOrder.map(category => {
+                                const labsInCategory = categorizedLabs[category];
+                                if (labsInCategory.length === 0) return null;
+
+                                const isExpanded = expandedCategories[category];
+                                const CategoryIcon = categoryIcons[category] || Activity;
+                                const description = categoryDescriptions[category];
+
+                                return (
+                                  <div
+                                    key={category}
+                                    className="bg-white rounded-xl shadow-sm border border-medical-neutral-200 overflow-visible transition-all hover:shadow-md"
+                                  >
+                                    {/* Category Header - Clickable to expand/collapse */}
+                                    <button
+                                      onClick={() => setExpandedCategories(prev => ({
+                                        ...prev,
+                                        [category]: !prev[category]
+                                      }))}
+                                      className="w-full p-5 flex items-center justify-between hover:bg-medical-neutral-50 transition-colors"
+                                    >
+                                      <div className="flex items-center gap-4 flex-1">
+                                        <div className="w-12 h-12 bg-medical-primary-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                          <CategoryIcon className="w-6 h-6 text-medical-primary-600" />
+                                        </div>
+                                        <div className="text-left flex-1 min-w-0">
+                                          <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900">{category}</h3>
+                                          <p className="text-xs sm:text-sm text-medical-neutral-600 mt-1">{description}</p>
+                                          <p className="text-xs text-medical-neutral-500 mt-1">{labsInCategory.length} value{labsInCategory.length !== 1 ? 's' : ''} tracked</p>
+                                        </div>
+                                      </div>
+                                      <div className="ml-4 flex-shrink-0">
+                                        {isExpanded ? (
+                                          <ChevronUp className="w-5 h-5 text-medical-neutral-500" />
+                                        ) : (
+                                          <ChevronDown className="w-5 h-5 text-medical-neutral-500" />
+                                        )}
+                                      </div>
+                                    </button>
+
+                                    {/* Expanded Content */}
+                                    {isExpanded && (
+                                      <div className="px-5 pb-5 pt-2 border-t border-medical-neutral-100 overflow-visible">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4 overflow-visible">
+                                          {labsInCategory.map(([key, lab]) => (
+                                            renderLabCard(key, lab)
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+                      </>
+                    )}
+                  </>
+            )}
+
+            {healthSection === 'vitals' && (
+                  <>
+                    {/* Empty State - No Vital Data */}
+                    {!hasRealVitalData && Object.keys(vitalsData).length === 0 && (
+                      <div className="border-2 border-medical-primary-500 rounded-lg p-6 text-center bg-white">
+                        <div className="flex flex-col items-center gap-3">
+                          <Heart className="w-12 h-12 text-medical-primary-400" />
+                          <div>
+                            <h3 className="font-semibold text-medical-primary-900 mb-1">No Vital Signs Data Yet</h3>
+                            <p className="text-sm text-medical-primary-700 mb-4">
+                              Track blood pressure, heart rate, weight, and more
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                              <button
+                                onClick={() => {
+                                  setIsEditingVital(false);
+                                  setShowAddVital(true);
+                                }}
+                                className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                                Manual Enter
+                              </button>
+                            <button
+                              onClick={() => onTabChange('chat')}
+                                className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center justify-center gap-2"
+                            >
+                                <MessageSquare className="w-4 h-4" />
+                                Add via Chat
+                            </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Show data if available */}
+                    {(hasRealVitalData || Object.keys(vitalsData).length > 0) && (
+                      <>
+
+                        {/* Vital Trend Chart */}
+                        <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200">
+                          <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-base sm:text-lg font-semibold text-gray-900">Vital Signs</h2>
+                            <div className="flex items-center gap-2">
+                              {Object.keys(allVitalsData).length > 0 ? (
+                            <select
+                              value={selectedVital}
+                              onChange={(e) => setSelectedVital(e.target.value)}
+                              className="text-sm border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 focus:ring-2 focus:ring-green-500"
+                            >
+                                  {(() => {
+                                    // Organize vitals by category
+                                    const vitalCategoryMap = {
+                                      'blood_pressure': 'Cardiovascular',
+                                      'heart_rate': 'Cardiovascular',
+                                      'oxygen_saturation': 'Respiratory',
+                                      'respiratory_rate': 'Respiratory',
+                                      'temperature': 'General',
+                                      'weight': 'Metabolic'
+                                    };
+
+                                    // Group vitals by category
+                                    const vitalsByCategory = {};
+                                    Object.keys(allVitalsData).forEach(key => {
+                                      const vital = allVitalsData[key];
+                                      const canonicalKey = normalizeVitalName(key) || key.toLowerCase();
+                                      const category = vitalCategoryMap[canonicalKey] || 'General';
+                                      
+                                      if (!vitalsByCategory[category]) {
+                                        vitalsByCategory[category] = [];
+                                      }
+                                      vitalsByCategory[category].push({
+                                        key,
+                                        displayName: getVitalDisplayName(vital.name || key)
+                                      });
+                                    });
+
+                                    // Sort categories by predefined order
+                                    const categoryOrder = [
+                                      'Cardiovascular', 'Respiratory', 'Metabolic', 'General'
+                                    ];
+
+                                    // Render optgroups
+                                    return categoryOrder
+                                      .filter(cat => vitalsByCategory[cat] && vitalsByCategory[cat].length > 0)
+                                      .map(category => (
+                                        <optgroup key={category} label={category}>
+                                          {vitalsByCategory[category]
+                                            .sort((a, b) => a.displayName.localeCompare(b.displayName))
+                                            .map(({ key, displayName }) => (
+                                              <option key={key} value={key}>{displayName}</option>
+                                            ))}
+                                        </optgroup>
+                                      ));
+                                  })()}
+                            </select>
+                              ) : (
+                                <div className="text-sm text-gray-500">No vitals available</div>
+                              )}
+                            </div>
+                          </div>
+
+                          {(() => {
+                            const currentVital = allVitalsData[selectedVital] || {
+                              name: 'No Data',
+                              current: '--',
+                              unit: '',
+                              status: 'normal',
+                              data: []
+                            };
+                            
+                            if (!currentVital || !currentVital.data || currentVital.data.length === 0) {
+                              return (
+                                <div className="text-center py-8 text-gray-500">
+                                  <p>No vital data available for {getVitalDisplayName(selectedVital)}</p>
+                                  <button
+                                    onClick={() => onTabChange('chat')}
+                                    className="mt-4 bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition"
+                                  >
+                                    Go to Chat to Add Data
+                                  </button>
+                                </div>
+                              );
+                            }
+                            
+                            return (
+                              <>
+                                <div className="mb-4">
+                                  <div className="flex items-baseline gap-2 mb-1">
+                                    <span className="text-2xl sm:text-3xl font-bold text-gray-900">{currentVital.current}</span>
+                                    <span className="text-sm text-gray-600">{currentVital.unit}</span>
+                                    {(() => {
+                                      const normalRange = currentVital.normalRange || (() => {
+                                        const age = patientProfile.age || (patientProfile.dateOfBirth ? Math.floor((new Date() - new Date(patientProfile.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000)) : null);
+                                        const normalizedKey = normalizeVitalName(selectedVital) || selectedVital.toLowerCase();
+                                        
+                                        switch (normalizedKey) {
+                                          case 'blood_pressure':
+                                          case 'bp':
+                                            return age && age < 18 ? '<120/80' : '<140/90';
+                                          case 'heart_rate':
+                                          case 'hr':
+                                            if (age) {
+                                              if (age < 1) return '100-160';
+                                              if (age < 3) return '90-150';
+                                              if (age < 10) return '70-120';
+                                              if (age < 18) return '60-100';
+                                            }
+                                            return '60-100';
+                                          case 'temperature':
+                                          case 'temp':
+                                            return '97.5-99.5';
+                                          case 'weight':
+                                            // Calculate weight normal range based on BMI (18.5-24.9) using height
+                                            if (patientProfile.height) {
+                                              return getWeightNormalRange(patientProfile.height, patientProfile.gender);
+                                            }
+                                            return null;
+                                          case 'oxygen_saturation':
+                                          case 'o2sat':
+                                          case 'spo2':
+                                            return '>95';
+                                          case 'respiratory_rate':
+                                          case 'rr':
+                                            if (age) {
+                                              if (age < 1) return '30-60';
+                                              if (age < 3) return '24-40';
+                                              if (age < 12) return '20-30';
+                                            }
+                                            return '12-20';
+                                          default: return null;
+                                        }
+                                      })();
+                                      const vitalStatus = getVitalStatus(currentVital.current, normalRange, selectedVital);
+                                      const statusColors = {
+                                        green: 'text-green-700',
+                                        yellow: 'text-amber-700',
+                                        red: 'text-red-700',
+                                        gray: 'text-gray-700'
+                                      };
+                                      return (
+                                        <span className={`ml-auto text-xs ${statusColors[vitalStatus.color] || statusColors.gray}`}>
+                                          {vitalStatus.label}
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
+                                  <p className="text-xs sm:text-sm text-gray-600">
+                                    Normal range: {(() => {
+                                      const normalRange = currentVital.normalRange || (() => {
+                                        // Fallback to default normal ranges if not set
+                                        const age = patientProfile.age || (patientProfile.dateOfBirth ? Math.floor((new Date() - new Date(patientProfile.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000)) : null);
+                                        // Normalize the vital key to handle both short and canonical keys
+                                        const normalizedKey = normalizeVitalName(selectedVital) || selectedVital.toLowerCase();
+                                        
+                                        switch (normalizedKey) {
+                                          case 'blood_pressure':
+                                          case 'bp':
+                                            return age && age < 18 ? '<120/80' : '<140/90';
+                                          case 'heart_rate':
+                                          case 'hr':
+                                            if (age) {
+                                              if (age < 1) return '100-160';
+                                              if (age < 3) return '90-150';
+                                              if (age < 10) return '70-120';
+                                              if (age < 18) return '60-100';
+                                            }
+                                            return '60-100';
+                                          case 'temperature':
+                                          case 'temp':
+                                            return '97.5-99.5';
+                                          case 'weight':
+                                            // Calculate weight normal range based on BMI (18.5-24.9) using height
+                                            if (patientProfile.height) {
+                                              return getWeightNormalRange(patientProfile.height, patientProfile.gender);
+                                            }
+                                            return null;
+                                          case 'oxygen_saturation':
+                                          case 'o2sat':
+                                          case 'spo2':
+                                            return '>95';
+                                          case 'respiratory_rate':
+                                          case 'rr':
+                                            if (age) {
+                                              if (age < 1) return '30-60';
+                                              if (age < 3) return '24-40';
+                                              if (age < 12) return '20-30';
+                                            }
+                                            return '12-20';
+                                          default: return 'N/A';
+                                        }
+                                      })();
+                                      return normalRange ? `${normalRange} ${currentVital.unit}` : 'N/A';
+                                    })()}
+                                  </p>
+                                </div>
+
+                                {/* Chart - Responsive with Y-axis and hover tooltips */}
+                                <div className="flex gap-3">
+                                  {/* Y-axis labels */}
+                                  <div className="flex flex-col justify-between text-xs text-gray-600 font-medium py-2" style={{ paddingBottom: '1.5rem' }}>
+                                    {(() => {
+                                      // Filter out non-numeric values and ensure we have valid numbers
+                                      const values = currentVital.data
+                                        .map(d => {
+                                          if (selectedVital === 'bp' || selectedVital === 'bloodpressure') {
+                                            return parseFloat(d.systolic || d.value);
+                                          }
+                                          return parseFloat(d.value);
+                                        })
+                                        .filter(v => !isNaN(v) && isFinite(v));
+
+                                      if (values.length === 0) {
+                                        return <div className="text-right pr-2 w-10">--</div>;
+                                      }
+
+                                      let minVal = Math.min(...values);
+                                      let maxVal = Math.max(...values);
+
+                                      // Parse normal range if available (formats: "0-35", "24.0-34.0", "< 0.5", "> 60")
+                                      if (currentVital.normalRange) {
+                                        // Try standard range format "X-Y"
+                                        let rangeMatch = currentVital.normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+                                        if (rangeMatch) {
+                                          const normMin = parseFloat(rangeMatch[1]);
+                                          const normMax = parseFloat(rangeMatch[2]);
+                                          if (!isNaN(normMin) && !isNaN(normMax)) {
+                                            minVal = Math.min(minVal, normMin);
+                                            maxVal = Math.max(maxVal, normMax);
+                                          }
+                                        } else {
+                                          // Try "< X" format
+                                          const lessThanMatch = currentVital.normalRange.match(/<\s*(\d+\.?\d*)/);
+                                          if (lessThanMatch) {
+                                            const threshold = parseFloat(lessThanMatch[1]);
+                                            if (!isNaN(threshold)) {
+                                              minVal = Math.min(minVal, 0);
+                                              maxVal = Math.max(maxVal, threshold);
+                                            }
+                                          } else {
+                                            // Try "> X" format
+                                            const greaterThanMatch = currentVital.normalRange.match(/>\s*(\d+\.?\d*)/);
+                                            if (greaterThanMatch) {
+                                              const threshold = parseFloat(greaterThanMatch[1]);
+                                              if (!isNaN(threshold)) {
+                                                minVal = Math.min(minVal, threshold);
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+
+                                      const range = maxVal - minVal;
+                                      const padding = range * 0.2 || 10; // Fallback if range is 0
+                                      const yMin = Math.floor(minVal - padding);
+                                      const yMax = Math.ceil(maxVal + padding);
+                                      const step = (yMax - yMin) / 4;
+
+                                      return [4, 3, 2, 1, 0].map(i => (
+                                        <div key={i} className="text-right pr-2 w-10" style={{ lineHeight: '1' }}>
+                                          {(yMin + (step * i)).toFixed(maxVal > 100 ? 0 : 1)}
+                                        </div>
+                                      ));
+                                    })()}
+                                  </div>
+
+                                  {/* Chart area */}
+                                  <div className="flex-1">
+                                    <div className="relative h-40 mb-3">
+                                      {/* Horizontal grid lines */}
+                                      <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                                        {[0, 1, 2, 3, 4].map(i => (
+                                          <div key={i} className="border-t border-gray-200"></div>
+                                        ))}
+                                      </div>
+
+                                      {/* SVG Graph */}
+                                      {(() => {
+                                        // Filter out non-numeric values and ensure we have valid numbers
+                                        const values = currentVital.data
+                                          .map(d => {
+                                            if (selectedVital === 'bp' || selectedVital === 'bloodpressure') {
+                                              return parseFloat(d.systolic || d.value);
+                                            }
+                                            return parseFloat(d.value);
+                                          })
+                                          .filter(v => !isNaN(v) && isFinite(v));
+
+                                        if (values.length === 0) {
+                                          return (
+                                            <div className="flex items-center justify-center h-full text-gray-400">
+                                              <p>No numeric data available for charting</p>
+                                            </div>
+                                          );
+                                        }
+
+                                        let minVal = Math.min(...values);
+                                        let maxVal = Math.max(...values);
+
+                                        // Get normal range (calculate if not set, especially for weight)
+                                        const normalRangeForChart = currentVital.normalRange || (() => {
+                                          const age = patientProfile.age || (patientProfile.dateOfBirth ? Math.floor((new Date() - new Date(patientProfile.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000)) : null);
+                                          // Normalize the vital key to handle both short and canonical keys
+                                          const normalizedKey = normalizeVitalName(selectedVital) || selectedVital.toLowerCase();
+                                          
+                                          switch (normalizedKey) {
+                                            case 'blood_pressure':
+                                            case 'bp':
+                                              return age && age < 18 ? '<120/80' : '<140/90';
+                                            case 'heart_rate':
+                                            case 'hr':
+                                              if (age) {
+                                                if (age < 1) return '100-160';
+                                                if (age < 3) return '90-150';
+                                                if (age < 10) return '70-120';
+                                                if (age < 18) return '60-100';
+                                              }
+                                              return '60-100';
+                                            case 'temperature':
+                                            case 'temp':
+                                              return '97.5-99.5';
+                                            case 'weight':
+                                              // Calculate weight normal range based on BMI (18.5-24.9) using height
+                                              if (patientProfile.height) {
+                                                return getWeightNormalRange(patientProfile.height, patientProfile.gender);
+                                              }
+                                              return null;
+                                            case 'oxygen_saturation':
+                                            case 'o2sat':
+                                            case 'spo2':
+                                              return '>95';
+                                            case 'respiratory_rate':
+                                            case 'rr':
+                                              if (age) {
+                                                if (age < 1) return '30-60';
+                                                if (age < 3) return '24-40';
+                                                if (age < 12) return '20-30';
+                                              }
+                                              return '12-20';
+                                            default: return null;
+                                          }
+                                        })();
+
+                                        // Parse normal range if available
+                                        if (normalRangeForChart) {
+                                          // Special handling for blood pressure format "<140/90"
+                                          const bpMatch = normalRangeForChart.match(/<\s*(\d+)\/(\d+)/);
+                                          if (bpMatch && (selectedVital === 'bp' || selectedVital === 'blood_pressure')) {
+                                            // For BP, use the systolic threshold (first number)
+                                            const threshold = parseFloat(bpMatch[1]);
+                                            if (!isNaN(threshold)) {
+                                              minVal = Math.min(minVal, 0);
+                                              maxVal = Math.max(maxVal, threshold);
+                                            }
+                                          } else {
+                                            // Try standard range format "X-Y"
+                                            let rangeMatch = normalRangeForChart.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+                                            if (rangeMatch) {
+                                              const normMin = parseFloat(rangeMatch[1]);
+                                              const normMax = parseFloat(rangeMatch[2]);
+                                              if (!isNaN(normMin) && !isNaN(normMax)) {
+                                                minVal = Math.min(minVal, normMin);
+                                                maxVal = Math.max(maxVal, normMax);
+                                              }
+                                            } else {
+                                              // Try "< X" format (single number, not BP)
+                                              const lessThanMatch = normalRangeForChart.match(/<\s*(\d+\.?\d*)/);
+                                              if (lessThanMatch) {
+                                                const threshold = parseFloat(lessThanMatch[1]);
+                                                if (!isNaN(threshold)) {
+                                                  minVal = Math.min(minVal, 0);
+                                                  maxVal = Math.max(maxVal, threshold);
+                                                }
+                                              } else {
+                                                // Try "> X" format
+                                                const greaterThanMatch = normalRangeForChart.match(/>\s*(\d+\.?\d*)/);
+                                                if (greaterThanMatch) {
+                                                  const threshold = parseFloat(greaterThanMatch[1]);
+                                                  if (!isNaN(threshold)) {
+                                                    // For "> X" format, include threshold in Y-axis bounds if it's close to data
+                                                    // Only adjust if threshold is within reasonable range of the data
+                                                    if (threshold >= minVal * 0.8 && threshold <= maxVal * 1.2) {
+                                                      minVal = Math.min(minVal, threshold * 0.95);
+                                                      maxVal = Math.max(maxVal, threshold * 1.05);
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+
+                                        const range = maxVal - minVal;
+                                        const padding = range * 0.2 || 10; // Fallback if range is 0
+                                        const yMin = Math.floor(minVal - padding);
+                                        const yMax = Math.ceil(maxVal + padding);
+                                        const yRange = yMax - yMin || 1; // Prevent division by zero
+
+                                        return (
+                                          <>
+                                            <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 400 160" preserveAspectRatio="none">
+                                              <defs>
+                                                <linearGradient id={`gradient-vital-${selectedVital}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                                  <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.2" />
+                                                  <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.05" />
+                                                </linearGradient>
+                                              </defs>
+
+                                              {/* Normal range boundaries (if available) */}
+                                              {(() => {
+                                                // Use the normal range calculated earlier for Y-axis
+                                                const normalRange = normalRangeForChart;
+                                                
+                                                if (!normalRange) return null;
+                                                
+                                                return (() => {
+                                                // Special handling for blood pressure format "<140/90"
+                                                const bpMatch = normalRange.match(/<\s*(\d+)\/(\d+)/);
+                                                if (bpMatch && (selectedVital === 'bp' || selectedVital === 'blood_pressure')) {
+                                                  // For BP, we show the systolic threshold (first number)
+                                                  const threshold = parseFloat(bpMatch[1]);
+                                                  if (!isNaN(threshold) && isFinite(threshold)) {
+                                                    const thresholdY = 160 - ((threshold - yMin) / yRange) * 160;
+                                                    return (
+                                                      <>
+                                                        {/* Shaded area below threshold */}
+                                                        <rect
+                                                          x="0"
+                                                          y={thresholdY}
+                                                          width="400"
+                                                          height={160 - thresholdY}
+                                                          fill="#3b82f6"
+                                                          opacity="0.08"
+                                                        />
+                                                        {/* Threshold line */}
+                                                        <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                      </>
+                                                    );
+                                                  }
+                                                }
+                                                
+                                                // Try standard range format "X-Y"
+                                                let rangeMatch = normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+                                                if (rangeMatch) {
+                                                  const normMin = parseFloat(rangeMatch[1]);
+                                                  const normMax = parseFloat(rangeMatch[2]);
+                                                  if (!isNaN(normMin) && !isNaN(normMax) && isFinite(normMin) && isFinite(normMax)) {
+                                                    const normMinY = 160 - ((normMin - yMin) / yRange) * 160;
+                                                    const normMaxY = 160 - ((normMax - yMin) / yRange) * 160;
+                                                    return (
+                                                      <>
+                                                        {/* Normal range shaded area */}
+                                                        <rect
+                                                          x="0"
+                                                          y={normMaxY}
+                                                          width="400"
+                                                          height={normMinY - normMaxY}
+                                                          fill="#3b82f6"
+                                                          opacity="0.08"
+                                                        />
+                                                        {/* Normal range boundary lines */}
+                                                        <line x1="0" y1={normMinY} x2="400" y2={normMinY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                        <line x1="0" y1={normMaxY} x2="400" y2={normMaxY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                      </>
+                                                    );
+                                                  }
+                                                } else {
+                                                  // Try "< X" format (single number, not BP)
+                                                  const lessThanMatch = normalRange.match(/<\s*(\d+\.?\d*)/);
+                                                  if (lessThanMatch) {
+                                                    const threshold = parseFloat(lessThanMatch[1]);
+                                                    if (!isNaN(threshold) && isFinite(threshold)) {
+                                                      const thresholdY = 160 - ((threshold - yMin) / yRange) * 160;
+                                                      return (
+                                                        <>
+                                                          {/* Shaded area below threshold */}
+                                                          <rect
+                                                            x="0"
+                                                            y={thresholdY}
+                                                            width="400"
+                                                            height={160 - thresholdY}
+                                                          fill="#3b82f6"
+                                                          opacity="0.08"
+                                                        />
+                                                        {/* Threshold line */}
+                                                        <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                        </>
+                                                      );
+                                                    }
+                                                  } else {
+                                                    // Try "> X" format
+                                                    const greaterThanMatch = normalRange.match(/>\s*(\d+\.?\d*)/);
+                                                    if (greaterThanMatch) {
+                                                      const threshold = parseFloat(greaterThanMatch[1]);
+                                                      if (!isNaN(threshold) && isFinite(threshold)) {
+                                                        const thresholdY = 160 - ((threshold - yMin) / yRange) * 160;
+                                                        // Only show if threshold is within visible range
+                                                        if (thresholdY >= 0 && thresholdY <= 160) {
+                                                          return (
+                                                            <>
+                                                              {/* Shaded area above threshold */}
+                                                              <rect
+                                                                x="0"
+                                                                y="0"
+                                                                width="400"
+                                                                height={thresholdY}
+                                                            fill="#3b82f6"
+                                                            opacity="0.08"
+                                                          />
+                                                          {/* Threshold line */}
+                                                          <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                            </>
+                                                          );
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                                return null;
+                                                })();
+                                              })()}
+
+                                              {/* Area under line */}
+                                              <polygon
+                                                points={(() => {
+                                                  const dataLength = Math.max(currentVital.data.length - 1, 1); // Prevent division by zero
+                                                  const topPoints = currentVital.data.map((d, i) => {
+                                                    const val = (selectedVital === 'bp' || selectedVital === 'bloodpressure') ? (d.systolic || d.value) : d.value;
+                                                    return `${(i / dataLength) * 400},${160 - ((parseFloat(val) - yMin) / yRange) * 160}`;
+                                                  }).join(' ');
+                                                  return `${topPoints} 400,160 0,160`;
+                                                })()}
+                                                fill={`url(#gradient-vital-${selectedVital})`}
+                                              />
+
+                                              {/* Line */}
+                                              <polyline
+                                                points={(() => {
+                                                  const dataLength = Math.max(currentVital.data.length - 1, 1); // Prevent division by zero
+                                                  return currentVital.data.map((d, i) => {
+                                                    const val = (selectedVital === 'bp' || selectedVital === 'bloodpressure') ? (d.systolic || d.value) : d.value;
+                                                    return `${(i / dataLength) * 400},${160 - ((parseFloat(val) - yMin) / yRange) * 160}`;
+                                                  }).join(' ');
+                                                })()}
+                                                fill="none"
+                                                stroke="#3b82f6"
+                                                strokeWidth="3"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                              />
+                                            </svg>
+
+                                            {/* Interactive data points with tooltips */}
+                                            {currentVital.data.map((d, i) => {
+                                              const dataLength = Math.max(currentVital.data.length - 1, 1); // Prevent division by zero
+                                              const val = (selectedVital === 'bp' || selectedVital === 'bloodpressure') ? (d.systolic || d.value) : d.value;
+                                              const displayValue = (selectedVital === 'bp' || selectedVital === 'bloodpressure') 
+                                                ? `${d.systolic || d.value}/${d.diastolic || ''}` 
+                                                : d.value;
+                                              const x = (i / dataLength) * 100;
+                                              const y = ((parseFloat(val) - yMin) / yRange) * 100;
+                                              const isLatest = i === currentVital.data.length - 1;
+                                              
+                                              // Get normal range for status calculation
+                                              const normalRange = currentVital.normalRange || (() => {
+                                                const age = patientProfile.age || (patientProfile.dateOfBirth ? Math.floor((new Date() - new Date(patientProfile.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000)) : null);
+                                                const normalizedKey = normalizeVitalName(selectedVital) || selectedVital.toLowerCase();
+                                                
+                                                switch (normalizedKey) {
+                                                  case 'blood_pressure':
+                                                  case 'bp':
+                                                    return age && age < 18 ? '<120/80' : '<140/90';
+                                                  case 'heart_rate':
+                                                  case 'hr':
+                                                    if (age) {
+                                                      if (age < 1) return '100-160';
+                                                      if (age < 3) return '90-150';
+                                                      if (age < 10) return '70-120';
+                                                      if (age < 18) return '60-100';
+                                                    }
+                                                    return '60-100';
+                                                  case 'temperature':
+                                                  case 'temp':
+                                                    return '97.5-99.5';
+                                                  case 'weight':
+                                                    // Calculate weight normal range based on BMI (18.5-24.9) using height
+                                                    if (patientProfile.height) {
+                                                      return getWeightNormalRange(patientProfile.height, patientProfile.gender);
+                                                    }
+                                                    return null;
+                                                  case 'oxygen_saturation':
+                                                  case 'o2sat':
+                                                  case 'spo2':
+                                                    return '>95';
+                                                  case 'respiratory_rate':
+                                                  case 'rr':
+                                                    if (age) {
+                                                      if (age < 1) return '30-60';
+                                                      if (age < 3) return '24-40';
+                                                      if (age < 12) return '20-30';
+                                                    }
+                                                    return '12-20';
+                                                  default: return null;
+                                                }
+                                              })();
+                                              
+                                              const vitalStatus = getVitalStatus(displayValue, normalRange, selectedVital);
+                                              const statusColors = {
+                                                green: '#10b981',
+                                                yellow: '#f59e0b',
+                                                red: '#ef4444',
+                                                gray: '#6b7280'
+                                              };
+                                              const dotColor = statusColors[vitalStatus.color] || statusColors.gray;
+                                              const statusBadgeColors = {
+                                                green: 'bg-green-100 text-green-700',
+                                                yellow: 'bg-amber-100 text-amber-700',
+                                                red: 'bg-red-100 text-red-700',
+                                                gray: 'bg-gray-100 text-gray-700'
+                                              };
+
+                                              return (
+                                                <div
+                                                  key={i}
+                                                  className="absolute group cursor-pointer"
+                                                  style={{
+                                                    left: `${x}%`,
+                                                    bottom: `${y}%`,
+                                                    transform: 'translate(-50%, 50%)'
+                                                  }}
+                                                >
+                                                  {/* Hover area */}
+                                                  <div className="absolute inset-0 w-10 h-10 -m-5"></div>
+
+                                                  {/* Outer ring on hover */}
+                                                  <div
+                                                    className="absolute inset-0 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                                                    style={{
+                                                      width: '20px',
+                                                      height: '20px',
+                                                      margin: '-10px',
+                                                      border: `2px solid ${dotColor}`,
+                                                      backgroundColor: `${dotColor}20`
+                                                    }}
+                                                  />
+
+                                                  {/* Data point dot */}
+                                                  <div
+                                                    className={`rounded-full transition-all relative z-10 group-hover:scale-125 ${isLatest ? 'w-3.5 h-3.5' : 'w-3 h-3'
+                                                      }`}
+                                                    style={{
+                                                      backgroundColor: dotColor,
+                                                      border: '2px solid white',
+                                                      boxShadow: isLatest
+                                                        ? '0 2px 8px rgba(0,0,0,0.25)'
+                                                        : '0 1px 4px rgba(0,0,0,0.15)'
+                                                    }}
+                                                  />
+
+                                                  {/* Tooltip with edit and delete buttons */}
+                                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4 opacity-0 group-hover:opacity-100 transition-opacity z-30">
+                                                    <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl">
+                                                      <div className="flex items-center justify-between gap-3">
+                                                        <div>
+                                                      <div className="font-bold text-sm">
+                                                        {displayValue} {currentVital.unit}
+                                                      </div>
+                                                        </div>
+                                                        {d.id && (
+                                                          <div className="flex items-center gap-2">
+                                                            <button
+                                                              onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const currentVitalDoc = allVitalsData[selectedVital];
+                                                                if (currentVitalDoc && currentVitalDoc.id) {
+                                                                  // Pre-fill with existing value data
+                                                                  const valueData = currentVital.data.find(item => item.id === d.id);
+                                                                  // Use dateOriginal if available, otherwise try to parse formatted date
+                                                                  let dateTimeValue = new Date().toISOString().slice(0, 16);
+                                                                  if (valueData?.dateOriginal) {
+                                                                    dateTimeValue = valueData.dateOriginal.toISOString().slice(0, 16);
+                                                                  } else if (valueData?.date) {
+                                                                    // Try to parse the formatted date string (e.g., "Dec 14")
+                                                                    const parsed = new Date(valueData.date);
+                                                                    if (!isNaN(parsed.getTime())) {
+                                                                      dateTimeValue = parsed.toISOString().slice(0, 16);
+                                                                    }
+                                                                  }
+                                                                  const displayName = getVitalDisplayName(currentVitalDoc.name || selectedVital);
+                                                                  setSelectedVitalForValue({ 
+                                                                    id: currentVitalDoc.id, 
+                                                                    name: displayName, 
+                                                                    unit: currentVitalDoc.unit, 
+                                                                    key: selectedVital,
+                                                                    vitalType: selectedVital
+                                                                  });
+                                                                  setNewVitalValue({ 
+                                                                    value: valueData?.value || '', 
+                                                                    systolic: valueData?.systolic || '', 
+                                                                    diastolic: valueData?.diastolic || '', 
+                                                                    dateTime: dateTimeValue, 
+                                                                    notes: valueData?.notes || '' 
+                                                                  });
+                                                                  setEditingVitalValueId(d.id); // Store the value ID being edited
+                                                                  setIsEditingVitalValue(true);
+                                                                  setShowAddVitalValue(true);
+                                                                }
+                                                              }}
+                                                              className="text-blue-400 hover:text-blue-300 transition-colors p-1 rounded hover:bg-blue-900/20 flex-shrink-0"
+                                                              title="Edit this reading"
+                                                            >
+                                                              <Edit2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                            <button
+                                                              onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                const displayName = getVitalDisplayName(currentVital.name || selectedVital);
+                                                                const valueDisplay = selectedVital === 'bp' || selectedVital === 'bloodpressure' 
+                                                                  ? `${d.systolic || d.value}/${d.diastolic || ''}`
+                                                                  : d.value;
+                                                                if (window.confirm(`Delete this ${displayName} reading (${valueDisplay} ${currentVital.unit} on ${d.date})?`)) {
+                                                                  try {
+                                                                    console.log('Deleting vital with ID:', d.id);
+                                                                    
+                                                                      // Optimistically update UI immediately
+                                                                      const updatedVitalsData = { ...vitalsData };
+                                                                      if (updatedVitalsData[selectedVital] && updatedVitalsData[selectedVital].data) {
+                                                                        const filteredData = updatedVitalsData[selectedVital].data.filter(item => item.id !== d.id);
+                                                                        // Get most recent value (first item after sorting by timestamp)
+                                                                        const sortedData = [...filteredData].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                                                                        updatedVitalsData[selectedVital] = {
+                                                                          ...updatedVitalsData[selectedVital],
+                                                                          data: filteredData,
+                                                                          current: sortedData.length > 0 ? sortedData[0].value : '--'
+                                                                        };
+                                                                        setVitalsData(updatedVitalsData);
+                                                                      }
+                                                                    
+                                                                    // Delete from Firestore in background
+                                                                    // d.id is the value ID in the subcollection, not the vital document ID
+                                                                    // Get the vital document ID from currentVitalDoc
+                                                                    const currentVitalDoc = allVitalsData[selectedVital];
+                                                                    if (!currentVitalDoc || !currentVitalDoc.id) {
+                                                                      throw new Error('Vital document ID not found');
+                                                                    }
+                                                                    await vitalService.deleteVitalValue(currentVitalDoc.id, d.id);
+                                                                    
+                                                                    // Reload to ensure sync (but UI already updated)
+                                                                    // Use reloadHealthData to properly reload all data
+                                                                    setTimeout(async () => {
+                                                                      await reloadHealthData();
+                                                                    }, 300);
+                                                                  } catch (error) {
+                                                                    console.error('Error deleting vital:', error);
+                                                                    // Revert optimistic update on error
+                                                                    reloadHealthData();
+                                                                    alert('Failed to delete vital reading. Please try again.');
+                                                                  }
+                                                                }
+                                                              }}
+                                                              className="text-red-400 hover:text-red-300 transition-colors p-1 rounded hover:bg-red-900/20 flex-shrink-0"
+                                                              title="Delete this reading"
+                                                            >
+                                                              <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                      {/* Arrow */}
+                                                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                                                        <div className="border-4 border-transparent border-t-gray-900"></div>
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
+                                          </>
+                                        );
+                                      })()}
+                                    </div>
+
+                                    {/* X-axis labels */}
+                                    <div className="flex justify-between border-t border-gray-300 pt-2 text-xs text-gray-600">
+                                      {currentVital.data.map((d, i) => (
+                                        <span key={i} className="hidden sm:inline">{d.date}</span>
+                                      ))}
+                                      <span className="sm:hidden">{currentVital.data[0]?.date}</span>
+                                      <span className="sm:hidden">{currentVital.data[currentVital.data.length - 1]?.date}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+
+                        {/* Log Vital Reading Button */}
+                        <div className="flex justify-end mb-2">
+                          <button
+                            onClick={() => setShowAddVital(true)}
+                            className="flex items-center gap-2 text-green-600 hover:text-green-700 transition-colors"
+                          >
+                            <Plus className="w-4 h-4" />
+                            <span className="text-sm font-medium">Add Vital Reading</span>
+                          </button>
+                        </div>
+
+                        {/* Quick Vital Stats */}
+                        <div className="bg-white rounded-lg shadow p-4">
+                          <h3 className="font-semibold text-gray-800 mb-3">All Vitals (Latest)</h3>
+                          <div className="grid grid-cols-2 gap-2">
+                            {Object.entries(allVitalsData).map(([key, vital]) => {
+                              const displayName = getVitalDisplayName(vital.name || key);
+                              // Get normal range for display
+                              const normalRange = vital.normalRange || (() => {
+                                const age = patientProfile.age || (patientProfile.dateOfBirth ? Math.floor((new Date() - new Date(patientProfile.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000)) : null);
+                                const normalizedKey = normalizeVitalName(key) || key.toLowerCase();
+                                
+                                switch (normalizedKey) {
+                                  case 'blood_pressure':
+                                  case 'bp':
+                                    return age && age < 18 ? '<120/80' : '<140/90';
+                                  case 'heart_rate':
+                                  case 'hr':
+                                    if (age) {
+                                      if (age < 1) return '100-160';
+                                      if (age < 3) return '90-150';
+                                      if (age < 10) return '70-120';
+                                      if (age < 18) return '60-100';
+                                    }
+                                    return '60-100';
+                                  case 'temperature':
+                                  case 'temp':
+                                    return '97.5-99.5';
+                                  case 'weight':
+                                    // Calculate weight normal range based on BMI (18.5-24.9) using height
+                                    if (patientProfile.height) {
+                                      return getWeightNormalRange(patientProfile.height, patientProfile.gender);
+                                    }
+                                    return null;
+                                  case 'oxygen_saturation':
+                                  case 'o2sat':
+                                  case 'spo2':
+                                    return '>95';
+                                  case 'respiratory_rate':
+                                  case 'rr':
+                                    if (age) {
+                                      if (age < 1) return '30-60';
+                                      if (age < 3) return '24-40';
+                                      if (age < 12) return '20-30';
+                                    }
+                                    return '12-20';
+                                  default: return null;
+                                }
+                              })();
+                              
+                              return (
+                                <div
+                                  key={key}
+                                  className={`relative bg-white rounded-lg shadow-sm p-4 border-2 transition-all cursor-pointer ${
+                                    selectedVital === key
+                                      ? 'border-medical-primary-500 bg-medical-primary-50'
+                                      : 'border-medical-neutral-200 hover:border-medical-neutral-300 hover:shadow-md'
+                                  }`}
+                                  onClick={() => setSelectedVital(key)}
+                                >
+                                  <div className="flex items-start justify-between mb-2">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <p className="text-sm font-semibold text-medical-neutral-900">{displayName}</p>
+                                      </div>
+                                      <div className="flex items-baseline gap-2">
+                                        <p className="text-xl font-bold text-medical-neutral-900">{vital.current}</p>
+                                        <p className="text-xs text-medical-neutral-500">{vital.unit}</p>
+                                      </div>
+                                      {(() => {
+                                        const vitalStatus = getVitalStatus(vital.current, normalRange, key);
+                                        const statusColors = {
+                                          green: 'text-green-700',
+                                          yellow: 'text-amber-700',
+                                          red: 'text-red-700',
+                                          gray: 'text-gray-700'
+                                        };
+                                        return (
+                                          <p className={`text-xs ${statusColors[vitalStatus.color] || statusColors.gray} font-medium mt-1`}>
+                                            {vitalStatus.label}
+                                          </p>
+                                        );
+                                      })()}
+                                      {normalRange && (
+                                        <p className="text-xs text-medical-neutral-500 mt-1">Normal: {normalRange}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="absolute top-2 right-2">
+                                    <div className="relative">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setOpenDeleteMenu(openDeleteMenu === `vital:${key}` ? null : `vital:${key}`);
+                                        }}
+                                        className="p-1.5 text-medical-neutral-500 hover:bg-medical-neutral-100 rounded transition-colors"
+                                        title="More options"
+                                      >
+                                        <MoreVertical className="w-4 h-4" />
+                                      </button>
+                                      {openDeleteMenu === `vital:${key}` && (
+                                        <>
+                                          <div
+                                            className="fixed inset-0 z-[90]"
+                                            onClick={() => setOpenDeleteMenu(null)}
+                                          />
+                                            <div className="absolute right-0 top-8 z-[100] bg-white rounded-lg shadow-lg border border-medical-neutral-200 py-1 min-w-[160px]">
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setOpenDeleteMenu(null);
+                                                // Open add vital value modal for this specific vital
+                                                const vitalDoc = allVitalsData[key];
+                                                if (vitalDoc) {
+                                                  const displayName = getVitalDisplayName(vitalDoc.name || key);
+                                                  setSelectedVitalForValue({ 
+                                                    id: vitalDoc.id, 
+                                                    name: displayName, 
+                                                    unit: vitalDoc.unit, 
+                                                    key: key,
+                                                    vitalType: key
+                                                  });
+                                                  setNewVitalValue({ 
+                                                    value: '', 
+                                                    systolic: '', 
+                                                    diastolic: '', 
+                                                    dateTime: new Date().toISOString().slice(0, 16), 
+                                                    notes: '' 
+                                                  });
+                                                  setIsEditingVitalValue(false);
+                                                  setEditingVitalValueId(null);
+                                                  setShowAddVitalValue(true);
+                                                }
+                                              }}
+                                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                            >
+                                              <Plus className="w-4 h-4" />
+                                              Add Value
+                                            </button>
+                                            <button
+                                              onClick={async (e) => {
+                                                e.stopPropagation();
+                                                setOpenDeleteMenu(null);
+                                                const vitalType = key;
+                                                const vital = allVitalsData[key] || vitalsData[key];
+                                                const displayName = getVitalDisplayName(vital?.name || vitalType);
+                                                const count = vital?.data?.length || 0;
+                                                const hasValues = (vital?.data && Array.isArray(vital.data) && vital.data.length > 0 && vital.data.some(item => item.value != null && item.value !== undefined));
+                                                const confirmMessage = hasValues
+                                                  ? `Delete all ${displayName} data? This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'}. This action cannot be undone.`
+                                                  : `Delete ${displayName} metric? This will permanently remove the metric. This action cannot be undone.`;
+                                                if (window.confirm(confirmMessage)) {
+                                                  try {
+                                                    console.log('Deleting all vitals of type:', vitalType);
+                                                    
+                                                    // Optimistically update UI immediately
+                                                    const updatedVitalsData = { ...vitalsData };
+                                                    delete updatedVitalsData[vitalType];
+                                                    setVitalsData(updatedVitalsData);
+                                                    
+                                                    // If deleted vital was selected, select first available
+                                                    if (selectedVital === vitalType) {
+                                                      const firstAvailable = Object.keys(updatedVitalsData).find(key => 
+                                                        updatedVitalsData[key] && updatedVitalsData[key].data && updatedVitalsData[key].data.length > 0
+                                                      );
+                                                      if (firstAvailable) {
+                                                        setSelectedVital(firstAvailable);
+                                                      } else {
+                                                        // No vitals with data left, clear selection
+                                                        setSelectedVital(null);
+                                                      }
+                                                    }
+                                                    
+                                                    // Delete from Firestore in background
+                                                    const deletedCount = await vitalService.deleteAllVitalsByType(user.uid, vitalType);
+                                                    console.log('Deleted vitals count:', deletedCount);
+                                                    
+                                                    // Reload to ensure sync (but UI already updated)
+                                                    setTimeout(async () => {
+                                                      await reloadHealthData();
+                                                    }, 300);
+                                                  } catch (error) {
+                                                    console.error('Error deleting vitals:', error);
+                                                    // Revert optimistic update on error
+                                                    reloadHealthData();
+                                                    alert('Failed to delete vital data. Please try again.');
+                                                  }
+                                                }
+                                              }}
+                                              className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                                            >
+                                              <Trash2 className="w-4 h-4" />
+                                              {(() => {
+                                                const vital = allVitalsData[key] || vitalsData[key];
+                                                const hasValues = vital?.data && Array.isArray(vital.data) && vital.data.length > 0 && vital.data.some(item => item.value != null && item.value !== undefined);
+                                                return hasValues ? 'Delete All' : 'Delete Metric';
+                                              })()}
+                                            </button>
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                  </>
+                )}
+              </>
+            )}
+
+            {healthSection === 'symptoms' && (
+              <>
+                {symptoms.length === 0 ? (
+                  <div className="border-2 border-medical-primary-500 rounded-lg p-6 text-center bg-white">
+                    <div className="flex flex-col items-center gap-3">
+                      <Thermometer className="w-12 h-12 text-medical-primary-400" />
+                      <div>
+                        <h3 className="font-semibold text-medical-primary-900 mb-1">No Symptoms Tracked Yet</h3>
+                        <p className="text-sm text-medical-primary-700 mb-4">
+                          Track symptoms to identify patterns and correlations with your health data
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                          <button
+                            onClick={() => setShowAddSymptomModal(true)}
+                            className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                            Manual Enter
+                          </button>
+                    <button
+                      onClick={() => onTabChange('chat')}
+                            className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center justify-center gap-2"
+                    >
+                            <MessageSquare className="w-4 h-4" />
+                            Add via Chat
+                    </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {symptoms.length > 5 && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-semibold text-blue-900">AI Pattern Detection</p>
+                            <p className="text-xs text-blue-700 mt-1">
+                              Track more symptoms to enable pattern detection and correlations with your lab values.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Symptom Calendar */}
+                <div className="bg-white rounded-lg shadow p-4">
+                  {/* Date Pager */}
+                  <div className="flex items-center justify-between mb-4">
+                    <button
+                      onClick={() => {
+                        const prevMonth = new Date(symptomCalendarDate);
+                        prevMonth.setMonth(prevMonth.getMonth() - 1);
+                        setSymptomCalendarDate(prevMonth);
+                      }}
+                      className="p-2 rounded-lg hover:bg-gray-100 transition"
+                    >
+                      <ChevronLeft className="w-5 h-5 text-gray-600" />
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-gray-800">
+                        {symptomCalendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                      </h3>
+                      <button
+                        onClick={() => {
+                          // Use local timezone for today's date
+                          const today = new Date();
+                          const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                          setSymptomCalendarDate(localToday);
+                          setSelectedDate(localToday.getDate().toString());
+                        }}
+                        className="px-3 py-1 text-sm text-medical-primary-600 hover:bg-medical-primary-50 rounded-lg transition"
+                      >
+                        Today
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const nextMonth = new Date(symptomCalendarDate);
+                        nextMonth.setMonth(nextMonth.getMonth() + 1);
+                        setSymptomCalendarDate(nextMonth);
+                      }}
+                      className="p-2 rounded-lg hover:bg-gray-100 transition"
+                    >
+                      <ChevronRight className="w-5 h-5 text-gray-600" />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between mb-4">
+                    <div></div>
+                    <button
+                      onClick={() => setShowAddSymptomModal(true)}
+                      className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add Symptom
+                    </button>
+                  </div>
+
+                  {/* Calendar Grid */}
+                  <div className="grid grid-cols-7 gap-1 mb-2">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                      <div key={day} className="text-center text-xs font-medium text-gray-500 py-2">
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-7 gap-1">
+                    {(() => {
+                      const currentMonth = symptomCalendarDate.getMonth();
+                      const currentYear = symptomCalendarDate.getFullYear();
+                      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+                      const firstDayOfWeek = new Date(currentYear, currentMonth, 1).getDay();
+                      const calendar = [];
+                      // Use local timezone for today's date
+                      const today = new Date();
+                      const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                      const isCurrentMonth = localToday.getMonth() === currentMonth && localToday.getFullYear() === currentYear;
+
+                      // Map real symptoms to dates (using local timezone)
+                      const symptomsByDate = {};
+                      symptoms.forEach(symptom => {
+                        // Ensure date is in local timezone
+                        const symptomDate = symptom.date instanceof Date ? symptom.date : new Date(symptom.date);
+                        const localSymptomDate = new Date(symptomDate.getFullYear(), symptomDate.getMonth(), symptomDate.getDate());
+                        // Only include symptoms from the current calendar month
+                        if (localSymptomDate.getMonth() === currentMonth && localSymptomDate.getFullYear() === currentYear) {
+                          const day = localSymptomDate.getDate().toString();
+                        if (!symptomsByDate[day]) {
+                          symptomsByDate[day] = [];
+                        }
+                        symptomsByDate[day].push({
+                            id: symptom.id,
+                          type: symptom.name || symptom.type,
+                          severity: symptom.severity,
+                            time: symptom.time || symptomDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+                            tags: symptom.tags || []
+                        });
+                        }
+                      });
+
+                      // Symptom type colors
+                      const symptomColors = {
+                        'Fatigue': 'bg-blue-500',
+                        'Pain': 'bg-red-500',
+                        'Nausea': 'bg-green-500',
+                        'Headache': 'bg-purple-500',
+                        'Dizziness': 'bg-yellow-500',
+                        'Fever': 'bg-orange-500',
+                        'Shortness of Breath': 'bg-cyan-500',
+                        'Loss of Appetite': 'bg-amber-500',
+                        'Sleep Issues': 'bg-indigo-500'
+                      };
+                      
+                      // Helper function to get color for a symptom type (dark gray for custom symptoms)
+                      const getSymptomColor = (symptomType) => {
+                        return symptomColors[symptomType] || 'bg-gray-700'; // Dark gray for custom symptoms
+                      };
+
+                      // Add empty cells for days before month starts
+                      for (let i = 0; i < firstDayOfWeek; i++) {
+                        calendar.push(
+                          <div key={`empty-${i}`} className="aspect-square"></div>
+                        );
+                      }
+
+                      // Add days of month
+                      for (let day = 1; day <= daysInMonth; day++) {
+                        const dayStr = day.toString();
+                        const hasSymptoms = symptomsByDate[dayStr];
+                        // Check if this is today's date (using local timezone)
+                        const isToday = isCurrentMonth && localToday.getDate() === day;
+                        const uniqueSymptomTypes = hasSymptoms ? [...new Set(hasSymptoms.map(s => s.type))] : [];
+
+                        calendar.push(
+                          <button
+                            key={day}
+                            onClick={() => {
+                              if (hasSymptoms) {
+                                if (selectedDate === dayStr) {
+                                  setSelectedDate(null);
+                                } else {
+                                  setSelectedDate(dayStr);
+                                }
+                              }
+                            }}
+                            className={`aspect-square rounded-lg flex flex-col items-center justify-center text-sm transition-all relative ${isToday
+                              ? 'bg-medical-primary-50 border-2 border-medical-primary-500 font-bold'
+                              : hasSymptoms
+                                ? 'hover:bg-gray-100 border border-gray-200'
+                                : 'border border-transparent text-gray-400'
+                              } ${selectedDate === dayStr ? 'ring-2 ring-medical-primary-500 bg-medical-primary-50' : ''}`}
+                          >
+                            <span className={isToday ? 'text-medical-primary-700' : hasSymptoms ? 'text-gray-900' : ''}>{day}</span>
+
+                            {/* Symptom dots */}
+                            {hasSymptoms && (
+                              <div className="flex gap-0.5 mt-1">
+                                {uniqueSymptomTypes.slice(0, 3).map((type, idx) => (
+                                  <div
+                                    key={idx}
+                                    className={`w-1.5 h-1.5 rounded-full ${getSymptomColor(type)}`}
+                                    title={type}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </button>
+                        );
+                      }
+
+                      return (
+                        <>
+                          {calendar}
+
+                          {/* Selected Date Details */}
+                          {selectedDate && symptomsByDate[selectedDate] && (
+                            <div className="col-span-7 mt-4 bg-gray-50 rounded-lg p-4 animate-fade-scale">
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="font-semibold text-gray-800">
+                                  {symptomCalendarDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).replace(selectedDate, selectedDate)}
+                                </h4>
+                                <button
+                                  onClick={() => setSelectedDate(null)}
+                                  className="text-gray-500 hover:text-gray-700"
+                                >
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+
+                              <div className="space-y-2">
+                                {symptomsByDate[selectedDate].map((symptom, idx) => (
+                                  <div
+                                    key={symptom.id || idx}
+                                    className={`border-l-4 pl-3 py-2 pr-2 rounded-r ${symptom.severity === 'Severe' ? 'border-red-400 bg-red-50' :
+                                      symptom.severity === 'Moderate' ? 'border-yellow-400 bg-yellow-50' :
+                                        'border-green-400 bg-green-50'
+                                      }`}
+                                  >
+                                    <div className="flex items-center justify-between mb-1">
+                                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${getSymptomColor(symptom.type)}`}></div>
+                                        <p className="text-sm font-medium truncate">{symptom.type}</p>
+                                      </div>
+                                      <div className="flex items-center gap-2 flex-shrink-0">
+                                      <span className="text-xs text-gray-600">{symptom.time}</span>
+                                        <button
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            if (window.confirm('Are you sure you want to delete this symptom entry?')) {
+                                              try {
+                                                await symptomService.deleteSymptom(symptom.id);
+                                                // Symptoms will automatically update via the subscription
+                                              } catch (error) {
+                                                console.error('Error deleting symptom:', error);
+                                                alert('Failed to delete symptom. Please try again.');
+                                              }
+                                            }
+                                          }}
+                                          className="text-red-500 hover:text-red-700 transition-colors p-1 rounded hover:bg-red-100"
+                                          title="Delete symptom"
+                                        >
+                                          <X className="w-4 h-4" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <p className={`text-xs font-medium ${symptom.severity === 'Severe' ? 'text-red-700' :
+                                      symptom.severity === 'Moderate' ? 'text-yellow-700' :
+                                        'text-green-700'
+                                      }`}>
+                                      {symptom.severity}
+                                    </p>
+                                    {symptom.tags && symptom.tags.length > 0 && (
+                                      <div className="flex flex-wrap gap-1 mt-2">
+                                        {symptom.tags.map((tagId, tagIdx) => {
+                                          const tagLabels = {
+                                            'treatment-related': { label: 'Related to treatment', color: 'bg-blue-100 text-blue-700' },
+                                            'discuss-doctor': { label: 'Discuss with doctor', color: 'bg-purple-100 text-purple-700' },
+                                            'medication-needed': { label: 'Medication needed', color: 'bg-red-100 text-red-700' },
+                                            'side-effect': { label: 'Side effect', color: 'bg-orange-100 text-orange-700' },
+                                            'emergency': { label: 'Emergency', color: 'bg-red-200 text-red-800' },
+                                            'recurring': { label: 'Recurring', color: 'bg-indigo-100 text-indigo-700' },
+                                            'new-symptom': { label: 'New symptom', color: 'bg-green-100 text-green-700' },
+                                            'worsening': { label: 'Worsening', color: 'bg-yellow-100 text-yellow-700' }
+                                          };
+                                          const tag = tagLabels[tagId] || { label: tagId, color: 'bg-gray-100 text-gray-700' };
+                                          return (
+                                            <span
+                                              key={tagIdx}
+                                              className={`text-xs rounded-full px-2 py-0.5 ${tag.color}`}
+                                            >
+                                              {tag.label}
+                                            </span>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                    {/* Legend */}
+                    <div className="bg-white rounded-lg shadow p-4">
+                      <h4 className="font-semibold text-gray-800 mb-3 text-sm">Symptom Types</h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {[
+                          { type: 'Fatigue', color: 'bg-blue-500' },
+                          { type: 'Pain', color: 'bg-red-500' },
+                          { type: 'Nausea', color: 'bg-green-500' },
+                          { type: 'Headache', color: 'bg-purple-500' },
+                          { type: 'Dizziness', color: 'bg-yellow-500' },
+                          { type: 'Other', color: 'bg-gray-500' },
+                        ].map(item => (
+                          <div key={item.type} className="flex items-center gap-2">
+                            <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
+                            <span className="text-xs text-gray-700">{item.type}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+
+            {healthSection === 'medications' && (
+              <>
+                {medications.length === 0 ? (
+                  <div className="border-2 border-medical-primary-500 rounded-lg p-6 text-center bg-white">
+                    <div className="flex flex-col items-center gap-3">
+                      <Pill className="w-12 h-12 text-medical-primary-400" />
+                      <div>
+                        <h3 className="font-semibold text-medical-primary-900 mb-1">No Medications Tracked Yet</h3>
+                        <p className="text-sm text-medical-primary-700 mb-4">
+                          Track your medications to monitor adherence and schedule doses
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                          <button
+                            onClick={() => setShowAddMedication(true)}
+                            className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                            Manual Enter
+                          </button>
+                          <button
+                            onClick={() => onTabChange('chat')}
+                            className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center justify-center gap-2"
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                            Add via Chat
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+              <>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-blue-900">Medication Adherence</p>
+                      <p className="text-xs text-blue-700 mt-1">
+                        All medications taken on schedule. Next IV infusion scheduled for Jan 5.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Active Medications */}
+                <div className="bg-white rounded-lg shadow p-4">
+                  <h3 className="font-semibold text-gray-800 mb-3">Active Medications</h3>
+                  <div className="space-y-3">
+                    {medications.filter(med => med.active).map(med => {
+                      const colorClasses = {
+                        purple: 'bg-purple-100 border-purple-300 text-purple-800',
+                        blue: 'bg-blue-100 border-blue-300 text-blue-800',
+                        green: 'bg-green-100 border-green-300 text-green-800',
+                        orange: 'bg-orange-100 border-orange-300 text-orange-800',
+                        teal: 'bg-teal-100 border-teal-300 text-teal-800',
+                      };
+
+                      return (
+                        <div key={med.id} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-semibold text-gray-900">{med.name}</h4>
+                                <span className={`text-xs px-2 py-0.5 rounded-full border ${colorClasses[med.color]}`}>
+                                  {med.purpose}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-600">
+                                <span className="font-medium">{med.dosage}</span> • {med.frequency}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
+                            <div className="flex-1">
+                              <p className="text-xs text-gray-500 mb-0.5">Next dose</p>
+                              <p className="text-sm font-medium text-gray-800">
+                                {new Date(med.nextDose).toLocaleString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: med.schedule.includes(':') ? 'numeric' : undefined,
+                                  minute: med.schedule.includes(':') ? '2-digit' : undefined
+                                })}
+                              </p>
+                            </div>
+                            {med.schedule.includes(':') && (
+                              (() => {
+                                const times = med.schedule.split(',').map(t => t.trim());
+                                const nextTime = times[0]; // Use first scheduled time for today
+                                const taken = isMedicationTaken(med.id, nextTime);
+
+                                return taken ? (
+                                  <div className="flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-lg">
+                                    <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                    </svg>
+                                    <span className="text-xs font-medium text-green-700">Taken</span>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => markMedicationTaken(med.id, nextTime)}
+                                    className="bg-green-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-green-700 transition font-medium"
+                                  >
+                                    Mark Taken
+                                  </button>
+                                );
+                              })()
+                            )}
+                          </div>
+
+                          <div className="mt-2 pt-2 border-t border-gray-100">
+                            <p className="text-xs text-gray-600">
+                              <span className="font-medium">Schedule:</span> {med.schedule}
+                            </p>
+                            {med.instructions && (
+                              <p className="text-xs text-gray-600 mt-1">
+                                <span className="font-medium">Instructions:</span> {med.instructions}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Upcoming Doses */}
+                <div className="bg-white rounded-lg shadow p-4">
+                  <h3 className="font-semibold text-gray-800 mb-3">Today's Schedule</h3>
+                  <div className="space-y-2">
+                    {medications
+                      .filter(med => med.active && med.schedule.includes(':'))
+                      .flatMap(med =>
+                        med.schedule.split(',').map(time => ({
+                          ...med,
+                          specificTime: time.trim()
+                        }))
+                      )
+                      .sort((a, b) => a.specificTime.localeCompare(b.specificTime))
+                      .map((med, idx) => {
+                        const taken = isMedicationTaken(med.id, med.specificTime);
+
+                        return (
+                          <button
+                            key={`schedule-${med.id}-${idx}`}
+                            onClick={() => !taken && markMedicationTaken(med.id, med.specificTime)}
+                            className={`w-full flex items-center gap-3 p-2 border-2 rounded-lg transition ${taken
+                              ? 'border-green-300 bg-green-50 cursor-default'
+                              : 'border-gray-200 hover:border-green-500 hover:bg-green-50'
+                              }`}
+                          >
+                            <div className="text-sm font-semibold text-gray-700 w-20">
+                              {med.specificTime}
+                            </div>
+                            <div className="flex-1 text-left">
+                              <p className="text-sm font-medium text-gray-900">{med.name}</p>
+                              <p className="text-xs text-gray-600">{med.dosage}</p>
+                            </div>
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${taken ? 'border-green-500 bg-green-500' : 'border-gray-300'
+                              }`}>
+                              {taken && (
+                                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowAddMedication(true)}
+                  className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 transition"
+                >
+                  + Add Medication
+                </button>
+                  </>
+                )}
+              </>
+            )}
+
+      {/* Modals */}
+      <AddSymptomModal
+        show={showAddSymptomModal}
+        onClose={() => setShowAddSymptomModal(false)}
+        symptomForm={symptomForm}
+        setSymptomForm={setSymptomForm}
+        user={user}
+      />
+
+      <AddMedicationModal
+        show={showAddMedication}
+        onClose={() => setShowAddMedication(false)}
+        user={user}
+        reloadHealthData={reloadHealthData}
+      />
+
+      <AddLabModal
+        show={showAddLab}
+        onClose={() => setShowAddLab(false)}
+        user={user}
+        newLabData={newLabData}
+        setNewLabData={setNewLabData}
+        reloadHealthData={reloadHealthData}
+      />
+
+      <AddVitalModal
+        show={showAddVital}
+        onClose={() => setShowAddVital(false)}
+        user={user}
+        newVital={newVital}
+        setNewVital={setNewVital}
+        setIsEditingVital={setIsEditingVital}
+        setEditingVitalValueId={setEditingVitalValueId}
+        allVitalsData={allVitalsData}
+        reloadHealthData={reloadHealthData}
+        getWeightNormalRange={getWeightNormalRange}
+      />
+
+      <AddVitalValueModal
+        show={showAddVitalValue}
+        onClose={() => {
+          setShowAddVitalValue(false);
+          setSelectedVitalForValue(null);
+          setIsEditingVitalValue(false);
+          setEditingVitalValueId(null);
+          setNewVitalValue({ value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
+        }}
+        user={user}
+        selectedVitalForValue={selectedVitalForValue}
+        newVitalValue={newVitalValue}
+        setNewVitalValue={setNewVitalValue}
+        isEditingVitalValue={isEditingVitalValue}
+        editingVitalValueId={editingVitalValueId}
+        setIsEditingVitalValue={setIsEditingVitalValue}
+        setEditingVitalValueId={setEditingVitalValueId}
+        setSelectedVitalForValue={setSelectedVitalForValue}
+        reloadHealthData={reloadHealthData}
+      />
+
+      <AddLabValueModal
+        show={showAddLabValue}
+        onClose={() => {
+          setShowAddLabValue(false);
+          setSelectedLabForValue(null);
+          setIsEditingLabValue(false);
+          setEditingLabValueId(null);
+          setNewLabValue({ value: '', date: getTodayLocalDate(), notes: '' });
+        }}
+        user={user}
+        selectedLabForValue={selectedLabForValue}
+        newLabValue={newLabValue}
+        setNewLabValue={setNewLabValue}
+        isEditingLabValue={isEditingLabValue}
+        editingLabValueId={editingLabValueId}
+        setIsEditingLabValue={setIsEditingLabValue}
+        setEditingLabValueId={setEditingLabValueId}
+        setSelectedLabForValue={setSelectedLabForValue}
+        reloadHealthData={reloadHealthData}
+      />
+
+      {showDocumentOnboarding && (
+        <DocumentUploadOnboarding
+          isOnboarding={!hasUploadedDocument}
+          onClose={() => setShowDocumentOnboarding(false)}
+          onUploadClick={(documentType, documentDate = null, documentNote = null) => {
+            setShowDocumentOnboarding(false);
+            onTabChange('files');
+          }}
+        />
+      )}
+
+      {/* Lab Tooltip Modal */}
+      {labTooltip && (
+        <>
+          <div
+            className="fixed inset-0 z-[70] bg-black/20 backdrop-blur-sm"
+            onClick={() => setLabTooltip(null)}
+          />
+          <div
+            className="fixed z-[71] bg-white rounded-xl shadow-2xl border border-medical-neutral-200 max-w-sm w-[90vw] sm:w-96 p-5 animate-fade-scale"
+            style={{
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              maxHeight: '80vh',
+              overflowY: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between mb-3">
+              <h3 className="text-lg font-bold text-medical-neutral-900 pr-2">{labTooltip.labName}</h3>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setLabTooltip(null);
+                }}
+                className="text-medical-neutral-400 hover:text-medical-neutral-600 transition-colors flex-shrink-0"
+                aria-label="Close"
+                type="button"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-medical-neutral-700 leading-relaxed">{labTooltip.description}</p>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+

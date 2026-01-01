@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, AlertTriangle, XCircle, Star, Search as SearchIcon, MapPin, Globe, X, AlertCircle, MessageSquare, Bookmark, FlaskConical, FileText } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { auth } from '../firebase/config';
 import { patientService, genomicProfileService, clinicalTrialsService, trialLocationService } from '../firebase/services';
 import { getTrialDetails } from '../services/clinicalTrials/trialSearchService';
@@ -846,9 +847,26 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                     <span className="text-sm">Loading summary...</span>
                   </div>
                 ) : (
-                  <p className="text-medical-neutral-700 whitespace-pre-line leading-relaxed">
-                    {selectedTrial.summary || selectedTrial.summaryJa || 'No summary available. Please visit the trial page for more information.'}
-                  </p>
+                  <div className="text-medical-neutral-700 leading-relaxed prose prose-sm max-w-none">
+                    <ReactMarkdown
+                      components={{
+                        p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                        ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 space-y-1" {...props} />,
+                        ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2 space-y-1" {...props} />,
+                        li: ({node, ...props}) => <li className="ml-2" {...props} />,
+                        strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
+                        em: ({node, ...props}) => <em className="italic" {...props} />,
+                        code: ({node, ...props}) => <code className="bg-medical-neutral-100 px-1.5 py-0.5 rounded text-xs font-mono" {...props} />,
+                        h1: ({node, ...props}) => <h1 className="text-lg font-bold mb-2 mt-3 first:mt-0" {...props} />,
+                        h2: ({node, ...props}) => <h2 className="text-base font-bold mb-2 mt-3 first:mt-0" {...props} />,
+                        h3: ({node, ...props}) => <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0" {...props} />,
+                        blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-medical-neutral-300 pl-3 italic my-2" {...props} />,
+                        a: ({node, ...props}) => <a className="text-medical-primary-600 underline hover:text-medical-primary-800" {...props} />,
+                      }}
+                    >
+                      {selectedTrial.summary || selectedTrial.summaryJa || 'No summary available. Please visit the trial page for more information.'}
+                    </ReactMarkdown>
+                  </div>
                 )}
               </div>
 
@@ -860,11 +878,28 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                     Eligibility Criteria
                   </h3>
                   <div className="bg-medical-neutral-50 rounded-lg p-3 border border-medical-neutral-200">
-                    <p className="text-sm text-medical-neutral-700 whitespace-pre-line leading-relaxed">
-                      {typeof selectedTrial.eligibility === 'string' 
-                        ? selectedTrial.eligibility
-                        : (selectedTrial.eligibility.criteria || selectedTrial.eligibility.criteriaJa || 'Not specified')}
-                    </p>
+                    <div className="text-sm text-medical-neutral-700 leading-relaxed prose prose-sm max-w-none">
+                      <ReactMarkdown
+                        components={{
+                          p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                          ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 space-y-1" {...props} />,
+                          ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2 space-y-1" {...props} />,
+                          li: ({node, ...props}) => <li className="ml-2" {...props} />,
+                          strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
+                          em: ({node, ...props}) => <em className="italic" {...props} />,
+                          code: ({node, ...props}) => <code className="bg-medical-neutral-100 px-1.5 py-0.5 rounded text-xs font-mono" {...props} />,
+                          h1: ({node, ...props}) => <h1 className="text-lg font-bold mb-2 mt-3 first:mt-0" {...props} />,
+                          h2: ({node, ...props}) => <h2 className="text-base font-bold mb-2 mt-3 first:mt-0" {...props} />,
+                          h3: ({node, ...props}) => <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0" {...props} />,
+                          blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-medical-neutral-300 pl-3 italic my-2" {...props} />,
+                          a: ({node, ...props}) => <a className="text-medical-primary-600 underline hover:text-medical-primary-800" {...props} />,
+                        }}
+                      >
+                        {typeof selectedTrial.eligibility === 'string' 
+                          ? selectedTrial.eligibility
+                          : (selectedTrial.eligibility.criteria || selectedTrial.eligibility.criteriaJa || 'Not specified')}
+                      </ReactMarkdown>
+                    </div>
                   </div>
                 </div>
               )}

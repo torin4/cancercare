@@ -1,0 +1,667 @@
+// Brief descriptions for common lab values
+// Vital Value Normalization System
+// Maps all variations to canonical keys for consistent display and descriptions
+export const vitalSynonymMap = {
+  'blood_pressure': ['bloodpressure', 'bp', 'blood pressure', 'systolic', 'diastolic', 'bp_systolic', 'bp_diastolic'],
+  'heart_rate': ['heartrate', 'hr', 'heart rate', 'pulse', 'pulse rate', 'bpm'],
+  'temperature': ['temp', 'temperature', 'body temperature', 'body temp', 'fever'],
+  'weight': ['weight', 'body weight', 'bodyweight', 'mass'],
+  'oxygen_saturation': ['o2sat', 'o2 saturation', 'spo2', 'oxygen saturation', 'o2', 'sat'],
+  'respiratory_rate': ['rr', 'respiratory rate', 'breathing rate', 'respiration', 'breathing']
+  };
+
+// Reverse map: create lookup from any variation to canonical key
+export const vitalKeyMap = {};
+Object.entries(vitalSynonymMap).forEach(([canonicalKey, variations]) => {
+  variations.forEach(variation => {
+    vitalKeyMap[variation.toLowerCase()] = canonicalKey;
+  });
+});
+
+// Display name mapping: canonical key -> user-friendly display name
+export const vitalDisplayNames = {
+  'blood_pressure': 'Blood Pressure',
+  'heart_rate': 'Resting Heart Rate',
+  'temperature': 'Temperature',
+  'weight': 'Weight',
+  'oxygen_saturation': 'Oxygen Saturation',
+  'respiratory_rate': 'Respiratory Rate'
+  };
+
+// Vital descriptions
+export const vitalDescriptions = {
+  'blood_pressure': 'Blood pressure measures the force of blood against artery walls. Systolic (top number) is pressure when heart beats, diastolic (bottom number) is pressure when heart rests. Normal is typically <120/80 mmHg.',
+  'heart_rate': 'Resting heart rate (pulse) measures how many times your heart beats per minute when at rest. Normal resting heart rate is typically 60-100 beats per minute for adults. Note: Heart rate can vary significantly with activity, so this should be measured when resting.',
+  'temperature': 'Body temperature indicates whether you have a fever or hypothermia. Normal body temperature is typically 97.5-99.5°F (36.4-37.5°C).',
+  'weight': 'Body weight is an important vital sign that can indicate fluid retention, nutritional status, or response to treatment. Significant changes may require medical attention.',
+  'oxygen_saturation': 'Oxygen saturation (SpO2) measures how much oxygen your blood is carrying. Normal levels are typically >95%. Low levels may indicate breathing problems or lung issues.',
+  'respiratory_rate': 'Respiratory rate measures how many breaths you take per minute. Normal rate is typically 12-20 breaths per minute for adults at rest.'
+  };
+
+// Normalize vital name to canonical key
+export const normalizeVitalName = (rawName) => {
+  if (!rawName) return null;
+  
+  // Clean the raw name
+  const cleaned = rawName.toString().toLowerCase().trim()
+    .replace(/[^\w\s]/g, ' ') // Replace special chars with spaces
+    .replace(/\s+/g, ' ') // Normalize whitespace
+    .trim();
+  
+  // Look up in vital key map
+  if (vitalKeyMap[cleaned]) {
+    return vitalKeyMap[cleaned];
+  }
+  
+  // Try partial matches
+  for (const [canonicalKey, variations] of Object.entries(vitalSynonymMap)) {
+    if (variations.some(v => cleaned.includes(v) || v.includes(cleaned))) {
+    return canonicalKey;
+    }
+  }
+  
+  return null; // Unknown vital
+  };
+
+// Get display name for vital
+export const getVitalDisplayName = (vitalKeyOrName) => {
+  // First try to normalize
+  const canonicalKey = normalizeVitalName(vitalKeyOrName);
+  if (canonicalKey && vitalDisplayNames[canonicalKey]) {
+    return vitalDisplayNames[canonicalKey];
+  }
+  
+  // Fallback: return original with basic formatting
+  if (!vitalKeyOrName) return 'Unknown Vital';
+  const name = vitalKeyOrName.toString();
+  return name.charAt(0).toUpperCase() + name.slice(1).replace(/_/g, ' ');
+  };
+
+// Lab Value Normalization System
+// Maps all variations to canonical keys for consistent categorization and descriptions
+  
+// Synonym mapping: all variations -> canonical key
+export const labSynonymMap = {
+  // Disease-Specific Markers
+  'ca125': ['ca125', 'ca-125', 'ca 125', 'ca_125'],
+  'ca199': ['ca199', 'ca 19-9', 'ca-19-9', 'ca19-9', 'ca 19 9'],
+  'ca153': ['ca153', 'ca 15-3', 'ca-15-3', 'ca15-3', 'ca 15 3'],
+  'ca724': ['ca724', 'ca 72-4', 'ca-72-4', 'ca72-4', 'ca 72 4'],
+  'ca242': ['ca242', 'ca 242', 'ca-242'],
+  'ca50': ['ca50', 'ca 50', 'ca-50'],
+  'cea': ['cea'],
+  'afp': ['afp'],
+  'psa': ['psa'],
+  'he4': ['he4'],
+  'inhibinb': ['inhibinb', 'inhibin b'],
+  'romaindex': ['romaindex', 'roma index', 'roma'],
+  'ca2729': ['ca2729', 'ca 27-29', 'ca-27-29', 'ca27-29', 'ca 27 29'],
+  'scc_antigen': ['scc antigen', 'scc', 'squamous cell carcinoma antigen'],
+  'cyfra211': ['cyfra211', 'cyfra 21-1', 'cyfra-21-1', 'cyfra21-1'],
+  'nse': ['nse', 'neuron-specific enolase', 'neuron specific enolase'],
+  'betahcg': ['betahcg', 'beta-hcg', 'β-hcg', 'bhcg', 'b-hcg', 'beta hcg'],
+  
+  // Liver Function
+  'alt': ['alt', 'gpt'],
+  'ast': ['ast', 'got'],
+  'ast_alt_ratio': ['astalt', 'ast/alt', 'ast alt ratio', 'ast_alt'],
+  'alp': ['alp', 'alkphos', 'alkalinephosphatase', 'alkaline phosphatase'],
+  'alp_ifcc': ['alpifcc', 'alp ifcc', 'alp (ifcc)'],
+  'bilirubin_total': ['tbil', 't-bil', 'totalbilirubin', 'total bilirubin', 'bilirubin'],
+  'bilirubin_direct': ['direct bilirubin', 'conjugated bilirubin', 'dbil', 'd-bil'],
+  'bilirubin_indirect': ['indirect bilirubin', 'unconjugated bilirubin', 'ibil', 'i-bil'],
+  'albumin': ['alb', 'albumin'],
+  'ggt': ['ggt', 'γgt', 'gamma gt'],
+  'ldh': ['ldh', 'ld', 'ldifcc', 'ld ifcc'],
+  
+  // Kidney Function
+  'creatinine': ['creatinine', 'cre'],
+  'egfr': ['egfr', 'e gfr'],
+  'bun': ['bun'],
+  'urea': ['urea'],
+  'urineprotein': ['urineprotein', 'urine protein', 'protein urine'],
+  'urinecreatinine': ['urinecreatinine', 'urine creatinine'],
+  
+  // Blood Counts
+  'wbc': ['wbc'],
+  'rbc': ['rbc'],
+  'hemoglobin': ['hemoglobin', 'hgb'],
+  'hematocrit': ['hematocrit', 'hct'],
+  'platelets': ['platelets', 'plt'],
+  'anc': ['anc'],
+  'neutrophils_abs': ['neutro#', 'neut#', 'neutrophilsabs', 'neutrophil abs'],
+  'neutrophils_pct': ['neutro%', 'neut%', 'neutrophil%'],
+  'lymphocytes_abs': ['lymph#', 'lym#', 'lymphocytesabs'],
+  'lymphocytes_pct': ['lymph%', 'lym%', 'lymphocytes%'],
+  'monocytes_abs': ['mono#', 'mon#'],
+  'monocytes_pct': ['mono%', 'mon%'],
+  'eosinophils_abs': ['eo#'],
+  'eosinophils_pct': ['eo%'],
+  'basophils_abs': ['ba#'],
+  'basophils_pct': ['ba%'],
+  'mcv': ['mcv'],
+  'mch': ['mch'],
+  'mchc': ['mchc'],
+  'rdw': ['rdw'],
+  'rdw_cv': ['rdwcv', 'rdw-cv'],
+  'mpv': ['mpv', 'mean platelet volume'],
+  'nrbc': ['nrbc', 'nucleated red blood cells', 'nucleated rbc'],
+  'nrbc_pct': ['nrbc%', 'nrbc percentage', 'nrbc percent'],
+  'reticulocyte_count': ['reticulocyte count', 'retic count', 'reticulocytes'],
+  'reticulocyte_pct': ['reticulocyte%', 'reticulocyte percentage', 'reticulocyte percent', 'retic%'],
+  
+  // Thyroid Function
+  'tsh': ['tsh'],
+  't3': ['t3'],
+  't4': ['t4'],
+  'ft3': ['ft3', 'free t3', 'freet3'],
+  'ft4': ['ft4', 'free t4', 'freet4'],
+  'thyroglobulin': ['thyroglobulin', 'tg'],
+  
+  // Cardiac Markers
+  'troponin': ['troponin', 'trop'],
+  'bnp': ['bnp'],
+  'ntprobnp': ['ntprobnp', 'nt-probnp'],
+  'ckmb': ['ckmb', 'ck-mb'],
+  'myoglobin': ['myoglobin'],
+  
+  // Inflammation
+  'ferritin': ['ferritin', 'フェリチン', 'ferritinjapanese'],
+  'crp': ['crp'],
+  'esr': ['esr'],
+  
+  // Electrolytes
+  'sodium': ['sodium', 'na'],
+  'potassium': ['potassium', 'k'],
+  'chloride': ['chloride', 'cl', 'ci'],
+  'bicarbonate': ['bicarbonate', 'hco3', 'bicarb'],
+  'co2': ['co2'],
+  'magnesium': ['magnesium', 'mg'],
+  'phosphorus': ['phosphorus', 'p', 'phos'],
+  'calcium': ['calcium', 'ca'],
+  'calcium_ionized': ['ionized calcium', 'ca2+', 'ca²⁺', 'ca++', 'ionized ca'],
+  'phosphate': ['phosphate', 'phosphorus', 'p', 'phos', 'po4'],
+  
+  // Coagulation
+  'pt': ['pt', 'ptactivity', 'pt activity', 'pt活性値', 'pt activity value'],
+  'inr': ['inr'],
+  'aptt': ['aptt'],
+  'ddimer': ['ddimer', 'd-dimer', 'dimer', 'd-ダイマー'],
+  'fdp': ['fdp'],
+  'fibrinogen': ['fibrinogen', 'fbg'],
+  'antithrombin_iii': ['antithrombin iii', 'at-iii', 'at3', 'antithrombin'],
+  'protein_c': ['protein c', 'proteinc'],
+  'protein_s': ['protein s', 'proteins'],
+  
+  // Other
+  'glucose': ['glucose', 'glu', '血糖'],
+  'hba1c': ['hba1c'],
+  'iga': ['iga'],
+  'igg': ['igg'],
+  'igm': ['igm'],
+  'vitamin_d': ['vitamin d', 'vitamind', '25(oh)d', '25ohd'],
+  'beta2_microglobulin': ['beta2 microglobulin', 'beta-2 microglobulin', 'β2 microglobulin', 'b2m'],
+  'procalcitonin': ['procalcitonin', 'pct'],
+  'il6': ['il6', 'il-6', 'interleukin-6', 'interleukin 6']
+  };
+
+// Reverse map: create lookup from any variation to canonical key
+export const labKeyMap = {};
+Object.entries(labSynonymMap).forEach(([canonicalKey, variations]) => {
+  variations.forEach(variation => {
+    labKeyMap[variation.toLowerCase()] = canonicalKey;
+  });
+});
+
+// Display name mapping: canonical key -> user-friendly display name
+export const labDisplayNames = {
+  'ca125': 'CA-125',
+  'ca199': 'CA 19-9',
+  'ca153': 'CA 15-3',
+  'ca724': 'CA 72-4',
+  'ca242': 'CA 242',
+  'ca50': 'CA 50',
+  'cea': 'CEA',
+  'afp': 'AFP',
+  'psa': 'PSA',
+  'he4': 'HE4',
+  'inhibinb': 'Inhibin B',
+  'romaindex': 'ROMA Index',
+  'ca2729': 'CA 27-29',
+  'scc_antigen': 'SCC Antigen',
+  'cyfra211': 'CYFRA 21-1',
+  'nse': 'NSE',
+  'betahcg': 'Beta-hCG',
+  'alt': 'ALT',
+  'ast': 'AST',
+  'ast_alt_ratio': 'AST/ALT Ratio',
+  'alp': 'ALP',
+  'alp_ifcc': 'ALP (IFCC)',
+  'bilirubin_total': 'Total Bilirubin',
+  'bilirubin_direct': 'Direct Bilirubin',
+  'bilirubin_indirect': 'Indirect Bilirubin',
+  'albumin': 'Albumin',
+  'ggt': 'GGT',
+  'ldh': 'LDH',
+  'creatinine': 'Creatinine',
+  'egfr': 'eGFR',
+  'bun': 'BUN',
+  'urea': 'Urea',
+  'urineprotein': 'Urine Protein',
+  'urinecreatinine': 'Urine Creatinine',
+  'wbc': 'WBC',
+  'rbc': 'RBC',
+  'hemoglobin': 'Hemoglobin',
+  'hematocrit': 'Hematocrit',
+  'platelets': 'Platelets',
+  'anc': 'ANC',
+  'neutrophils_abs': 'Neutrophil Absolute Count',
+  'neutrophils_pct': 'Neutrophil Percentage',
+  'lymphocytes_abs': 'Lymphocyte Absolute Count',
+  'lymphocytes_pct': 'Lymphocyte Percentage',
+  'monocytes_abs': 'Monocyte Absolute Count',
+  'monocytes_pct': 'Monocyte Percentage',
+  'eosinophils_abs': 'Eosinophil Absolute Count',
+  'eosinophils_pct': 'Eosinophil Percentage',
+  'basophils_abs': 'Basophil Absolute Count',
+  'basophils_pct': 'Basophil Percentage',
+  'mcv': 'MCV',
+  'mch': 'MCH',
+  'mchc': 'MCHC',
+  'rdw': 'RDW',
+  'rdw_cv': 'RDW-CV',
+  'mpv': 'MPV',
+  'nrbc': 'NRBC',
+  'nrbc_pct': 'NRBC Percentage',
+  'reticulocyte_count': 'Reticulocyte Count',
+  'reticulocyte_pct': 'Reticulocyte Percentage',
+  'tsh': 'TSH',
+  't3': 'T3',
+  't4': 'T4',
+  'ft3': 'Free T3',
+  'ft4': 'Free T4',
+  'thyroglobulin': 'Thyroglobulin',
+  'troponin': 'Troponin',
+  'bnp': 'BNP',
+  'ntprobnp': 'NT-proBNP',
+  'ckmb': 'CK-MB',
+  'myoglobin': 'Myoglobin',
+  'ferritin': 'Ferritin',
+  'crp': 'CRP',
+  'esr': 'ESR',
+  'sodium': 'Sodium',
+  'potassium': 'Potassium',
+  'chloride': 'Chloride',
+  'bicarbonate': 'Bicarbonate',
+  'co2': 'CO2',
+  'magnesium': 'Magnesium',
+  'phosphorus': 'Phosphorus',
+  'calcium': 'Calcium',
+  'calcium_ionized': 'Ionized Calcium',
+  'phosphate': 'Phosphate',
+  'pt': 'PT',
+  'inr': 'INR',
+  'aptt': 'APTT',
+  'ddimer': 'D-dimer',
+  'fdp': 'FDP',
+  'fibrinogen': 'Fibrinogen',
+  'antithrombin_iii': 'Antithrombin III',
+  'protein_c': 'Protein C',
+  'protein_s': 'Protein S',
+  'glucose': 'Glucose',
+  'hba1c': 'HbA1c',
+  'iga': 'IgA',
+  'igg': 'IgG',
+  'igm': 'IgM',
+  'vitamin_d': 'Vitamin D',
+  'beta2_microglobulin': 'Beta-2 Microglobulin',
+  'procalcitonin': 'Procalcitonin',
+  'il6': 'IL-6'
+  };
+
+// Normalize lab name to canonical key
+export const normalizeLabName = (rawName) => {
+  if (!rawName) return null;
+  
+  // Clean the raw name
+  let cleaned = rawName.toString().trim();
+  
+  // Convert to lowercase for matching
+  cleaned = cleaned.toLowerCase();
+  
+  // Remove common separators
+  cleaned = cleaned.replace(/[\s\-_\/\.]/g, '');
+  
+  // Normalize common variants
+  cleaned = cleaned.replace(/ntprobnp/g, 'ntprobnp');
+  cleaned = cleaned.replace(/ckmb/g, 'ckmb');
+  cleaned = cleaned.replace(/ca199/g, 'ca199');
+  cleaned = cleaned.replace(/ca125/g, 'ca125');
+  cleaned = cleaned.replace(/freet3/g, 'ft3');
+  cleaned = cleaned.replace(/freet4/g, 'ft4');
+  
+  // Look up in synonym map
+  const canonicalKey = labKeyMap[cleaned];
+  return canonicalKey || null;
+  };
+
+// Get display name for a lab (canonical key or raw name)
+export const getLabDisplayName = (labKeyOrName) => {
+  // First try to normalize
+  const canonicalKey = normalizeLabName(labKeyOrName);
+  if (canonicalKey && labDisplayNames[canonicalKey]) {
+    return labDisplayNames[canonicalKey];
+  }
+  
+  // If no canonical key found, return title case of original
+  if (labKeyOrName) {
+    const str = labKeyOrName.toString();
+    return str.split(/[\s\-_]/).map(word => 
+    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ');
+  }
+  
+  return labKeyOrName || 'Unknown Lab';
+  };
+
+// Lab value descriptions - using ONLY canonical keys
+export const labValueDescriptions = {
+  // Disease-Specific Markers
+  'ca125': 'Tumor marker for ovarian cancer. Elevated levels may indicate disease activity or recurrence.',
+  'ca199': 'Tumor marker for pancreatic and gastrointestinal cancers. Used to monitor treatment response.',
+  'ca153': 'Tumor marker for breast cancer. Helps monitor disease progression and treatment effectiveness.',
+  'ca724': 'Tumor marker for gastrointestinal cancers, particularly gastric cancer. Used to monitor treatment response and recurrence.',
+  'ca242': 'Tumor marker for pancreatic and colorectal cancers. Used in combination with other markers for diagnosis and monitoring.',
+  'ca50': 'Tumor marker for pancreatic and gastrointestinal cancers. Elevated levels may indicate disease activity.',
+  'cea': 'Carcinoembryonic antigen. Used to monitor colorectal, lung, and other cancers. Elevated levels may indicate recurrence.',
+  'afp': 'Alpha-fetoprotein. Marker for liver cancer and germ cell tumors. Also elevated in pregnancy.',
+  'psa': 'Prostate-specific antigen. Used to screen and monitor prostate cancer. Age-specific normal ranges apply.',
+  'he4': 'Human epididymis protein 4. Ovarian cancer biomarker, often used with CA-125 for better accuracy.',
+  'inhibinb': 'Hormone marker for ovarian cancer, particularly granulosa cell tumors. Also used in fertility assessment.',
+  'romaindex': 'Risk of Ovarian Malignancy Algorithm. Combines CA-125 and HE4 levels to assess ovarian cancer risk.',
+  'ca2729': 'CA 27-29. A tumor marker primarily used in breast cancer to monitor treatment response and detect disease recurrence.',
+  'scc_antigen': 'SCC Antigen (Squamous Cell Carcinoma Antigen). A tumor marker associated with squamous cell carcinomas, including cervical, lung, and head and neck cancers.',
+  'cyfra211': 'CYFRA 21-1. A fragment of cytokeratin 19 commonly elevated in non-small cell lung cancer and used to assess tumor burden.',
+  'nse': 'NSE (Neuron-Specific Enolase). A marker associated with neuroendocrine tumors and small cell lung cancer, often reflecting disease activity.',
+  'betahcg': 'Beta-hCG (β-hCG). A tumor marker used in germ cell tumors and trophoblastic disease, and occasionally elevated in other malignancies.',
+  // Blood Counts
+  'wbc': 'White blood cell count. Measures immune system cells. Low counts (neutropenia) increase infection risk during chemotherapy.',
+  'rbc': 'Red blood cell count. Measures oxygen-carrying cells. Low levels indicate anemia.',
+  'hemoglobin': 'Protein in red blood cells that carries oxygen. Low levels (anemia) cause fatigue and weakness.',
+  'hematocrit': 'Percentage of red blood cells in blood. Low levels indicate anemia.',
+  'platelets': 'Blood cells that help with clotting. Low levels (thrombocytopenia) increase bleeding risk.',
+  'anc': 'Absolute neutrophil count. Critical for infection risk. Should be >1500/μL to reduce infection risk.',
+  'neutrophils_abs': 'Neutrophil absolute count. Total number of neutrophils in blood. Critical for fighting bacterial infections. Low levels (neutropenia) increase infection risk.',
+  'neutrophils_pct': 'Neutrophil percentage. Percentage of white blood cells that are neutrophils. Normal range is typically 48.0-61.0%. Low levels increase infection risk.',
+  'lymphocytes_abs': 'Lymphocyte absolute count. Total number of lymphocytes in blood. Important for immune function. Low levels may indicate immune suppression.',
+  'lymphocytes_pct': 'Lymphocyte percentage. Percentage of white blood cells that are lymphocytes. Normal range is typically 25.0-45.0%. Low levels may indicate immune suppression.',
+  'monocytes_abs': 'Monocyte absolute count. Total number of monocytes in blood. Elevated in chronic infections or inflammatory conditions.',
+  'monocytes_pct': 'Monocyte percentage. Percentage of white blood cells that are monocytes. Normal range is typically 4.0-7.0%. Elevated in chronic infections or inflammatory conditions.',
+  'eosinophils_abs': 'Eosinophil absolute count. Total number of eosinophils in blood. Elevated in allergies, asthma, or parasitic infections.',
+  'eosinophils_pct': 'Eosinophil percentage. Percentage of white blood cells that are eosinophils. Normal range is typically 1.0-5.0%. Elevated in allergies or parasitic infections.',
+  'basophils_abs': 'Basophil absolute count. Total number of basophils in blood. Usually very low. Elevated in rare conditions like chronic myeloid leukemia.',
+  'basophils_pct': 'Basophil percentage. Percentage of white blood cells that are basophils. Normal range is typically 0.0-1.0%.',
+  'mcv': 'Mean corpuscular volume. Average size of red blood cells. Used to classify types of anemia.',
+  'mch': 'Mean corpuscular hemoglobin. Average amount of hemoglobin per red blood cell. Low in iron deficiency anemia.',
+  'mchc': 'Mean corpuscular hemoglobin concentration. Average concentration of hemoglobin in red blood cells. Used in anemia diagnosis.',
+  'rdw': 'Red cell distribution width. Measures variation in red blood cell size. Elevated in iron deficiency or other anemias.',
+  'rdw_cv': 'Red cell distribution width - coefficient of variation. Measures variation in red blood cell size as a percentage. Elevated in iron deficiency or other anemias.',
+  'mpv': 'Mean platelet volume. Average size of platelets in the blood. Changes can indicate altered bone marrow activity, platelet destruction, or effects of chemotherapy.',
+  'nrbc': 'Nucleated red blood cells. Immature red blood cells circulating in the bloodstream. Their presence suggests severe bone marrow stress, hypoxia, or marrow infiltration by cancer.',
+  'nrbc_pct': 'NRBC percentage. Proportion of nucleated red blood cells relative to total white blood cells. Used to assess bone marrow response or failure during intensive cancer treatment.',
+  'reticulocyte_count': 'Reticulocyte count. Number of immature red blood cells released from the bone marrow. Reflects marrow response to anemia, bleeding, or chemotherapy-induced suppression.',
+  'reticulocyte_pct': 'Reticulocyte percentage. Percentage of reticulocytes among total red blood cells. Helps distinguish whether anemia is due to decreased production or increased destruction.',
+  // Kidney Function
+  'creatinine': 'Waste product filtered by kidneys. High levels indicate kidney dysfunction or dehydration.',
+  'egfr': 'Estimated glomerular filtration rate. Measures kidney filtering capacity. Adjusted for age, gender, and race.',
+  'bun': 'Blood urea nitrogen. Waste product from protein breakdown. High levels may indicate kidney dysfunction.',
+  'urea': 'Waste product from protein metabolism. Filtered by kidneys. High levels indicate kidney dysfunction or dehydration.',
+  'urineprotein': 'Protein in urine. Normally minimal. Elevated levels (proteinuria) indicate kidney damage or disease.',
+  'urinecreatinine': 'Creatinine in urine. Used with blood creatinine to calculate kidney function and detect kidney disease.',
+  // Liver Function
+  'alt': 'Alanine aminotransferase. Liver enzyme. Elevated levels indicate liver damage, often from medications or disease.',
+  'ast': 'Aspartate aminotransferase. Liver enzyme. Elevated levels indicate liver or muscle damage.',
+  'ast_alt_ratio': 'Ratio of aspartate aminotransferase to alanine aminotransferase. Used to assess patterns of liver injury; abnormal values may suggest specific liver conditions such as alcoholic liver disease or advanced fibrosis.',
+  'alp': 'Alkaline phosphatase. Liver and bone enzyme. Elevated in liver disease or bone disorders.',
+  'alp_ifcc': 'Alkaline phosphatase (IFCC method). Liver and bone enzyme. Abnormal levels may indicate bile duct obstruction, liver disease, or bone disorders.',
+  'bilirubin_total': 'Total bilirubin. Breakdown product of red blood cells. High levels cause jaundice and indicate liver dysfunction.',
+  'bilirubin_direct': 'Direct bilirubin (conjugated bilirubin). Bilirubin that has been processed by the liver. Elevated levels suggest bile duct obstruction, liver metastases, or impaired hepatic excretion.',
+  'bilirubin_indirect': 'Indirect bilirubin (unconjugated bilirubin). Bilirubin prior to liver conjugation. Elevation may indicate hemolysis, ineffective erythropoiesis, or impaired hepatic uptake.',
+  'albumin': 'Main protein in blood. Low levels indicate malnutrition, liver disease, or kidney disease.',
+  'ggt': 'Gamma-glutamyl transferase. Liver enzyme. Elevated levels indicate liver disease, bile duct obstruction, or alcohol use.',
+  'ldh': 'Lactate dehydrogenase. Enzyme found in many tissues. Elevated in tissue damage, hemolysis, or cancer.',
+  // Thyroid Function
+  'tsh': 'Thyroid-stimulating hormone. Regulates thyroid function. High levels indicate hypothyroidism, low levels indicate hyperthyroidism.',
+  't3': 'Triiodothyronine. Active thyroid hormone. Regulates metabolism.',
+  't4': 'Thyroxine. Thyroid hormone. Regulates metabolism and energy.',
+  'ft3': 'Free triiodothyronine. Unbound active thyroid hormone. More accurate than total T3 for assessing thyroid function.',
+  'ft4': 'Free thyroxine. Unbound thyroid hormone. More accurate than total T4 for assessing thyroid function.',
+  'thyroglobulin': 'Protein produced by thyroid gland. Used as tumor marker for thyroid cancer monitoring after treatment.',
+  // Cardiac Markers
+  'troponin': 'Heart muscle protein. Elevated levels indicate heart damage from heart attack or other cardiac events.',
+  'bnp': 'B-type natriuretic peptide. Marker for heart failure. Elevated levels indicate heart stress.',
+  'ntprobnp': 'N-terminal pro-B-type natriuretic peptide. More stable marker for heart failure than BNP. Used for diagnosis and monitoring.',
+  'ckmb': 'Creatine kinase-MB. Heart muscle enzyme. Elevated levels indicate heart muscle damage from heart attack.',
+  'myoglobin': 'Protein found in heart and skeletal muscle. Rapidly elevated after heart attack or muscle injury.',
+  // Inflammation
+  'crp': 'C-reactive protein. Measures inflammation in the body. Elevated in infection, inflammation, or autoimmune conditions.',
+  'esr': 'Erythrocyte sedimentation rate. Non-specific marker of inflammation. Elevated in many conditions including infection and autoimmune disease.',
+  'ferritin': 'Iron storage protein. Low levels indicate iron deficiency. High levels may indicate iron overload or inflammation.',
+  // Coagulation
+  'pt': 'Prothrombin time. Measures blood clotting function. Important for monitoring anticoagulant medications.',
+  'inr': 'International normalized ratio. Standardized measure of blood clotting. Used to monitor warfarin therapy.',
+  'aptt': 'Activated partial thromboplastin time. Measures intrinsic clotting pathway. Used to monitor heparin therapy.',
+  'ddimer': 'D-dimer. Fragment from blood clots. Elevated in deep vein thrombosis, pulmonary embolism, and DIC.',
+  'fdp': 'Fibrin degradation products. Fragments from blood clot breakdown. Elevated in conditions involving blood clotting such as DIC, deep vein thrombosis, or pulmonary embolism.',
+  'fibrinogen': 'Blood clotting protein. Elevated in inflammation or infection. Low levels increase bleeding risk.',
+  'antithrombin_iii': 'Antithrombin III. A natural anticoagulant protein that inhibits clot formation. Reduced levels increase thrombosis risk and are common in cancer and during chemotherapy.',
+  'protein_c': 'Protein C. A vitamin K-dependent anticoagulant protein. Deficiency contributes to hypercoagulable states frequently seen in malignancy.',
+  'protein_s': 'Protein S. A cofactor for Protein C that enhances anticoagulant activity. Low levels increase the risk of venous thromboembolism in cancer patients.',
+  // Electrolytes
+  'sodium': 'Essential electrolyte. Regulates fluid balance and nerve function. Imbalances can cause confusion or seizures.',
+  'potassium': 'Essential electrolyte. Important for heart and muscle function. Dangerous if too high or too low.',
+  'calcium': 'Mineral essential for bones, muscles, and nerve function. Regulated by parathyroid hormone and vitamin D.',
+  'calcium_ionized': 'Ionized calcium (Ca²⁺). The biologically active form of calcium in the blood. Abnormal levels are common in bone metastases, multiple myeloma, and paraneoplastic syndromes.',
+  'phosphate': 'Phosphate. An essential electrolyte involved in cellular energy and bone metabolism. Abnormalities are common in tumor lysis syndrome and advanced malignancy.',
+  'magnesium': 'Essential mineral for muscle and nerve function. Low levels can cause muscle cramps and irregular heartbeat.',
+  'chloride': 'Essential electrolyte. Works with sodium to maintain fluid balance and acid-base balance in the body.',
+  'bicarbonate': 'Buffer that maintains blood pH. Low levels indicate acidosis. High levels indicate alkalosis.',
+  'co2': 'Carbon dioxide. Reflects acid-base balance and respiratory function. Used to assess metabolic and respiratory status.',
+  'phosphorus': 'Essential mineral for bone health, energy production, and cell function. Imbalances can affect multiple body systems.',
+  // Other
+  'glucose': 'Blood sugar. High levels indicate diabetes or prediabetes. Low levels (hypoglycemia) can be dangerous.',
+  'hba1c': 'Hemoglobin A1c. Average blood sugar over 2-3 months. Used to diagnose and monitor diabetes.',
+  'iga': 'Immunoglobulin A. Antibody found in mucous membranes and blood. Important for immune defense in respiratory and digestive tracts. Abnormal levels may indicate immune disorders.',
+  'igg': 'Immunoglobulin G. Most abundant antibody in blood. Provides long-term immunity against infections. Elevated in chronic infections or autoimmune conditions. Low levels increase infection risk.',
+  'igm': 'Immunoglobulin M. First antibody produced in response to infection. Elevated in acute infections. Low levels may indicate immune deficiency.',
+  'vitamin_d': 'Essential vitamin for bone health and immune function. Low levels are common and may require supplementation.',
+  'beta2_microglobulin': 'Beta-2 Microglobulin. A protein associated with tumor burden and prognosis in lymphomas and multiple myeloma.',
+  'procalcitonin': 'Procalcitonin. A biomarker of bacterial infection that helps distinguish infection from inflammation or immune-related adverse events in cancer patients.',
+  'il6': 'IL-6 (Interleukin-6). An inflammatory cytokine often elevated in cancer, infection, and cytokine release syndromes, useful for monitoring immune-related toxicity.'
+  };
+
+// Categorize labs by organ function and type
+export const categorizeLabs = (labs) => {
+  // Predefined lab types by category (including common abbreviations and variations)
+  const diseaseMarkers = ['ca125', 'cea', 'afp', 'psa', 'he4', 'ca199', 'ca153', 'ca724', 'ca242', 'ca50', 'inhibinb', 'romaindex', 'ca-125', 'ca 19-9', 'ca 15-3'];
+  const liverFunction = ['alt', 'ast', 'bilirubin', 'albumin', 'alkalinephosphatase', 'alp', 'ggt', 'ldh', 'pt', 'inr', 'aptt', 'alb', 'ast/alt', 'alp ifcc', 'pt活性値', 'pt activity', 'pt activity value'];
+  const kidneyFunction = ['creatinine', 'egfr', 'bun', 'urea', 'urineprotein', 'urinecreatinine', 'cre'];
+  const bloodCounts = ['wbc', 'rbc', 'hemoglobin', 'hematocrit', 'platelets', 'anc', 'lymphocytes', 'neutrophils', 'monocytes', 'eosinophils', 'basophils', 'mcv', 'mch', 'mchc', 'rdw', 'rdw-cv', 'hgb', 'hct', 'plt', 'ba#', 'ba%', 'eo#', 'eo%', 'lymph#', 'lymph%', 'mono#', 'mono%', 'neutro#', 'neutro%'];
+  const thyroidFunction = ['tsh', 't3', 't4', 'ft3', 'ft4', 'thyroglobulin', 'free t3', 'free t4'];
+  const cardiacMarkers = ['troponin', 'bnp', 'ntprobnp', 'ckmb', 'myoglobin', 'nt-probnp', 'ck-mb'];
+  const inflammation = ['crp', 'esr', 'ferritin', 'fibrinogen', 'フェリチン', 'fbg', 'ferritin (japanese)'];
+  const electrolytes = ['sodium', 'potassium', 'chloride', 'bicarbonate', 'co2', 'magnesium', 'phosphorus', 'calcium', 'na', 'k', 'ci', 'ca', 'mg', 'p', 'phos'];
+  const coagulation = ['pt', 'inr', 'aptt', 'dimer', 'ddimer', 'fibrinogen', 'd-dimer', 'fbg'];
+  const tumorMarkers = ['ca125', 'cea', 'afp', 'psa', 'ca199', 'ca153', 'ca724', 'ca242', 'ca50', 'he4', 'inhibinb', 'romaindex', 'ca2729', 'ca549', 'ca195'];
+
+  const categories = {
+    'Disease-Specific Markers': [],
+    'Liver Function': [],
+    'Kidney Function': [],
+    'Blood Counts': [],
+    'Thyroid Function': [],
+    'Cardiac Markers': [],
+    'Inflammation': [],
+    'Electrolytes': [],
+    'Coagulation': [],
+    'Custom Values': [],
+    'Others': []
+  };
+
+  // Known lab types (for detecting custom values)
+  const allKnownTypes = [
+    ...diseaseMarkers, ...liverFunction, ...kidneyFunction, ...bloodCounts,
+    ...thyroidFunction, ...cardiacMarkers, ...inflammation, ...electrolytes, ...coagulation
+  ];
+
+  // Track categorized labs to prevent duplicates
+  const categorizedKeys = new Set();
+
+  // Category mapping: canonical key -> category name
+  const categoryMap = {
+    'disease_specific_markers': 'Disease-Specific Markers',
+    'liver_function': 'Liver Function',
+    'kidney_function': 'Kidney Function',
+    'blood_counts': 'Blood Counts',
+    'thyroid_function': 'Thyroid Function',
+    'cardiac_markers': 'Cardiac Markers',
+    'inflammation': 'Inflammation',
+    'electrolytes': 'Electrolytes',
+    'coagulation': 'Coagulation',
+    'other': 'Others'
+  };
+
+  // Map canonical keys to categories
+  const canonicalKeyToCategory = {
+    // Disease-Specific Markers
+    'ca125': 'disease_specific_markers', 'ca199': 'disease_specific_markers', 'ca153': 'disease_specific_markers',
+    'ca724': 'disease_specific_markers', 'ca242': 'disease_specific_markers', 'ca50': 'disease_specific_markers',
+    'ca2729': 'disease_specific_markers', 'cea': 'disease_specific_markers', 'afp': 'disease_specific_markers',
+    'psa': 'disease_specific_markers', 'he4': 'disease_specific_markers', 'inhibinb': 'disease_specific_markers',
+    'romaindex': 'disease_specific_markers', 'scc_antigen': 'disease_specific_markers',
+    'cyfra211': 'disease_specific_markers', 'nse': 'disease_specific_markers', 'betahcg': 'disease_specific_markers',
+    
+    // Liver Function
+    'alt': 'liver_function', 'ast': 'liver_function', 'ast_alt_ratio': 'liver_function',
+    'alp': 'liver_function', 'alp_ifcc': 'liver_function', 'bilirubin_total': 'liver_function',
+    'bilirubin_direct': 'liver_function', 'bilirubin_indirect': 'liver_function',
+    'albumin': 'liver_function', 'ggt': 'liver_function', 'ldh': 'liver_function',
+    
+    // Kidney Function
+    'creatinine': 'kidney_function', 'egfr': 'kidney_function', 'bun': 'kidney_function',
+    'urea': 'kidney_function', 'urineprotein': 'kidney_function', 'urinecreatinine': 'kidney_function',
+    
+    // Blood Counts
+    'wbc': 'blood_counts', 'rbc': 'blood_counts', 'hemoglobin': 'blood_counts',
+    'hematocrit': 'blood_counts', 'platelets': 'blood_counts', 'anc': 'blood_counts',
+    'neutrophils_abs': 'blood_counts', 'neutrophils_pct': 'blood_counts',
+    'lymphocytes_abs': 'blood_counts', 'lymphocytes_pct': 'blood_counts',
+    'monocytes_abs': 'blood_counts', 'monocytes_pct': 'blood_counts',
+    'eosinophils_abs': 'blood_counts', 'eosinophils_pct': 'blood_counts',
+    'basophils_abs': 'blood_counts', 'basophils_pct': 'blood_counts',
+    'mcv': 'blood_counts', 'mch': 'blood_counts', 'mchc': 'blood_counts',
+    'rdw': 'blood_counts', 'rdw_cv': 'blood_counts',
+    'mpv': 'blood_counts', 'nrbc': 'blood_counts', 'nrbc_pct': 'blood_counts',
+    'reticulocyte_count': 'blood_counts', 'reticulocyte_pct': 'blood_counts',
+    
+    // Thyroid Function
+    'tsh': 'thyroid_function', 't3': 'thyroid_function', 't4': 'thyroid_function',
+    'ft3': 'thyroid_function', 'ft4': 'thyroid_function', 'thyroglobulin': 'thyroid_function',
+    
+    // Cardiac Markers
+    'troponin': 'cardiac_markers', 'bnp': 'cardiac_markers', 'ntprobnp': 'cardiac_markers',
+    'ckmb': 'cardiac_markers', 'myoglobin': 'cardiac_markers',
+    
+    // Inflammation
+    'crp': 'inflammation', 'esr': 'inflammation', 'ferritin': 'inflammation',
+    'il6': 'inflammation',
+    
+    // Electrolytes
+    'sodium': 'electrolytes', 'potassium': 'electrolytes', 'chloride': 'electrolytes',
+    'bicarbonate': 'electrolytes', 'co2': 'electrolytes', 'magnesium': 'electrolytes',
+    'phosphorus': 'electrolytes', 'calcium': 'electrolytes', 'calcium_ionized': 'electrolytes',
+    'phosphate': 'electrolytes',
+    
+    // Coagulation (precedence: coagulation wins over liver_function for PT, INR, APTT, etc.)
+    'pt': 'coagulation', 'inr': 'coagulation', 'aptt': 'coagulation',
+    'ddimer': 'coagulation', 'fdp': 'coagulation', 'fibrinogen': 'coagulation',
+    'antithrombin_iii': 'coagulation', 'protein_c': 'coagulation', 'protein_s': 'coagulation',
+    
+    // Other
+    'glucose': 'other', 'hba1c': 'other', 'iga': 'other', 'igg': 'other', 'igm': 'other', 'vitamin_d': 'other',
+    'beta2_microglobulin': 'other', 'procalcitonin': 'other'
+  };
+
+  Object.entries(labs).forEach(([key, lab]) => {
+    // Skip if already categorized
+    if (categorizedKeys.has(key)) return;
+
+    // Normalize lab name to canonical key
+    const canonicalKey = normalizeLabName(lab.name || key);
+    
+    // Determine category
+    let category = 'other';
+    if (canonicalKey && canonicalKeyToCategory[canonicalKey]) {
+    category = canonicalKeyToCategory[canonicalKey];
+    } else {
+    // Fallback: try to match by name/key patterns
+    const labKey = key.toLowerCase();
+    const labName = (lab.name || '').toLowerCase();
+    
+    if (diseaseMarkers.some(m => labKey.includes(m) || labName.includes(m)) ||
+      tumorMarkers.some(m => labKey.includes(m) || labName.includes(m))) {
+      category = 'disease_specific_markers';
+    } else if (coagulation.some(m => labKey.includes(m) || labName.includes(m))) {
+      // Coagulation has precedence
+      category = 'coagulation';
+    } else if (liverFunction.some(m => labKey.includes(m) || labName.includes(m))) {
+      category = 'liver_function';
+    } else if (kidneyFunction.some(m => labKey.includes(m) || labName.includes(m))) {
+      category = 'kidney_function';
+    } else if (bloodCounts.some(m => labKey.includes(m) || labName.includes(m))) {
+      category = 'blood_counts';
+    } else if (thyroidFunction.some(m => labKey.includes(m) || labName.includes(m))) {
+      category = 'thyroid_function';
+    } else if (cardiacMarkers.some(m => labKey.includes(m) || labName.includes(m))) {
+      category = 'cardiac_markers';
+    } else if (inflammation.some(m => labKey.includes(m) || labName.includes(m))) {
+      category = 'inflammation';
+    } else if (electrolytes.some(m => labKey.includes(m) || labName.includes(m))) {
+      category = 'electrolytes';
+    }
+    }
+
+    // Map to UI category name
+    const uiCategory = categoryMap[category] || 'Others';
+    
+    // Note: "Custom Values" should only contain manually added labs (via Add Lab modal)
+    // Document-extracted labs that don't fit categories go to "Others"
+    categories[uiCategory].push([key, lab]);
+    categorizedKeys.add(key);
+  });
+
+  // Remove duplicates within each category (same lab name)
+  Object.keys(categories).forEach(category => {
+    const seen = new Map();
+    categories[category] = categories[category].filter(([key, lab]) => {
+    const labNameKey = (lab.name || key).toLowerCase();
+    if (seen.has(labNameKey)) {
+      return false; // Duplicate
+    }
+    seen.set(labNameKey, true);
+    return true;
+    });
+  });
+
+  // Sort labs within each category by relevance score, then alphabetically
+  Object.keys(categories).forEach(category => {
+    categories[category].sort(([keyA, labA], [keyB, labB]) => {
+    const scoreA = labA.relevanceScore || 0;
+    const scoreB = labB.relevanceScore || 0;
+    if (scoreB !== scoreA) return scoreB - scoreA;
+    return labA.name.localeCompare(labB.name);
+    });
+  });
+
+  return categories;
+  };

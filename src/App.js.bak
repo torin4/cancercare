@@ -464,7 +464,19 @@ export default function CancerCareApp() {
       });
   }, []);
 
-  // Welcome message initialization moved to ChatTab component
+  // Initialize welcome message when user logs in
+  useEffect(() => {
+    if (user && messages.length === 0) {
+        setMessages([
+          {
+            type: 'ai',
+            text: `Hi ${user.displayName || 'there'}. How can I help you track your health today?\n\nJust tell me about your values naturally - like "My CA-125 came back at 70" or "My blood pressure was 145/92 today" - and I'll extract and log everything automatically.`
+          }
+        ]);
+    } else if (!user) {
+        setMessages([]);
+      }
+  }, [user]);
 
   // Handle onboarding completion
   const handleOnboardingComplete = async (formData) => {
@@ -719,6 +731,322 @@ export default function CancerCareApp() {
   // Load saved trials when dashboard is active
 
   // Chat-related functions moved to ChatTab component
+    if (!inputText.trim() || !user) return;
+
+    const userMessage = inputText;
+    setInputText('');
+
+    // Add user message immediately
+    const userMsg = { type: 'user', text: userMessage };
+    setMessages(prev => [...prev, userMsg]);
+    
+    // Auto-scroll to bottom after user message
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 50);
+
+    // Save user message to Firestore (async, don't wait)
+    if (user) {
+      messageService.addMessage({
+        patientId: user.uid,
+        type: 'user',
+        text: userMessage,
+        isAnalysis: false
+      }).catch(err => console.error('Error saving user message:', err));
+    }
+
+    try {
+      // Auto-load health context if user asks about health data but context isn't set
+      let healthContextToUse = currentHealthContext;
+      const requiresHealthData = /(explain|analyze|what does|how is|trend|progress|mean|interpret|my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications)|ca-125|hemoglobin|blood pressure|heart rate|temperature|weight)/i.test(userMessage);
+      
+      if (requiresHealthData && !healthContextToUse && user) {
+        try {
+          const labs = await labService.getLabs(user.uid);
+          const vitals = await vitalService.getVitals(user.uid);
+          const symptoms = await symptomService.getSymptoms(user.uid);
+          healthContextToUse = {
+            labs: labs,
+            vitals: vitals,
+            symptoms: symptoms
+          };
+          // Optionally set it for future messages
+          setCurrentHealthContext(healthContextToUse);
+        } catch (error) {
+          console.error('Error loading health data for context:', error);
+        }
+      }
+
+      // Auto-load trial context if user asks about trials but context isn't set
+      const requiresTrialData = !currentTrialContext && /(saved trial|saved trials|my trial|my trials|clinical trial|clinical trials|trial i saved|trials i saved|what trials|which trials|show me trials|tell me about trials|ask about trial)/i.test(userMessage);
+      
+      if (requiresTrialData && user) {
+        try {
+          const savedTrials = await getSavedTrials(user.uid);
+          if (savedTrials && savedTrials.length > 0) {
+            // Set the first saved trial as context, or the most recent one
+            // Handle Firestore Timestamp objects properly
+            const trialToUse = savedTrials.sort((a, b) => {
+              let aTime = 0;
+              let bTime = 0;
+              
+              if (a.savedAt) {
+                if (typeof a.savedAt.toMillis === 'function') {
+                  aTime = a.savedAt.toMillis();
+                } else if (typeof a.savedAt === 'number') {
+                  aTime = a.savedAt;
+                } else if (a.savedAt.seconds) {
+                  aTime = a.savedAt.seconds * 1000;
+                }
+              }
+              
+              if (b.savedAt) {
+                if (typeof b.savedAt.toMillis === 'function') {
+                  bTime = b.savedAt.toMillis();
+                } else if (typeof b.savedAt === 'number') {
+                  bTime = b.savedAt;
+                } else if (b.savedAt.seconds) {
+                  bTime = b.savedAt.seconds * 1000;
+                }
+              }
+              
+              return bTime - aTime;
+            })[0];
+            
+            // Ensure trial has required fields for context
+            if (trialToUse) {
+              setCurrentTrialContext(trialToUse);
+              setMessages(prev => [...prev, {
+                type: 'ai',
+                text: `I'm ready to answer questions about "${trialToUse.title || 'your saved trials'}". You can ask me about the drugs being used, what phase the study is in, eligibility criteria, or anything else about the trial.`
+              }]);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading saved trials for context:', error);
+          // Don't block message processing if trial loading fails
+        }
+      }
+
+      // Process message with AI to extract and save medical data
+      const result = await processChatMessage(
+        userMessage,
+        user.uid,
+        messages.slice(-10).map(msg => ({
+          role: msg.type === 'user' ? 'user' : 'assistant',
+          content: msg.text
+        })),
+        currentTrialContext, // Pass trial context if available
+        healthContextToUse, // Pass health context (auto-loaded if needed)
+        patientProfile // Pass patient profile for demographic-based normal ranges
+      );
+
+      // Build response text
+      let responseText = result.response;
+
+      // Add extraction summary if data was extracted
+      if (result.extractedData) {
+        const summary = generateChatExtractionSummary(result.extractedData);
+        if (summary) {
+          responseText += summary;
+        }
+      }
+
+      // Add AI response
+      const aiMsg = {
+        type: 'ai',
+        text: responseText,
+        isAnalysis: !!result.extractedData
+      };
+      setMessages(prev => [...prev, aiMsg]);
+      
+      // Auto-scroll to bottom after AI response
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+
+      // Save AI message to Firestore (async, don't wait)
+      if (user) {
+        messageService.addMessage({
+          patientId: user.uid,
+          type: 'ai',
+          text: responseText,
+          isAnalysis: !!result.extractedData,
+          extractedData: result.extractedData || null
+        }).catch(err => console.error('Error saving AI message:', err));
+      }
+
+      // Reload health data if values were extracted
+      if (result.extractedData) {
+        await reloadHealthData();
+      }
+
+    } catch (error) {
+      console.error('Error processing message:', error);
+      const errorMsg = {
+        type: 'ai',
+        text: 'Sorry, I\'m having trouble processing your message right now. Please try again in a moment.'
+      };
+      setMessages(prev => [...prev, errorMsg]);
+      
+      // Auto-scroll to bottom after error message
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+      
+      // Save error message to Firestore (async, don't wait)
+      if (user) {
+        messageService.addMessage({
+          patientId: user.uid,
+          type: 'ai',
+          text: errorMsg.text,
+          isAnalysis: false
+        }).catch(err => console.error('Error saving error message:', err));
+      }
+    }
+  };
+
+  const handleRealFileUpload = async (file, docType) => {
+    console.log('handleRealFileUpload called', file?.name, docType);
+    if (!user) {
+      alert('Please log in to upload files');
+      return;
+    }
+
+    try {
+      // Ensure we're on the chat tab before starting
+      setActiveTab('chat');
+
+      // Show loading overlay
+      setIsUploading(true);
+      setUploadProgress('Reading document...');
+
+      // Get document date and note (user-provided or null)
+      const providedDate = pendingDocumentDate;
+      const providedNote = pendingDocumentNote;
+      // Clear pending date and note after use
+      setPendingDocumentDate(null);
+      setPendingDocumentNote(null);
+
+      // Show processing message
+      setMessages([...messages,
+      { type: 'user', text: `Uploading: ${file.name}`, isUpload: true },
+      { type: 'ai', text: `Processing document... This may take a moment.`, isAnalysis: true }
+      ]);
+
+      // Step 1: Process document with AI to extract medical data
+      setUploadProgress('Analyzing document with AI...');
+      // Note: documentId will be null for new uploads, set after document is saved
+      const processingResult = await processDocument(file, user.uid, patientProfile, providedDate, providedNote, null);
+      console.log('Document processing result:', processingResult);
+
+      // Step 2: Upload file to Firebase Storage
+      setUploadProgress('Uploading to secure storage...');
+      const uploadResult = await uploadDocument(file, user.uid, {
+        category: processingResult.documentType || docType,
+        documentType: processingResult.documentType || docType,
+        note: providedNote || null // Store note with document record
+      });
+
+      console.log('File uploaded successfully:', uploadResult);
+
+      setUploadProgress('Saving extracted data...');
+
+      // Step 3: Add to local documents state
+      // Use user-provided date or today
+      const docDate = providedDate || new Date().toISOString().split('T')[0];
+      const newDoc = {
+        id: uploadResult.id,
+        name: file.name,
+        type: processingResult.documentType || docType,
+        date: docDate,
+        fileUrl: uploadResult.fileUrl,
+        storagePath: uploadResult.storagePath,
+        icon: (processingResult.documentType || docType).toLowerCase(),
+        note: providedNote || null // Include note in local state
+      };
+
+      setDocuments([newDoc, ...documents]);
+
+      // Step 4: Generate summary of extracted data
+      const summary = generateExtractionSummary(
+        processingResult.extractedData,
+        processingResult.extractedData
+      );
+
+      // Update messages with extraction results
+      setMessages(prev => [
+        ...prev.slice(0, -1), // Remove "Processing..." message
+        {
+          type: 'ai',
+          text: `Document processed successfully!\n\nDocument Type: ${processingResult.documentType}\n\n${summary}\n\nAll data has been automatically saved to your health records.`,
+          isAnalysis: true
+        }
+      ]);
+
+      // Reload health data to show new values
+      setUploadProgress('Refreshing your health data...');
+      await reloadHealthData();
+
+      setActiveTab('chat');
+      setIsUploading(false);
+      setUploadProgress('');
+    } catch (error) {
+      console.error('Upload error:', error);
+
+      // Update messages with error
+      setMessages(prev => [
+        ...prev.slice(0, -1), // Remove "Processing..." message
+        {
+          type: 'ai',
+          text: `Failed to process document: ${error.message}\n\nThe file was not uploaded. Please try again or contact support if the issue persists.`
+        }
+      ]);
+
+      setIsUploading(false);
+      setUploadProgress('');
+    }
+  };
+
+  const simulateDocumentUpload = (docType) => {
+    console.log('simulateDocumentUpload called, docType=', docType);
+    // Create a file input element
+    const input = document.createElement('input');
+    input.type = 'file';
+    // Accept common document and genomic data file types (vcf, maf, bed, txt, csv, tsv, compressed)
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls';
+
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        console.log('simulateDocumentUpload - file selected:', file.name, 'docType=', docType);
+        await handleRealFileUpload(file, docType);
+      }
+    };
+
+    console.log('simulateDocumentUpload invoking file picker');
+    input.click();
+  };
+
+  const simulateCameraUpload = (docType) => {
+    console.log('simulateCameraUpload called, docType=', docType);
+    const input = document.createElement('input');
+    input.type = 'file';
+    // Accept common document types and images
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls,image/*';
+    // Hint mobile devices to open camera (this enables camera option in file picker)
+    input.capture = 'environment';
+
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        console.log('simulateCameraUpload - file selected:', file.name, 'docType=', docType);
+        await handleRealFileUpload(file, docType);
+      }
+    };
+
+    input.click();
+  };
 
   // Get current lab, ensuring it exists and defaulting to first numeric lab if not
   const currentLab = allLabData[selectedLab] || Object.values(allLabData).find(lab => lab.isNumeric) || Object.values(allLabData)[0] || {
@@ -917,15 +1245,53 @@ export default function CancerCareApp() {
                           setShowQuickLog(false);
                           setQuickLogMode('general');
                           
-                          // Store message in sessionStorage for ChatTab to process
-                          sessionStorage.setItem('pendingQuickLogMessage', JSON.stringify({
-                            type: 'user',
-                            text: userMessage
-                          }));
+                          // Add user message immediately
+                          setMessages(prev => [...prev, { type: 'user', text: userMessage }]);
                           
-                          // Reload health data if needed (will be done by ChatTab after processing)
-                          // Switch to chat tab - ChatTab will process the message
-                          setActiveTab('chat');
+                          try {
+                            // Process message with AI to extract and save medical data
+                            const result = await processChatMessage(
+                              userMessage,
+                              user.uid,
+                              messages.slice(-10).map(msg => ({
+                                role: msg.type === 'user' ? 'user' : 'assistant',
+                                content: msg.text
+                              }))
+                            );
+
+                            // Build response text
+                            let responseText = result.response;
+
+                            // Add extraction summary if data was extracted
+                            if (result.extractedData) {
+                              const summary = generateChatExtractionSummary(result.extractedData);
+                              if (summary) {
+                                responseText += summary;
+                              }
+                            }
+
+                            // Add AI response
+                            setMessages(prev => [...prev, {
+                              type: 'ai',
+                              text: responseText,
+                              isAnalysis: !!result.extractedData
+                            }]);
+
+                            // Reload health data if values were extracted
+                            if (result.extractedData) {
+                              await reloadHealthData();
+                            }
+                            
+                            // Switch to chat tab to show the conversation
+                            setActiveTab('chat');
+                          } catch (error) {
+                            console.error('Error processing quick log message:', error);
+                            setMessages(prev => [...prev, {
+                              type: 'ai',
+                              text: 'Sorry, I\'m having trouble processing your message right now. Please try again in a moment.'
+                            }]);
+                            setActiveTab('chat');
+                          }
                         }
                       }}
                       className="w-full mt-4 bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition"
@@ -1072,12 +1438,11 @@ export default function CancerCareApp() {
                           setQuickLogMode('general');
                           
                           // Symptoms will automatically update via the subscription
-                          // Store success message in sessionStorage for ChatTab
-                          sessionStorage.setItem('pendingQuickLogMessage', JSON.stringify({
+                          // Optionally show a success message
+                          setMessages(prev => [...prev, {
                             type: 'ai',
                             text: `Logged symptom: ${quickLogSymptomForm.name} (${quickLogSymptomForm.severity})`
-                          }));
-                          setActiveTab('chat');
+                          }]);
                         } catch (error) {
                           console.error('Error saving symptom:', error);
                           alert('Failed to save symptom. Please try again.');
@@ -1238,6 +1603,7 @@ export default function CancerCareApp() {
         user={user}
         trialLocation={trialLocation}
         setTrialLocation={setTrialLocation}
+        setMessages={setMessages}
       />
 
       {/* Profile tab modals moved to ProfileTab component */}

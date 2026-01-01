@@ -4,7 +4,7 @@ import { User, ChevronRight, Search } from 'lucide-react';
 // Map of common histologic subtypes / diagnoses by main cancer category
 // Includes most common subtypes and an "Other (specify)" option for custom entries
 const CANCER_SUBTYPES = {
-  'Ovarian Cancer': ['High-grade serous', 'Low-grade serous', 'Clear cell', 'Endometrioid', 'Mucinous', 'Other (specify)'],
+  'Ovarian Cancer': ['High-grade serous', 'Low-grade serous', 'Clear Cell Carcinoma', 'Clear Cell Sarcoma', 'Endometrioid', 'Mucinous', 'Other (specify)'],
   'Breast Cancer': ['Invasive ductal (IDC)', 'Invasive lobular (ILC)', 'Triple-negative', 'HER2+', 'ER+/PR+', 'Other (specify)'],
   'Lung Cancer': ['Adenocarcinoma', 'Squamous cell carcinoma', 'Small cell lung cancer', 'Large cell carcinoma', 'Other (specify)'],
   'Colorectal Cancer': ['Adenocarcinoma', 'Mucinous adenocarcinoma', 'Signet ring cell carcinoma', 'Other (specify)'],

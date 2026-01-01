@@ -13,6 +13,7 @@ import {
   clinicalTrialService,
   trialLocationService
 } from './services';
+import { transformLabsData, transformVitalsData } from '../utils/dataTransformUtils';
 
 // Hook for patient data
 export const usePatient = (patientId) => {
@@ -57,9 +58,10 @@ export const usePatient = (patientId) => {
   return { patient, loading, error, updatePatient };
 };
 
-// Hook for labs
+// Hook for labs with transformation
 export const useLabs = (patientId) => {
   const [labs, setLabs] = useState([]);
+  const [labsData, setLabsData] = useState({}); // Transformed data
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -72,8 +74,11 @@ export const useLabs = (patientId) => {
     const loadLabs = async () => {
       try {
         setLoading(true);
-        const data = await labService.getLabs(patientId);
-        setLabs(data);
+        const rawData = await labService.getLabs(patientId);
+        setLabs(rawData);
+        // Transform the data for UI
+        const transformed = await transformLabsData(rawData);
+        setLabsData(transformed);
         setError(null);
       } catch (err) {
         setError(err);
@@ -91,6 +96,9 @@ export const useLabs = (patientId) => {
       const id = await labService.saveLab({ ...labData, patientId });
       const updated = await labService.getLabs(patientId);
       setLabs(updated);
+      // Re-transform after update
+      const transformed = await transformLabsData(updated);
+      setLabsData(transformed);
       return id;
     } catch (err) {
       setError(err);
@@ -103,18 +111,38 @@ export const useLabs = (patientId) => {
       await labService.saveLab({ id: labId, ...updates });
       const updated = await labService.getLabs(patientId);
       setLabs(updated);
+      // Re-transform after update
+      const transformed = await transformLabsData(updated);
+      setLabsData(transformed);
     } catch (err) {
       setError(err);
       throw err;
     }
   };
 
-  return { labs, loading, error, addLab, updateLab };
+  const reloadLabs = async () => {
+    try {
+      setLoading(true);
+      const rawData = await labService.getLabs(patientId);
+      setLabs(rawData);
+      const transformed = await transformLabsData(rawData);
+      setLabsData(transformed);
+      setError(null);
+    } catch (err) {
+      setError(err);
+      console.error('Error reloading labs:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { labs, labsData, loading, error, addLab, updateLab, reloadLabs };
 };
 
-// Hook for vitals
+// Hook for vitals with transformation
 export const useVitals = (patientId) => {
   const [vitals, setVitals] = useState([]);
+  const [vitalsData, setVitalsData] = useState({}); // Transformed data
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -127,8 +155,11 @@ export const useVitals = (patientId) => {
     const loadVitals = async () => {
       try {
         setLoading(true);
-        const data = await vitalService.getVitals(patientId);
-        setVitals(data);
+        const rawData = await vitalService.getVitals(patientId);
+        setVitals(rawData);
+        // Transform the data for UI
+        const transformed = await transformVitalsData(rawData);
+        setVitalsData(transformed);
         setError(null);
       } catch (err) {
         setError(err);
@@ -146,6 +177,9 @@ export const useVitals = (patientId) => {
       const id = await vitalService.saveVital({ ...vitalData, patientId });
       const updated = await vitalService.getVitals(patientId);
       setVitals(updated);
+      // Re-transform after update
+      const transformed = await transformVitalsData(updated);
+      setVitalsData(transformed);
       return id;
     } catch (err) {
       setError(err);
@@ -153,7 +187,23 @@ export const useVitals = (patientId) => {
     }
   };
 
-  return { vitals, loading, error, addVital };
+  const reloadVitals = async () => {
+    try {
+      setLoading(true);
+      const rawData = await vitalService.getVitals(patientId);
+      setVitals(rawData);
+      const transformed = await transformVitalsData(rawData);
+      setVitalsData(transformed);
+      setError(null);
+    } catch (err) {
+      setError(err);
+      console.error('Error reloading vitals:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { vitals, vitalsData, loading, error, addVital, reloadVitals };
 };
 
 // Hook for medications
