@@ -2465,14 +2465,14 @@ export default function CancerCareApp() {
                     onClick={() => {
                       setShowAddSymptomModal(true);
                     }}
-                    className="group relative flex flex-row items-center justify-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-3.5 flex-1 bg-gradient-to-br from-medical-primary-50 to-medical-primary-100/50 hover:from-medical-primary-100 hover:to-medical-primary-200/50 border border-medical-primary-200/60 hover:border-medical-primary-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+                    className="group relative flex flex-row items-center justify-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-3.5 flex-1 border-2 border-medical-primary-500 hover:bg-medical-primary-50 rounded-xl transition-all duration-200"
                   >
-                    <div className="w-8 h-8 sm:w-9 sm:h-9 bg-medical-primary-500 group-hover:bg-medical-primary-600 rounded-lg flex items-center justify-center transition-colors duration-200 shadow-sm flex-shrink-0">
-                      <Activity className="w-4 h-4 sm:w-4 sm:h-4 text-white" />
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 border-2 border-medical-primary-500 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
+                      <Activity className="w-4 h-4 sm:w-4 sm:h-4 text-medical-primary-600" />
                     </div>
                     <div className="flex flex-col items-start min-w-0">
-                      <span className="text-xs sm:text-sm font-semibold text-medical-primary-800 group-hover:text-medical-primary-900 whitespace-nowrap">Log Symptom</span>
-                      <span className="text-xs text-medical-primary-600/80 hidden sm:block">Track how you're feeling</span>
+                      <span className="text-xs sm:text-sm font-semibold text-medical-primary-600 whitespace-nowrap">Log Symptom</span>
+                      <span className="text-xs text-medical-primary-500/80 hidden sm:block">Track how you're feeling</span>
                     </div>
                   </button>
 
@@ -2485,14 +2485,14 @@ export default function CancerCareApp() {
                         setShowAddLab(true);
                       }, 300);
                     }}
-                    className="group relative flex flex-row items-center justify-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-3.5 flex-1 bg-gradient-to-br from-medical-accent-50 to-medical-accent-100/50 hover:from-medical-accent-100 hover:to-medical-accent-200/50 border border-medical-accent-200/60 hover:border-medical-accent-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+                    className="group relative flex flex-row items-center justify-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-3.5 flex-1 border-2 border-medical-accent-500 hover:bg-medical-accent-50 rounded-xl transition-all duration-200"
                   >
-                    <div className="w-8 h-8 sm:w-9 sm:h-9 bg-medical-accent-500 group-hover:bg-medical-accent-600 rounded-lg flex items-center justify-center transition-colors duration-200 shadow-sm flex-shrink-0">
-                      <TrendingUp className="w-4 h-4 sm:w-4 sm:h-4 text-white" />
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 border-2 border-medical-accent-500 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
+                      <TrendingUp className="w-4 h-4 sm:w-4 sm:h-4 text-medical-accent-600" />
                     </div>
                     <div className="flex flex-col items-start min-w-0">
-                      <span className="text-xs sm:text-sm font-semibold text-medical-accent-800 group-hover:text-medical-accent-900 whitespace-nowrap">Add Lab Value</span>
-                      <span className="text-xs text-medical-accent-600/80 hidden sm:block">Record test results</span>
+                      <span className="text-xs sm:text-sm font-semibold text-medical-accent-600 whitespace-nowrap">Add Lab Value</span>
+                      <span className="text-xs text-medical-accent-500/80 hidden sm:block">Record test results</span>
                     </div>
                   </button>
 
@@ -2500,14 +2500,14 @@ export default function CancerCareApp() {
                     onClick={() => {
                       openDocumentOnboarding('general');
                     }}
-                    className="group relative flex flex-row items-center justify-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-3.5 flex-1 bg-gradient-to-br from-medical-secondary-50 to-medical-secondary-100/50 hover:from-medical-secondary-100 hover:to-medical-secondary-200/50 border border-medical-secondary-200/60 hover:border-medical-secondary-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+                    className="group relative flex flex-row items-center justify-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-3.5 flex-1 border-2 border-medical-secondary-500 hover:bg-medical-secondary-50 rounded-xl transition-all duration-200"
                   >
-                    <div className="w-8 h-8 sm:w-9 sm:h-9 bg-medical-secondary-500 group-hover:bg-medical-secondary-600 rounded-lg flex items-center justify-center transition-colors duration-200 shadow-sm flex-shrink-0">
-                      <Upload className="w-4 h-4 sm:w-4 sm:h-4 text-white" />
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 border-2 border-medical-secondary-500 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
+                      <Upload className="w-4 h-4 sm:w-4 sm:h-4 text-medical-secondary-600" />
                     </div>
                     <div className="flex flex-col items-start min-w-0">
-                      <span className="text-xs sm:text-sm font-semibold text-medical-secondary-800 group-hover:text-medical-secondary-900 whitespace-nowrap">Smart Scan</span>
-                      <span className="text-xs text-medical-secondary-600/80 hidden sm:block">Upload & extract data</span>
+                      <span className="text-xs sm:text-sm font-semibold text-medical-secondary-600 whitespace-nowrap">Smart Scan</span>
+                      <span className="text-xs text-medical-secondary-500/80 hidden sm:block">Upload & extract data</span>
                     </div>
                   </button>
                 </div>
