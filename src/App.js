@@ -5920,7 +5920,7 @@ export default function CancerCareApp() {
 
             {/* Settings Section */}
             {user && (
-              <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-medical-neutral-200 mt-6">
+              <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-gray-400 mt-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Settings className="w-5 h-5 text-medical-neutral-600" />
                   <h2 className="font-semibold text-medical-neutral-900">Settings</h2>
