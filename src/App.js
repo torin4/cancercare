@@ -3394,7 +3394,10 @@ export default function CancerCareApp() {
                                                         if (window.confirm(`Delete this ${currentLab.name} reading (${d.value} ${currentLab.unit} on ${d.date})?`)) {
                                                           try {
                                                             await labService.deleteLab(d.id);
-                                                            // Data will update via subscription
+                                                            // Reload data to reflect deletion
+                                                            const labs = await labService.getLabs(user.uid);
+                                                            const transformedLabs = transformLabsData(labs);
+                                                            setLabsData(transformedLabs);
                                                           } catch (error) {
                                                             console.error('Error deleting lab:', error);
                                                             alert('Failed to delete lab reading. Please try again.');
@@ -3536,7 +3539,10 @@ export default function CancerCareApp() {
                                                   if (window.confirm(`Delete all ${displayName} data? This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'}. This action cannot be undone.`)) {
                                                     try {
                                                       await labService.deleteAllLabsByType(user.uid, labType);
-                                                      // Data will update via subscription
+                                                      // Reload data to reflect deletion
+                                                      const labs = await labService.getLabs(user.uid);
+                                                      const transformedLabs = transformLabsData(labs);
+                                                      setLabsData(transformedLabs);
                                                     } catch (error) {
                                                       console.error('Error deleting labs:', error);
                                                       alert('Failed to delete lab data. Please try again.');
@@ -3739,15 +3745,18 @@ export default function CancerCareApp() {
                                           const vital = allVitalsData[vitalType];
                                           const displayName = getVitalDisplayName(vital?.name || vitalType);
                                           const count = vital?.data?.length || 0;
-                                          if (window.confirm(`Delete all ${displayName} data? This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'}. This action cannot be undone.`)) {
-                                            try {
-                                              await vitalService.deleteAllVitalsByType(user.uid, vitalType);
-                                              // Data will update via subscription
-                                            } catch (error) {
-                                              console.error('Error deleting vitals:', error);
-                                              alert('Failed to delete vital data. Please try again.');
-                                            }
-                                          }
+                                              if (window.confirm(`Delete all ${displayName} data? This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'}. This action cannot be undone.`)) {
+                                                try {
+                                                  await vitalService.deleteAllVitalsByType(user.uid, vitalType);
+                                                  // Reload data to reflect deletion
+                                                  const vitals = await vitalService.getVitals(user.uid);
+                                                  const transformedVitals = transformVitalsData(vitals);
+                                                  setVitalsData(transformedVitals);
+                                                } catch (error) {
+                                                  console.error('Error deleting vitals:', error);
+                                                  alert('Failed to delete vital data. Please try again.');
+                                                }
+                                              }
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
                                       >
@@ -4107,7 +4116,10 @@ export default function CancerCareApp() {
                                                               if (window.confirm(`Delete this ${displayName} reading (${valueDisplay} ${currentVital.unit} on ${d.date})?`)) {
                                                                 try {
                                                                   await vitalService.deleteVital(d.id);
-                                                                  // Data will update via subscription
+                                                                  // Reload data to reflect deletion
+                                                                  const vitals = await vitalService.getVitals(user.uid);
+                                                                  const transformedVitals = transformVitalsData(vitals);
+                                                                  setVitalsData(transformedVitals);
                                                                 } catch (error) {
                                                                   console.error('Error deleting vital:', error);
                                                                   alert('Failed to delete vital reading. Please try again.');
