@@ -271,6 +271,7 @@ export default function CancerCareApp() {
   const [genomicExpanded, setGenomicExpanded] = useState(false);
   const [selectedVital, setSelectedVital] = useState('bp');
   const [showAddVital, setShowAddVital] = useState(false);
+  const [newVital, setNewVital] = useState({ vitalType: '', value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
   const [messages, setMessages] = useState([]);
   const [chatHistoryLoaded, setChatHistoryLoaded] = useState(false);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
@@ -8007,7 +8008,11 @@ export default function CancerCareApp() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Vital Sign <span className="text-red-600">*</span>
                   </label>
-                  <select className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <select 
+                    value={newVital.vitalType || ''}
+                    onChange={(e) => setNewVital({ ...newVital, vitalType: e.target.value, value: '', systolic: '', diastolic: '' })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
                     <option value="">Select vital sign...</option>
                     <option value="bp">Blood Pressure</option>
                     <option value="hr">Heart Rate</option>
@@ -8018,30 +8023,51 @@ export default function CancerCareApp() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Reading <span className="text-red-600">*</span>
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
+                {newVital.vitalType === 'bp' ? (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Reading <span className="text-red-600">*</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="number"
+                        placeholder="Systolic"
+                        value={newVital.systolic || ''}
+                        onChange={(e) => setNewVital({ ...newVital, systolic: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Diastolic"
+                        value={newVital.diastolic || ''}
+                        onChange={(e) => setNewVital({ ...newVital, diastolic: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">For blood pressure, enter both values</p>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Reading <span className="text-red-600">*</span>
+                    </label>
                     <input
                       type="number"
-                      placeholder="Systolic"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Diastolic"
+                      step="any"
+                      value={newVital.value || ''}
+                      onChange={(e) => setNewVital({ ...newVital, value: e.target.value })}
+                      placeholder="Enter reading"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">For blood pressure, enter both values</p>
-                </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date & Time</label>
                   <input
                     type="datetime-local"
-                    defaultValue={new Date().toISOString().slice(0, 16)}
+                    value={newVital.dateTime || new Date().toISOString().slice(0, 16)}
+                    onChange={(e) => setNewVital({ ...newVital, dateTime: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -8052,6 +8078,8 @@ export default function CancerCareApp() {
                   </label>
                   <textarea
                     rows="2"
+                    value={newVital.notes || ''}
+                    onChange={(e) => setNewVital({ ...newVital, notes: e.target.value })}
                     placeholder="e.g., Taken after rest, morning reading"
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                   ></textarea>
@@ -8061,16 +8089,112 @@ export default function CancerCareApp() {
               <div className="flex-shrink-0 border-t p-4 bg-white">
                 <div className="flex gap-3">
                   <button
-                    onClick={() => setShowAddVital(false)}
+                    onClick={() => {
+                      setShowAddVital(false);
+                      setNewVital({ vitalType: '', value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
+                    }}
                     className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition flex items-center justify-center gap-2"
                   >
                     <X className="w-4 h-4" />
                     Cancel
                   </button>
                   <button
-                    onClick={() => {
-                      setShowAddVital(false);
-                      alert('Vital reading logged successfully!');
+                    onClick={async () => {
+                      if (!newVital.vitalType || !user) {
+                        alert('Please select a vital sign.');
+                        return;
+                      }
+
+                      if (newVital.vitalType === 'bp') {
+                        if (!newVital.systolic || !newVital.diastolic) {
+                          alert('Please enter both systolic and diastolic values for blood pressure.');
+                          return;
+                        }
+                      } else {
+                        if (!newVital.value) {
+                          alert('Please enter a reading.');
+                          return;
+                        }
+                      }
+
+                      try {
+                        const vitalDate = new Date(newVital.dateTime || new Date());
+                        if (isNaN(vitalDate.getTime())) {
+                          alert('Please enter a valid date and time.');
+                          return;
+                        }
+
+                        // Get vital label
+                        const vitalLabels = {
+                          bp: 'Blood Pressure',
+                          hr: 'Heart Rate',
+                          temp: 'Temperature',
+                          weight: 'Weight',
+                          o2sat: 'Oxygen Saturation',
+                          rr: 'Respiratory Rate'
+                        };
+
+                        const vitalUnits = {
+                          bp: 'mmHg',
+                          hr: 'BPM',
+                          temp: '°F',
+                          weight: 'kg',
+                          o2sat: '%',
+                          rr: '/min'
+                        };
+
+                        // Check if vital already exists
+                        let existingVital = await vitalService.getVitalByType(user.uid, newVital.vitalType);
+                        let vitalId;
+
+                        if (existingVital) {
+                          vitalId = existingVital.id;
+                        } else {
+                          // Create new vital
+                          vitalId = await vitalService.saveVital({
+                            patientId: user.uid,
+                            vitalType: newVital.vitalType,
+                            label: vitalLabels[newVital.vitalType],
+                            currentValue: newVital.vitalType === 'bp' ? `${newVital.systolic}/${newVital.diastolic}` : parseFloat(newVital.value),
+                            unit: vitalUnits[newVital.vitalType],
+                            createdAt: vitalDate
+                          });
+                        }
+
+                        // Add vital value
+                        const valueData = {
+                          date: vitalDate,
+                          notes: newVital.notes || ''
+                        };
+
+                        if (newVital.vitalType === 'bp') {
+                          valueData.systolic = parseFloat(newVital.systolic);
+                          valueData.diastolic = parseFloat(newVital.diastolic);
+                          valueData.value = `${newVital.systolic}/${newVital.diastolic}`;
+                        } else {
+                          valueData.value = parseFloat(newVital.value);
+                        }
+
+                        await vitalService.addVitalValue(vitalId, valueData);
+
+                        // Update current value
+                        const vital = await vitalService.getVital(vitalId);
+                        if (vital) {
+                          await vitalService.saveVital({
+                            id: vitalId,
+                            currentValue: newVital.vitalType === 'bp' ? `${newVital.systolic}/${newVital.diastolic}` : parseFloat(newVital.value)
+                          });
+                        }
+
+                        // Reload health data
+                        await reloadHealthData();
+
+                        setShowAddVital(false);
+                        setNewVital({ vitalType: '', value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
+                      } catch (error) {
+                        console.error('Error adding vital:', error);
+                        alert('Failed to add vital reading. Please try again.');
+                      }
                     }}
                     className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
                   >
