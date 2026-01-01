@@ -5135,22 +5135,33 @@ export default function CancerCareApp() {
 
         {activeTab === 'files' && (
           <div className="p-4 space-y-4">
-            <div className="bg-white rounded-lg shadow p-4 border border-medical-neutral-200">
-              <h3 className="font-semibold mb-3">Medical Documents</h3>
-              {documents.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                    <FolderOpen className="w-12 h-12 text-gray-400" />
+            <div className="bg-white rounded-lg shadow p-4 sm:p-5 border border-medical-neutral-200">
+              {documents.length > 0 && (
+                <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
+                  <div className="bg-gray-100 p-2 rounded-lg">
+                    <FolderOpen className="w-5 h-5 text-gray-600" />
                   </div>
-                  <p className="text-gray-500 text-sm mb-4">No documents uploaded yet</p>
-                  <button
-                    onClick={() => {
-                      openDocumentOnboarding('general');
-                    }}
-                    className="px-4 py-2 bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition text-sm font-medium"
-                  >
-                    Upload Your First Document
-                  </button>
+                  Medical Documents
+                </h3>
+              )}
+              {documents.length === 0 ? (
+                <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FolderOpen className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-medical-neutral-900 mb-2">No documents uploaded yet</h3>
+                  <p className="text-sm text-medical-neutral-600 mb-6">Upload lab results, imaging scans, clinical reports, or genomic test results</p>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <button
+                      onClick={() => {
+                        openDocumentOnboarding('general');
+                      }}
+                      className="px-6 py-3 bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Upload Your First Document
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-2">
