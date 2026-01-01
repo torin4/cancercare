@@ -868,7 +868,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                     onTrialSelected(selectedTrial);
                     setSelectedTrial(null);
                   }}
-                  className="flex-1 bg-medical-accent-500 text-white px-4 py-2.5 rounded-lg hover:bg-medical-accent-600 transition font-medium shadow-sm"
+                  className="flex-1 bg-medical-accent-500 text-white px-6 py-3 rounded-lg hover:bg-medical-accent-600 transition-all duration-200 font-semibold shadow-sm hover:shadow-md"
                 >
                   Ask About This Trial
                 </button>
@@ -877,16 +877,10 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                 href={selectedTrial.url || (selectedTrial.id ? `https://clinicaltrials.gov/study/${selectedTrial.id}` : '#')}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 bg-medical-primary-500 text-white px-4 py-2.5 rounded-lg hover:bg-medical-primary-600 transition text-center font-medium shadow-sm"
+                className="flex-1 bg-medical-primary-500 text-white px-6 py-3 rounded-lg hover:bg-medical-primary-600 transition-all duration-200 text-center font-semibold shadow-sm hover:shadow-md"
               >
                 View on ClinicalTrials.gov
               </a>
-              <button
-                onClick={() => setSelectedTrial(null)}
-                className="flex-1 bg-medical-neutral-200 text-medical-neutral-700 px-4 py-2.5 rounded-lg hover:bg-medical-neutral-300 transition font-medium"
-              >
-                Close
-              </button>
             </div>
           </div>
         </div>
