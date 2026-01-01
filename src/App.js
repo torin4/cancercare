@@ -5409,15 +5409,15 @@ export default function CancerCareApp() {
 
             {/* Genomic Profile */}
             <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border-2 border-purple-200">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-2.5 rounded-lg">
-                    <Dna className="w-6 h-6 text-purple-600" />
+              {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 && (
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-2.5 rounded-lg">
+                      <Dna className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <h2 className="font-semibold text-gray-800 text-lg">Genomic Profile</h2>
                   </div>
-                  <h2 className="font-semibold text-gray-800 text-lg">Genomic Profile</h2>
-                </div>
-                <div className="flex items-center gap-2">
-                  {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 && (
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => setGenomicExpanded(!genomicExpanded)}
                       className="text-purple-600 hover:text-purple-700 flex items-center gap-1 text-sm font-medium"
@@ -5438,47 +5438,47 @@ export default function CancerCareApp() {
                         </>
                       )}
                     </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      // Initialize editing state with current profile or empty structure
-                      setEditingGenomicProfile(genomicProfile ? {
-                        mutations: genomicProfile.mutations || [],
-                        biomarkers: genomicProfile.biomarkers || {},
-                        testName: genomicProfile.testName || '',
-                        testDate: genomicProfile.testDate ? (typeof genomicProfile.testDate === 'string' ? genomicProfile.testDate.split('T')[0] : new Date(genomicProfile.testDate).toISOString().split('T')[0]) : '',
-                        laboratoryName: genomicProfile.laboratoryName || '',
-                        specimenType: genomicProfile.specimenType || '',
-                        tumorPurity: genomicProfile.tumorPurity || '',
-                        tmb: genomicProfile.tmb || genomicProfile.biomarkers?.tumorMutationalBurden?.value || '',
-                        msi: genomicProfile.msi || genomicProfile.biomarkers?.microsatelliteInstability?.status || '',
-                        hrdScore: genomicProfile.hrdScore || genomicProfile.biomarkers?.hrdScore?.value || '',
-                        cnvs: genomicProfile.cnvs || [],
-                        fusions: genomicProfile.fusions || [],
-                        germlineFindings: genomicProfile.germlineFindings || []
-                      } : {
-                        mutations: [],
-                        biomarkers: {},
-                        testName: '',
-                        testDate: '',
-                        laboratoryName: '',
-                        specimenType: '',
-                        tumorPurity: '',
-                        tmb: '',
-                        msi: '',
-                        hrdScore: '',
-                        cnvs: [],
-                        fusions: [],
-                        germlineFindings: []
-                      });
-                      setShowEditGenomic(true);
-                    }}
-                    className="text-purple-600 hover:text-purple-700"
-                  >
-                    <Edit2 size={18} />
-                  </button>
+                    <button
+                      onClick={() => {
+                        // Initialize editing state with current profile or empty structure
+                        setEditingGenomicProfile(genomicProfile ? {
+                          mutations: genomicProfile.mutations || [],
+                          biomarkers: genomicProfile.biomarkers || {},
+                          testName: genomicProfile.testName || '',
+                          testDate: genomicProfile.testDate ? (typeof genomicProfile.testDate === 'string' ? genomicProfile.testDate.split('T')[0] : new Date(genomicProfile.testDate).toISOString().split('T')[0]) : '',
+                          laboratoryName: genomicProfile.laboratoryName || '',
+                          specimenType: genomicProfile.specimenType || '',
+                          tumorPurity: genomicProfile.tumorPurity || '',
+                          tmb: genomicProfile.tmb || genomicProfile.biomarkers?.tumorMutationalBurden?.value || '',
+                          msi: genomicProfile.msi || genomicProfile.biomarkers?.microsatelliteInstability?.status || '',
+                          hrdScore: genomicProfile.hrdScore || genomicProfile.biomarkers?.hrdScore?.value || '',
+                          cnvs: genomicProfile.cnvs || [],
+                          fusions: genomicProfile.fusions || [],
+                          germlineFindings: genomicProfile.germlineFindings || []
+                        } : {
+                          mutations: [],
+                          biomarkers: {},
+                          testName: '',
+                          testDate: '',
+                          laboratoryName: '',
+                          specimenType: '',
+                          tumorPurity: '',
+                          tmb: '',
+                          msi: '',
+                          hrdScore: '',
+                          cnvs: [],
+                          fusions: [],
+                          germlineFindings: []
+                        });
+                        setShowEditGenomic(true);
+                      }}
+                      className="text-purple-600 hover:text-purple-700"
+                    >
+                      <Edit2 size={18} />
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Summary View - Always Visible */}
               {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 ? (
@@ -5502,17 +5502,23 @@ export default function CancerCareApp() {
                   </div>
                 </div>
               ) : (
-                <div className="bg-white rounded-lg p-6 text-center">
-                  <p className="text-gray-500 mb-4">No genomic profile data available</p>
-                  <button
-                    onClick={() => {
-                      openDocumentOnboarding('genomic');
-                    }}
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center justify-center gap-2 mx-auto"
-                  >
-                    <Upload className="w-4 h-4" />
-                    Upload Genomic Test Report
-                  </button>
+                <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Dna className="w-8 h-8 text-purple-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-medical-neutral-900 mb-2">No genomic data yet</h3>
+                  <p className="text-sm text-medical-neutral-600 mb-6">Upload your genomic test report to match with targeted therapies and clinical trials</p>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <button
+                      onClick={() => {
+                        openDocumentOnboarding('genomic');
+                      }}
+                      className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Upload Genomic Report
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -5718,49 +5724,72 @@ export default function CancerCareApp() {
             <div className="flex flex-col sm:flex-row gap-4">
               {/* Medical Team */}
               <div className="flex-1 bg-white rounded-lg shadow-sm p-4 border-2 border-medical-primary-200">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-medical-primary-50 p-2.5 rounded-lg">
-                      <Users className="w-5 h-5 text-medical-primary-600" />
+                {(patientProfile.oncologist || patientProfile.hospital || emergencyContacts.find(c => c.contactType === 'primaryCare' || c.contactType === 'primary_care' || c.contactType === 'primary')) && (
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-medical-primary-50 p-2.5 rounded-lg">
+                        <Users className="w-5 h-5 text-medical-primary-600" />
+                      </div>
+                      <h2 className="font-semibold text-gray-800">Medical Team</h2>
                     </div>
-                    <h2 className="font-semibold text-gray-800">Medical Team</h2>
+                    <button
+                      onClick={() => setShowEditMedicalTeam(true)}
+                      className="text-medical-primary-600 hover:text-medical-primary-700"
+                    >
+                      <Edit2 size={18} />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => setShowEditMedicalTeam(true)}
-                    className="text-medical-primary-600 hover:text-medical-primary-700"
-                  >
-                    <Edit2 size={18} />
-                  </button>
-                </div>
-                <div className="text-sm text-gray-700 space-y-1">
-                  <p><strong>Oncologist:</strong> {patientProfile.oncologist || '—'}</p>
-                  <p><strong>Hospital/Clinic:</strong> {patientProfile.hospital || '—'}</p>
-                  {(() => {
-                    const pc = emergencyContacts.find(c => c.contactType === 'primaryCare' || c.contactType === 'primary_care' || c.contactType === 'primary');
-                    if (pc) {
-                      return <p><strong>Primary Care:</strong> {pc.name} {pc.phone ? `(${pc.phone})` : ''}</p>;
-                    }
-                    return <p><strong>Primary Care:</strong> —</p>;
-                  })()}
-                </div>
+                )}
+                {(patientProfile.oncologist || patientProfile.hospital || emergencyContacts.find(c => c.contactType === 'primaryCare' || c.contactType === 'primary_care' || c.contactType === 'primary')) ? (
+                  <div className="text-sm text-gray-700 space-y-1">
+                    <p><strong>Oncologist:</strong> {patientProfile.oncologist || '—'}</p>
+                    <p><strong>Hospital/Clinic:</strong> {patientProfile.hospital || '—'}</p>
+                    {(() => {
+                      const pc = emergencyContacts.find(c => c.contactType === 'primaryCare' || c.contactType === 'primary_care' || c.contactType === 'primary');
+                      if (pc) {
+                        return <p><strong>Primary Care:</strong> {pc.name} {pc.phone ? `(${pc.phone})` : ''}</p>;
+                      }
+                      return <p><strong>Primary Care:</strong> —</p>;
+                    })()}
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center">
+                    <div className="w-16 h-16 bg-medical-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Users className="w-8 h-8 text-medical-primary-600" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-medical-neutral-900 mb-2">No medical team added yet</h3>
+                    <p className="text-sm text-medical-neutral-600 mb-6">Add your oncologist, hospital, and primary care provider</p>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                      <button
+                        onClick={() => setShowEditMedicalTeam(true)}
+                        className="px-6 py-3 bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Medical Team
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Emergency Contacts */}
               <div className="flex-1 bg-white rounded-lg shadow-sm p-4 border-2 border-amber-200">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-amber-50 p-2.5 rounded-lg">
-                      <Phone className="w-5 h-5 text-amber-600" />
+                {emergencyContacts.length > 0 && (
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-amber-50 p-2.5 rounded-lg">
+                        <Phone className="w-5 h-5 text-amber-600" />
+                      </div>
+                      <h2 className="font-semibold text-gray-800">Emergency Contacts</h2>
                     </div>
-                    <h2 className="font-semibold text-gray-800">Emergency Contacts</h2>
+                    <button
+                      onClick={() => { setEditContacts(emergencyContacts.length ? emergencyContacts : []); setShowEditContacts(true); }}
+                      className="text-amber-600 hover:text-amber-700"
+                    >
+                      <Edit2 size={18} />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => { setEditContacts(emergencyContacts.length ? emergencyContacts : []); setShowEditContacts(true); }}
-                    className="text-amber-600 hover:text-amber-700"
-                  >
-                    <Edit2 size={18} />
-                  </button>
-                </div>
+                )}
                 {emergencyContacts.length > 0 ? (
                   <div className="space-y-2">
                     {emergencyContacts.map((contact, idx) => {
@@ -5785,15 +5814,21 @@ export default function CancerCareApp() {
                     })}
                   </div>
                 ) : (
-                  <div className="text-center py-6">
-                    <User className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                    <p className="text-gray-500 text-sm mb-3">No emergency contacts added</p>
-                    <button
-                      onClick={() => { setEditContacts(emergencyContacts.length ? emergencyContacts : [{ contactType: 'Emergency', name: '', relationship: '', phone: '', email: '', address: '', city: '', state: '', zip: '' }]); setShowEditContacts(true); }}
-                      className="text-blue-600 text-sm font-medium hover:underline"
-                    >
-                      Add Emergency Contact
-                    </button>
+                  <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center">
+                    <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Phone className="w-8 h-8 text-amber-600" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-medical-neutral-900 mb-2">No emergency contacts added</h3>
+                    <p className="text-sm text-medical-neutral-600 mb-6">Add emergency contacts for quick access</p>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                      <button
+                        onClick={() => { setEditContacts(emergencyContacts.length ? emergencyContacts : [{ contactType: 'Emergency', name: '', relationship: '', phone: '', email: '', address: '', city: '', state: '', zip: '' }]); setShowEditContacts(true); }}
+                        className="px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Emergency Contact
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
