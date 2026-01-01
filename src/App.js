@@ -3161,12 +3161,12 @@ export default function CancerCareApp() {
                 <button
                   onClick={async () => {
                     if (!user) return;
-                    if (window.confirm('Are you sure you want to clear all chat history? This cannot be undone.')) {
+                    if (window.confirm('Are you sure you want to clear all chat history? This will remove the conversation but keep your health data context. This cannot be undone.')) {
                       try {
                         await messageService.deleteAllMessages(user.uid);
                         setMessages([]);
-                        setCurrentHealthContext(null);
-                        setCurrentTrialContext(null);
+                        // Don't clear health/trial contexts - those represent the user's actual data, not conversation history
+                        // The AI can still access health data and trials from the database when needed
                         setChatHistoryLoaded(false);
                       } catch (error) {
                         console.error('Error clearing chat history:', error);
