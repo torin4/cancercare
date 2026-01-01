@@ -5135,7 +5135,7 @@ export default function CancerCareApp() {
 
         {activeTab === 'files' && (
           <div className="p-4 space-y-4">
-            <div className="bg-white rounded-lg shadow p-4">
+            <div className="bg-white rounded-lg shadow p-4 border border-medical-neutral-200">
               <h3 className="font-semibold mb-3">Medical Documents</h3>
               {documents.length === 0 ? (
                 <div className="text-center py-8">
