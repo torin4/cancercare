@@ -4168,11 +4168,6 @@ export default function CancerCareApp() {
                                       {lab.normalRange && (
                                         <p className="text-xs text-medical-neutral-500 mt-1">Normal: {lab.normalRange}</p>
                                       )}
-                                      {lab.data && lab.data.length > 0 && (
-                                        <p className="text-xs text-medical-neutral-500 mt-1">
-                                          {new Date(lab.data[lab.data.length - 1]?.date || Date.now()).toLocaleDateString()}
-                                        </p>
-                                      )}
                                     </div>
                                     <div className="flex items-center gap-1 ml-2">
                                       {lab.data && lab.data.length > 0 && (
