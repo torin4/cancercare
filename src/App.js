@@ -7703,8 +7703,8 @@ export default function CancerCareApp() {
                       setSelectedLabForValue(null);
                       setNewLabValue({ value: '', date: getTodayLocalDate(), notes: '' });
                     } catch (error) {
-                      console.error('Error adding lab value:', error);
-                      alert('Failed to add lab value. Please try again.');
+                      console.error('Error adding lab metric:', error);
+                      alert('Failed to add lab metric. Please try again.');
                     }
                   }}
                   className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
