@@ -13,7 +13,7 @@ const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY || pro
  * @param {Object} patientProfile - Patient demographics (age, gender, weight) for normal range adjustments
  * @param {string|null} documentDate - Optional date provided by user (YYYY-MM-DD format)
  */
-export async function processDocument(file, userId, patientProfile = null, documentDate = null) {
+export async function processDocument(file, userId, patientProfile = null, documentDate = null, documentNote = null) {
   try {
     // Convert file to base64 for Gemini API
     const base64Data = await fileToBase64(file);
@@ -22,7 +22,7 @@ export async function processDocument(file, userId, patientProfile = null, docum
     const extractedData = await analyzeDocument(base64Data, file.type, patientProfile, documentDate);
 
     // Step 2: Save extracted data to Firestore
-    const savedData = await saveExtractedData(extractedData, userId, documentDate);
+    const savedData = await saveExtractedData(extractedData, userId, documentDate, documentNote);
 
     return {
       success: true,
@@ -451,7 +451,7 @@ GENERAL RULES:
  * @param {string} userId - User ID
  * @param {string|null} documentDate - Optional date provided by user (YYYY-MM-DD format)
  */
-async function saveExtractedData(extractedData, userId, documentDate = null) {
+async function saveExtractedData(extractedData, userId, documentDate = null, documentNote = null) {
   const savedData = {
     labs: [],
     vitals: [],
@@ -513,7 +513,7 @@ async function saveExtractedData(extractedData, userId, documentDate = null) {
         await labService.addLabValue(labId, {
           value: lab.value,
           date: labDate,
-          notes: `Extracted from document`
+          notes: documentNote ? `Extracted from document. Context: ${documentNote}` : `Extracted from document`
         });
 
         savedData.labs.push({ labId, ...lab });
@@ -571,7 +571,7 @@ async function saveExtractedData(extractedData, userId, documentDate = null) {
         await vitalService.addVitalValue(vitalId, {
           value: vital.value,
           date: vitalDate,
-          notes: `Extracted from document`
+          notes: documentNote ? `Extracted from document. Context: ${documentNote}` : `Extracted from document`
         });
 
         savedData.vitals.push({ vitalId, ...vital });

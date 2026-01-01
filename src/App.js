@@ -308,6 +308,8 @@ export default function CancerCareApp() {
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
   const [documentOnboardingMethod, setDocumentOnboardingMethod] = useState('picker');
   const [hasUploadedDocument, setHasUploadedDocument] = useState(false);
+  const [pendingDocumentDate, setPendingDocumentDate] = useState(null);
+  const [pendingDocumentNote, setPendingDocumentNote] = useState(null);
   const [showEditInfo, setShowEditInfo] = useState(false);
   const [editCancerCustom, setEditCancerCustom] = useState(false);
   const [editStageCustom, setEditStageCustom] = useState(false);
@@ -2357,10 +2359,12 @@ export default function CancerCareApp() {
       setIsUploading(true);
       setUploadProgress('Reading document...');
 
-      // Get document date (user-provided or null)
+      // Get document date and note (user-provided or null)
       const providedDate = pendingDocumentDate;
-      // Clear pending date after use
+      const providedNote = pendingDocumentNote;
+      // Clear pending date and note after use
       setPendingDocumentDate(null);
+      setPendingDocumentNote(null);
 
       // Show processing message
       setMessages([...messages,
@@ -2370,7 +2374,7 @@ export default function CancerCareApp() {
 
       // Step 1: Process document with AI to extract medical data
       setUploadProgress('Analyzing document with AI...');
-      const processingResult = await processDocument(file, user.uid, patientProfile, providedDate);
+      const processingResult = await processDocument(file, user.uid, patientProfile, providedDate, providedNote);
       console.log('Document processing result:', processingResult);
 
       // Step 2: Upload file to Firebase Storage
@@ -7216,10 +7220,11 @@ export default function CancerCareApp() {
           <DocumentUploadOnboarding
             isOnboarding={!hasUploadedDocument}
             onClose={() => setShowDocumentOnboarding(false)}
-            onUploadClick={(documentType, documentDate = null) => {
+            onUploadClick={(documentType, documentDate = null, documentNote = null) => {
               setShowDocumentOnboarding(false);
-              // Store document date for use in upload
+              // Store document date and note for use in upload
               setPendingDocumentDate(documentDate);
+              setPendingDocumentNote(documentNote);
               // Check if mobile device
               const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
               

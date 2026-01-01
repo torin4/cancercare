@@ -273,25 +273,33 @@ When answering questions about this trial, you should:
     // Build health context section if provided
     let healthContextSection = '';
     if (healthContext) {
-      // Format labs data - show summary with latest values only
+      // Format labs data - show summary with latest values and notes
       const labsCount = healthContext.labs ? healthContext.labs.length : 0;
       const labsSummary = labsCount > 0
         ? healthContext.labs.map(lab => {
             const latestValue = lab.values && lab.values.length > 0 
               ? lab.values[lab.values.length - 1] 
               : null;
-            return `${lab.label || lab.labType}: ${latestValue ? `${latestValue.value} ${lab.unit || ''}` : lab.currentValue || 'N/A'} ${lab.unit || ''} (${lab.status || 'unknown'})`;
+            const valueStr = latestValue ? `${latestValue.value} ${lab.unit || ''}` : lab.currentValue || 'N/A';
+            const noteStr = latestValue?.notes && latestValue.notes !== 'Extracted from document' 
+              ? ` (Note: ${latestValue.notes})` 
+              : '';
+            return `${lab.label || lab.labType}: ${valueStr} ${lab.unit || ''} (${lab.status || 'unknown'})${noteStr}`;
           }).join(', ')
         : 'No lab data available';
 
-      // Format vitals data - show summary with latest values only
+      // Format vitals data - show summary with latest values and notes
       const vitalsCount = healthContext.vitals ? healthContext.vitals.length : 0;
       const vitalsSummary = vitalsCount > 0
         ? healthContext.vitals.map(vital => {
             const latestValue = vital.values && vital.values.length > 0 
               ? vital.values[vital.values.length - 1] 
               : null;
-            return `${vital.label || vital.vitalType}: ${latestValue ? latestValue.value : vital.currentValue || 'N/A'} ${vital.unit || ''}`;
+            const valueStr = latestValue ? latestValue.value : vital.currentValue || 'N/A';
+            const noteStr = latestValue?.notes && latestValue.notes !== 'Extracted from document' 
+              ? ` (Note: ${latestValue.notes})` 
+              : '';
+            return `${vital.label || vital.vitalType}: ${valueStr} ${vital.unit || ''}${noteStr}`;
           }).join(', ')
         : 'No vital signs data available';
 
@@ -318,13 +326,14 @@ SYMPTOMS (${symptomsCount} total, recent: ${recentSymptoms})
 When answering questions about the user's health data, you should:
 1. Analyze trends and patterns in the data (e.g., "CA-125 has been increasing over time")
 2. Explain what values mean in the context of cancer treatment
-3. Identify concerning patterns or values that may need medical attention
-4. Provide context about normal ranges and what deviations might indicate
-5. Be supportive and educational while being clear that you're providing general information, not medical advice
-6. Keep responses VERY CONCISE - aim for 1-2 short paragraphs maximum (3-5 sentences total). Be direct and to the point.
-7. Use MARKDOWN formatting: **bold** for important values and key terms, bullet points for lists
-8. If values are outside normal ranges, explain what this might mean but emphasize consulting with their medical team
-9. Look for patterns across different data types (e.g., low hemoglobin + fatigue symptoms)
+3. Use any notes/context provided with the values (e.g., "Before starting treatment", "After cycle 2") to provide more relevant and contextualized insights
+4. Identify concerning patterns or values that may need medical attention
+5. Provide context about normal ranges and what deviations might indicate
+6. Be supportive and educational while being clear that you're providing general information, not medical advice
+7. Keep responses VERY CONCISE - aim for 1-2 short paragraphs maximum (3-5 sentences total). Be direct and to the point.
+8. Use MARKDOWN formatting: **bold** for important values and key terms, bullet points for lists
+9. If values are outside normal ranges, explain what this might mean but emphasize consulting with their medical team
+10. Look for patterns across different data types (e.g., low hemoglobin + fatigue symptoms)
 
 ═══════════════════════════════════════════════════════════════════════════════`;
     }
