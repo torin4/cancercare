@@ -69,32 +69,34 @@ When answering questions about this trial, you should:
     // Build health context section if provided
     let healthContextSection = '';
     if (healthContext) {
-      // Format labs data
-      const labsSummary = healthContext.labs && healthContext.labs.length > 0
+      // Format labs data - show summary with latest values only
+      const labsCount = healthContext.labs ? healthContext.labs.length : 0;
+      const labsSummary = labsCount > 0
         ? healthContext.labs.map(lab => {
             const latestValue = lab.values && lab.values.length > 0 
               ? lab.values[lab.values.length - 1] 
               : null;
-            return `- ${lab.label || lab.labType}: ${latestValue ? `${latestValue.value} ${lab.unit || ''}` : lab.currentValue || 'N/A'} ${lab.unit || ''} (Normal: ${lab.normalRange || 'N/A'}, Status: ${lab.status || 'unknown'})`;
-          }).join('\n')
+            return `${lab.label || lab.labType}: ${latestValue ? `${latestValue.value} ${lab.unit || ''}` : lab.currentValue || 'N/A'} ${lab.unit || ''} (${lab.status || 'unknown'})`;
+          }).join(', ')
         : 'No lab data available';
 
-      // Format vitals data
-      const vitalsSummary = healthContext.vitals && healthContext.vitals.length > 0
+      // Format vitals data - show summary with latest values only
+      const vitalsCount = healthContext.vitals ? healthContext.vitals.length : 0;
+      const vitalsSummary = vitalsCount > 0
         ? healthContext.vitals.map(vital => {
             const latestValue = vital.values && vital.values.length > 0 
               ? vital.values[vital.values.length - 1] 
               : null;
-            return `- ${vital.label || vital.vitalType}: ${latestValue ? latestValue.value : vital.currentValue || 'N/A'} ${vital.unit || ''} (Normal: ${vital.normalRange || 'N/A'})`;
-          }).join('\n')
+            return `${vital.label || vital.vitalType}: ${latestValue ? latestValue.value : vital.currentValue || 'N/A'} ${vital.unit || ''}`;
+          }).join(', ')
         : 'No vital signs data available';
 
-      // Format symptoms data
-      const symptomsSummary = healthContext.symptoms && healthContext.symptoms.length > 0
-        ? healthContext.symptoms.map(symptom => {
-            const date = symptom.date?.toDate ? symptom.date.toDate().toLocaleDateString() : (symptom.date || 'Unknown date');
-            return `- ${symptom.name}: ${symptom.severity || 'Not specified'} (${date})${symptom.notes ? ` - ${symptom.notes}` : ''}`;
-          }).join('\n')
+      // Format symptoms data - show count and recent ones only
+      const symptomsCount = healthContext.symptoms ? healthContext.symptoms.length : 0;
+      const recentSymptoms = healthContext.symptoms && healthContext.symptoms.length > 0
+        ? healthContext.symptoms.slice(-5).map(symptom => {
+            return `${symptom.name} (${symptom.severity || 'Not specified'})`;
+          }).join(', ')
         : 'No symptoms recorded';
 
       healthContextSection = `
@@ -103,14 +105,11 @@ When answering questions about this trial, you should:
 HEALTH CONTEXT: The user is asking about their health data (labs, vitals, symptoms)
 ═══════════════════════════════════════════════════════════════════════════════
 
-LAB VALUES:
-${labsSummary}
+LAB VALUES (${labsCount} tracked): ${labsSummary}
 
-VITAL SIGNS:
-${vitalsSummary}
+VITAL SIGNS (${vitalsCount} tracked): ${vitalsSummary}
 
-SYMPTOMS:
-${symptomsSummary}
+SYMPTOMS (${symptomsCount} total, recent: ${recentSymptoms})
 
 When answering questions about the user's health data, you should:
 1. Analyze trends and patterns in the data (e.g., "CA-125 has been increasing over time")
