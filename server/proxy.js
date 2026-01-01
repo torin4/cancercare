@@ -95,6 +95,17 @@ app.all('/api/trials-proxy', async (req, res) => {
   }
 });
 
+// Root route handler
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Proxy server is running',
+    endpoints: {
+      jrct: '/api/jrct-proxy/*',
+      trials: '/api/trials-proxy'
+    }
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Proxy server listening on http://localhost:${PORT}`);
   console.log(`  - JRCT proxy: http://localhost:${PORT}/api/jrct-proxy/*`);
