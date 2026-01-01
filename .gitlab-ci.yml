@@ -1,0 +1,19 @@
+stages:
+  - build
+
+build:
+  stage: build
+  image: node:18
+  before_script:
+    - npm ci
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - build/
+    expire_in: 1 week
+  only:
+    - main
+    - master
+    - branches
+
