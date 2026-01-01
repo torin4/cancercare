@@ -721,10 +721,16 @@ export default function CancerCareApp() {
 
   // Load Lottie animation
   useEffect(() => {
-    fetch(`${process.env.PUBLIC_URL || ''}/animations/Document OCR Scan.json`)
+    // URL encode the filename to handle spaces
+    const animationPath = `${process.env.PUBLIC_URL || ''}/animations/${encodeURIComponent('Document OCR Scan.json')}`;
+    fetch(animationPath)
       .then(response => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('Response is not JSON');
         }
         return response.json();
       })
