@@ -4243,15 +4243,6 @@ export default function CancerCareApp() {
                                       )}
                                   </div>
                                     <div className="flex items-center gap-1 ml-2">
-                                      {lab.data && lab.data.length > 0 && (
-                                        <button
-                                          onClick={() => setSelectedLab(key)}
-                                          className="p-1.5 text-medical-primary-600 hover:bg-medical-primary-50 rounded transition-colors"
-                                          title="View chart"
-                                        >
-                                          <TrendingUp className="w-4 h-4" />
-                                        </button>
-                                      )}
                                       <div className="relative">
                                         <button
                                           onClick={(e) => {
