@@ -5907,12 +5907,10 @@ export default function CancerCareApp() {
                 {emergencyContacts.length > 0 ? (
                   <div className="space-y-2">
                     {emergencyContacts.map((contact, idx) => {
-                      const colors = ['blue', 'green', 'purple', 'orange'];
-                      const color = colors[idx % colors.length];
                       return (
-                        <div key={contact.id} className={`bg-${color}-50 rounded-lg p-3`}>
+                        <div key={contact.id} className="bg-amber-50 rounded-lg p-3">
                           <div className="flex items-center gap-2 mb-1">
-                            <User size={14} className={`text-${color}-600`} />
+                            <User size={14} className="text-amber-600" />
                             <p className="text-xs text-gray-600 font-medium">{contact.relationship}</p>
                           </div>
                           <p className="text-sm font-semibold text-gray-900">{contact.name}</p>
