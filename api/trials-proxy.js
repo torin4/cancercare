@@ -424,10 +424,10 @@ module.exports = async (req, res) => {
           console.log(`trials-proxy: Fetching page ${pageCount}${nextPageToken ? ` (token: ${nextPageToken.substring(0, 20)}...)` : ''}`);
           
           const response = await axios.get(pageUrl, {
-            headers: {
-              Accept: 'application/json',
-              'User-Agent': req.headers['user-agent'] || 'CancerCareProxy/1.0'
-            },
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': req.headers['user-agent'] || 'CancerCareProxy/1.0'
+        },
             timeout: 30000 // Longer timeout for multiple pages
           });
           

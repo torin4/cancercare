@@ -291,7 +291,7 @@ export default function Onboarding({ onComplete }) {
                       placeholder="Enter middle name (optional)"
                     />
                   </div>
-                  <div>
+                <div>
                     <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1.5">Last Name *</label>
                     <input 
                       id="lastName"

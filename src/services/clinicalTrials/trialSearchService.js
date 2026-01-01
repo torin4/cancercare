@@ -648,21 +648,21 @@ export async function searchCTGov(params) {
         // Fallback: build from separate city/country arrays
         locations = locationCities.map((city, idx) => ({ 
           facility: '',
-          city: typeof city === 'string' ? city : '', 
-          country: (locationCountries[idx] || locationCountries[0] || '') 
-        }));
-        
-        // If no cities but we have countries, create location entries from countries
-        if (locations.length === 0 && locationCountries.length > 0) {
-          locationCountries.forEach(country => {
-            if (country) {
+        city: typeof city === 'string' ? city : '', 
+        country: (locationCountries[idx] || locationCountries[0] || '') 
+      }));
+      
+      // If no cities but we have countries, create location entries from countries
+      if (locations.length === 0 && locationCountries.length > 0) {
+        locationCountries.forEach(country => {
+          if (country) {
               locations.push({ 
                 facility: '',
                 city: '',
                 country: typeof country === 'string' ? country : '' 
               });
-            }
-          });
+          }
+        });
         }
       }
       
