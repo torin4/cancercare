@@ -7794,11 +7794,36 @@ export default function CancerCareApp() {
                     Cancel
                   </button>
                   <button
-                    onClick={() => {
-                      if (newLabData.label && newLabData.normalRange && newLabData.unit) {
-                        alert(`Added ${newLabData.label} to your tracked labs!\n\nNormal Range: ${newLabData.normalRange} ${newLabData.unit}\n\nYou can now log values and track trends for this marker.`);
+                    onClick={async () => {
+                      if (!newLabData.label || !newLabData.normalRange || !newLabData.unit || !user) {
+                        return;
+                      }
+
+                      try {
+                        // Normalize lab name to get labType
+                        const normalizedName = normalizeLabName(newLabData.label);
+                        const labType = normalizedName || newLabData.label.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+                        // Save lab to Firestore
+                        await labService.saveLab({
+                          patientId: user.uid,
+                          labType: labType,
+                          label: newLabData.label,
+                          currentValue: null, // No initial value, just the metric
+                          unit: newLabData.unit,
+                          normalRange: newLabData.normalRange,
+                          status: 'unknown',
+                          createdAt: new Date()
+                        });
+
+                        // Reload health data to update UI
+                        await reloadHealthData();
+
                         setNewLabData({ label: '', normalRange: '', unit: '' });
                         setShowAddLab(false);
+                      } catch (error) {
+                        console.error('Error adding lab:', error);
+                        alert('Failed to add lab metric. Please try again.');
                       }
                     }}
                     className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
