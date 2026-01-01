@@ -721,10 +721,19 @@ export default function CancerCareApp() {
 
   // Load Lottie animation
   useEffect(() => {
-    fetch('/animations/Document OCR Scan.json')
-      .then(response => response.json())
+    fetch(`${process.env.PUBLIC_URL || ''}/animations/Document OCR Scan.json`)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
       .then(data => setDocumentScanAnimation(data))
-      .catch(error => console.error('Error loading Lottie animation:', error));
+      .catch(error => {
+        console.error('Error loading Lottie animation:', error);
+        // Set to null so fallback spinner is shown
+        setDocumentScanAnimation(null);
+      });
   }, []);
 
   // Monitor authentication state and create patient profile if needed
