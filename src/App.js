@@ -4323,7 +4323,7 @@ export default function CancerCareApp() {
                                 return (
                                   <div
                                     key={category}
-                                    className="bg-white rounded-xl shadow-sm border border-medical-neutral-200 overflow-hidden transition-all hover:shadow-md"
+                                    className="bg-white rounded-xl shadow-sm border border-medical-neutral-200 overflow-visible transition-all hover:shadow-md"
                                   >
                                     {/* Category Header - Clickable to expand/collapse */}
                                     <button
