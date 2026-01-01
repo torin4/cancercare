@@ -1037,6 +1037,27 @@ export default function CancerCareApp() {
           setHasUploadedDocument(docs.length > 0);
           setDocuments(docs);
 
+          // Load emergency contacts and filter out empty ones
+          try {
+            const contacts = await emergencyContactService.getEmergencyContacts(user.uid);
+            const filteredContacts = contacts.filter(c => 
+              (c.name && c.name.trim()) || (c.phone && c.phone.trim())
+            );
+            setEmergencyContacts(filteredContacts);
+            
+            // Clean up any empty contacts that might exist in Firestore
+            const emptyContacts = contacts.filter(c => 
+              !(c.name && c.name.trim()) && !(c.phone && c.phone.trim())
+            );
+            for (const emptyContact of emptyContacts) {
+              if (emptyContact.id) {
+                await emergencyContactService.deleteEmergencyContact(emptyContact.id);
+              }
+            }
+          } catch (error) {
+            console.log('No emergency contacts found or error loading contacts');
+          }
+
           // Load trial location preferences
           try {
             const location = await trialLocationService.getTrialLocation(user.uid);
@@ -5867,7 +5888,16 @@ export default function CancerCareApp() {
                       <h2 className="font-semibold text-gray-800">Emergency Contacts</h2>
                     </div>
                     <button
-                      onClick={() => { setEditContacts(emergencyContacts.length ? [...emergencyContacts] : []); setShowEditContacts(true); }}
+                      onClick={async () => { 
+                        // Load and filter contacts when opening modal
+                        const contacts = await emergencyContactService.getEmergencyContacts(user.uid);
+                        const filteredContacts = contacts.filter(c => 
+                          (c.name && c.name.trim()) || (c.phone && c.phone.trim())
+                        );
+                        setEditContacts(filteredContacts.length ? [...filteredContacts] : []);
+                        setEmergencyContacts(filteredContacts);
+                        setShowEditContacts(true); 
+                      }}
                       className="text-amber-600 hover:text-amber-700"
                     >
                       <Edit2 size={18} />
@@ -5906,7 +5936,16 @@ export default function CancerCareApp() {
                     <p className="text-sm text-medical-neutral-600 mb-6">Add emergency contacts for quick access</p>
                     <div className="flex flex-col sm:flex-row gap-3 justify-center">
                       <button
-                        onClick={() => { setEditContacts(emergencyContacts.length ? [...emergencyContacts] : []); setShowEditContacts(true); }}
+                        onClick={async () => { 
+                          // Load and filter contacts when opening modal
+                          const contacts = await emergencyContactService.getEmergencyContacts(user.uid);
+                          const filteredContacts = contacts.filter(c => 
+                            (c.name && c.name.trim()) || (c.phone && c.phone.trim())
+                          );
+                          setEditContacts(filteredContacts.length ? [...filteredContacts] : []);
+                          setEmergencyContacts(filteredContacts);
+                          setShowEditContacts(true); 
+                        }}
                         className="px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
                       >
                         <Plus className="w-4 h-4" />
@@ -8268,6 +8307,18 @@ export default function CancerCareApp() {
                           return;
                         }
 
+                        // Get existing contact IDs
+                        const existingContactIds = new Set(emergencyContacts.map(c => c.id));
+                        const newContactIds = new Set(validContacts.filter(c => c.id).map(c => c.id));
+                        
+                        // Delete contacts that were removed
+                        const contactsToDelete = emergencyContacts.filter(c => 
+                          c.id && !newContactIds.has(c.id)
+                        );
+                        for (const contactToDelete of contactsToDelete) {
+                          await emergencyContactService.deleteEmergencyContact(contactToDelete.id);
+                        }
+
                         // Save each valid contact via service
                         const savedIds = [];
                         for (const c of validContacts) {
@@ -8278,9 +8329,13 @@ export default function CancerCareApp() {
                           const id = await emergencyContactService.saveEmergencyContact(toSave);
                           savedIds.push(id);
                         }
-                        // Reload contacts
-                        const contacts = await emergencyContactService.getEmergencyContacts(user.uid);
-                        setEmergencyContacts(contacts);
+                        
+                        // Reload contacts and filter out any empty ones
+                        const allContacts = await emergencyContactService.getEmergencyContacts(user.uid);
+                        const filteredContacts = allContacts.filter(c => 
+                          (c.name && c.name.trim()) || (c.phone && c.phone.trim())
+                        );
+                        setEmergencyContacts(filteredContacts);
                         setShowEditContacts(false);
                         alert('Emergency contacts updated!');
                       } catch (err) {
