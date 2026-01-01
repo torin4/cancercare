@@ -574,7 +574,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
       {activeTab === 'search' && (
         <div>
           {/* Search Info */}
-          <div className="bg-white border border-medical-accent-200 rounded-lg p-4 sm:p-5 mb-6">
+          <div className="border border-medical-accent-200 rounded-lg p-4 sm:p-5 mb-6">
             <h3 className="font-medium text-medical-accent-900 mb-2">Search Criteria</h3>
             <div className="text-sm text-medical-neutral-700 space-y-1">
               <p><strong>Diagnosis:</strong> {patientProfile?.diagnosis || 'Not set'}</p>
