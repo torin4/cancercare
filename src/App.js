@@ -2758,12 +2758,14 @@ export default function CancerCareApp() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               {/* Genomic Profile Card */}
               <div className="w-full bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-purple-200 shadow-sm lg:col-span-2">
-                <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
-                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-2 rounded-lg">
-                    <Dna className="w-5 h-5 text-purple-600" />
-                  </div>
-                  Genomic Profile
-                </h3>
+                {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 && (
+                  <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
+                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-2 rounded-lg">
+                      <Dna className="w-5 h-5 text-purple-600" />
+                    </div>
+                    Genomic Profile
+                  </h3>
+                )}
                 {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 ? (
                   <>
                     <div className="flex flex-wrap gap-2 mb-4">
@@ -2818,12 +2820,14 @@ export default function CancerCareApp() {
 
             {/* Saved Trials */}
             <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-medical-primary-200 shadow-sm">
-              <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
-                <div className="bg-medical-primary-50 p-2 rounded-lg">
-                  <Bookmark className="w-5 h-5 text-medical-primary-600" />
-                </div>
-                Saved Trials
-              </h3>
+              {!loadingSavedTrials && savedTrials.length > 0 && (
+                <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
+                  <div className="bg-medical-primary-50 p-2 rounded-lg">
+                    <Bookmark className="w-5 h-5 text-medical-primary-600" />
+                  </div>
+                  Saved Trials
+                </h3>
+              )}
               {loadingSavedTrials ? (
                 <div className="text-center py-8">
                   <p className="text-medical-neutral-600 text-sm">Loading saved trials...</p>
