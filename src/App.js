@@ -276,12 +276,13 @@ export default function CancerCareApp() {
   const [currentStatus, setCurrentStatus] = useState({
     diagnosis: '',
     diagnosisDate: '',
+    subtype: '',
+    stage: '',
     treatmentLine: '',
     currentRegimen: '',
     performanceStatus: '',
     diseaseStatus: '',
     baselineCa125: '',
-    stage: '',
     subtype: '' // Add subtype field
   });
   const [showAddLab, setShowAddLab] = useState(false);
@@ -985,9 +986,26 @@ export default function CancerCareApp() {
               oncologist: profile.oncologist || '',
               hospital: profile.hospital || ''
             });
-            // Load current status if present
+            // Load current status if present, and merge with patientProfile fields
             if (profile.currentStatus) {
-              setCurrentStatus(profile.currentStatus);
+              setCurrentStatus({
+                ...profile.currentStatus,
+                subtype: profile.currentStatus.subtype || profile.cancerType || '',
+                stage: profile.currentStatus.stage || profile.stage || ''
+              });
+            } else if (profile.cancerType || profile.stage) {
+              // If no currentStatus but we have cancerType/stage in profile, initialize currentStatus
+              setCurrentStatus({
+                diagnosis: profile.diagnosis || '',
+                diagnosisDate: profile.diagnosisDate || '',
+                subtype: profile.cancerType || '',
+                stage: profile.stage || '',
+                treatmentLine: '',
+                currentRegimen: '',
+                performanceStatus: '',
+                diseaseStatus: '',
+                baselineCa125: ''
+              });
             }
           }
 
@@ -5078,14 +5096,28 @@ export default function CancerCareApp() {
         {activeTab === 'profile' && (
           <div className="p-4 space-y-4 pb-24">
             {/* Patient Info */}
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-medical-neutral-200">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="relative">
+            <div className="bg-gradient-to-br from-medical-primary-50 via-white to-medical-accent-50 rounded-xl shadow-lg p-6 border border-medical-primary-100">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+                {/* Profile Picture */}
+                <div className="relative flex-shrink-0">
                   {profileImage ? (
-                    <img src={profileImage} alt="Profile" className="w-24 h-24 rounded-full object-cover" />
+                    <img 
+                      src={profileImage} 
+                      alt="Profile" 
+                      className="w-28 h-28 sm:w-32 sm:h-32 rounded-full object-cover border-4 border-white shadow-lg" 
+                    />
                   ) : (
-                    <div className="w-24 h-24 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                      {patientProfile.firstName?.[0] || patientProfile.lastName?.[0] || patientProfile.name?.[0] || user?.displayName?.[0] || 'P'}
+                    <div className="w-28 h-28 sm:w-32 sm:h-32 bg-gradient-to-br from-medical-primary-500 to-medical-secondary-500 rounded-full flex items-center justify-center text-white text-3xl sm:text-4xl font-bold shadow-lg border-4 border-white">
+                      {(() => {
+                        const name = patientProfile.firstName || patientProfile.lastName 
+                          ? `${patientProfile.firstName || ''} ${patientProfile.middleName ? patientProfile.middleName + ' ' : ''}${patientProfile.lastName || ''}`.trim()
+                          : patientProfile.name || user?.displayName || 'Patient';
+                        const parts = name.trim().split(/\s+/);
+                        if (parts.length >= 2) {
+                          return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+                        }
+                        return name.substring(0, 2).toUpperCase();
+                      })()}
                     </div>
                   )}
                   <button
@@ -5103,65 +5135,112 @@ export default function CancerCareApp() {
                       };
                       input.click();
                     }}
-                    className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all"
-                    aria-label="Change profile picture"
+                    className="absolute bottom-0 right-0 w-10 h-10 bg-medical-primary-600 rounded-full flex items-center justify-center text-white shadow-lg hover:bg-medical-primary-700 transition transform hover:scale-110"
+                    title="Change profile picture"
                   >
-                    <Camera className="w-4 h-4" />
+                    <Camera className="w-5 h-5" />
                   </button>
                 </div>
 
-                <div className="flex-1">
-                  <h2 className="font-bold text-lg">
-                    {patientProfile.firstName || patientProfile.lastName 
-                      ? `${patientProfile.firstName || ''} ${patientProfile.middleName ? patientProfile.middleName + ' ' : ''}${patientProfile.lastName || ''}`.trim()
-                      : patientProfile.name || user?.displayName || 'Patient'}
-                  </h2>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-gray-400" />
-                      <p className="text-sm text-gray-600">Age: {patientProfile.age || '--'}</p>
+                {/* Profile Information */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <div>
+                      <h2 className="font-bold text-2xl sm:text-3xl text-gray-900 mb-1">
+                        {patientProfile.firstName || patientProfile.lastName 
+                          ? `${patientProfile.firstName || ''} ${patientProfile.middleName ? patientProfile.middleName + ' ' : ''}${patientProfile.lastName || ''}`.trim()
+                          : patientProfile.name || user?.displayName || 'Patient'}
+                      </h2>
+                      {patientProfile.gender && (
+                        <span className="text-sm text-gray-600">
+                          {patientProfile.gender}
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-gray-400" />
-                      <p className="text-sm text-gray-600">DOB: {patientProfile.dateOfBirth ? new Date(patientProfile.dateOfBirth).toLocaleDateString() : '--'}</p>
-                    </div>
-                    {patientProfile.gender && (
-                      <div className="flex items-center gap-2">
-                        <User className="w-4 h-4 text-gray-400" />
-                        <p className="text-sm text-gray-600">Gender: {patientProfile.gender}</p>
+                    <button
+                      onClick={() => setShowEditInfo(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-medical-primary-300 text-medical-primary-700 rounded-lg hover:bg-medical-primary-50 hover:border-medical-primary-400 transition font-medium text-sm shadow-sm flex-shrink-0"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                      Edit
+                    </button>
+                  </div>
+
+                  {/* Key Information Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                    {patientProfile.age && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="w-8 h-8 bg-medical-primary-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <User className="w-4 h-4 text-medical-primary-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Age</p>
+                          <p className="font-semibold text-gray-900">{patientProfile.age} years</p>
+                        </div>
+                      </div>
+                    )}
+                    {patientProfile.dateOfBirth && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="w-8 h-8 bg-medical-accent-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Calendar className="w-4 h-4 text-medical-accent-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Date of Birth</p>
+                          <p className="font-semibold text-gray-900">
+                            {new Date(patientProfile.dateOfBirth).toLocaleDateString('en-US', { 
+                              year: 'numeric', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            })}
+                          </p>
+                        </div>
                       </div>
                     )}
                     {patientProfile.country && (
-                      <div className="flex items-center gap-2">
-                        <Globe className="w-4 h-4 text-gray-400" />
-                        <p className="text-sm text-gray-600">Country: {patientProfile.country}</p>
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="w-8 h-8 bg-medical-secondary-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <MapPin className="w-4 h-4 text-medical-secondary-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Location</p>
+                          <p className="font-semibold text-gray-900">{patientProfile.country}</p>
+                        </div>
                       </div>
                     )}
-                    {(patientProfile.height || patientProfile.weight) && (
-                      <div className="flex gap-4 text-sm text-gray-600">
-                        {patientProfile.height && (
-                          <div className="flex items-center gap-2">
-                            <Ruler className="w-4 h-4 text-gray-400" />
-                            <span>Height: {patientProfile.height} cm</span>
-                          </div>
-                        )}
-                        {patientProfile.weight && (
-                          <div className="flex items-center gap-2">
-                            <Scale className="w-4 h-4 text-gray-400" />
-                            <span>Weight: {patientProfile.weight} kg</span>
-                          </div>
-                        )}
+                    {patientProfile.gender && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="w-8 h-8 bg-pink-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <User className="w-4 h-4 text-pink-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Gender</p>
+                          <p className="font-semibold text-gray-900">{patientProfile.gender}</p>
+                        </div>
+                      </div>
+                    )}
+                    {patientProfile.height && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <TrendingUp className="w-4 h-4 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Height</p>
+                          <p className="font-semibold text-gray-900">{patientProfile.height} cm</p>
+                        </div>
+                      </div>
+                    )}
+                    {patientProfile.weight && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Activity className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Weight</p>
+                          <p className="font-semibold text-gray-900">{patientProfile.weight} kg</p>
+                        </div>
                       </div>
                     )}
                   </div>
-                  {/* Diagnosis and Stage removed from this Information block — shown under Current Status */}
-                  <button
-                    onClick={() => setShowEditInfo(true)}
-                    className="text-blue-600 text-sm font-medium mt-2 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-2 py-1 transition-all"
-                    aria-label="Edit patient information"
-                  >
-                    Edit Information
-                  </button>
                 </div>
               </div>
             </div>
@@ -5182,6 +5261,18 @@ export default function CancerCareApp() {
                   <span className="text-gray-600 mb-1 text-sm">Diagnosis</span>
                   <span className="font-medium text-gray-900">{currentStatus?.diagnosis || patientProfile?.diagnosis || 'No diagnosis yet'}</span>
                 </div>
+                {(currentStatus?.subtype || patientProfile?.cancerType) && (
+                  <div className="flex flex-col">
+                    <span className="text-gray-600 mb-1 text-sm">Cancer Subtype</span>
+                    <span className="font-medium text-gray-900">{currentStatus?.subtype || patientProfile?.cancerType || '—'}</span>
+                  </div>
+                )}
+                {(currentStatus?.stage || patientProfile?.stage) && (
+                  <div className="flex flex-col">
+                    <span className="text-gray-600 mb-1 text-sm">Stage</span>
+                    <span className="font-medium text-gray-900">{currentStatus?.stage || patientProfile?.stage || '—'}</span>
+                  </div>
+                )}
                 <div className="flex flex-col">
                   <span className="text-gray-600 mb-1 text-sm">Treatment Status</span>
                   <span className="font-medium text-gray-900">{currentStatus?.treatmentLine || currentStatus?.currentRegimen || '—'}</span>
@@ -5504,75 +5595,79 @@ export default function CancerCareApp() {
               )}
             </div>
 
-            {/* Emergency Contacts */}
-            {/* Medical Team */}
-            <div className="bg-white rounded-lg shadow p-4 mb-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold text-gray-800">Medical Team</h2>
-                <button
-                  onClick={() => setShowEditMedicalTeam(true)}
-                  className="text-blue-600 hover:text-blue-700"
-                >
-                  <Edit2 size={18} />
-                </button>
-              </div>
-              <div className="text-sm text-gray-700 space-y-1">
-                <p><strong>Oncologist:</strong> {patientProfile.oncologist || '—'}</p>
-                <p><strong>Hospital/Clinic:</strong> {patientProfile.hospital || '—'}</p>
-                {(() => {
-                  const pc = emergencyContacts.find(c => c.contactType === 'primaryCare' || c.contactType === 'primary_care' || c.contactType === 'primary');
-                  if (pc) {
-                    return <p><strong>Primary Care:</strong> {pc.name} {pc.phone ? `(${pc.phone})` : ''}</p>;
-                  }
-                  return <p><strong>Primary Care:</strong> —</p>;
-                })()}
-              </div>
-            </div>
-            <div className="bg-white rounded-lg shadow p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold text-gray-800">Emergency Contacts</h2>
-                <button
-                  onClick={() => { setEditContacts(emergencyContacts.length ? emergencyContacts : []); setShowEditContacts(true); }}
-                  className="text-blue-600 hover:text-blue-700"
-                >
-                  <Edit2 size={18} />
-                </button>
-              </div>
-              {emergencyContacts.length > 0 ? (
-                <div className="space-y-2">
-                  {emergencyContacts.map((contact, idx) => {
-                    const colors = ['blue', 'green', 'purple', 'orange'];
-                    const color = colors[idx % colors.length];
-                    return (
-                      <div key={contact.id} className={`bg-${color}-50 rounded-lg p-3`}>
-                        <div className="flex items-center gap-2 mb-1">
-                          <User size={14} className={`text-${color}-600`} />
-                          <p className="text-xs text-gray-600 font-medium">{contact.relationship}</p>
-                        </div>
-                        <p className="text-sm font-semibold text-gray-900">{contact.name}</p>
-                        <p className="text-xs text-gray-600 mt-0.5">{contact.phone}</p>
-                        {contact.email && (
-                          <p className="text-xs text-gray-600">{contact.email}</p>
-                        )}
-                        {contact.address && (
-                          <p className="text-xs text-gray-600">{contact.address}{contact.city ? `, ${contact.city}` : ''}{contact.state ? ` ${contact.state}` : ''}{contact.zip ? ` ${contact.zip}` : ''}</p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <User className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-500 text-sm mb-3">No emergency contacts added</p>
+            {/* Medical Team & Emergency Contacts - Side by Side */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              {/* Medical Team */}
+              <div className="flex-1 bg-white rounded-lg shadow p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="font-semibold text-gray-800">Medical Team</h2>
                   <button
-                    onClick={() => { setEditContacts(emergencyContacts.length ? emergencyContacts : [{ contactType: 'Emergency', name: '', relationship: '', phone: '', email: '', address: '', city: '', state: '', zip: '' }]); setShowEditContacts(true); }}
-                    className="text-blue-600 text-sm font-medium hover:underline"
+                    onClick={() => setShowEditMedicalTeam(true)}
+                    className="text-blue-600 hover:text-blue-700"
                   >
-                    Add Emergency Contact
+                    <Edit2 size={18} />
                   </button>
                 </div>
-              )}
+                <div className="text-sm text-gray-700 space-y-1">
+                  <p><strong>Oncologist:</strong> {patientProfile.oncologist || '—'}</p>
+                  <p><strong>Hospital/Clinic:</strong> {patientProfile.hospital || '—'}</p>
+                  {(() => {
+                    const pc = emergencyContacts.find(c => c.contactType === 'primaryCare' || c.contactType === 'primary_care' || c.contactType === 'primary');
+                    if (pc) {
+                      return <p><strong>Primary Care:</strong> {pc.name} {pc.phone ? `(${pc.phone})` : ''}</p>;
+                    }
+                    return <p><strong>Primary Care:</strong> —</p>;
+                  })()}
+                </div>
+              </div>
+
+              {/* Emergency Contacts */}
+              <div className="flex-1 bg-white rounded-lg shadow p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="font-semibold text-gray-800">Emergency Contacts</h2>
+                  <button
+                    onClick={() => { setEditContacts(emergencyContacts.length ? emergencyContacts : []); setShowEditContacts(true); }}
+                    className="text-blue-600 hover:text-blue-700"
+                  >
+                    <Edit2 size={18} />
+                  </button>
+                </div>
+                {emergencyContacts.length > 0 ? (
+                  <div className="space-y-2">
+                    {emergencyContacts.map((contact, idx) => {
+                      const colors = ['blue', 'green', 'purple', 'orange'];
+                      const color = colors[idx % colors.length];
+                      return (
+                        <div key={contact.id} className={`bg-${color}-50 rounded-lg p-3`}>
+                          <div className="flex items-center gap-2 mb-1">
+                            <User size={14} className={`text-${color}-600`} />
+                            <p className="text-xs text-gray-600 font-medium">{contact.relationship}</p>
+                          </div>
+                          <p className="text-sm font-semibold text-gray-900">{contact.name}</p>
+                          <p className="text-xs text-gray-600 mt-0.5">{contact.phone}</p>
+                          {contact.email && (
+                            <p className="text-xs text-gray-600">{contact.email}</p>
+                          )}
+                          {contact.address && (
+                            <p className="text-xs text-gray-600">{contact.address}{contact.city ? `, ${contact.city}` : ''}{contact.state ? ` ${contact.state}` : ''}{contact.zip ? ` ${contact.zip}` : ''}</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <User className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                    <p className="text-gray-500 text-sm mb-3">No emergency contacts added</p>
+                    <button
+                      onClick={() => { setEditContacts(emergencyContacts.length ? emergencyContacts : [{ contactType: 'Emergency', name: '', relationship: '', phone: '', email: '', address: '', city: '', state: '', zip: '' }]); setShowEditContacts(true); }}
+                      className="text-blue-600 text-sm font-medium hover:underline"
+                    >
+                      Add Emergency Contact
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Account Privacy & Deletion */}
@@ -7353,6 +7448,7 @@ export default function CancerCareApp() {
                           currentStatus: {
                             ...currentStatus,
                             subtype: finalSubtype,
+                            stage: currentStatus.stage || '',
                             treatmentLine: finalTreatmentStatus
                           },
                           diagnosis: currentStatus.diagnosis || '',
@@ -7365,6 +7461,7 @@ export default function CancerCareApp() {
                         setCurrentStatus({
                           ...currentStatus,
                           subtype: finalSubtype,
+                          stage: currentStatus.stage || '',
                           treatmentLine: finalTreatmentStatus
                         });
                         setPatientProfile(prev => ({ 
