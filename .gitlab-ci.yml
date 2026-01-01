@@ -15,5 +15,6 @@ build:
   only:
     - main
     - master
-    - branches
+  # Only run on main/master to save CI minutes
+  # This job will NOT trigger Vercel integration
 
