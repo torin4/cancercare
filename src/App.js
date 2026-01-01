@@ -302,7 +302,8 @@ export default function CancerCareApp() {
     date: getTodayLocalDate(),
     time: new Date().toTimeString().slice(0, 5),
     notes: '',
-    customSymptomName: ''
+    customSymptomName: '',
+    tags: [] // Array of tags like 'treatment-related', 'discuss-doctor', etc.
   });
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
   const [documentOnboardingMethod, setDocumentOnboardingMethod] = useState('picker');
@@ -6856,19 +6857,49 @@ export default function CancerCareApp() {
                     ></textarea>
                   </div>
 
-                  {/* Quick Actions */}
+                  {/* Quick Action Tags */}
                   <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-xs font-medium text-gray-700 mb-2">Quick Actions:</p>
+                    <p className="text-xs font-medium text-gray-700 mb-2">Tags (optional):</p>
                     <div className="flex flex-wrap gap-2">
-                      <button className="text-xs bg-white border border-gray-300 rounded-full px-3 py-1.5 hover:bg-gray-100 transition">
-                        Related to treatment
-                      </button>
-                      <button className="text-xs bg-white border border-gray-300 rounded-full px-3 py-1.5 hover:bg-gray-100 transition">
-                        Discuss with doctor
-                      </button>
-                      <button className="text-xs bg-white border border-gray-300 rounded-full px-3 py-1.5 hover:bg-gray-100 transition">
-                        Medication needed
-                      </button>
+                      {[
+                        { id: 'treatment-related', label: 'Related to treatment', icon: '💊' },
+                        { id: 'discuss-doctor', label: 'Discuss with doctor', icon: '👨‍⚕️' },
+                        { id: 'medication-needed', label: 'Medication needed', icon: '💉' },
+                        { id: 'side-effect', label: 'Side effect', icon: '⚠️' },
+                        { id: 'emergency', label: 'Emergency', icon: '🚨' },
+                        { id: 'recurring', label: 'Recurring', icon: '🔄' },
+                        { id: 'new-symptom', label: 'New symptom', icon: '✨' },
+                        { id: 'worsening', label: 'Worsening', icon: '📈' }
+                      ].map(tag => {
+                        const isSelected = symptomForm.tags.includes(tag.id);
+                        return (
+                          <button
+                            key={tag.id}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                setSymptomForm({
+                                  ...symptomForm,
+                                  tags: symptomForm.tags.filter(t => t !== tag.id)
+                                });
+                              } else {
+                                setSymptomForm({
+                                  ...symptomForm,
+                                  tags: [...symptomForm.tags, tag.id]
+                                });
+                              }
+                            }}
+                            className={`text-xs rounded-full px-3 py-1.5 transition ${
+                              isSelected
+                                ? 'bg-medical-primary-100 border-2 border-medical-primary-500 text-medical-primary-700 font-medium'
+                                : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'
+                            }`}
+                          >
+                            <span className="mr-1">{tag.icon}</span>
+                            {tag.label}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -6918,7 +6949,8 @@ export default function CancerCareApp() {
                           name: symptomName,
                           severity: symptomForm.severity,
                           date: dateTime,
-                          notes: symptomForm.notes || ''
+                          notes: symptomForm.notes || '',
+                          tags: symptomForm.tags || []
                         });
 
                         // Reset form and close modal
@@ -6928,7 +6960,8 @@ export default function CancerCareApp() {
                           date: getTodayLocalDate(),
                           time: new Date().toTimeString().slice(0, 5),
                           notes: '',
-                          customSymptomName: ''
+                          customSymptomName: '',
+                          tags: []
                         });
                         setShowAddSymptomModal(false);
                         
