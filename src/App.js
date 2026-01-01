@@ -330,6 +330,9 @@ export default function CancerCareApp() {
     subtype: '' // Add subtype field
   });
   const [showAddLab, setShowAddLab] = useState(false);
+  const [showAddLabValue, setShowAddLabValue] = useState(false);
+  const [selectedLabForValue, setSelectedLabForValue] = useState(null);
+  const [newLabValue, setNewLabValue] = useState({ value: '', date: getTodayLocalDate(), notes: '' });
   const [showEditGenomic, setShowEditGenomic] = useState(false);
   const [editingGenomicProfile, setEditingGenomicProfile] = useState(null);
   const [showEditContacts, setShowEditContacts] = useState(false);
@@ -1229,6 +1232,7 @@ export default function CancerCareApp() {
 
       if (!grouped[labType]) {
         grouped[labType] = {
+          id: lab.id, // Store lab document ID for adding values
           name: lab.label,
           unit: lab.unit,
           current: lab.currentValue,
@@ -4062,6 +4066,23 @@ export default function CancerCareApp() {
                                               onClick={() => setOpenDeleteMenu(null)}
                                             />
                                             <div className="absolute right-0 top-8 z-50 bg-white rounded-lg shadow-lg border border-medical-neutral-200 py-1 min-w-[160px]">
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setOpenDeleteMenu(null);
+                                                  // Find the lab document ID
+                                                  const labDoc = allLabData[key];
+                                                  if (labDoc && labDoc.id) {
+                                                    setSelectedLabForValue({ id: labDoc.id, name: displayName, unit: lab.unit, key: key });
+                                                    setNewLabValue({ value: '', date: getTodayLocalDate(), notes: '' });
+                                                    setShowAddLabValue(true);
+                                                  }
+                                                }}
+                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                              >
+                                                <Plus className="w-4 h-4" />
+                                                Add Value
+                                              </button>
                                               <button
                                                 onClick={async (e) => {
                                                   e.stopPropagation();
