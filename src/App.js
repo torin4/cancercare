@@ -5613,9 +5613,14 @@ export default function CancerCareApp() {
               <div className="flex items-start justify-between mb-3">
                 <h3 className="text-lg font-bold text-medical-neutral-900 pr-2">{labTooltip.labName}</h3>
                 <button
-                  onClick={() => setLabTooltip(null)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setLabTooltip(null);
+                  }}
                   className="text-medical-neutral-400 hover:text-medical-neutral-600 transition-colors flex-shrink-0"
                   aria-label="Close"
+                  type="button"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -5988,8 +5993,13 @@ export default function CancerCareApp() {
               <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
                 <h3 className="font-bold text-lg text-gray-800">Log Symptom</h3>
                 <button
-                  onClick={() => setShowAddSymptomModal(false)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowAddSymptomModal(false);
+                  }}
                   className="text-gray-500 hover:text-gray-700"
+                  type="button"
                 >
                   <X size={24} />
                 </button>
@@ -6190,8 +6200,13 @@ export default function CancerCareApp() {
               <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
                 <h3 className="font-bold text-lg text-gray-800">Add Medication</h3>
                 <button
-                  onClick={() => setShowAddMedication(false)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowAddMedication(false);
+                  }}
                   className="text-gray-500 hover:text-gray-700"
+                  type="button"
                 >
                   <X size={24} />
                 </button>
@@ -6388,11 +6403,14 @@ export default function CancerCareApp() {
               <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
                 <h3 className="font-bold text-lg text-gray-800">Add Lab Value to Track</h3>
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     setShowAddLab(false);
                     setNewLabData({ label: '', normalRange: '', unit: '' });
                   }}
                   className="text-gray-500 hover:text-gray-700"
+                  type="button"
                 >
                   <X size={24} />
                 </button>
@@ -6611,8 +6629,13 @@ export default function CancerCareApp() {
               <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
                 <h3 className="font-bold text-lg text-gray-800">Log Vital Reading</h3>
                 <button
-                  onClick={() => setShowAddVital(false)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowAddVital(false);
+                  }}
                   className="text-gray-500 hover:text-gray-700"
+                  type="button"
                 >
                   <X size={24} />
                 </button>
@@ -6718,8 +6741,13 @@ export default function CancerCareApp() {
               <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
                 <h3 className="text-lg font-semibold text-gray-900">Trial Search Location</h3>
                 <button
-                  onClick={() => setShowEditLocation(false)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowEditLocation(false);
+                  }}
                   className="p-2 hover:bg-gray-100 rounded-lg transition"
+                  type="button"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -6845,8 +6873,13 @@ export default function CancerCareApp() {
               <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
                 <h3 className="font-bold text-lg text-gray-800">Edit Patient Information</h3>
                 <button
-                  onClick={() => setShowEditInfo(false)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowEditInfo(false);
+                  }}
                   className="text-gray-500 hover:text-gray-700"
+                  type="button"
                 >
                   <X size={24} />
                 </button>
@@ -7125,8 +7158,13 @@ export default function CancerCareApp() {
               <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
                 <h3 className="font-bold text-lg text-gray-800">Update Current Status</h3>
                 <button
-                  onClick={() => setShowUpdateStatus(false)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowUpdateStatus(false);
+                  }}
                   className="text-gray-500 hover:text-gray-700"
+                  type="button"
                 >
                   <X size={24} />
                 </button>
@@ -7682,8 +7720,13 @@ export default function CancerCareApp() {
               <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
                 <h3 className="font-bold text-lg text-gray-800">Edit Emergency Contacts</h3>
                 <button
-                  onClick={() => setShowEditContacts(false)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowEditContacts(false);
+                  }}
                   className="text-gray-500 hover:text-gray-700"
+                  type="button"
                 >
                   <X size={24} />
                 </button>
@@ -7841,8 +7884,13 @@ export default function CancerCareApp() {
               <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
                 <h3 className="font-bold text-lg text-gray-800">Edit Medical Team</h3>
                 <button
-                  onClick={() => setShowEditMedicalTeam(false)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowEditMedicalTeam(false);
+                  }}
                   className="text-gray-500 hover:text-gray-700"
+                  type="button"
                 >
                   <X size={24} />
                 </button>

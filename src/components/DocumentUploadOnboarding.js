@@ -82,8 +82,13 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
             </p>
           </div>
           <button
-            onClick={onClose}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClose();
+            }}
             className="text-gray-400 hover:text-gray-600 transition"
+            type="button"
           >
             <X className="w-6 h-6" />
           </button>
