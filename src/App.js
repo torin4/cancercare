@@ -2903,19 +2903,7 @@ export default function CancerCareApp() {
                                           <CategoryIcon className="w-6 h-6 text-medical-primary-600" />
                                         </div>
                                         <div className="text-left flex-1 min-w-0">
-                                          <div className="flex items-center gap-2">
-                                            <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900">{category}</h3>
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                alert(`${category}\n\n${description}`);
-                                              }}
-                                              className="text-medical-primary-500 hover:text-medical-primary-700 transition-colors flex-shrink-0"
-                                              title="Learn more about this category"
-                                            >
-                                              <Info className="w-4 h-4" />
-                                            </button>
-                                          </div>
+                                          <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900">{category}</h3>
                                           <p className="text-xs sm:text-sm text-medical-neutral-600 mt-1">{description}</p>
                                           <p className="text-xs text-medical-neutral-500 mt-1">{labsInCategory.length} value{labsInCategory.length !== 1 ? 's' : ''} tracked</p>
                                         </div>

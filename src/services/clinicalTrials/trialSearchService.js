@@ -534,20 +534,34 @@ export async function searchCTGov(params) {
               const locationCities = [];
               const locationCountries = [];
               
+              const locationDetails = [];
               locations.forEach(loc => {
                 try {
-                  const facility = loc?.facility || {};
-                  // Extract city, state, and country according to API structure
-                  const city = facility?.city || loc?.city || '';
-                  const state = facility?.state || facility?.province || '';
-                  const country = facility?.country || loc?.country || '';
+                  // Handle both formats: facility as object or facility as string
+                  const facility = loc?.facility;
+                  const facilityName = typeof facility === 'string' 
+                    ? facility 
+                    : (facility?.name || '');
+                  const city = loc?.city || facility?.city || '';
+                  const state = loc?.state || facility?.state || facility?.province || '';
+                  const country = loc?.country || facility?.country || '';
                   
                   if (city) locationCities.push(city);
                   if (country) locationCountries.push(country);
                   
+                  // Store full location details including facility name
+                  if (city || country || facilityName) {
+                    locationDetails.push({
+                      facility: facilityName,
+                      city: city,
+                      state: state,
+                      country: country
+                    });
+                  }
+                  
                   // Log if we find location data for debugging
-                  if (city || country) {
-                    console.log(`trialSearchService: Extracted location for ${nctId}: city=${city}, state=${state}, country=${country}`);
+                  if (city || country || facilityName) {
+                    console.log(`trialSearchService: Extracted location for ${nctId}: facility=${facilityName}, city=${city}, state=${state}, country=${country}`);
                   }
                 } catch (e) {
                   console.warn(`trialSearchService: Error extracting location for ${nctId}:`, e?.message || e);
@@ -586,7 +600,8 @@ export async function searchCTGov(params) {
                 Phase: phases,
                 BriefSummary: [briefSummary],
                 LocationCity: locationCities,
-                LocationCountry: locationCountries
+                LocationCountry: locationCountries,
+                LocationDetails: locationDetails // Include full location details with facility names
               };
             } catch (error) {
               console.error('Error processing study in v2 format:', error, study);
@@ -617,20 +632,38 @@ export async function searchCTGov(params) {
     let trials = studies.map(s => {
       const locationCities = s.LocationCity || [];
       const locationCountries = s.LocationCountry || [];
+      const locationDetails = s.LocationDetails || []; // Get full location details if available
       
-      // Build locations array
-      const locations = locationCities.map((city, idx) => ({ 
-        city: typeof city === 'string' ? city : '', 
-        country: (locationCountries[idx] || locationCountries[0] || '') 
-      }));
-      
-      // If no cities but we have countries, create location entries from countries
-      if (locations.length === 0 && locationCountries.length > 0) {
-        locationCountries.forEach(country => {
-          if (country) {
-            locations.push({ city: '', country: country });
-          }
-        });
+      // Build locations array - prefer LocationDetails if available, otherwise build from cities/countries
+      let locations = [];
+      if (locationDetails.length > 0) {
+        // Use full location details with facility names
+        locations = locationDetails.map(loc => ({
+          facility: loc.facility || '',
+          city: loc.city || '',
+          state: loc.state || '',
+          country: loc.country || ''
+        }));
+      } else {
+        // Fallback: build from separate city/country arrays
+        locations = locationCities.map((city, idx) => ({ 
+          facility: '',
+          city: typeof city === 'string' ? city : '', 
+          country: (locationCountries[idx] || locationCountries[0] || '') 
+        }));
+        
+        // If no cities but we have countries, create location entries from countries
+        if (locations.length === 0 && locationCountries.length > 0) {
+          locationCountries.forEach(country => {
+            if (country) {
+              locations.push({ 
+                facility: '',
+                city: '',
+                country: typeof country === 'string' ? country : '' 
+              });
+            }
+          });
+        }
       }
       
       const status = s.OverallStatus?.[0] || s.OverallStatus || '';

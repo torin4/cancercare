@@ -722,23 +722,38 @@ const ClinicalTrials = ({ onTrialSelected }) => {
 
               {selectedTrial.locations && selectedTrial.locations.length > 0 && (
                 <div>
-                  <h3 className="font-bold text-gray-900 mb-2">Locations</h3>
-                  <ul className="list-disc list-inside text-gray-700">
+                  <h3 className="font-bold text-gray-900 mb-2">Study Locations</h3>
+                  <ul className="space-y-2">
                     {selectedTrial.locations.map((location, idx) => {
                       // Handle both string and object location formats
                       let locationText = '';
+                      let facilityName = '';
+                      
                       if (typeof location === 'string') {
                         locationText = location;
                       } else if (location && typeof location === 'object') {
-                        // Format object location: "City, Country" or just "Country"
+                        // Extract facility name if available
+                        facilityName = location.facility || '';
+                        
+                        // Format object location: "Facility, City, State, Country" or "City, Country"
                         const parts = [];
+                        if (facilityName) parts.push(facilityName);
                         if (location.city) parts.push(location.city);
+                        if (location.state) parts.push(location.state);
                         if (location.country) parts.push(location.country);
                         locationText = parts.length > 0 ? parts.join(', ') : JSON.stringify(location);
                       } else {
                         locationText = String(location || 'Unknown location');
                       }
-                      return <li key={idx}>{locationText}</li>;
+                      
+                      return (
+                        <li key={idx} className="text-gray-700">
+                          {facilityName && (
+                            <div className="font-semibold text-gray-900 mb-0.5">{facilityName}</div>
+                          )}
+                          <div className="text-sm">{locationText}</div>
+                        </li>
+                      );
                     })}
                   </ul>
                 </div>

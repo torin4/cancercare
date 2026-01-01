@@ -331,11 +331,33 @@ module.exports = async (req, res) => {
                                 descriptionModule?.detailedDescription?.text || 
                                 study.summary || '';
             
-            const locationCities = [];
+            // Extract full location details including facility names
+            const locationDetails = [];
             locations.forEach(loc => {
-              const city = loc?.city || '';
-              if (city) locationCities.push(city);
+              try {
+                // Handle both formats: facility as object or facility as string
+                const facility = loc?.facility;
+                const facilityName = typeof facility === 'string' 
+                  ? facility 
+                  : (facility?.name || '');
+                const city = loc?.city || facility?.city || '';
+                const state = loc?.state || facility?.state || '';
+                const country = loc?.country || facility?.country || '';
+                
+                if (city || country || facilityName) {
+                  locationDetails.push({
+                    facility: facilityName,
+                    city: city,
+                    state: state,
+                    country: country
+                  });
+                }
+              } catch (e) {
+                console.warn(`trials-proxy: Error extracting location details:`, e?.message || e);
+              }
             });
+            
+            const locationCities = locationDetails.map(loc => loc.city).filter(Boolean);
             
             studies.push({
               NCTId: [id],
@@ -345,7 +367,8 @@ module.exports = async (req, res) => {
               Phase: phases,
               BriefSummary: [briefSummary],
               LocationCity: locationCities,
-              LocationCountry: locationCountries
+              LocationCountry: locationCountries,
+              LocationDetails: locationDetails // Add full location details with facility names
             });
           } catch (error) {
             console.error(`trials-proxy: Error processing study ${idx}:`, error?.message || error);
@@ -612,12 +635,17 @@ module.exports = async (req, res) => {
                 console.log(`trials-proxy: ====================================================`);
               }
 
+              const locationDetails = [];
               locations.forEach(loc => {
                 try {
                   // IMPORTANT: Based on actual API response structure:
                   // - city and country are DIRECTLY on the location object (loc.city, loc.country)
-                  // - facility is a STRING (facility name), not an object
-                  // Structure: { facility: "Name", city: "Beijing", country: "China", state: "...", ... }
+                  // - facility can be a STRING (facility name) or an object with a name property
+                  // Structure: { facility: "Name" or {name: "Name"}, city: "Beijing", country: "China", state: "...", ... }
+                  const facility = loc?.facility;
+                  const facilityName = typeof facility === 'string' 
+                    ? facility 
+                    : (facility?.name || '');
                   const city = loc?.city || '';
                   const state = loc?.state || '';
                   const country = loc?.country || '';
@@ -630,9 +658,19 @@ module.exports = async (req, res) => {
                     locationCountries.push(country);
                   }
                   
+                  // Store full location details including facility name
+                  if (city || country || facilityName) {
+                    locationDetails.push({
+                      facility: facilityName,
+                      city: city,
+                      state: state,
+                      country: country
+                    });
+                  }
+                  
                   // Log if we find location data for debugging
-                  if (city || country) {
-                    console.log(`trials-proxy: Extracted location for study ${id}: city=${city}, state=${state}, country=${country}`);
+                  if (city || country || facilityName) {
+                    console.log(`trials-proxy: Extracted location for study ${id}: facility=${facilityName}, city=${city}, state=${state}, country=${country}`);
                   }
                 } catch (e) {
                   console.warn(`trials-proxy: Error extracting location for study ${id}:`, e?.message || e);
