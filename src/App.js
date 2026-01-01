@@ -2359,7 +2359,10 @@ export default function CancerCareApp() {
             {/* Quick Action Buttons */}
             <div className="bg-white border-b border-medical-neutral-200 px-4 sm:px-6 py-4 sm:py-5">
               <div className="max-w-6xl mx-auto">
-                <h2 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-3 sm:mb-4">Quick Actions</h2>
+                <h2 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-3 sm:mb-4 flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-medical-primary-600" />
+                  Quick Actions
+                </h2>
                 <div className="flex flex-row items-stretch justify-between gap-2 sm:gap-4">
                   <button
                     onClick={() => {
@@ -2471,14 +2474,36 @@ export default function CancerCareApp() {
             <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
               {/* Dynamic CA-125 Alert */}
               {ca125Alert && (
-                <div className={`bg-white rounded-lg sm:rounded-xl border-l-4 p-4 sm:p-5 shadow-sm ${ca125Alert.type === 'up' ? 'border-amber-500' : 'border-green-500'}`}>
+                <div className={`bg-white rounded-lg sm:rounded-xl border-2 p-4 sm:p-5 shadow-sm ${
+                  ca125Alert.type === 'up' 
+                    ? 'border-amber-300 bg-amber-50' 
+                    : 'border-medical-accent-300 bg-medical-accent-50'
+                }`}>
                   <div className="flex items-start gap-3">
-                    <AlertCircle className={`flex-shrink-0 w-5 h-5 mt-0.5 ${ca125Alert.type === 'up' ? 'text-amber-600' : 'text-green-600'}`} />
+                    <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                      ca125Alert.type === 'up' 
+                        ? 'bg-amber-100' 
+                        : 'bg-medical-accent-100'
+                    }`}>
+                      <AlertCircle className={`w-5 h-5 ${
+                        ca125Alert.type === 'up' 
+                          ? 'text-amber-600' 
+                          : 'text-medical-accent-600'
+                      }`} />
+                    </div>
                     <div className="flex-1">
-                      <h3 className={`text-base font-semibold mb-1 ${ca125Alert.type === 'up' ? 'text-amber-900' : 'text-green-900'}`}>
+                      <h3 className={`text-base font-semibold mb-1 ${
+                        ca125Alert.type === 'up' 
+                          ? 'text-amber-900' 
+                          : 'text-medical-accent-900'
+                      }`}>
                         CA-125 {ca125Alert.type === 'up' ? 'Trending Up' : 'Trending Down'}
                       </h3>
-                      <p className={`text-sm ${ca125Alert.type === 'up' ? 'text-amber-700' : 'text-green-700'}`}>
+                      <p className={`text-sm ${
+                        ca125Alert.type === 'up' 
+                          ? 'text-amber-700' 
+                          : 'text-medical-accent-700'
+                      }`}>
                         {ca125Alert.message}
                       </p>
                     </div>
@@ -2551,9 +2576,11 @@ export default function CancerCareApp() {
                 
                 // Use fallback items
                 return (
-                  <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border border-medical-neutral-200 shadow-sm">
+                  <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-medical-accent-200 shadow-sm">
                     <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
-                      <Activity className="w-5 h-5 text-medical-primary-600" />
+                      <div className="bg-medical-accent-50 p-2 rounded-lg">
+                        <Activity className="w-5 h-5 text-medical-accent-600" />
+                      </div>
                       Key Metrics
                     </h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
@@ -2582,7 +2609,7 @@ export default function CancerCareApp() {
                         }
                         
                         return (
-                          <div key={`${item.type}-${item.key}`} className="text-center p-3 bg-medical-neutral-50 rounded-lg">
+                          <div key={`${item.type}-${item.key}`} className="text-center p-4 bg-white rounded-lg border border-medical-neutral-200 shadow-sm hover:shadow-md transition-shadow">
                             <div className="flex items-center justify-center gap-1.5 mb-2">
                               <span className="text-xs font-medium text-medical-neutral-700">{displayName}</span>
                               <div className="flex items-center gap-1">
@@ -2619,9 +2646,11 @@ export default function CancerCareApp() {
               }
 
               return (
-                <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border border-medical-neutral-200 shadow-sm">
+                <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-medical-accent-200 shadow-sm">
                   <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-medical-primary-600" />
+                    <div className="bg-medical-accent-50 p-2 rounded-lg">
+                      <Activity className="w-5 h-5 text-medical-accent-600" />
+                    </div>
                     Key Metrics
                   </h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
@@ -2659,7 +2688,7 @@ export default function CancerCareApp() {
                       }
                       
                       return (
-                        <div key={`${item.type}-${item.key}`} className="text-center p-3 bg-medical-neutral-50 rounded-lg">
+                        <div key={`${item.type}-${item.key}`} className="text-center p-4 bg-white rounded-lg border border-medical-neutral-200 shadow-sm hover:shadow-md transition-shadow">
                           <div className="flex items-center justify-center gap-1.5 mb-2">
                             <span className="text-xs font-medium text-medical-neutral-700">{displayName}</span>
                             <div className="flex items-center gap-1">
@@ -2694,15 +2723,18 @@ export default function CancerCareApp() {
                 </div>
               );
             })() : (
-              <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center border border-medical-neutral-200 shadow-sm">
-                <Activity className="w-12 h-12 text-medical-neutral-400 mx-auto mb-4" />
-                <h3 className="text-base font-semibold text-medical-neutral-900 mb-2">No health data tracked yet</h3>
+              <div className="bg-medical-primary-50 rounded-lg sm:rounded-xl p-6 sm:p-8 text-center border-2 border-medical-primary-200 shadow-sm">
+                <div className="w-16 h-16 bg-medical-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Activity className="w-8 h-8 text-medical-primary-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-medical-neutral-900 mb-2">No health data tracked yet</h3>
                 <p className="text-sm text-medical-neutral-600 mb-6">Start by uploading lab results or chatting with the AI assistant</p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   <button
                     onClick={() => setActiveTab('chat')}
-                    className="px-5 py-2.5 bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition-colors text-sm font-medium shadow-sm"
+                    className="px-6 py-3 bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
                   >
+                    <MessageSquare className="w-4 h-4" />
                     Chat with AI
                   </button>
                   <button
@@ -2713,8 +2745,9 @@ export default function CancerCareApp() {
                         setActiveTab('files');
                       }
                     }}
-                    className="px-5 py-2.5 bg-medical-secondary-500 text-white rounded-lg hover:bg-medical-secondary-600 transition-colors text-sm font-medium shadow-sm"
+                    className="px-6 py-3 bg-medical-accent-500 text-white rounded-lg hover:bg-medical-accent-600 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
                   >
+                    <Upload className="w-4 h-4" />
                     Upload Labs
                   </button>
                 </div>
@@ -2724,11 +2757,11 @@ export default function CancerCareApp() {
           {/* Two Column Layout on larger screens */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               {/* Genomic Profile Card */}
-              <div className="w-full bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border border-medical-neutral-200 shadow-sm lg:col-span-2">
+              <div className="w-full bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-purple-200 shadow-sm lg:col-span-2">
                 <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-medical-secondary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
+                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-2 rounded-lg">
+                    <Dna className="w-5 h-5 text-purple-600" />
+                  </div>
                   Genomic Profile
                 </h3>
                 {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 ? (
@@ -2777,9 +2810,11 @@ export default function CancerCareApp() {
             </div>
 
             {/* Saved Trials */}
-            <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border border-medical-neutral-200 shadow-sm">
+            <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-medical-primary-200 shadow-sm">
               <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
-                <Bookmark className="w-5 h-5 text-medical-primary-600" />
+                <div className="bg-medical-primary-50 p-2 rounded-lg">
+                  <Bookmark className="w-5 h-5 text-medical-primary-600" />
+                </div>
                 Saved Trials
               </h3>
               {loadingSavedTrials ? (
