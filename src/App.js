@@ -3327,7 +3327,7 @@ export default function CancerCareApp() {
         {activeTab === 'health' && (
           <div className="p-4 space-y-4">
             {/* Ask About Health Button */}
-            <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4">
+            <div className="bg-medical-primary-50 rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-1">Ask About Your Health Data</h3>
@@ -3362,9 +3362,9 @@ export default function CancerCareApp() {
                       alert('Error loading health data. Please try again.');
                     }
                   }}
-                  className="bg-medical-primary-500 text-white px-6 py-2.5 rounded-lg hover:bg-medical-primary-600 transition font-medium flex items-center gap-2 shadow-sm"
+                  className="bg-white text-medical-primary-600 px-6 py-2.5 rounded-lg hover:bg-medical-primary-100 transition font-medium flex items-center gap-2 shadow-sm border border-medical-primary-200"
                 >
-                  <MessageSquare className="w-5 h-5" />
+                  <MessageSquare className="w-5 h-5 text-medical-primary-600" />
                   Ask About Health
                 </button>
               </div>
