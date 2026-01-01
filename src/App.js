@@ -5940,13 +5940,13 @@ export default function CancerCareApp() {
                 {/* Sign-in Options & Sign Out Row */}
                 <div className="mb-4 pb-4 border-b border-medical-neutral-200">
                   <p className="text-xs text-medical-neutral-500 mb-2">Account Actions</p>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {/* Link/Unlink Button */}
                     {user.providerData && !user.providerData.some(p => p.providerId === 'google.com') && (
                       <button
                         onClick={handleLinkGoogleAccount}
                         disabled={isLinkingGoogle}
-                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-medical-primary-500 text-white rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-medical-primary-500 text-white rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {isLinkingGoogle ? (
                           <>
@@ -5965,7 +5965,7 @@ export default function CancerCareApp() {
                       <button
                         onClick={handleUnlinkGoogleAccount}
                         disabled={isUnlinkingGoogle}
-                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white border border-medical-neutral-300 text-medical-neutral-700 rounded-lg text-sm font-medium hover:bg-medical-neutral-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-medical-neutral-300 text-medical-neutral-700 rounded-lg text-sm font-medium hover:bg-medical-neutral-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {isUnlinkingGoogle ? (
                           <>
@@ -5983,7 +5983,7 @@ export default function CancerCareApp() {
                     {/* Sign Out Button */}
                     <button
                       onClick={handleSignOut}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white border border-medical-neutral-300 text-medical-neutral-700 rounded-lg text-sm font-medium hover:bg-medical-neutral-50 transition"
+                      className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-medical-neutral-300 text-medical-neutral-700 rounded-lg text-sm font-medium hover:bg-medical-neutral-50 transition"
                     >
                       <LogOut className="w-4 h-4" />
                       Sign Out
@@ -5994,13 +5994,13 @@ export default function CancerCareApp() {
                 {/* Data Management Row */}
                 <div>
                   <p className="text-xs text-medical-neutral-500 mb-2">Data Management</p>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => {
                         setDeletionType('data');
                         setShowDeletionConfirm(true);
                       }}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition"
+                      className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition"
                     >
                       <Trash2 className="w-4 h-4" />
                       Clear Health Data
@@ -6010,7 +6010,7 @@ export default function CancerCareApp() {
                         setDeletionType('account');
                         setShowDeletionConfirm(true);
                       }}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white border border-red-300 text-red-700 rounded-lg text-sm font-medium hover:bg-red-50 transition"
+                      className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-red-300 text-red-700 rounded-lg text-sm font-medium hover:bg-red-50 transition"
                     >
                       <Trash2 className="w-4 h-4" />
                       Delete Account
