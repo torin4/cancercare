@@ -266,6 +266,22 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
     }
   };
 
+  const handleClearSearch = () => {
+    setSearchResults([]);
+    setSearchSources([]);
+    setPagination(null);
+    setError(null);
+    setSearchProgress(null);
+    // Clear persisted search state
+    try {
+      localStorage.removeItem('clinicalTrials_searchResults');
+      localStorage.removeItem('clinicalTrials_searchSources');
+      localStorage.removeItem('clinicalTrials_pagination');
+    } catch (error) {
+      console.error('Error clearing search state:', error);
+    }
+  };
+
   const handleSaveTrial = async (trial) => {
     try {
       const userId = auth.currentUser?.uid;
@@ -638,18 +654,30 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             </div>
           </div>
 
-          {/* Search Button */}
-          <button
-            onClick={handleSearchTrials}
-            disabled={searching || !patientProfile?.diagnosis}
-            className="w-full border-2 border-medical-accent-500 text-medical-accent-600 px-6 py-3.5 rounded-lg hover:bg-medical-accent-50 transition font-medium text-base sm:text-lg mb-6 disabled:border-medical-neutral-400 disabled:text-medical-neutral-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {searching ? (
-              <span className="flex items-center gap-2"><SearchIcon className="w-5 h-5" /> Searching sources...</span>
-            ) : (
-              <span className="flex items-center gap-2"><SearchIcon className="w-5 h-5" /> Search Clinical Trials</span>
+          {/* Search Button and Clear Button */}
+          <div className="flex gap-3 mb-6">
+            <button
+              onClick={handleSearchTrials}
+              disabled={searching || !patientProfile?.diagnosis}
+              className="flex-1 border-2 border-medical-accent-500 text-medical-accent-600 px-6 py-3.5 rounded-lg hover:bg-medical-accent-50 transition font-medium text-base sm:text-lg disabled:border-medical-neutral-400 disabled:text-medical-neutral-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {searching ? (
+                <span className="flex items-center gap-2"><SearchIcon className="w-5 h-5" /> Searching sources...</span>
+              ) : (
+                <span className="flex items-center gap-2"><SearchIcon className="w-5 h-5" /> Search Clinical Trials</span>
+              )}
+            </button>
+            {searchResults.length > 0 && (
+              <button
+                onClick={handleClearSearch}
+                className="border-2 border-medical-neutral-500 text-medical-neutral-700 px-4 py-3.5 rounded-lg hover:bg-medical-neutral-50 transition font-medium text-base sm:text-lg flex items-center justify-center gap-2"
+                title="Clear search results"
+              >
+                <X className="w-5 h-5" />
+                <span className="hidden sm:inline">Clear</span>
+              </button>
             )}
-          </button>
+          </div>
           {/* Search Results */}
           {searchResults.length > 0 && (
             <div>
