@@ -7771,7 +7771,7 @@ export default function CancerCareApp() {
                     }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Select a lab marker by category...</option>
+                    <option value="">Select a lab metric to track</option>
 
                     <optgroup label={`Disease-Specific Markers - ${categoryDescriptions['Disease-Specific Markers']}`}>
                       <option value={JSON.stringify({ name: 'CA-125', range: '<35', unit: 'U/mL' })}>CA-125 (Ovarian) - &lt;35 U/mL</option>
