@@ -4839,8 +4839,46 @@ export default function CancerCareApp() {
 
                     {/* Symptom Calendar */}
                 <div className="bg-white rounded-lg shadow p-4">
+                  {/* Date Pager */}
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-gray-800">December 2024</h3>
+                    <button
+                      onClick={() => {
+                        const prevMonth = new Date(symptomCalendarDate);
+                        prevMonth.setMonth(prevMonth.getMonth() - 1);
+                        setSymptomCalendarDate(prevMonth);
+                      }}
+                      className="p-2 rounded-lg hover:bg-gray-100 transition"
+                    >
+                      <ChevronLeft className="w-5 h-5 text-gray-600" />
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-gray-800">
+                        {symptomCalendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                      </h3>
+                      <button
+                        onClick={() => {
+                          const today = new Date();
+                          setSymptomCalendarDate(today);
+                          setSelectedDate(today.getDate().toString());
+                        }}
+                        className="px-3 py-1 text-sm text-medical-primary-600 hover:bg-medical-primary-50 rounded-lg transition"
+                      >
+                        Today
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const nextMonth = new Date(symptomCalendarDate);
+                        nextMonth.setMonth(nextMonth.getMonth() + 1);
+                        setSymptomCalendarDate(nextMonth);
+                      }}
+                      className="p-2 rounded-lg hover:bg-gray-100 transition"
+                    >
+                      <ChevronRight className="w-5 h-5 text-gray-600" />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between mb-4">
+                    <div></div>
                     <button
                       onClick={() => setShowAddSymptomModal(true)}
                       className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
