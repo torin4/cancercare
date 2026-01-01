@@ -5075,7 +5075,7 @@ export default function CancerCareApp() {
                                   >
                                     <div className="flex items-center justify-between mb-1">
                                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${symptomColors[symptom.type] || symptomColors['Other']}`}></div>
+                                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${getSymptomColor(symptom.type)}`}></div>
                                         <p className="text-sm font-medium truncate">{symptom.type}</p>
                                       </div>
                                       <div className="flex items-center gap-2 flex-shrink-0">
