@@ -856,19 +856,26 @@ export const accountService = {
         await Promise.all(deletePromises);
       }
 
-      // 2. Clear genomic profile but keep it as empty doc (preserve structure)
+      // 2. Delete genomic profile
       const genomicRef = doc(db, COLLECTIONS.GENOMIC_PROFILES, userId);
-      await setDoc(genomicRef, {
-        patientId: userId,
-        mutations: [],
-        copyNumberVariants: [],
-        fusions: [],
-        biomarkers: {},
-        germlineFindings: [],
-        fdaApprovedTherapies: [],
-        clinicalTrialEligible: false,
-        lastUpdated: serverTimestamp()
-      });
+      const genomicSnap = await getDoc(genomicRef);
+      if (genomicSnap.exists()) {
+        await deleteDoc(genomicRef);
+      }
+
+      // 3. Clear currentStatus and diagnosis-related fields from patient profile (but preserve basic profile info)
+      const patientRef = doc(db, COLLECTIONS.PATIENTS, userId);
+      const patientSnap = await getDoc(patientRef);
+      if (patientSnap.exists()) {
+        await updateDoc(patientRef, {
+          currentStatus: null,
+          diagnosis: null,
+          diagnosisDate: null,
+          cancerType: null,
+          stage: null,
+          stageOther: null
+        });
+      }
 
       console.log('Health data cleared successfully - patient profile preserved');
     } catch (error) {

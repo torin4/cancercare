@@ -111,12 +111,12 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                 badge: 'bg-medical-primary-100 text-medical-primary-700'
               },
               purple: {
-                border: 'border-medical-secondary-200',
-                bg: 'bg-medical-secondary-50',
-                selectedBorder: 'border-medical-secondary-500',
-                selectedBg: 'bg-medical-secondary-50',
-                icon: 'text-medical-secondary-600',
-                badge: 'bg-medical-secondary-100 text-medical-secondary-700'
+                border: 'border-purple-200',
+                bg: 'bg-gradient-to-br from-purple-50 to-pink-50',
+                selectedBorder: 'border-purple-500',
+                selectedBg: 'bg-gradient-to-br from-purple-50 to-pink-50',
+                icon: 'text-purple-600',
+                badge: 'bg-purple-100 text-purple-700'
               },
               green: {
                 border: 'border-medical-accent-200',
@@ -187,7 +187,13 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
           ) : (
             // Date input step
             <div className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className={`rounded-lg p-4 border ${
+                selectedType === 'genomic-profile'
+                  ? 'bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200'
+                  : selectedType === 'blood-test'
+                  ? 'bg-blue-50 border-blue-200'
+                  : 'bg-green-50 border-green-200'
+              }`}>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Document Date</h3>
                 <p className="text-sm text-gray-700 mb-4">
                   When was this document created or when were these tests performed? This helps us accurately track your health data over time.
@@ -202,7 +208,13 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                       value={documentDate}
                       onChange={(e) => setDocumentDate(e.target.value)}
                       max={new Date().toISOString().split('T')[0]}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={`w-full border rounded-lg px-4 py-2.5 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 ${
+                        selectedType === 'genomic-profile'
+                          ? 'border-purple-300 focus:ring-purple-500'
+                          : selectedType === 'blood-test'
+                          ? 'border-gray-300 focus:ring-blue-500'
+                          : 'border-gray-300 focus:ring-green-500'
+                      }`}
                     />
                     <p className="text-xs text-gray-500 mt-1">
                       If you don't know the date, you can skip and we'll try to extract it from the document.

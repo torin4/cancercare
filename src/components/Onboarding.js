@@ -148,7 +148,9 @@ export default function Onboarding({ onComplete }) {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     // Step 1 - Patient Information
-    name: '',
+    firstName: '',
+    middleName: '',
+    lastName: '',
     dateOfBirth: '',
     height: '',
     weight: '',
@@ -203,6 +205,13 @@ export default function Onboarding({ onComplete }) {
   const handleComplete = () => {
     if (!isStepValid()) return;
     const payload = { ...formData };
+    // Combine name fields into single name field for backend
+    const nameParts = [payload.firstName, payload.middleName, payload.lastName].filter(Boolean);
+    payload.name = nameParts.join(' ');
+    // Remove individual name fields from payload
+    delete payload.firstName;
+    delete payload.middleName;
+    delete payload.lastName;
     if (!payload.diagnosis && payload.cancerType) payload.diagnosis = payload.cancerType;
     // Ensure subtype is saved (it's optional, so it might be empty)
     if (payload.subtype === 'Other (specify)') {
@@ -216,7 +225,7 @@ export default function Onboarding({ onComplete }) {
   };
 
   const isStepValid = () => {
-    if (step === 1) return !!(formData.name && formData.dateOfBirth && formData.height && formData.weight && formData.gender);
+    if (step === 1) return !!(formData.firstName && formData.lastName && formData.dateOfBirth && formData.height && formData.weight && formData.gender);
     if (step === 2) return !!(formData.cancerType && formData.stage && formData.diagnosisDate && formData.treatmentLine && formData.performanceStatus && formData.diseaseStatus);
     return false;
   };
@@ -258,19 +267,29 @@ export default function Onboarding({ onComplete }) {
               </div>
 
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
-                  <input type="text" value={formData.name} onChange={(e) => updateField('name', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg" />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
+                    <input type="text" value={formData.firstName} onChange={(e) => updateField('firstName', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Middle Name</label>
+                    <input type="text" value={formData.middleName} onChange={(e) => updateField('middleName', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
+                    <input type="text" value={formData.lastName} onChange={(e) => updateField('lastName', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900" />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth *</label>
-                    <input type="date" value={formData.dateOfBirth} onChange={(e) => updateField('dateOfBirth', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg" />
+                    <input type="date" value={formData.dateOfBirth} onChange={(e) => updateField('dateOfBirth', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                    <select value={formData.country} onChange={(e) => updateField('country', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg">
+                    <select value={formData.country} onChange={(e) => updateField('country', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900">
                       <option value="">Select country</option>
                       {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
@@ -280,17 +299,17 @@ export default function Onboarding({ onComplete }) {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Height (cm) *</label>
-                    <input type="number" value={formData.height} onChange={(e) => updateField('height', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg" />
+                    <input type="number" value={formData.height} onChange={(e) => updateField('height', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg) *</label>
-                    <input type="number" value={formData.weight} onChange={(e) => updateField('weight', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg" />
+                    <input type="number" value={formData.weight} onChange={(e) => updateField('weight', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900" />
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Gender *</label>
-                  <select value={formData.gender} onChange={(e) => updateField('gender', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg">
+                  <select value={formData.gender} onChange={(e) => updateField('gender', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900">
                     <option value="">Select gender</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
@@ -323,10 +342,22 @@ export default function Onboarding({ onComplete }) {
                     // Clear subtype when cancer type changes
                     updateField('subtype', '');
                     setCustomSubtype('');
-                  }} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg">
+                  }} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900">
                     <option value="">Select cancer type</option>
                     {CANCER_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
+                  {formData.cancerType === 'Other (Please Specify)' && (
+                    <input
+                      type="text"
+                      value={customDiagnosis}
+                      onChange={(e) => {
+                        setCustomDiagnosis(e.target.value);
+                        updateField('diagnosis', e.target.value);
+                      }}
+                      className="w-full mt-2 px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900"
+                      placeholder="Specify cancer type"
+                    />
+                  )}
                 </div>
 
                 {/* Cancer Subtype Selection */}
@@ -344,7 +375,7 @@ export default function Onboarding({ onComplete }) {
                           setCustomSubtype('');
                         }
                       }} 
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900"
                     >
                       <option value="">Select subtype (optional)</option>
                       {CANCER_SUBTYPES[formData.cancerType].map(s => (
@@ -359,7 +390,7 @@ export default function Onboarding({ onComplete }) {
                           setCustomSubtype(e.target.value);
                           updateField('subtype', e.target.value);
                         }}
-                        className="w-full mt-2 px-4 py-2.5 border border-gray-300 rounded-lg"
+                        className="w-full mt-2 px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900"
                         placeholder="Specify subtype"
                       />
                     )}
@@ -369,14 +400,14 @@ export default function Onboarding({ onComplete }) {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Stage *</label>
-                    <select value={formData.stage} onChange={(e) => updateField('stage', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg">
+                    <select value={formData.stage} onChange={(e) => updateField('stage', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900">
                       <option value="">Select stage</option>
                       {STAGE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Date of Diagnosis *</label>
-                    <input type="date" value={formData.diagnosisDate} onChange={(e) => updateField('diagnosisDate', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg" />
+                    <input type="date" value={formData.diagnosisDate} onChange={(e) => updateField('diagnosisDate', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900" />
                   </div>
                 </div>
 
@@ -393,7 +424,7 @@ export default function Onboarding({ onComplete }) {
                         setCustomTreatmentStatus('');
                       }
                     }}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900"
                   >
                     <option value="">Select treatment status</option>
                     {TREATMENT_STATUS_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
@@ -406,7 +437,7 @@ export default function Onboarding({ onComplete }) {
                         setCustomTreatmentStatus(e.target.value);
                         updateField('treatmentLine', e.target.value);
                       }}
-                      className="w-full mt-2 px-4 py-2.5 border border-gray-300 rounded-lg"
+                      className="w-full mt-2 px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900"
                       placeholder="Specify treatment status"
                     />
                   )}
@@ -415,14 +446,14 @@ export default function Onboarding({ onComplete }) {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">ECOG Performance *</label>
-                    <select value={formData.performanceStatus} onChange={(e) => updateField('performanceStatus', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg">
+                    <select value={formData.performanceStatus} onChange={(e) => updateField('performanceStatus', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900">
                       <option value="">Select ECOG</option>
                       {PERFORMANCE_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Disease Status *</label>
-                    <select value={formData.diseaseStatus} onChange={(e) => updateField('diseaseStatus', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg">
+                    <select value={formData.diseaseStatus} onChange={(e) => updateField('diseaseStatus', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900">
                       <option value="">Select status</option>
                       {DISEASE_STATUS_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
@@ -431,7 +462,7 @@ export default function Onboarding({ onComplete }) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Baseline CA-125 (optional)</label>
-                  <input type="number" step="any" value={formData.baselineCa125} onChange={(e) => updateField('baselineCa125', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg" />
+                  <input type="number" step="any" value={formData.baselineCa125} onChange={(e) => updateField('baselineCa125', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900" />
                 </div>
               </div>
             </div>

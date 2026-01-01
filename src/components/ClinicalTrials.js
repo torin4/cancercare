@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, AlertTriangle, XCircle, Star, Search as SearchIcon, MapPin, Globe, X } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, Star, Search as SearchIcon, MapPin, Globe, X, AlertCircle } from 'lucide-react';
 import { auth } from '../firebase/config';
 import { patientService, genomicProfileService, clinicalTrialsService, trialLocationService } from '../firebase/services';
 import { getTrialDetails } from '../services/clinicalTrials/trialSearchService';
@@ -24,7 +24,7 @@ const COUNTRIES = [
   "Andorra", "Vatican City"
 ].sort();
 
-const ClinicalTrials = ({ onTrialSelected }) => {
+const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [activeTab, setActiveTab] = useState('search'); // 'search' or 'saved'
@@ -52,6 +52,22 @@ const ClinicalTrials = ({ onTrialSelected }) => {
     // Always load saved trials to get accurate count (silently in background)
     loadSavedTrials(false);
   }, []); // Load once on mount
+
+  // Reset search results when health data is cleared (resetKey changes)
+  useEffect(() => {
+    if (resetKey) {
+      setSearchResults([]);
+      setSearchSources([]);
+      setSearchProgress(null);
+      setPagination(null);
+      setSelectedTrial(null);
+      setError(null);
+      // Reload patient data to get updated profile
+      loadPatientData();
+      // Reload saved trials (they should be empty after clearHealthData)
+      loadSavedTrials(false);
+    }
+  }, [resetKey]);
 
   useEffect(() => {
     // Reload saved trials when switching to saved tab to ensure fresh data
