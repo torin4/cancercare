@@ -4969,7 +4969,8 @@ export default function CancerCareApp() {
                             id: symptom.id,
                             type: symptom.name || symptom.type,
                             severity: symptom.severity,
-                            time: symptom.time || symptomDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })
+                            time: symptom.time || symptomDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+                            tags: symptom.tags || []
                           });
                         }
                       });
