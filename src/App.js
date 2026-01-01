@@ -4354,8 +4354,8 @@ export default function CancerCareApp() {
 
                                     {/* Expanded Content */}
                                     {isExpanded && (
-                                      <div className="px-5 pb-5 pt-2 border-t border-medical-neutral-100">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                                      <div className="px-5 pb-5 pt-2 border-t border-medical-neutral-100 overflow-visible">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4 overflow-visible">
                                           {labsInCategory.map(([key, lab]) => (
                                             renderLabCard(key, lab)
                                           ))}
