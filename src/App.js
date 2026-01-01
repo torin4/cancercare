@@ -7588,7 +7588,7 @@ export default function CancerCareApp() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 md:p-4">
           <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
             <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
-              <h3 className="font-bold text-lg text-gray-800">Add {selectedLabForValue.name} Metric</h3>
+              <h3 className="font-bold text-lg text-gray-800">Add {selectedLabForValue.name} Value</h3>
               <button
                 onClick={(e) => {
                   e.preventDefault();
@@ -7608,14 +7608,14 @@ export default function CancerCareApp() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Metric <span className="text-red-600">*</span>
+                    Value <span className="text-red-600">*</span>
                   </label>
                   <input
                     type="number"
                     step="any"
                     value={newLabValue.value}
                     onChange={(e) => setNewLabValue({ ...newLabValue, value: e.target.value })}
-                    placeholder={`Enter ${selectedLabForValue.name} metric`}
+                    placeholder={`Enter ${selectedLabForValue.name} value`}
                     className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   {selectedLabForValue.unit && (
@@ -7704,14 +7704,14 @@ export default function CancerCareApp() {
                       setSelectedLabForValue(null);
                       setNewLabValue({ value: '', date: getTodayLocalDate(), notes: '' });
                     } catch (error) {
-                      console.error('Error adding lab metric:', error);
-                      alert('Failed to add lab metric. Please try again.');
+                      console.error('Error adding lab value:', error);
+                      alert('Failed to add lab value. Please try again.');
                     }
                   }}
                   className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
                 >
                   <Check className="w-4 h-4" />
-                  Add Metric
+                  Add Value
                 </button>
               </div>
             </div>
