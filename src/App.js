@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2, Calendar, Globe, Scale, Ruler, Clock } from 'lucide-react';
+import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2, Calendar, Globe, Scale, Ruler, Clock, FileText, Users, Phone } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Lottie from 'lottie-react';
 import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
@@ -5245,12 +5245,17 @@ export default function CancerCareApp() {
             </div>
 
             {/* Current Status - Full Width */}
-            <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-medical-neutral-200">
+            <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border-2 border-medical-accent-200">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold text-gray-800 text-lg">Current Status</h2>
+                <div className="flex items-center gap-3">
+                  <div className="bg-medical-accent-50 p-2.5 rounded-lg">
+                    <Activity className="w-6 h-6 text-medical-accent-600" />
+                  </div>
+                  <h2 className="font-semibold text-gray-800 text-lg">Current Status</h2>
+                </div>
                 <button
                   onClick={() => setShowUpdateStatus(true)}
-                  className="text-blue-600 hover:text-blue-700"
+                  className="text-medical-accent-600 hover:text-medical-accent-700"
                 >
                   <Edit2 size={18} />
                 </button>
@@ -5294,9 +5299,14 @@ export default function CancerCareApp() {
             </div>
 
             {/* Genomic Profile */}
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg shadow p-4 border border-purple-200">
+            <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border-2 border-purple-200">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold text-gray-800 text-lg">Genomic Profile</h2>
+                <div className="flex items-center gap-3">
+                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-2.5 rounded-lg">
+                    <Target className="w-6 h-6 text-purple-600" />
+                  </div>
+                  <h2 className="font-semibold text-gray-800 text-lg">Genomic Profile</h2>
+                </div>
                 <div className="flex items-center gap-2">
                   {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 && (
                     <button
@@ -5597,12 +5607,17 @@ export default function CancerCareApp() {
             {/* Medical Team & Emergency Contacts - Side by Side */}
             <div className="flex flex-col sm:flex-row gap-4">
               {/* Medical Team */}
-              <div className="flex-1 bg-white rounded-lg shadow p-4">
+              <div className="flex-1 bg-white rounded-lg shadow-sm p-4 border-2 border-medical-primary-200">
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="font-semibold text-gray-800">Medical Team</h2>
+                  <div className="flex items-center gap-3">
+                    <div className="bg-medical-primary-50 p-2.5 rounded-lg">
+                      <Users className="w-5 h-5 text-medical-primary-600" />
+                    </div>
+                    <h2 className="font-semibold text-gray-800">Medical Team</h2>
+                  </div>
                   <button
                     onClick={() => setShowEditMedicalTeam(true)}
-                    className="text-blue-600 hover:text-blue-700"
+                    className="text-medical-primary-600 hover:text-medical-primary-700"
                   >
                     <Edit2 size={18} />
                   </button>
@@ -5621,12 +5636,17 @@ export default function CancerCareApp() {
               </div>
 
               {/* Emergency Contacts */}
-              <div className="flex-1 bg-white rounded-lg shadow p-4">
+              <div className="flex-1 bg-white rounded-lg shadow-sm p-4 border-2 border-amber-200">
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="font-semibold text-gray-800">Emergency Contacts</h2>
+                  <div className="flex items-center gap-3">
+                    <div className="bg-amber-50 p-2.5 rounded-lg">
+                      <Phone className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <h2 className="font-semibold text-gray-800">Emergency Contacts</h2>
+                  </div>
                   <button
                     onClick={() => { setEditContacts(emergencyContacts.length ? emergencyContacts : []); setShowEditContacts(true); }}
-                    className="text-blue-600 hover:text-blue-700"
+                    className="text-amber-600 hover:text-amber-700"
                   >
                     <Edit2 size={18} />
                   </button>
