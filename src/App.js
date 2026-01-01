@@ -5852,7 +5852,7 @@ export default function CancerCareApp() {
         <div className="flex justify-around items-center">
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition ${activeTab === 'dashboard' ? 'text-green-600' : 'text-gray-600 hover:text-gray-900'
+            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 ${activeTab === 'dashboard' ? 'text-medical-primary-600 bg-medical-primary-50' : 'text-medical-neutral-600 hover:text-medical-primary-600 hover:bg-medical-neutral-50'
               }`}
           >
             <Home className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -5861,7 +5861,7 @@ export default function CancerCareApp() {
 
           <button
             onClick={() => setActiveTab('chat')}
-            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition ${activeTab === 'chat' ? 'text-green-600' : 'text-gray-600 hover:text-gray-900'
+            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 ${activeTab === 'chat' ? 'text-medical-primary-600 bg-medical-primary-50' : 'text-medical-neutral-600 hover:text-medical-primary-600 hover:bg-medical-neutral-50'
               }`}
           >
             <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -5870,7 +5870,7 @@ export default function CancerCareApp() {
 
           <button
             onClick={() => setActiveTab('health')}
-            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition ${activeTab === 'health' ? 'text-green-600' : 'text-gray-600 hover:text-gray-900'
+            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 ${activeTab === 'health' ? 'text-medical-primary-600 bg-medical-primary-50' : 'text-medical-neutral-600 hover:text-medical-primary-600 hover:bg-medical-neutral-50'
               }`}
           >
             <Activity className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -5879,7 +5879,7 @@ export default function CancerCareApp() {
 
           <button
             onClick={() => setActiveTab('trials')}
-            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition ${activeTab === 'trials' ? 'text-green-600' : 'text-gray-600 hover:text-gray-900'
+            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 ${activeTab === 'trials' ? 'text-medical-primary-600 bg-medical-primary-50' : 'text-medical-neutral-600 hover:text-medical-primary-600 hover:bg-medical-neutral-50'
               }`}
           >
             <Search className="w-5 h-5 sm:w-6 sm:h-6" />
