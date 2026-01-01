@@ -17,4 +17,6 @@ build:
     - master
   # Only run on main/master to save CI minutes
   # This job will NOT trigger Vercel integration
+  # Pipeline will succeed even if external stages fail
+  allow_failure: false
 
