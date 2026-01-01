@@ -5112,22 +5112,21 @@ export default function CancerCareApp() {
                                       <div className="flex flex-wrap gap-1 mt-2">
                                         {symptom.tags.map((tagId, tagIdx) => {
                                           const tagLabels = {
-                                            'treatment-related': { label: 'Related to treatment', icon: '💊', color: 'bg-blue-100 text-blue-700' },
-                                            'discuss-doctor': { label: 'Discuss with doctor', icon: '👨‍⚕️', color: 'bg-purple-100 text-purple-700' },
-                                            'medication-needed': { label: 'Medication needed', icon: '💉', color: 'bg-red-100 text-red-700' },
-                                            'side-effect': { label: 'Side effect', icon: '⚠️', color: 'bg-orange-100 text-orange-700' },
-                                            'emergency': { label: 'Emergency', icon: '🚨', color: 'bg-red-200 text-red-800' },
-                                            'recurring': { label: 'Recurring', icon: '🔄', color: 'bg-indigo-100 text-indigo-700' },
-                                            'new-symptom': { label: 'New symptom', icon: '✨', color: 'bg-green-100 text-green-700' },
-                                            'worsening': { label: 'Worsening', icon: '📈', color: 'bg-yellow-100 text-yellow-700' }
+                                            'treatment-related': { label: 'Related to treatment', color: 'bg-blue-100 text-blue-700' },
+                                            'discuss-doctor': { label: 'Discuss with doctor', color: 'bg-purple-100 text-purple-700' },
+                                            'medication-needed': { label: 'Medication needed', color: 'bg-red-100 text-red-700' },
+                                            'side-effect': { label: 'Side effect', color: 'bg-orange-100 text-orange-700' },
+                                            'emergency': { label: 'Emergency', color: 'bg-red-200 text-red-800' },
+                                            'recurring': { label: 'Recurring', color: 'bg-indigo-100 text-indigo-700' },
+                                            'new-symptom': { label: 'New symptom', color: 'bg-green-100 text-green-700' },
+                                            'worsening': { label: 'Worsening', color: 'bg-yellow-100 text-yellow-700' }
                                           };
-                                          const tag = tagLabels[tagId] || { label: tagId, icon: '', color: 'bg-gray-100 text-gray-700' };
+                                          const tag = tagLabels[tagId] || { label: tagId, color: 'bg-gray-100 text-gray-700' };
                                           return (
                                             <span
                                               key={tagIdx}
                                               className={`text-xs rounded-full px-2 py-0.5 ${tag.color}`}
                                             >
-                                              {tag.icon && <span className="mr-1">{tag.icon}</span>}
                                               {tag.label}
                                             </span>
                                           );
@@ -6889,14 +6888,14 @@ export default function CancerCareApp() {
                     <p className="text-xs font-medium text-gray-700 mb-2">Tags (optional):</p>
                     <div className="flex flex-wrap gap-2">
                       {[
-                        { id: 'treatment-related', label: 'Related to treatment', icon: '💊' },
-                        { id: 'discuss-doctor', label: 'Discuss with doctor', icon: '👨‍⚕️' },
-                        { id: 'medication-needed', label: 'Medication needed', icon: '💉' },
-                        { id: 'side-effect', label: 'Side effect', icon: '⚠️' },
-                        { id: 'emergency', label: 'Emergency', icon: '🚨' },
-                        { id: 'recurring', label: 'Recurring', icon: '🔄' },
-                        { id: 'new-symptom', label: 'New symptom', icon: '✨' },
-                        { id: 'worsening', label: 'Worsening', icon: '📈' }
+                        { id: 'treatment-related', label: 'Related to treatment' },
+                        { id: 'discuss-doctor', label: 'Discuss with doctor' },
+                        { id: 'medication-needed', label: 'Medication needed' },
+                        { id: 'side-effect', label: 'Side effect' },
+                        { id: 'emergency', label: 'Emergency' },
+                        { id: 'recurring', label: 'Recurring' },
+                        { id: 'new-symptom', label: 'New symptom' },
+                        { id: 'worsening', label: 'Worsening' }
                       ].map(tag => {
                         const isSelected = symptomForm.tags.includes(tag.id);
                         return (
@@ -6922,7 +6921,6 @@ export default function CancerCareApp() {
                                 : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'
                             }`}
                           >
-                            <span className="mr-1">{tag.icon}</span>
                             {tag.label}
                           </button>
                         );
