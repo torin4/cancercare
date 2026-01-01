@@ -5287,15 +5287,17 @@ export default function CancerCareApp() {
               )}
             </div>
 
-            <button
-              onClick={() => {
-                openDocumentOnboarding('general');
-              }}
-              className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 transition flex items-center justify-center gap-2"
-            >
-              <Upload size={18} />
-              Upload Document
-            </button>
+            {documents.length > 0 && (
+              <button
+                onClick={() => {
+                  openDocumentOnboarding('general');
+                }}
+                className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 transition flex items-center justify-center gap-2"
+              >
+                <Upload size={18} />
+                Upload Document
+              </button>
+            )}
           </div>
         )}
 
