@@ -2792,7 +2792,7 @@ export default function CancerCareApp() {
                     </button>
                   </>
                 ) : (
-                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg sm:rounded-xl p-6 sm:p-8 text-center">
+                  <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center">
                     <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Dna className="w-8 h-8 text-purple-600" />
                     </div>
@@ -2869,7 +2869,7 @@ export default function CancerCareApp() {
                 </div>
               ) : (
                 <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center">
-                  <div className="w-16 h-16 border-2 border-medical-accent-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <div className="w-16 h-16 bg-medical-accent-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Bookmark className="w-8 h-8 text-medical-accent-600" />
                   </div>
                   <h3 className="text-lg font-semibold text-medical-neutral-900 mb-2">No saved trials yet</h3>
