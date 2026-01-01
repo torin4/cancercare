@@ -3932,7 +3932,7 @@ export default function CancerCareApp() {
                 {!hasRealVitalData && Object.keys(vitalsData).length === 0 && (
                       <div className="bg-medical-primary-50 border border-medical-primary-200 rounded-lg p-6 text-center">
                         <div className="flex flex-col items-center gap-3">
-                          <Activity className="w-12 h-12 text-medical-primary-400" />
+                          <Heart className="w-12 h-12 text-medical-primary-400" />
                           <div>
                             <h3 className="font-semibold text-medical-primary-900 mb-1">No Vital Signs Data Yet</h3>
                             <p className="text-sm text-medical-primary-700 mb-4">
@@ -4568,7 +4568,7 @@ export default function CancerCareApp() {
                 {symptoms.length === 0 ? (
                   <div className="bg-medical-primary-50 border border-medical-primary-200 rounded-lg p-6 text-center">
                     <div className="flex flex-col items-center gap-3">
-                      <Activity className="w-12 h-12 text-medical-primary-400" />
+                      <Thermometer className="w-12 h-12 text-medical-primary-400" />
                       <div>
                         <h3 className="font-semibold text-medical-primary-900 mb-1">No Symptoms Tracked Yet</h3>
                         <p className="text-sm text-medical-primary-700 mb-4">
@@ -4818,7 +4818,7 @@ export default function CancerCareApp() {
                 {medications.length === 0 ? (
                   <div className="bg-medical-primary-50 border border-medical-primary-200 rounded-lg p-6 text-center">
                     <div className="flex flex-col items-center gap-3">
-                      <Activity className="w-12 h-12 text-medical-primary-400" />
+                      <Pill className="w-12 h-12 text-medical-primary-400" />
                       <div>
                         <h3 className="font-semibold text-medical-primary-900 mb-1">No Medications Tracked Yet</h3>
                         <p className="text-sm text-medical-primary-700 mb-4">
