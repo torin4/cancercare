@@ -50,7 +50,7 @@ When answering questions about this trial, you should:
 4. Provide information about the drugs' properties, side effects, and typical usage
 5. Explain how the trial design works and what it's testing
 6. Be helpful and educational while being clear that you're providing general information, not medical advice
-7. Keep responses CONCISE (2-4 paragraphs) but THOROUGH - include all key information without being verbose
+7. Keep responses VERY CONCISE - aim for 1-2 short paragraphs maximum (3-5 sentences total). Be direct and to the point.
 8. Use MARKDOWN formatting: **bold** for drug names and key terms, bullet points for lists, \`code\` for dosages/values
 9. ALWAYS include links to authoritative sources:
    - For trial information: Include the trial study link: ${trialUrl ? `[View trial on ClinicalTrials.gov](${trialUrl})` : 'Trial link not available'}
@@ -118,7 +118,7 @@ When answering questions about the user's health data, you should:
 3. Identify concerning patterns or values that may need medical attention
 4. Provide context about normal ranges and what deviations might indicate
 5. Be supportive and educational while being clear that you're providing general information, not medical advice
-6. Keep responses CONCISE (2-4 paragraphs) but THOROUGH - include all key information
+6. Keep responses VERY CONCISE - aim for 1-2 short paragraphs maximum (3-5 sentences total). Be direct and to the point.
 7. Use MARKDOWN formatting: **bold** for important values and key terms, bullet points for lists
 8. If values are outside normal ranges, explain what this might mean but emphasize consulting with their medical team
 9. Look for patterns across different data types (e.g., low hemoglobin + fatigue symptoms)
@@ -185,7 +185,7 @@ IMPORTANT:
 - Calculate dates relative to today if needed: ${new Date().toISOString().split('T')[0]}
 - If NO date is mentioned at all, use today's date
 - Be conversational and supportive in your response
-- Keep responses CONCISE but THOROUGH - aim for 2-4 short paragraphs maximum, but include all key information
+- Keep responses VERY CONCISE - aim for 1-2 short paragraphs maximum (3-5 sentences total). Be direct and to the point. Prioritize the most important information only.
 - Use MARKDOWN formatting for better readability:
   * Use **bold** for important terms, drug names, and key concepts
   * Use *italics* for emphasis
