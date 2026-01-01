@@ -2065,7 +2065,7 @@ export default function CancerCareApp() {
     if (user) {
       try {
         const labs = await labService.getLabs(user.uid);
-        const transformedLabs = transformLabsData(labs);
+        const transformedLabs = await transformLabsData(labs);
         setLabsData(transformedLabs);
         setHasRealLabData(labs.length > 0);
 
