@@ -383,6 +383,7 @@ export default function CancerCareApp() {
     'Custom Values': false,
     'Others': false
   });
+  const [labTooltip, setLabTooltip] = useState(null); // { labName, description, position: { x, y } }
 
   const [documents, setDocuments] = useState([]);
   const [emergencyContacts, setEmergencyContacts] = useState([]);
@@ -2816,7 +2817,10 @@ export default function CancerCareApp() {
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              alert(`${lab.name}\n\n${labDescription}`);
+                                              setLabTooltip({
+                                                labName: lab.name,
+                                                description: labDescription
+                                              });
                                             }}
                                             className="text-medical-primary-500 hover:text-medical-primary-700 transition-colors"
                                             title="Learn more about this lab value"
@@ -4494,6 +4498,41 @@ export default function CancerCareApp() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Lab Value Tooltip/Popup */}
+        {labTooltip && (
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 z-[70] bg-black/20 backdrop-blur-sm"
+              onClick={() => setLabTooltip(null)}
+            />
+            {/* Tooltip */}
+            <div
+              className="fixed z-[71] bg-white rounded-xl shadow-2xl border border-medical-neutral-200 max-w-sm w-[90vw] sm:w-96 p-5 animate-fade-scale"
+              style={{
+                left: '50%',
+                top: '50%',
+                transform: 'translate(-50%, -50%)',
+                maxHeight: '80vh',
+                overflowY: 'auto'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <h3 className="text-lg font-bold text-medical-neutral-900 pr-2">{labTooltip.labName}</h3>
+                <button
+                  onClick={() => setLabTooltip(null)}
+                  className="text-medical-neutral-400 hover:text-medical-neutral-600 transition-colors flex-shrink-0"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-sm text-medical-neutral-700 leading-relaxed">{labTooltip.description}</p>
+            </div>
+          </>
         )}
       </div>
 
