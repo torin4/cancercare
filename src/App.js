@@ -3151,6 +3151,33 @@ export default function CancerCareApp() {
 
         {activeTab === 'chat' && (
           <div className="flex flex-col h-full">
+            {/* Clear Chat History Button */}
+            {messages.length > 0 && (
+              <div className="px-4 pt-3 pb-2 flex justify-end">
+                <button
+                  onClick={async () => {
+                    if (!user) return;
+                    if (window.confirm('Are you sure you want to clear all chat history? This cannot be undone.')) {
+                      try {
+                        await messageService.deleteAllMessages(user.uid);
+                        setMessages([]);
+                        setCurrentHealthContext(null);
+                        setCurrentTrialContext(null);
+                        setChatHistoryLoaded(false);
+                      } catch (error) {
+                        console.error('Error clearing chat history:', error);
+                        alert('Error clearing chat history. Please try again.');
+                      }
+                    }
+                  }}
+                  className="text-medical-neutral-500 hover:text-medical-neutral-700 text-sm flex items-center gap-1.5 transition-colors"
+                  title="Clear chat history"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Clear History
+                </button>
+              </div>
+            )}
             <div 
               ref={messagesEndRef}
               className="flex-1 overflow-y-auto p-4 space-y-3"

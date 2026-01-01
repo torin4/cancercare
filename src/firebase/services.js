@@ -532,6 +532,18 @@ export const messageService = {
   // Delete message
   async deleteMessage(messageId) {
     await deleteDoc(doc(db, COLLECTIONS.MESSAGES, messageId));
+  },
+
+  // Delete all messages for a patient
+  async deleteAllMessages(patientId) {
+    const q = query(
+      collection(db, COLLECTIONS.MESSAGES),
+      where('patientId', '==', patientId)
+    );
+    const querySnapshot = await getDocs(q);
+    const deletePromises = querySnapshot.docs.map(docSnap => deleteDoc(docSnap.ref));
+    await Promise.all(deletePromises);
+    return querySnapshot.docs.length;
   }
 };
 
