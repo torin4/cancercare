@@ -4300,6 +4300,16 @@ export default function CancerCareApp() {
 
                           return (
                             <div className="space-y-4 mt-6">
+                              {/* Add Lab Metric Button - Upper Right */}
+                              <div className="flex justify-end mb-2">
+                                <button
+                                  onClick={() => setShowAddLab(true)}
+                                  className="flex items-center gap-2 text-medical-primary-600 hover:text-medical-primary-700 transition-colors"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                  <span className="text-sm font-medium">Add Lab Metric</span>
+                                </button>
+                              </div>
                               {categoryOrder.map(category => {
                                 const labsInCategory = categorizedLabs[category];
                                 if (labsInCategory.length === 0) return null;
