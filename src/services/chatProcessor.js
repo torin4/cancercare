@@ -51,8 +51,13 @@ Would you like to search for clinical trials now?`;
       }
     }
 
-    // Detect if message requires health data analysis
-    const requiresHealthData = /(explain|analyze|what does|how is|trend|progress|mean|interpret|my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications)|ca-125|hemoglobin|blood pressure|heart rate|temperature|weight)/i.test(message);
+    // Detect if user is ADDING data (not asking about it)
+    // These patterns indicate the user is providing new data to be saved
+    const isAddingData = /(my (ca-125|hemoglobin|wbc|platelets|blood pressure|heart rate|temperature|temp|weight|bp|hr) (was|is)|i (had|have|started|am taking|took)|i'm (experiencing|taking)|my (symptom|symptoms)|started taking|taking [a-z]+ (mg|ml|units?)|log|add|record)/i.test(message);
+    
+    // Detect if message requires health data ANALYSIS (asking about existing data, not adding)
+    // Only trigger if user is asking questions, not adding data
+    const requiresHealthData = !isAddingData && /(explain|analyze|what does|how is|trend|progress|mean|interpret|show me|tell me about|what are|what is|why is|when did|where is|my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications) (mean|show|indicate|tell|say)|what do my|how are my|how's my)/i.test(message);
     
     // Check if health data is available
     const hasLabs = healthContext?.labs && healthContext.labs.length > 0;
@@ -60,7 +65,8 @@ Would you like to search for clinical trials now?`;
     const hasSymptoms = healthContext?.symptoms && healthContext.symptoms.length > 0;
     const hasHealthData = hasLabs || hasVitals || hasSymptoms;
     
-    // If question requires health data but none is available, provide helpful response
+    // If question requires health data analysis but none is available, provide helpful response
+    // BUT skip this if user is adding data (they're providing it now)
     if (requiresHealthData && !hasHealthData) {
       const noDataResponse = `I'd be happy to help you understand your health data! However, I don't see any health data tracked yet in your profile.
 
@@ -85,9 +91,10 @@ Would you like to start by adding some health data?`;
     }
     
     // Check if question requires specific data type that isn't available
-    const requiresLabs = /(lab|labs|ca-125|hemoglobin|wbc|platelets|blood test|test result)/i.test(message);
-    const requiresVitals = /(vital|vitals|blood pressure|heart rate|pulse|temperature|temp|weight|oxygen|spo2)/i.test(message);
-    const requiresSymptoms = /(symptom|symptoms|feeling|pain|nausea|fatigue)/i.test(message);
+    // Only check if user is asking about data, not adding it
+    const requiresLabs = !isAddingData && /(lab|labs|ca-125|hemoglobin|wbc|platelets|blood test|test result)/i.test(message);
+    const requiresVitals = !isAddingData && /(vital|vitals|blood pressure|heart rate|pulse|temperature|temp|weight|oxygen|spo2)/i.test(message);
+    const requiresSymptoms = !isAddingData && /(symptom|symptoms|feeling|pain|nausea|fatigue)/i.test(message);
     
     if (requiresLabs && !hasLabs && hasHealthData) {
       const noLabDataResponse = `I'd be happy to explain your lab results! However, I don't see any lab values tracked in your profile yet.
@@ -137,7 +144,8 @@ Once you have symptom data, I can help identify patterns and correlations with y
     }
 
     // Check for insufficient data for trend analysis
-    const requiresTrendAnalysis = /(trend|progress|over time|changing|increasing|decreasing|pattern)/i.test(message);
+    // Only check if user is asking about trends, not adding data
+    const requiresTrendAnalysis = !isAddingData && /(trend|progress|over time|changing|increasing|decreasing|pattern)/i.test(message);
     if (requiresTrendAnalysis && hasHealthData) {
       // Check if there's enough data for trend analysis (need at least 2-3 data points)
       let hasEnoughData = false;
