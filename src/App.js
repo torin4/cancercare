@@ -2877,7 +2877,7 @@ export default function CancerCareApp() {
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     <button
                       onClick={() => setActiveTab('trials')}
-                      className="px-6 py-3 border-2 border-medical-accent-500 text-medical-accent-600 rounded-lg hover:bg-medical-accent-50 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                      className="px-6 py-3 bg-medical-accent-500 text-white rounded-lg hover:bg-medical-accent-600 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
                     >
                       <Search className="w-4 h-4" />
                       Search Clinical Trials
