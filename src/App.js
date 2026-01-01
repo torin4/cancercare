@@ -2467,7 +2467,7 @@ export default function CancerCareApp() {
                     }}
                     className="group relative flex flex-row items-center justify-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-3.5 flex-1 border-2 border-medical-primary-500 hover:bg-medical-primary-50 rounded-xl transition-all duration-200"
                   >
-                    <div className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center transition-colors duration-200 flex-shrink-0">
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 bg-medical-primary-50 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
                       <Activity className="w-4 h-4 sm:w-4 sm:h-4 text-medical-primary-600" />
                     </div>
                     <div className="flex flex-col items-start min-w-0">
@@ -2487,7 +2487,7 @@ export default function CancerCareApp() {
                     }}
                     className="group relative flex flex-row items-center justify-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-3.5 flex-1 border-2 border-medical-accent-500 hover:bg-medical-accent-50 rounded-xl transition-all duration-200"
                   >
-                    <div className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center transition-colors duration-200 flex-shrink-0">
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 bg-medical-accent-50 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
                       <TrendingUp className="w-4 h-4 sm:w-4 sm:h-4 text-medical-accent-600" />
                     </div>
                     <div className="flex flex-col items-start min-w-0">
@@ -2502,7 +2502,7 @@ export default function CancerCareApp() {
                     }}
                     className="group relative flex flex-row items-center justify-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-3.5 flex-1 border-2 border-medical-secondary-500 hover:bg-medical-secondary-50 rounded-xl transition-all duration-200"
                   >
-                    <div className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center transition-colors duration-200 flex-shrink-0">
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 bg-medical-secondary-50 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
                       <Upload className="w-4 h-4 sm:w-4 sm:h-4 text-medical-secondary-600" />
                     </div>
                     <div className="flex flex-col items-start min-w-0">
