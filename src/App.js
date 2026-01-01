@@ -4502,10 +4502,10 @@ export default function CancerCareApp() {
                                 {openDeleteMenu === `vital:${selectedVital}` && (
                                   <>
                                     <div
-                                      className="fixed inset-0 z-40"
-                                      onClick={() => setOpenDeleteMenu(null)}
-                                    />
-                                    <div className="absolute right-0 top-8 z-50 bg-white rounded-lg shadow-lg border border-medical-neutral-200 py-1 min-w-[160px]">
+                                            className="fixed inset-0 z-[90]"
+                                            onClick={() => setOpenDeleteMenu(null)}
+                                          />
+                                            <div className="absolute right-0 top-8 z-[100] bg-white rounded-lg shadow-lg border border-medical-neutral-200 py-1 min-w-[160px]">
                                       <button
                                         onClick={async (e) => {
                                           e.stopPropagation();
@@ -5035,10 +5035,10 @@ export default function CancerCareApp() {
                                       {openDeleteMenu === `vital:${key}` && (
                                         <>
                                           <div
-                                            className="fixed inset-0 z-40"
+                                            className="fixed inset-0 z-[90]"
                                             onClick={() => setOpenDeleteMenu(null)}
                                           />
-                                          <div className="absolute right-0 top-8 z-50 bg-white rounded-lg shadow-lg border border-medical-neutral-200 py-1 min-w-[160px]">
+                                            <div className="absolute right-0 top-8 z-[100] bg-white rounded-lg shadow-lg border border-medical-neutral-200 py-1 min-w-[160px]">
                                             <button
                                               onClick={(e) => {
                                                 e.stopPropagation();
