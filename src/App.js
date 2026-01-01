@@ -2819,11 +2819,11 @@ export default function CancerCareApp() {
             </div>
 
             {/* Saved Trials */}
-            <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-medical-primary-200 shadow-sm">
+            <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-medical-accent-200 shadow-sm">
               {!loadingSavedTrials && savedTrials.length > 0 && (
                 <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
-                  <div className="bg-medical-primary-50 p-2 rounded-lg">
-                    <Bookmark className="w-5 h-5 text-medical-primary-600" />
+                  <div className="bg-medical-accent-50 p-2 rounded-lg">
+                    <Bookmark className="w-5 h-5 text-medical-accent-600" />
                   </div>
                   Saved Trials
                 </h3>
@@ -2837,7 +2837,7 @@ export default function CancerCareApp() {
                   {savedTrials.map((trial) => (
                     <div
                       key={trial.id}
-                      className="border border-medical-neutral-200 rounded-lg p-3 sm:p-4 hover:border-medical-primary-300 hover:shadow-sm transition-all cursor-pointer bg-medical-neutral-50/50"
+                      className="border border-medical-neutral-200 rounded-lg p-3 sm:p-4 hover:border-medical-accent-300 hover:shadow-sm transition-all cursor-pointer bg-medical-neutral-50/50"
                       onClick={() => setActiveTab('trials')}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -2862,22 +2862,22 @@ export default function CancerCareApp() {
                   ))}
                   <button
                     onClick={() => setActiveTab('trials')}
-                    className="w-full text-center text-medical-primary-600 text-sm font-medium hover:text-medical-primary-700 transition-colors mt-3"
+                    className="w-full text-center text-medical-accent-600 text-sm font-medium hover:text-medical-accent-700 transition-colors mt-3"
                   >
                     View All Saved Trials →
                   </button>
                 </div>
               ) : (
-                <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center border-2 border-medical-primary-200 shadow-sm">
-                  <div className="w-16 h-16 border-2 border-medical-primary-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Bookmark className="w-8 h-8 text-medical-primary-600" />
+                <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center border-2 border-medical-accent-200 shadow-sm">
+                  <div className="w-16 h-16 border-2 border-medical-accent-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Bookmark className="w-8 h-8 text-medical-accent-600" />
                   </div>
                   <h3 className="text-lg font-semibold text-medical-neutral-900 mb-2">No saved trials yet</h3>
                   <p className="text-sm text-medical-neutral-600 mb-6">Search and save clinical trials that match your profile</p>
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     <button
                       onClick={() => setActiveTab('trials')}
-                      className="px-6 py-3 border-2 border-medical-primary-500 text-medical-primary-600 rounded-lg hover:bg-medical-primary-50 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                      className="px-6 py-3 border-2 border-medical-accent-500 text-medical-accent-600 rounded-lg hover:bg-medical-accent-50 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
                     >
                       <Search className="w-4 h-4" />
                       Search Clinical Trials
