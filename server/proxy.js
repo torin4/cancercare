@@ -55,7 +55,8 @@ app.all('/api/trials-proxy', async (req, res) => {
     body: req.body
   };
   
-  // Create a mock response object
+  // Create a mock response object that properly handles the serverless function format
+  let responseSent = false;
   const serverlessRes = {
     statusCode: 200,
     headers: {},
@@ -67,18 +68,30 @@ app.all('/api/trials-proxy', async (req, res) => {
       return serverlessRes;
     },
     json: (data) => {
-      res.status(serverlessRes.statusCode).json(data);
+      if (!responseSent) {
+        responseSent = true;
+        res.status(serverlessRes.statusCode).json(data);
+      }
     },
     end: () => {
-      res.status(serverlessRes.statusCode).end();
+      if (!responseSent) {
+        responseSent = true;
+        res.status(serverlessRes.statusCode).end();
+      }
     }
   };
   
   try {
     await trialsProxy(serverlessReq, serverlessRes);
+    // If no response was sent, send a default response
+    if (!responseSent) {
+      res.status(500).json({ error: 'No response from trials-proxy function' });
+    }
   } catch (error) {
     console.error('trials-proxy error:', error);
-    res.status(500).json({ error: 'Internal server error', message: error.message });
+    if (!responseSent) {
+      res.status(500).json({ error: 'Internal server error', message: error.message });
+    }
   }
 });
 
