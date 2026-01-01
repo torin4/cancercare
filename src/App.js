@@ -4980,7 +4980,15 @@ export default function CancerCareApp() {
                         'Nausea': 'bg-green-500',
                         'Headache': 'bg-purple-500',
                         'Dizziness': 'bg-yellow-500',
-                        'Other': 'bg-gray-500'
+                        'Fever': 'bg-orange-500',
+                        'Shortness of Breath': 'bg-cyan-500',
+                        'Loss of Appetite': 'bg-amber-500',
+                        'Sleep Issues': 'bg-indigo-500'
+                      };
+                      
+                      // Helper function to get color for a symptom type (dark gray for custom symptoms)
+                      const getSymptomColor = (symptomType) => {
+                        return symptomColors[symptomType] || 'bg-gray-700'; // Dark gray for custom symptoms
                       };
 
                       // Add empty cells for days before month starts
@@ -6751,8 +6759,14 @@ export default function CancerCareApp() {
                       Symptom Type <span className="text-red-600">*</span>
                     </label>
                     <select 
-                      value={symptomForm.name}
-                      onChange={(e) => setSymptomForm({...symptomForm, name: e.target.value})}
+                      value={symptomForm.name === 'Other' ? 'Other' : symptomForm.name}
+                      onChange={(e) => {
+                        if (e.target.value === 'Other') {
+                          setSymptomForm({...symptomForm, name: 'Other', customSymptomName: ''});
+                        } else {
+                          setSymptomForm({...symptomForm, name: e.target.value, customSymptomName: ''});
+                        }
+                      }}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Select symptom type...</option>
@@ -6767,6 +6781,15 @@ export default function CancerCareApp() {
                       <option value="Sleep Issues">Sleep Issues</option>
                       <option value="Other">Other</option>
                     </select>
+                    {symptomForm.name === 'Other' && (
+                      <input
+                        type="text"
+                        value={symptomForm.customSymptomName || ''}
+                        onChange={(e) => setSymptomForm({...symptomForm, customSymptomName: e.target.value})}
+                        placeholder="Enter symptom name..."
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mt-2"
+                      />
+                    )}
                   </div>
 
                   <div>
@@ -6871,7 +6894,12 @@ export default function CancerCareApp() {
                   </button>
                   <button
                     onClick={async () => {
-                      if (!symptomForm.name || !symptomForm.severity) {
+                      // Use custom symptom name if "Other" is selected
+                      const symptomName = symptomForm.name === 'Other' 
+                        ? (symptomForm.customSymptomName || 'Other')
+                        : symptomForm.name;
+                      
+                      if (!symptomForm.name || !symptomForm.severity || (symptomForm.name === 'Other' && !symptomForm.customSymptomName)) {
                         alert('Please fill in all required fields (Symptom Type and Severity)');
                         return;
                       }
@@ -6887,7 +6915,7 @@ export default function CancerCareApp() {
                         
                         await symptomService.addSymptom({
                           patientId: user.uid,
-                          name: symptomForm.name,
+                          name: symptomName,
                           severity: symptomForm.severity,
                           date: dateTime,
                           notes: symptomForm.notes || ''
