@@ -2864,14 +2864,21 @@ export default function CancerCareApp() {
                   </button>
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <p className="text-medical-neutral-600 text-sm mb-4">No saved trials yet</p>
-                  <button
-                    onClick={() => setActiveTab('trials')}
-                    className="text-medical-primary-600 text-sm font-medium hover:text-medical-primary-700 transition-colors"
-                  >
-                    Search Clinical Trials →
-                  </button>
+                <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center border-2 border-medical-primary-200 shadow-sm">
+                  <div className="w-16 h-16 border-2 border-medical-primary-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Bookmark className="w-8 h-8 text-medical-primary-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-medical-neutral-900 mb-2">No saved trials yet</h3>
+                  <p className="text-sm text-medical-neutral-600 mb-6">Search and save clinical trials that match your profile</p>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <button
+                      onClick={() => setActiveTab('trials')}
+                      className="px-6 py-3 border-2 border-medical-primary-500 text-medical-primary-600 rounded-lg hover:bg-medical-primary-50 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                    >
+                      <Search className="w-4 h-4" />
+                      Search Clinical Trials
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
