@@ -15,6 +15,26 @@ import ClinicalTrials from './components/ClinicalTrials';
 import DocumentUploadOnboarding from './components/DocumentUploadOnboarding';
 import Onboarding from './components/Onboarding';
 
+// Chat suggestions covering common app actions
+const chatSuggestions = [
+  { text: "Log a symptom", icon: Thermometer, color: "bg-medical-primary-500/80" },
+  { text: "Add lab value", icon: BarChart, color: "bg-medical-accent-500/80" },
+  { text: "Upload document", icon: Upload, color: "bg-medical-secondary-500/80" },
+  { text: "Search clinical trials", icon: FlaskConical, color: "bg-medical-primary-400/80" },
+  { text: "What does my CA-125 mean?", icon: Info, color: "bg-medical-accent-500/80" },
+  { text: "Explain my lab results", icon: FileText, color: "bg-medical-secondary-500/80" },
+  { text: "Track medication", icon: Pill, color: "bg-medical-primary-500/80" },
+  { text: "Add vital sign", icon: Heart, color: "bg-medical-accent-400/80" },
+  { text: "What should I ask my doctor?", icon: MessageSquare, color: "bg-medical-secondary-400/80" },
+  { text: "How is my treatment progressing?", icon: TrendingUp, color: "bg-medical-primary-600/80" },
+  { text: "What are common side effects?", icon: AlertCircle, color: "bg-medical-accent-600/80" },
+  { text: "Explain my symptoms", icon: Activity, color: "bg-medical-secondary-600/80" },
+  { text: "What trials match my profile?", icon: Target, color: "bg-medical-primary-500/80" },
+  { text: "Upload genomic report", icon: Dna, color: "bg-medical-secondary-500/80" },
+  { text: "View my health summary", icon: ClipboardList, color: "bg-medical-accent-500/80" },
+  { text: "Schedule medication reminder", icon: Clock, color: "bg-medical-primary-400/80" },
+];
+
 // Comprehensive list of countries for dropdowns
 const COUNTRIES = [
   "United States", "Canada", "United Kingdom", "Australia", "Germany", "France", "India", "China", "Japan",
@@ -243,6 +263,7 @@ export default function CancerCareApp() {
   const [showAddVital, setShowAddVital] = useState(false);
   const [messages, setMessages] = useState([]);
   const [chatHistoryLoaded, setChatHistoryLoaded] = useState(false);
+  const [suggestionIndex, setSuggestionIndex] = useState(0);
   const messagesEndRef = React.useRef(null);
   const [quickLogInput, setQuickLogInput] = useState('');
   const [inputText, setInputText] = useState('');
@@ -2030,6 +2051,14 @@ export default function CancerCareApp() {
     loadChatHistory();
   }, [activeTab, user, chatHistoryLoaded]);
 
+  // Cycle suggestions when entering/leaving chat
+  useEffect(() => {
+    if (activeTab === 'chat') {
+      // Cycle to next set of suggestions when entering chat
+      setSuggestionIndex(prev => (prev + 1) % Math.ceil(chatSuggestions.length / 4));
+    }
+  }, [activeTab]);
+
   // Auto-scroll when messages change
   useEffect(() => {
     if (messages.length > 0) {
@@ -3105,38 +3134,32 @@ export default function CancerCareApp() {
               </div>
             )}
 
-            {/* Example Question Bubbles */}
-            {messages.length === 0 && (
-              <div className="px-4 py-3 bg-medical-neutral-50 border-t border-medical-neutral-200">
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                  {[
-                    { text: "What does my CA-125 level mean?", color: "bg-medical-primary-500/80" },
-                    { text: "Explain my latest lab results", color: "bg-medical-accent-500/80" },
-                    { text: "What are common side effects?", color: "bg-medical-secondary-500/80" },
-                    { text: "How is my treatment progressing?", color: "bg-medical-primary-400/80" },
-                    { text: "What should I ask my doctor?", color: "bg-medical-secondary-400/80" },
-                    { text: "Explain my symptoms", color: "bg-medical-accent-400/80" },
-                    { text: "What trials match my profile?", color: "bg-medical-primary-600/80" },
-                    { text: "Track my medication schedule", color: "bg-medical-secondary-600/80" },
-                  ].map((question, idx) => (
+            {/* Chat Suggestions */}
+            <div className="px-4 py-3 bg-medical-neutral-50 border-t border-medical-neutral-200">
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                {(() => {
+                  const startIdx = suggestionIndex * 4;
+                  const currentSuggestions = chatSuggestions.slice(startIdx, startIdx + 4);
+                  return currentSuggestions.map((suggestion, idx) => (
                     <button
-                      key={idx}
+                      key={`${startIdx}-${idx}`}
                       onClick={() => {
-                        setInputText(question.text);
+                        setInputText(suggestion.text);
                         // Focus on input after setting text
                         setTimeout(() => {
                           const input = document.querySelector('input[type="text"]');
                           if (input) input.focus();
                         }, 0);
                       }}
-                      className={`${question.color} text-white px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap hover:opacity-100 opacity-90 transition-opacity flex-shrink-0`}
+                      className={`${suggestion.color} text-white px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap hover:opacity-100 opacity-90 transition-opacity flex-shrink-0 flex items-center gap-2`}
                     >
-                      {question.text}
+                      {suggestion.icon && <suggestion.icon className="w-4 h-4" />}
+                      {suggestion.text}
                     </button>
-                  ))}
-                </div>
+                  ));
+                })()}
               </div>
-            )}
+            </div>
 
             <div className="p-4 bg-white border-t">
               <div className="flex gap-2">
