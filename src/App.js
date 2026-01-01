@@ -17,20 +17,21 @@ import Onboarding from './components/Onboarding';
 
 // Chat suggestions covering common app actions (only capabilities the chatbot can handle)
 // Short labels for buttons, but populateText contains the natural language template
-// All health suggestions use blue (medical-primary) to match the health screen
+// "Add" actions use blue (medical-primary) to match the health screen
+// Questions/analysis use aqua (medical-accent) for visual distinction
 const chatSuggestions = [
   { text: "Log a symptom", populateText: "I had [symptom] yesterday", icon: Thermometer, color: "bg-medical-primary-500/80" },
   { text: "Add lab value", populateText: "My CA-125 was [value] on [date]", icon: BarChart, color: "bg-medical-primary-500/80" },
   { text: "Add vital sign", populateText: "My blood pressure is [value] this morning", icon: Heart, color: "bg-medical-primary-500/80" },
   { text: "Add medication", populateText: "I started taking [medication] [dosage]", icon: Pill, color: "bg-medical-primary-500/80" },
-  { text: "What does my CA-125 mean?", populateText: "What does my CA-125 of [value] mean?", icon: Info, color: "bg-medical-primary-500/80" },
-  { text: "Explain my lab results", populateText: "Explain my latest lab results", icon: FileText, color: "bg-medical-primary-500/80" },
-  { text: "How is my treatment progressing?", populateText: "How is my treatment progressing?", icon: TrendingUp, color: "bg-medical-primary-500/80" },
-  { text: "What are common side effects?", populateText: "What are common side effects of [medication]?", icon: AlertCircle, color: "bg-medical-primary-500/80" },
-  { text: "Explain my symptoms", populateText: "I'm experiencing [symptom] with [severity] severity", icon: Activity, color: "bg-medical-primary-500/80" },
-  { text: "What should I ask my doctor?", populateText: "What should I ask my doctor about [topic]?", icon: MessageSquare, color: "bg-medical-primary-500/80" },
-  { text: "Analyze my health trends", populateText: "Show me trends in my [lab/vital]", icon: TrendingUp, color: "bg-medical-primary-500/80" },
-  { text: "What do my vitals mean?", populateText: "My heart rate is [value] bpm", icon: Heart, color: "bg-medical-primary-500/80" },
+  { text: "What does my CA-125 mean?", populateText: "What does my CA-125 of [value] mean?", icon: Info, color: "bg-medical-accent-500/80" },
+  { text: "Explain my lab results", populateText: "Explain my latest lab results", icon: FileText, color: "bg-medical-accent-500/80" },
+  { text: "How is my treatment progressing?", populateText: "How is my treatment progressing?", icon: TrendingUp, color: "bg-medical-accent-500/80" },
+  { text: "What are common side effects?", populateText: "What are common side effects of [medication]?", icon: AlertCircle, color: "bg-medical-accent-500/80" },
+  { text: "Explain my symptoms", populateText: "I'm experiencing [symptom] with [severity] severity", icon: Activity, color: "bg-medical-accent-500/80" },
+  { text: "What should I ask my doctor?", populateText: "What should I ask my doctor about [topic]?", icon: MessageSquare, color: "bg-medical-accent-500/80" },
+  { text: "Analyze my health trends", populateText: "Show me trends in my [lab/vital]", icon: TrendingUp, color: "bg-medical-accent-500/80" },
+  { text: "What do my vitals mean?", populateText: "My heart rate is [value] bpm", icon: Heart, color: "bg-medical-accent-500/80" },
 ];
 
 // Trial-specific suggestions (shown when discussing a trial)
