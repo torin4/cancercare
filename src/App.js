@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark } from 'lucide-react';
+import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
 import { uploadDocument, deleteUserDirectory, deleteDocument } from './firebase/storage';
@@ -51,42 +51,12 @@ const styles = `
     }
   }
   
-  @keyframes fab-in {
-    from {
-      opacity: 0;
-      transform: scale(0.5);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-  
-  @keyframes fab-out {
-    from {
-      opacity: 1;
-      transform: scale(1);
-    }
-    to {
-      opacity: 0;
-      transform: scale(0.5);
-    }
-  }
-  
   .animate-slide-up {
     animation: slide-up 0.3s ease-out;
   }
   
   .animate-fade-scale {
     animation: fade-scale 0.2s ease-out;
-  }
-  
-  .animate-fab-in {
-    animation: fab-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-  
-  .animate-fab-out {
-    animation: fab-out 0.2s ease-in;
   }
   
   .scrollbar-hide {
@@ -105,9 +75,8 @@ export default function CancerCareApp() {
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showQuickLog, setShowQuickLog] = useState(false);
-  const [showFabMenu, setShowFabMenu] = useState(false);
   const [showAddSymptomModal, setShowAddSymptomModal] = useState(false);
-  const [healthSection, setHealthSection] = useState('labs');
+  const [healthSection, setHealthSection] = useState('labs'); // 'labs', 'vitals', 'symptoms', 'medications'
   const [selectedLab, setSelectedLab] = useState('ca125');
   const [selectedDate, setSelectedDate] = useState(null);
   const [showAddMedication, setShowAddMedication] = useState(false);
@@ -269,11 +238,8 @@ export default function CancerCareApp() {
     return '';
   };
   const [genomicExpanded, setGenomicExpanded] = useState(false);
-  const [labViewMode, setLabViewMode] = useState('labs'); // 'labs' or 'vitals'
   const [selectedVital, setSelectedVital] = useState('bp');
   const [showAddVital, setShowAddVital] = useState(false);
-  const [showFab, setShowFab] = useState(true);
-  const [fabAnimating, setFabAnimating] = useState(false);
   const [messages, setMessages] = useState([]);
   const [chatHistoryLoaded, setChatHistoryLoaded] = useState(false);
   const messagesEndRef = React.useRef(null);
@@ -1217,21 +1183,6 @@ export default function CancerCareApp() {
     }
   }, [labsData]);
 
-  // Manage FAB animations
-  useEffect(() => {
-    if (activeTab === 'dashboard') {
-      setShowFab(true);
-      setFabAnimating(false);
-    } else {
-      setFabAnimating(true);
-      setShowFabMenu(false);
-      const timer = setTimeout(() => {
-        setShowFab(false);
-        setFabAnimating(false);
-      }, 200);
-      return () => clearTimeout(timer);
-    }
-  }, [activeTab]);
 
   // Load saved trials when dashboard is active
   useEffect(() => {
@@ -1545,9 +1496,9 @@ export default function CancerCareApp() {
     console.log('simulateCameraUpload called, docType=', docType);
     const input = document.createElement('input');
     input.type = 'file';
-    // Allow camera capture on mobile and images from device
-    input.accept = 'image/*,video/*,.pdf';
-    // Hint mobile devices to open camera
+    // Accept common document types and images
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls,image/*';
+    // Hint mobile devices to open camera (this enables camera option in file picker)
     input.capture = 'environment';
 
     input.onchange = async (e) => {
@@ -1634,7 +1585,57 @@ export default function CancerCareApp() {
 
       {/* Main Content - Scrollable */}
       <div className="flex-1 overflow-y-auto pb-20">
-        {activeTab === 'dashboard' && (() => {
+        {activeTab === 'dashboard' && (
+          <>
+            {/* Quick Action Buttons */}
+            <div className="bg-white border-b border-medical-neutral-200 px-4 sm:px-6 py-4">
+              <div className="max-w-6xl mx-auto">
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={() => {
+                      setShowAddSymptomModal(true);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-medical-primary-50 hover:bg-medical-primary-100 border border-medical-primary-200 rounded-lg transition-colors duration-200"
+                  >
+                    <div className="w-8 h-8 bg-medical-primary-500 rounded-lg flex items-center justify-center">
+                      <Activity className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-sm font-medium text-medical-primary-700">Log Symptom</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveTab('health');
+                      setHealthSection('labs');
+                      // Small delay to ensure tab is switched, then trigger add lab
+                      setTimeout(() => {
+                        setShowAddLab(true);
+                      }, 300);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-medical-accent-50 hover:bg-medical-accent-100 border border-medical-accent-200 rounded-lg transition-colors duration-200"
+                  >
+                    <div className="w-8 h-8 bg-medical-accent-500 rounded-lg flex items-center justify-center">
+                      <TrendingUp className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-sm font-medium text-medical-accent-700">Add Lab Value</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      openDocumentOnboarding('general');
+                    }}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-medical-secondary-50 hover:bg-medical-secondary-100 border border-medical-secondary-200 rounded-lg transition-colors duration-200"
+                  >
+                    <div className="w-8 h-8 bg-medical-secondary-500 rounded-lg flex items-center justify-center">
+                      <Upload className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-sm font-medium text-medical-secondary-700">Upload Document</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {(() => {
           // Calculate CA-125 trend dynamically
           const ca125Data = labsData.ca125;
           let ca125Alert = null;
@@ -1982,6 +1983,8 @@ export default function CancerCareApp() {
           </div>
           );
         })()}
+          </>
+        )}
 
         {activeTab === 'chat' && (
           <div className="flex flex-col h-full">
@@ -2121,15 +2124,15 @@ export default function CancerCareApp() {
                 />
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => openDocumentOnboarding(null, 'camera')}
-                    title="Capture document with camera"
+                    onClick={() => openDocumentOnboarding(null, 'picker')}
+                    title="Attach file or take photo"
                     className="bg-medical-neutral-100 text-medical-neutral-700 p-2 rounded-full hover:bg-medical-neutral-200 transition flex-shrink-0"
                   >
-                    <Camera className="w-5 h-5" />
+                    <Paperclip className="w-5 h-5" />
                   </button>
                   <button
                     onClick={handleSendMessage}
-                    className="bg-medical-primary-500 text-white p-2.5 rounded-full hover:bg-medical-primary-600 transition flex-shrink-0 shadow-sm"
+                    className="bg-medical-primary-500 text-white w-10 h-10 rounded-full hover:bg-medical-primary-600 transition flex-shrink-0 shadow-sm flex items-center justify-center"
                   >
                     <Send className="w-5 h-5" />
                   </button>
@@ -2187,7 +2190,7 @@ export default function CancerCareApp() {
 
             {/* Health Section Tabs */}
             <div className="flex gap-4 mb-6 border-b border-medical-neutral-200">
-              {['labs', 'symptoms', 'medications'].map(section => (
+              {['labs', 'vitals', 'symptoms', 'medications'].map(section => (
                 <button
                   key={section}
                   onClick={() => setHealthSection(section)}
@@ -2198,6 +2201,7 @@ export default function CancerCareApp() {
                   }`}
                 >
                   {section === 'labs' && 'Labs'}
+                  {section === 'vitals' && 'Vitals'}
                   {section === 'symptoms' && 'Symptoms'}
                   {section === 'medications' && 'Medications'}
                 </button>
@@ -2205,32 +2209,6 @@ export default function CancerCareApp() {
             </div>
 
             {healthSection === 'labs' && (
-              <>
-                {/* Labs/Vitals Toggle */}
-                <div className="flex gap-4 mb-4 border-b border-medical-neutral-200">
-                  <button
-                    onClick={() => setLabViewMode('labs')}
-                    className={`pb-3 px-4 font-medium transition-all duration-200 ${
-                      labViewMode === 'labs'
-                        ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
-                        : 'text-medical-neutral-600 hover:text-medical-primary-600'
-                    }`}
-                  >
-                    Lab Values
-                  </button>
-                  <button
-                    onClick={() => setLabViewMode('vitals')}
-                    className={`pb-3 px-4 font-medium transition-all duration-200 ${
-                      labViewMode === 'vitals'
-                        ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
-                        : 'text-medical-neutral-600 hover:text-medical-primary-600'
-                    }`}
-                  >
-                    Vitals
-                  </button>
-                </div>
-
-                {labViewMode === 'labs' ? (
                   <>
                     {/* Empty State - No Lab Data */}
                     {!hasRealLabData && Object.keys(labsData).length === 0 && (
@@ -2705,7 +2683,7 @@ export default function CancerCareApp() {
                         <div className="space-y-2">
                           <button
                             onClick={() => setShowAddLab(true)}
-                            className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 transition"
+                            className="w-full py-2 border-2 border-dashed border-medical-neutral-300 rounded-lg text-medical-neutral-600 hover:border-medical-primary-500 hover:text-medical-primary-600 transition"
                           >
                             + Add Lab Value to Track
                           </button>
@@ -2720,21 +2698,23 @@ export default function CancerCareApp() {
                       </>
                     )}
                   </>
-                ) : (
-                  <>
-                    {/* Empty State - No Vital Data */}
-                    {!hasRealVitalData && Object.keys(vitalsData).length === 0 && (
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+            )}
+
+            {healthSection === 'vitals' && (
+              <>
+                {/* Empty State - No Vital Data */}
+                {!hasRealVitalData && Object.keys(vitalsData).length === 0 && (
+                      <div className="bg-medical-primary-50 border border-medical-primary-200 rounded-lg p-6 text-center">
                         <div className="flex flex-col items-center gap-3">
-                          <Activity className="w-12 h-12 text-blue-400" />
+                          <Activity className="w-12 h-12 text-medical-primary-400" />
                           <div>
-                            <h3 className="font-semibold text-blue-900 mb-1">No Vital Signs Data Yet</h3>
-                            <p className="text-sm text-blue-700 mb-3">
+                            <h3 className="font-semibold text-medical-primary-900 mb-1">No Vital Signs Data Yet</h3>
+                            <p className="text-sm text-medical-primary-700 mb-3">
                               Track blood pressure, heart rate, weight, and more via chat or manual entry
                             </p>
                             <button
                               onClick={() => setActiveTab('chat')}
-                              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition"
+                              className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm"
                             >
                               Go to Chat to Add Data
                             </button>
@@ -3143,8 +3123,6 @@ export default function CancerCareApp() {
                         </button>
                       </>
                     )}
-                  </>
-                )}
               </>
             )}
 
@@ -4314,66 +4292,6 @@ export default function CancerCareApp() {
         </div>
       </div>
 
-      {/* FAB - Only on Dashboard */}
-      {
-        (showFab || fabAnimating) && activeTab === 'dashboard' && (
-          <button
-            onClick={() => setShowFabMenu(!showFabMenu)}
-            className={`fixed bottom-20 right-4 w-14 h-14 bg-gradient-to-br from-green-600 to-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-40 hover:scale-110 transition-all ${fabAnimating ? 'animate-fab-out' : 'animate-fab-in'
-              }`}
-          >
-            <Plus className={`w-7 h-7 transition-transform ${showFabMenu ? 'rotate-45' : ''}`} />
-          </button>
-        )
-      }
-
-      {/* Speed Dial Menu */}
-      {
-        showFabMenu && activeTab === 'dashboard' && showFab && (
-          <div className="fixed bottom-36 right-4 z-30 flex flex-col gap-3">
-            <button
-              onClick={() => {
-                setShowFabMenu(false);
-                setShowQuickLog(true);
-              }}
-              className="flex items-center gap-3 bg-white rounded-full shadow-lg pl-4 pr-5 py-3 hover:shadow-xl transition-all animate-fade-scale"
-            >
-              <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                <MessageSquare className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-sm font-medium text-gray-700">Quick Log</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setShowFabMenu(false);
-                alert('Camera opened for scanning');
-              }}
-              className="flex items-center gap-3 bg-white rounded-full shadow-lg pl-4 pr-5 py-3 hover:shadow-xl transition-all animate-fade-scale"
-              style={{ animationDelay: '50ms' }}
-            >
-              <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
-                <Camera className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-sm font-medium text-gray-700">Scan File</span>
-            </button>
-
-              <button
-              onClick={() => {
-                setShowFabMenu(false);
-                openDocumentOnboarding('general');
-              }}
-              className="flex items-center gap-3 bg-white rounded-full shadow-lg pl-4 pr-5 py-3 hover:shadow-xl transition-all animate-fade-scale"
-              style={{ animationDelay: '100ms' }}
-            >
-              <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
-                <Upload className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-sm font-medium text-gray-700">Add File</span>
-            </button>
-          </div>
-        )
-      }
 
       {/* Quick Log Overlay - 50% Bottom Sheet */}
       {
@@ -5056,10 +4974,19 @@ export default function CancerCareApp() {
             onClose={() => setShowDocumentOnboarding(false)}
             onUploadClick={(documentType) => {
               setShowDocumentOnboarding(false);
-              // Trigger camera capture or file picker based on onboarding method
+              // Check if mobile device
+              const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+              
+              // If mobile and method is camera, use camera upload
+              // Otherwise, if mobile, show camera option in file picker
+              // If not mobile, go straight to file picker
               if (documentOnboardingMethod === 'camera') {
                 simulateCameraUpload(documentType);
+              } else if (isMobile) {
+                // On mobile, use camera upload which includes camera option
+                simulateCameraUpload(documentType);
               } else {
+                // On desktop, use regular file picker
                 simulateDocumentUpload(documentType);
               }
             }}

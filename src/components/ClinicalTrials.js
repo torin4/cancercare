@@ -1,8 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, AlertTriangle, XCircle, Star, Search as SearchIcon, MapPin, Globe } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, Star, Search as SearchIcon, MapPin, Globe, X } from 'lucide-react';
 import { auth } from '../firebase/config';
 import { patientService, genomicProfileService, clinicalTrialsService, trialLocationService } from '../firebase/services';
 import { getTrialDetails } from '../services/clinicalTrials/trialSearchService';
+
+// Comprehensive list of countries for dropdowns
+const COUNTRIES = [
+  "United States", "Canada", "United Kingdom", "Australia", "Germany", "France", "India", "China", "Japan",
+  "Brazil", "Mexico", "Italy", "Spain", "South Africa", "Nigeria", "Egypt", "Argentina", "Colombia",
+  "Indonesia", "Pakistan", "Bangladesh", "Russia", "South Korea", "Vietnam", "Philippines", "Turkey",
+  "Iran", "Thailand", "Myanmar", "Kenya", "Ukraine", "Poland", "Algeria", "Morocco", "Peru",
+  "Venezuela", "Malaysia", "Uzbekistan", "Saudi Arabia", "Yemen", "Ghana", "Nepal", "Madagascar",
+  "Cameroon", "Chile", "Netherlands", "Belgium", "Greece", "Portugal", "Sweden", "Switzerland",
+  "Austria", "Israel", "United Arab Emirates", "Singapore", "Ireland", "New Zealand", "Denmark",
+  "Finland", "Norway", "Cuba", "Dominican Republic", "Haiti", "Guatemala", "Ecuador", "Bolivia",
+  "Paraguay", "Uruguay", "Honduras", "Nicaragua", "El Salvador", "Costa Rica", "Panama", "Jamaica",
+  "Trinidad and Tobago", "Ethiopia", "Sudan", "Angola", "Mozambique", "Uganda", "Tanzania", "Democratic Republic of the Congo",
+  "Afghanistan", "Iraq", "Syria", "Kazakhstan", "Sri Lanka", "Romania", "Hungary", "Czech Republic",
+  "Bulgaria", "Serbia", "Croatia", "Bosnia and Herzegovina", "Albania", "North Macedonia", "Slovenia",
+  "Estonia", "Latvia", "Lithuania", "Belarus", "Moldova", "Cyprus", "Malta", "Luxembourg", "Iceland",
+  "Greenland", "Fiji", "Papua New Guinea", "Solomon Islands", "Vanuatu", "Samoa", "Tonga", "Kiribati",
+  "Micronesia", "Marshall Islands", "Palau", "Nauru", "Tuvalu", "San Marino", "Monaco", "Liechtenstein",
+  "Andorra", "Vatican City"
+].sort();
 
 const ClinicalTrials = ({ onTrialSelected }) => {
   const [loading, setLoading] = useState(false);
@@ -22,6 +42,8 @@ const ClinicalTrials = ({ onTrialSelected }) => {
   const [patientProfile, setPatientProfile] = useState(null);
   const [genomicProfile, setGenomicProfile] = useState(null);
   const [trialLocation, setTrialLocation] = useState(null);
+  const [showEditLocation, setShowEditLocation] = useState(false);
+  const [localTrialLocation, setLocalTrialLocation] = useState(null);
 
   const [error, setError] = useState(null);
 
@@ -492,21 +514,28 @@ const ClinicalTrials = ({ onTrialSelected }) => {
                 <p className="flex items-center gap-1"><strong>Genomic Profile:</strong> <CheckCircle className="w-4 h-4 text-medical-accent-600" /> Available (will be used for matching)</p>
               )}
               {trialLocation && (
-                <p className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setLocalTrialLocation({ ...trialLocation });
+                    setShowEditLocation(true);
+                  }}
+                  className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity cursor-pointer"
+                >
                   <strong>Search Location:</strong> {
                     trialLocation.includeAllLocations 
                       ? (
-                        <span className="flex items-center gap-1">
+                        <span className="flex items-center gap-1 text-medical-primary-600">
                           <Globe className="w-4 h-4" /> Global (All Countries)
                         </span>
                       )
                       : (
-                        <span className="flex items-center gap-1">
+                        <span className="flex items-center gap-1 text-medical-primary-600">
                           <MapPin className="w-4 h-4" /> {trialLocation.country}
                         </span>
                       )
                   }
-                </p>
+                  <span className="text-xs text-medical-primary-500 ml-1">(Click to change)</span>
+                </button>
               )}
             </div>
           </div>
@@ -742,6 +771,133 @@ const ClinicalTrials = ({ onTrialSelected }) => {
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Location Modal */}
+      {showEditLocation && localTrialLocation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white w-full h-full sm:h-auto sm:max-w-lg sm:rounded-xl sm:max-h-[85vh] flex flex-col animate-slide-up">
+            <div className="flex items-center justify-between p-4 border-b border-medical-neutral-200 flex-shrink-0">
+              <h3 className="text-lg font-semibold text-medical-neutral-900">Trial Search Location</h3>
+              <button
+                onClick={() => setShowEditLocation(false)}
+                className="p-2 hover:bg-medical-neutral-100 rounded-lg transition"
+              >
+                <X className="w-5 h-5 text-medical-neutral-600" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="bg-medical-accent-50 border border-medical-accent-200 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-medical-accent-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-medical-accent-900">Trial Matching</p>
+                    <p className="text-xs text-medical-accent-700 mt-0.5">
+                      Your location helps us find clinical trials nearby. You can also enable global search to include international trials.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-medical-primary-50 border border-medical-primary-200 rounded-lg p-4">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={localTrialLocation.includeAllLocations}
+                    onChange={(e) => setLocalTrialLocation({ ...localTrialLocation, includeAllLocations: e.target.checked })}
+                    className="mt-1 w-4 h-4 text-medical-primary-600 rounded focus:ring-medical-primary-500"
+                  />
+                  <div>
+                    <p className="font-semibold text-medical-neutral-800">Include Global Locations</p>
+                    <p className="text-xs text-medical-neutral-600 mt-1">
+                      Search international databases for all available clinical trials worldwide
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              <div className={localTrialLocation.includeAllLocations ? 'opacity-50' : ''}>
+                <h4 className="font-semibold text-medical-neutral-800 mb-3">Search Country</h4>
+                <div>
+                  <label className="block text-sm font-medium text-medical-neutral-700 mb-1">Country</label>
+                  <select
+                    value={localTrialLocation.country}
+                    onChange={(e) => setLocalTrialLocation({ ...localTrialLocation, country: e.target.value })}
+                    disabled={localTrialLocation.includeAllLocations}
+                    className="w-full border border-medical-neutral-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent disabled:bg-medical-neutral-100 transition-all duration-200"
+                  >
+                    {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <p className="text-xs text-medical-neutral-500 mt-1">
+                    {localTrialLocation.includeAllLocations 
+                      ? 'Global search is enabled - country selection disabled'
+                      : 'Trials will be searched within this country'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-medical-neutral-50 rounded-lg p-3">
+                <h5 className="text-sm font-semibold text-medical-neutral-800 mb-2">What databases will be searched?</h5>
+                <div className="space-y-1 text-xs text-medical-neutral-600">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-1 bg-medical-primary-600 rounded-full"></div>
+                    <span>ClinicalTrials.gov (US federal database)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-1 bg-medical-primary-600 rounded-full"></div>
+                    <span>NCI Clinical Trials Search</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-1 bg-medical-primary-600 rounded-full"></div>
+                    <span>Major cancer center databases</span>
+                  </div>
+                  {localTrialLocation.includeAllLocations && (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <div className="w-1 h-1 bg-medical-primary-600 rounded-full"></div>
+                        <span className="font-medium">EU Clinical Trials Register</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-1 h-1 bg-medical-primary-600 rounded-full"></div>
+                        <span className="font-medium">WHO International Registry</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-medical-neutral-200 p-4 flex gap-3 flex-shrink-0">
+              <button
+                onClick={() => setShowEditLocation(false)}
+                className="flex-1 bg-medical-neutral-200 text-medical-neutral-700 py-2.5 rounded-lg font-medium hover:bg-medical-neutral-300 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const userId = auth.currentUser?.uid;
+                    if (!userId) return;
+                    
+                    await trialLocationService.saveTrialLocation(userId, localTrialLocation);
+                    setTrialLocation(localTrialLocation);
+                    setShowEditLocation(false);
+                    // Reload patient data to get updated location
+                    loadPatientData();
+                  } catch (error) {
+                    console.error('Error saving trial location:', error);
+                    alert('Failed to save location settings. Please try again.');
+                  }
+                }}
+                className="flex-1 bg-medical-primary-500 text-white py-2.5 rounded-lg font-medium hover:bg-medical-primary-600 transition shadow-sm"
+              >
+                Save
+              </button>
             </div>
           </div>
         </div>
