@@ -5135,18 +5135,6 @@ export default function CancerCareApp() {
 
         {activeTab === 'files' && (
           <div className="p-4 space-y-4">
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-semibold text-purple-900">AI Document Analysis</p>
-                  <p className="text-xs text-purple-700 mt-1">
-                    {documents.length} document{documents.length !== 1 ? 's' : ''} processed. Upload lab results, imaging scans, clinical reports, or genomic test results.
-                  </p>
-                </div>
-              </div>
-            </div>
-
             <div className="bg-white rounded-lg shadow p-4">
               <h3 className="font-semibold mb-3">Medical Documents</h3>
               {documents.length === 0 ? (
