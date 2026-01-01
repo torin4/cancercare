@@ -2022,6 +2022,25 @@ export default function CancerCareApp() {
     }
   }, [vitalsData]);
 
+  // Auto-locate to today when symptoms section is opened
+  useEffect(() => {
+    if (healthSection === 'symptoms') {
+      const today = new Date();
+      setSymptomCalendarDate(today);
+      // Check if today has symptoms and auto-select it
+      const todayDay = today.getDate().toString();
+      const hasSymptomsToday = symptoms.some(s => {
+        const symptomDate = new Date(s.date);
+        return symptomDate.getDate().toString() === todayDay && 
+               symptomDate.getMonth() === today.getMonth() && 
+               symptomDate.getFullYear() === today.getFullYear();
+      });
+      if (hasSymptomsToday) {
+        setSelectedDate(todayDay);
+      }
+    }
+  }, [healthSection, symptoms]);
+
 
   // Load saved trials when dashboard is active
   useEffect(() => {
