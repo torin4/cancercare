@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2, Calendar, Globe, Scale, Ruler, Clock, FileText, Users, Phone, Dna, UserCircle, ClipboardList, MessageCircle, Bot, Thermometer, Pill, BarChart, Check, LogOut, ChevronLeft, Save, Link2, Loader2, Unlink } from 'lucide-react';
+import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2, Calendar, Globe, Scale, Ruler, Clock, FileText, Users, Phone, Dna, UserCircle, ClipboardList, MessageCircle, Bot, Thermometer, Pill, BarChart, Check, LogOut, ChevronLeft, Save, Link2, Loader2, Unlink, Settings } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Lottie from 'lottie-react';
 import { onAuthStateChanged, signOut, deleteUser, linkWithPopup, unlink, GoogleAuthProvider } from 'firebase/auth';
@@ -5918,66 +5918,33 @@ export default function CancerCareApp() {
               </div>
             </div>
 
-            {/* Account Privacy & Deletion */}
-            <div className="bg-red-50 border border-red-100 rounded-lg p-4 mt-6">
-              <h2 className="font-semibold text-red-800 mb-1">Account & Privacy</h2>
-              <p className="text-xs text-red-700 mb-4">
-                Permanently clear your health records or delete your entire account. These actions cannot be undone.
-              </p>
-              <div className="space-y-3">
-                <button
-                  onClick={() => {
-                    setDeletionType('data');
-                    setShowDeletionConfirm(true);
-                  }}
-                  className="w-full py-2 px-4 bg-white border border-red-200 text-red-600 font-medium text-sm rounded-lg hover:bg-red-50 transition flex items-center justify-center gap-2"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Clear Health Data ONLY
-                </button>
-                <button
-                  onClick={() => {
-                    setDeletionType('account');
-                    setShowDeletionConfirm(true);
-                  }}
-                  className="w-full py-2 px-4 bg-red-600 text-white font-medium text-sm rounded-lg hover:bg-red-700 transition flex items-center justify-center gap-2"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Delete Data & Remove Account
-                </button>
-              </div>
-            </div>
-
-            {/* Sign Out Section */}
+            {/* Settings Section */}
             {user && (
-              <div className="bg-white rounded-lg shadow p-4 border border-gray-200 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Signed in as</p>
-                    <p className="text-sm font-medium text-gray-900">{user.email}</p>
-                    {user.providerData && user.providerData.length > 0 && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        Sign-in method: {user.providerData.map(p => p.providerId === 'password' ? 'Email/Password' : p.providerId === 'google.com' ? 'Google' : p.providerId).join(', ')}
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    onClick={handleSignOut}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition flex items-center justify-center gap-2"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Sign Out
-                  </button>
+              <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-medical-neutral-200 mt-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Settings className="w-5 h-5 text-medical-neutral-600" />
+                  <h2 className="font-semibold text-medical-neutral-900">Settings</h2>
                 </div>
-                
+
+                {/* Account Info */}
+                <div className="mb-4 pb-4 border-b border-medical-neutral-200">
+                  <p className="text-xs text-medical-neutral-500 mb-1">Account</p>
+                  <p className="text-sm font-medium text-medical-neutral-900">{user.email}</p>
+                  {user.providerData && user.providerData.length > 0 && (
+                    <p className="text-xs text-medical-neutral-500 mt-1">
+                      Sign-in: {user.providerData.map(p => p.providerId === 'password' ? 'Email/Password' : p.providerId === 'google.com' ? 'Google' : p.providerId).join(', ')}
+                    </p>
+                  )}
+                </div>
+
                 {/* Account Linking */}
                 {user.providerData && !user.providerData.some(p => p.providerId === 'google.com') && (
-                  <div className="pt-3 border-t border-gray-200">
-                    <p className="text-xs text-gray-600 mb-2">Link your Google account to sign in with either method</p>
+                  <div className="mb-4 pb-4 border-b border-medical-neutral-200">
+                    <p className="text-xs text-medical-neutral-500 mb-2">Sign-in Options</p>
                     <button
                       onClick={handleLinkGoogleAccount}
                       disabled={isLinkingGoogle}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-medical-primary-500 text-white rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-medical-primary-500 text-white rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isLinkingGoogle ? (
                         <>
@@ -5996,12 +5963,12 @@ export default function CancerCareApp() {
 
                 {/* Account Unlinking */}
                 {user.providerData && user.providerData.some(p => p.providerId === 'google.com') && user.providerData.some(p => p.providerId === 'password') && (
-                  <div className="pt-3 border-t border-gray-200">
-                    <p className="text-xs text-gray-600 mb-2">Unlink your Google account</p>
+                  <div className="mb-4 pb-4 border-b border-medical-neutral-200">
+                    <p className="text-xs text-medical-neutral-500 mb-2">Sign-in Options</p>
                     <button
                       onClick={handleUnlinkGoogleAccount}
                       disabled={isUnlinkingGoogle}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white border-2 border-medical-neutral-300 text-medical-neutral-700 rounded-lg text-sm font-medium hover:bg-medical-neutral-50 hover:border-medical-neutral-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white border border-medical-neutral-300 text-medical-neutral-700 rounded-lg text-sm font-medium hover:bg-medical-neutral-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isUnlinkingGoogle ? (
                         <>
@@ -6017,6 +5984,47 @@ export default function CancerCareApp() {
                     </button>
                   </div>
                 )}
+
+                {/* Sign Out */}
+                <div className="mb-4 pb-4 border-b border-medical-neutral-200">
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white border border-medical-neutral-300 text-medical-neutral-700 rounded-lg text-sm font-medium hover:bg-medical-neutral-50 transition"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </button>
+                </div>
+
+                {/* Data Management */}
+                <div>
+                  <p className="text-xs text-medical-neutral-500 mb-3">Data Management</p>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => {
+                        setDeletionType('data');
+                        setShowDeletionConfirm(true);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Clear Health Data
+                    </button>
+                    <button
+                      onClick={() => {
+                        setDeletionType('account');
+                        setShowDeletionConfirm(true);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white border border-red-300 text-red-700 rounded-lg text-sm font-medium hover:bg-red-50 transition"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete Account
+                    </button>
+                  </div>
+                  <p className="text-xs text-medical-neutral-400 mt-2">
+                    These actions cannot be undone.
+                  </p>
+                </div>
               </div>
             )}
           </div>
