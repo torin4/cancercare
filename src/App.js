@@ -32,6 +32,16 @@ const chatSuggestions = [
   { text: "What do my vitals mean?", populateText: "My heart rate is [value] bpm", icon: Heart, color: "bg-medical-accent-500/80" },
 ];
 
+// Trial-specific suggestions (shown when discussing a trial)
+const trialSuggestions = [
+  { text: "What drugs are used?", populateText: "What drugs or treatments are used in this trial?", icon: Pill, color: "bg-medical-accent-500/80" },
+  { text: "What phase is this?", populateText: "What phase is this clinical trial?", icon: Info, color: "bg-medical-accent-500/80" },
+  { text: "Am I eligible?", populateText: "Am I eligible for this clinical trial?", icon: Check, color: "bg-medical-accent-500/80" },
+  { text: "What are the side effects?", populateText: "What are the potential side effects of this trial?", icon: AlertCircle, color: "bg-medical-accent-500/80" },
+  { text: "How long does it take?", populateText: "How long does this clinical trial take?", icon: Clock, color: "bg-medical-accent-500/80" },
+  { text: "Where is it located?", populateText: "Where is this clinical trial located?", icon: MapPin, color: "bg-medical-accent-500/80" },
+];
+
 // Comprehensive list of countries for dropdowns
 const COUNTRIES = [
   "United States", "Canada", "United Kingdom", "Australia", "Germany", "France", "India", "China", "Japan",
@@ -3110,10 +3120,10 @@ export default function CancerCareApp() {
 
             {/* Trial Context Indicator */}
             {currentTrialContext && (
-              <div className="p-3 bg-medical-primary-50 border-b border-medical-primary-200 flex items-center justify-between">
+              <div className="p-3 bg-medical-accent-50 border-b border-medical-accent-200 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-medical-primary-600 text-sm font-medium">Discussing:</span>
-                  <span className="text-medical-primary-800 text-sm">{currentTrialContext.title || 'Trial'}</span>
+                  <span className="text-medical-accent-600 text-sm font-medium">Discussing:</span>
+                  <span className="text-medical-accent-800 text-sm">{currentTrialContext.title || 'Trial'}</span>
                 </div>
                 <button
                   onClick={() => {
@@ -3123,7 +3133,7 @@ export default function CancerCareApp() {
                       text: 'Trial context cleared. You can now ask general questions or ask about a different trial.'
                     }]);
                   }}
-                  className="text-medical-primary-600 hover:text-medical-primary-800 text-sm underline"
+                  className="text-medical-accent-600 hover:text-medical-accent-800 text-sm underline"
                 >
                   Clear
                 </button>
@@ -3132,10 +3142,10 @@ export default function CancerCareApp() {
 
             {/* Health Context Indicator */}
             {currentHealthContext && (
-              <div className="p-3 bg-medical-accent-50 border-b border-medical-accent-200 flex items-center justify-between">
+              <div className="p-3 bg-medical-primary-50 border-b border-medical-primary-200 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-medical-accent-600 text-sm font-medium">Discussing:</span>
-                  <span className="text-medical-accent-800 text-sm">Your Health Data (Labs, Vitals, Symptoms)</span>
+                  <span className="text-medical-primary-600 text-sm font-medium">Discussing:</span>
+                  <span className="text-medical-primary-800 text-sm">Your Health Data (Labs, Vitals, Symptoms)</span>
                 </div>
                 <button
                   onClick={() => {
@@ -3145,7 +3155,7 @@ export default function CancerCareApp() {
                       text: 'Health context cleared. You can now ask general questions or ask about different health data.'
                     }]);
                   }}
-                  className="text-medical-accent-600 hover:text-medical-accent-800 text-sm underline"
+                  className="text-medical-primary-600 hover:text-medical-primary-800 text-sm underline"
                 >
                   Clear
                 </button>
@@ -3155,7 +3165,7 @@ export default function CancerCareApp() {
             {/* Chat Suggestions */}
             <div className="px-4 py-3 bg-medical-neutral-50 border-t border-medical-neutral-200">
               <div className="flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}>
-                {chatSuggestions.map((suggestion, idx) => (
+                {(currentTrialContext ? trialSuggestions : chatSuggestions).map((suggestion, idx) => (
                   <button
                     key={idx}
                     onClick={() => {

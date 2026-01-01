@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { labService, vitalService, medicationService, symptomService } from '../firebase/services';
+import { getSavedTrials } from '../services/clinicalTrials/clinicalTrialsService';
 
 const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY || process.env.GEMINI_API_KEY);
 
@@ -15,6 +16,40 @@ const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY || pro
 export async function processChatMessage(message, userId, conversationHistory = [], trialContext = null, healthContext = null, patientProfile = null) {
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+    // Detect if message requires trial data (but not if trialContext is already provided)
+    const requiresTrialData = !trialContext && /(saved trial|saved trials|my trial|my trials|clinical trial|clinical trials|trial i saved|trials i saved|what trials|which trials|show me trials|tell me about trials)/i.test(message);
+    
+    // Check if saved trials exist (only if question requires trial data)
+    if (requiresTrialData && userId) {
+      try {
+        const savedTrials = await getSavedTrials(userId);
+        if (!savedTrials || savedTrials.length === 0) {
+          const noTrialDataResponse = `I'd be happy to help you with your saved clinical trials! However, I don't see any saved trials in your profile yet.
+
+To get started, you can:
+- **Search for clinical trials** on the Clinical Trials tab
+- **Save trials** that match your profile by clicking the bookmark icon
+- **Ask about specific trials** after you've saved them
+
+Once you have saved trials, I can help you:
+- Understand what each trial involves
+- Explain the drugs and treatments being tested
+- Discuss eligibility criteria
+- Answer questions about trial phases, side effects, and locations
+
+Would you like to search for clinical trials now?`;
+
+          return {
+            response: noTrialDataResponse,
+            extractedData: null
+          };
+        }
+      } catch (error) {
+        console.error('Error checking saved trials:', error);
+        // Continue with normal processing if there's an error
+      }
+    }
 
     // Detect if message requires health data analysis
     const requiresHealthData = /(explain|analyze|what does|how is|trend|progress|mean|interpret|my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications)|ca-125|hemoglobin|blood pressure|heart rate|temperature|weight)/i.test(message);
