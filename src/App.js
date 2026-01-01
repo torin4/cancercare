@@ -301,7 +301,8 @@ export default function CancerCareApp() {
     severity: '',
     date: getTodayLocalDate(),
     time: new Date().toTimeString().slice(0, 5),
-    notes: ''
+    notes: '',
+    customSymptomName: ''
   });
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
   const [documentOnboardingMethod, setDocumentOnboardingMethod] = useState('picker');
@@ -5024,7 +5025,7 @@ export default function CancerCareApp() {
                                 {uniqueSymptomTypes.slice(0, 3).map((type, idx) => (
                                   <div
                                     key={idx}
-                                    className={`w-1.5 h-1.5 rounded-full ${symptomColors[type] || symptomColors['Other']}`}
+                                    className={`w-1.5 h-1.5 rounded-full ${getSymptomColor(type)}`}
                                     title={type}
                                   />
                                 ))}
@@ -6898,7 +6899,8 @@ export default function CancerCareApp() {
                           severity: '',
                           date: getTodayLocalDate(),
                           time: new Date().toTimeString().slice(0, 5),
-                          notes: ''
+                          notes: '',
+                          customSymptomName: ''
                         });
                         setShowAddSymptomModal(false);
                         
