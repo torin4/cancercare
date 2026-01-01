@@ -2129,6 +2129,27 @@ export default function CancerCareApp() {
     }
 
     try {
+      // Auto-load health context if user asks about health data but context isn't set
+      let healthContextToUse = currentHealthContext;
+      const requiresHealthData = /(explain|analyze|what does|how is|trend|progress|mean|interpret|my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications)|ca-125|hemoglobin|blood pressure|heart rate|temperature|weight)/i.test(userMessage);
+      
+      if (requiresHealthData && !healthContextToUse && user) {
+        try {
+          const labs = await labService.getLabs(user.uid);
+          const vitals = await vitalService.getVitals(user.uid);
+          const symptoms = await symptomService.getSymptoms(user.uid);
+          healthContextToUse = {
+            labs: labs,
+            vitals: vitals,
+            symptoms: symptoms
+          };
+          // Optionally set it for future messages
+          setCurrentHealthContext(healthContextToUse);
+        } catch (error) {
+          console.error('Error loading health data for context:', error);
+        }
+      }
+
       // Process message with AI to extract and save medical data
       const result = await processChatMessage(
         userMessage,
@@ -2138,7 +2159,7 @@ export default function CancerCareApp() {
           content: msg.text
         })),
         currentTrialContext, // Pass trial context if available
-        currentHealthContext, // Pass health context if available
+        healthContextToUse, // Pass health context (auto-loaded if needed)
         patientProfile // Pass patient profile for demographic-based normal ranges
       );
 
