@@ -5302,7 +5302,7 @@ export default function CancerCareApp() {
         {activeTab === 'profile' && (
           <div className="p-4 space-y-4 pb-24">
             {/* Patient Info */}
-            <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-medical-neutral-200">
+            <div className="bg-gradient-to-br from-white via-medical-primary-50/30 to-white rounded-xl shadow-lg p-6 sm:p-8 border-2 border-medical-primary-200">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
                 {/* Profile Picture */}
                 <div className="relative flex-shrink-0">
