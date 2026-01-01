@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2, Calendar, Globe, Scale, Ruler, Clock, FileText, Users, Phone, Dna, UserCircle, ClipboardList, MessageCircle, Bot, Thermometer, Pill, BarChart } from 'lucide-react';
+import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2, Calendar, Globe, Scale, Ruler, Clock, FileText, Users, Phone, Dna, UserCircle, ClipboardList, MessageCircle, Bot, Thermometer, Pill, BarChart, Check, LogOut, ChevronLeft, Save } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Lottie from 'lottie-react';
 import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
@@ -3909,9 +3909,10 @@ export default function CancerCareApp() {
                         <div className="space-y-2">
                           <button
                             onClick={() => setShowAddLab(true)}
-                            className="w-full py-2 border-2 border-dashed border-medical-neutral-300 rounded-lg text-medical-neutral-600 hover:border-medical-primary-500 hover:text-medical-primary-600 transition"
+                            className="w-full py-2 border-2 border-dashed border-medical-neutral-300 rounded-lg text-medical-neutral-600 hover:border-medical-primary-500 hover:text-medical-primary-600 transition flex items-center justify-center gap-2"
                           >
-                            + Add Lab Value to Track
+                            <Plus className="w-4 h-4" />
+                            Add Lab Value to Track
                           </button>
                           <button
                             onClick={() => simulateDocumentUpload('lab')}
@@ -3941,14 +3942,16 @@ export default function CancerCareApp() {
                             <div className="flex flex-col sm:flex-row gap-3 justify-center">
                               <button
                                 onClick={() => setShowAddVital(true)}
-                                className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm"
+                                className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2"
                               >
+                                <Edit2 className="w-4 h-4" />
                                 Manual Enter
                               </button>
                               <button
                                 onClick={() => setActiveTab('chat')}
-                                className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm"
+                                className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center justify-center gap-2"
                               >
+                                <MessageSquare className="w-4 h-4" />
                                 Add via Chat
                               </button>
                             </div>
@@ -4577,14 +4580,16 @@ export default function CancerCareApp() {
                         <div className="flex flex-col sm:flex-row gap-3 justify-center">
                           <button
                             onClick={() => setShowAddSymptomModal(true)}
-                            className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm"
+                            className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2"
                           >
+                            <Edit2 className="w-4 h-4" />
                             Manual Enter
                           </button>
                           <button
                             onClick={() => setActiveTab('chat')}
-                            className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm"
+                            className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center justify-center gap-2"
                           >
+                            <MessageSquare className="w-4 h-4" />
                             Add via Chat
                           </button>
                         </div>
@@ -4827,14 +4832,16 @@ export default function CancerCareApp() {
                         <div className="flex flex-col sm:flex-row gap-3 justify-center">
                           <button
                             onClick={() => setShowAddMedication(true)}
-                            className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm"
+                            className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2"
                           >
+                            <Edit2 className="w-4 h-4" />
                             Manual Enter
                           </button>
                           <button
                             onClick={() => setActiveTab('chat')}
-                            className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm"
+                            className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center justify-center gap-2"
                           >
+                            <MessageSquare className="w-4 h-4" />
                             Add via Chat
                           </button>
                         </div>
@@ -5483,8 +5490,9 @@ export default function CancerCareApp() {
                     onClick={() => {
                       openDocumentOnboarding('genomic');
                     }}
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center justify-center gap-2 mx-auto"
                   >
+                    <Upload className="w-4 h-4" />
                     Upload Genomic Test Report
                   </button>
                 </div>
@@ -5785,8 +5793,9 @@ export default function CancerCareApp() {
                     setDeletionType('data');
                     setShowDeletionConfirm(true);
                   }}
-                  className="w-full py-2 px-4 bg-white border border-red-200 text-red-600 font-medium text-sm rounded-lg hover:bg-red-50 transition"
+                  className="w-full py-2 px-4 bg-white border border-red-200 text-red-600 font-medium text-sm rounded-lg hover:bg-red-50 transition flex items-center justify-center gap-2"
                 >
+                  <Trash2 className="w-4 h-4" />
                   Clear Health Data ONLY
                 </button>
                 <button
@@ -5794,8 +5803,9 @@ export default function CancerCareApp() {
                     setDeletionType('account');
                     setShowDeletionConfirm(true);
                   }}
-                  className="w-full py-2 px-4 bg-red-600 text-white font-medium text-sm rounded-lg hover:bg-red-700 transition"
+                  className="w-full py-2 px-4 bg-red-600 text-white font-medium text-sm rounded-lg hover:bg-red-700 transition flex items-center justify-center gap-2"
                 >
+                  <Trash2 className="w-4 h-4" />
                   Delete Data & Remove Account
                 </button>
               </div>
@@ -5811,8 +5821,9 @@ export default function CancerCareApp() {
                   </div>
                   <button
                     onClick={handleSignOut}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition"
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition flex items-center justify-center gap-2"
                   >
+                    <LogOut className="w-4 h-4" />
                     Sign Out
                   </button>
                 </div>
@@ -5845,15 +5856,26 @@ export default function CancerCareApp() {
                 <button
                   onClick={() => handleDeleteData(deletionType)}
                   disabled={isDeleting}
-                  className={`w-full py-3 rounded-xl font-bold text-white transition-all shadow-lg ${isDeleting ? 'bg-gray-400' : 'bg-red-600 hover:bg-red-700 active:scale-[0.98]'}`}
+                  className={`w-full py-3 rounded-xl font-bold text-white transition-all shadow-lg flex items-center justify-center gap-2 ${isDeleting ? 'bg-gray-400' : 'bg-red-600 hover:bg-red-700 active:scale-[0.98]'}`}
                 >
-                  {isDeleting ? 'Processing...' : 'Yes, Delete Permanently'}
+                  {isDeleting ? (
+                    <>
+                      <Activity className="w-4 h-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      Yes, Delete Permanently
+                    </>
+                  )}
                 </button>
                 <button
                   onClick={() => setShowDeletionConfirm(false)}
                   disabled={isDeleting}
-                  className="w-full py-3 rounded-xl font-bold text-gray-700 hover:bg-gray-100 transition"
+                  className="w-full py-3 rounded-xl font-bold text-gray-700 hover:bg-gray-100 transition flex items-center justify-center gap-2"
                 >
+                  <X className="w-4 h-4" />
                   Cancel
                 </button>
               </div>
@@ -6244,8 +6266,9 @@ export default function CancerCareApp() {
                           alert('Failed to save symptom. Please try again.');
                         }
                       }}
-                      className="w-full mt-4 bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition"
+                      className="w-full mt-4 bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
                     >
+                      <Activity className="w-4 h-4" />
                       Log Symptom
                     </button>
                   </>
@@ -6452,8 +6475,9 @@ export default function CancerCareApp() {
                         alert('Failed to save symptom. Please try again.');
                       }
                     }}
-                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"
+                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
                   >
+                    <Activity className="w-4 h-4" />
                     Log Symptom
                   </button>
                 </div>
@@ -6880,9 +6904,10 @@ export default function CancerCareApp() {
                         setShowAddLab(false);
                       }
                     }}
-                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50"
+                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
                     disabled={!newLabData.label || !newLabData.normalRange || !newLabData.unit}
                   >
+                    <Plus className="w-4 h-4" />
                     Add Lab Value
                   </button>
                 </div>
@@ -6984,8 +7009,9 @@ export default function CancerCareApp() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setShowAddVital(false)}
-                    className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition"
+                    className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition flex items-center justify-center gap-2"
                   >
+                    <X className="w-4 h-4" />
                     Cancel
                   </button>
                   <button
@@ -6993,8 +7019,9 @@ export default function CancerCareApp() {
                       setShowAddVital(false);
                       alert('Vital reading logged successfully!');
                     }}
-                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"
+                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
                   >
+                    <Heart className="w-4 h-4" />
                     Log Reading
                   </button>
                 </div>
@@ -7088,8 +7115,9 @@ export default function CancerCareApp() {
               <div className="border-t p-4 flex gap-3 flex-shrink-0">
                 <button
                   onClick={() => setShowEditLocation(false)}
-                  className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition"
+                  className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition flex items-center justify-center gap-2"
                 >
+                  <X className="w-4 h-4" />
                   Cancel
                 </button>
                 <button
@@ -7106,8 +7134,9 @@ export default function CancerCareApp() {
                       alert('Failed to save location settings. Please try again.');
                     }
                   }}
-                  className="flex-1 bg-green-600 text-white py-2.5 rounded-lg font-medium hover:bg-green-700 transition"
+                  className="flex-1 bg-green-600 text-white py-2.5 rounded-lg font-medium hover:bg-green-700 transition flex items-center justify-center gap-2"
                 >
+                  <Check className="w-4 h-4" />
                   Save
                 </button>
               </div>
@@ -8146,8 +8175,9 @@ export default function CancerCareApp() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setShowEditMedicalTeam(false)}
-                    className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition"
+                    className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition flex items-center justify-center gap-2"
                   >
+                    <X className="w-4 h-4" />
                     Cancel
                   </button>
                   <button
@@ -8178,8 +8208,9 @@ export default function CancerCareApp() {
                         alert('Failed to save medical team information. Please try again.');
                       }
                     }}
-                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"
+                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
                   >
+                    <Check className="w-4 h-4" />
                     Save Changes
                   </button>
                 </div>
