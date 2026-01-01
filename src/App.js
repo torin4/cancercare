@@ -5151,7 +5151,9 @@ export default function CancerCareApp() {
               <h3 className="font-semibold mb-3">Medical Documents</h3>
               {documents.length === 0 ? (
                 <div className="text-center py-8">
-                  <FolderOpen className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                    <FolderOpen className="w-12 h-12 text-gray-400" />
+                  </div>
                   <p className="text-gray-500 text-sm mb-4">No documents uploaded yet</p>
                   <button
                     onClick={() => {
