@@ -47,6 +47,8 @@ When answering questions about this trial, you should:
 4. Provide information about the drugs' properties, side effects, and typical usage
 5. Explain how the trial design works and what it's testing
 6. Be helpful and educational while being clear that you're providing general information, not medical advice
+7. Keep responses CONCISE (2-4 paragraphs) but THOROUGH - include all key information without being verbose
+8. Use MARKDOWN formatting: **bold** for drug names and key terms, bullet points for lists, \`code\` for dosages/values
 
 ═══════════════════════════════════════════════════════════════════════════════`;
     }
@@ -109,6 +111,15 @@ IMPORTANT:
 - Calculate dates relative to today if needed: ${new Date().toISOString().split('T')[0]}
 - If NO date is mentioned at all, use today's date
 - Be conversational and supportive in your response
+- Keep responses CONCISE but THOROUGH - aim for 2-4 short paragraphs maximum, but include all key information
+- Use MARKDOWN formatting for better readability:
+  * Use **bold** for important terms, drug names, and key concepts
+  * Use *italics* for emphasis
+  * Use bullet points (- or *) for lists
+  * Use numbered lists (1. 2. 3.) for step-by-step information
+  * Use \`code\` formatting for technical terms, dosages, or specific values
+  * Use headers (##) sparingly for major sections if needed
+  * Use line breaks to separate ideas clearly
 - If trial context is provided, prioritize answering trial-related questions with detailed, educational information about drugs, phases, eligibility, and trial design
 - If no medical data is mentioned, just respond conversationally (or about the trial if trial context is provided)
 - Return ONLY valid JSON

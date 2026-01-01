@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
 import { uploadDocument, deleteUserDirectory, deleteDocument } from './firebase/storage';
 import { documentService, labService, vitalService, patientService, accountService, genomicProfileService, emergencyContactService, medicationService, symptomService, trialLocationService } from './firebase/services';
@@ -1860,7 +1861,30 @@ export default function CancerCareApp() {
                       ? 'bg-purple-50 border border-purple-200 text-gray-800'
                       : 'bg-white border border-gray-200 text-gray-900'
                     }`}>
-                    <p className="text-sm sm:text-base">{msg.text}</p>
+                    {msg.type === 'user' ? (
+                      <p className="text-sm sm:text-base whitespace-pre-wrap">{msg.text}</p>
+                    ) : (
+                      <div className="text-sm sm:text-base prose prose-sm max-w-none">
+                        <ReactMarkdown
+                          components={{
+                            p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                            ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 space-y-1" {...props} />,
+                            ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2 space-y-1" {...props} />,
+                            li: ({node, ...props}) => <li className="ml-2" {...props} />,
+                            strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
+                            em: ({node, ...props}) => <em className="italic" {...props} />,
+                            code: ({node, ...props}) => <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs font-mono" {...props} />,
+                            h1: ({node, ...props}) => <h1 className="text-lg font-bold mb-2 mt-3 first:mt-0" {...props} />,
+                            h2: ({node, ...props}) => <h2 className="text-base font-bold mb-2 mt-3 first:mt-0" {...props} />,
+                            h3: ({node, ...props}) => <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0" {...props} />,
+                            blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-gray-300 pl-3 italic my-2" {...props} />,
+                            a: ({node, ...props}) => <a className="text-blue-600 underline hover:text-blue-800" {...props} />,
+                          }}
+                        >
+                          {msg.text}
+                        </ReactMarkdown>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
