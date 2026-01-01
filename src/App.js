@@ -1964,7 +1964,7 @@ export default function CancerCareApp() {
 
     vitals.forEach(vital => {
       const vitalType = vital.vitalType || 'unknown';
-      
+
       // Normalize vital type to canonical key
       const canonicalKey = normalizeVitalName(vitalType) || normalizeVitalName(vital.label) || vitalType;
       const displayName = getVitalDisplayName(canonicalKey);
@@ -2899,7 +2899,7 @@ export default function CancerCareApp() {
                                     <Info className="w-3.5 h-3.5" />
                                   </button>
                                 )}
-                              </div>
+                            </div>
                             </div>
                             <p className="text-lg sm:text-xl font-bold text-medical-neutral-900">{latestValue}{data.unit ? ` ${data.unit}` : ''}</p>
                             {status !== 'normal' && (
@@ -2978,7 +2978,7 @@ export default function CancerCareApp() {
                                   <Info className="w-3.5 h-3.5" />
                                 </button>
                               )}
-                            </div>
+                          </div>
                           </div>
                           <p className="text-lg sm:text-xl font-bold text-medical-neutral-900">{latestValue}{data.unit ? ` ${data.unit}` : ''}</p>
                           {status !== 'normal' && (
@@ -3033,8 +3033,8 @@ export default function CancerCareApp() {
                     <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-2 rounded-lg">
                       <Dna className="w-5 h-5 text-purple-600" />
                     </div>
-                    Genomic Profile
-                  </h3>
+                  Genomic Profile
+                </h3>
                 )}
                 {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 ? (
                   <>
@@ -3069,19 +3069,19 @@ export default function CancerCareApp() {
                     <h3 className="text-lg font-semibold text-medical-neutral-900 mb-2">No genomic data yet</h3>
                     <p className="text-sm text-medical-neutral-600 mb-6">Upload your genomic test report to match with targeted therapies and clinical trials</p>
                     <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                      <button
-                        onClick={() => {
-                          if (!hasUploadedDocument) {
-                            openDocumentOnboarding('genomic');
-                          } else {
-                            setActiveTab('files');
-                          }
-                        }}
+                    <button
+                      onClick={() => {
+                        if (!hasUploadedDocument) {
+                          openDocumentOnboarding('genomic');
+                        } else {
+                          setActiveTab('files');
+                        }
+                      }}
                         className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
-                      >
+                    >
                         <Upload className="w-4 h-4" />
                         Upload Genomic Report
-                      </button>
+                    </button>
                     </div>
                   </div>
                 )}
@@ -3096,7 +3096,7 @@ export default function CancerCareApp() {
                     <Bookmark className="w-5 h-5 text-medical-accent-600" />
                   </div>
                   Saved Trials
-                </h3>
+              </h3>
               )}
               {loadingSavedTrials ? (
                 <div className="text-center py-8">
@@ -3130,13 +3130,13 @@ export default function CancerCareApp() {
                       </div>
                     </div>
                   ))}
-                  <button
-                    onClick={() => setActiveTab('trials')}
+                <button
+                  onClick={() => setActiveTab('trials')}
                     className="w-full text-center text-medical-accent-600 text-sm font-medium hover:text-medical-accent-700 transition-colors mt-3"
-                  >
+                >
                     View All Saved Trials →
-                  </button>
-                </div>
+                </button>
+              </div>
               ) : (
                 <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center">
                   <div className="w-16 h-16 bg-medical-accent-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -3230,7 +3230,7 @@ export default function CancerCareApp() {
                         >
                           {msg.text}
                         </ReactMarkdown>
-                      </div>
+                  </div>
                     )}
                   </div>
                   {msg.type === 'user' && (
@@ -3413,7 +3413,7 @@ export default function CancerCareApp() {
             {/* Health Section Tabs */}
             <div className="flex gap-4 mb-6 border-b border-medical-neutral-200">
               {['labs', 'vitals', 'symptoms', 'medications'].map(section => (
-                <button
+                  <button
                   key={section}
                   onClick={() => setHealthSection(section)}
                   className={`pb-3 px-4 font-medium transition-all duration-200 flex items-center gap-2 ${
@@ -3431,7 +3431,7 @@ export default function CancerCareApp() {
                   {section === 'vitals' && (
                     <>
                       <Heart className="w-4 h-4" />
-                      Vitals
+                    Vitals
                     </>
                   )}
                   {section === 'symptoms' && (
@@ -3446,9 +3446,9 @@ export default function CancerCareApp() {
                       Medications
                     </>
                   )}
-                </button>
+                  </button>
               ))}
-            </div>
+                </div>
 
             {healthSection === 'labs' && (
                   <>
@@ -3463,7 +3463,7 @@ export default function CancerCareApp() {
                               Start tracking your lab values by uploading a report or adding a metric manually
                             </p>
                             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                              <button
+                            <button
                                 onClick={() => setShowAddLab(true)}
                                 className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2"
                               >
@@ -3476,7 +3476,7 @@ export default function CancerCareApp() {
                               >
                                 <Upload className="w-4 h-4" />
                                 Upload Lab Report
-                              </button>
+                            </button>
                             </div>
                           </div>
                         </div>
@@ -3907,8 +3907,8 @@ export default function CancerCareApp() {
                                               <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap shadow-xl">
                                                 <div className="flex items-center justify-between gap-3">
                                                   <div>
-                                                    <div className="font-bold text-sm">{d.value} {currentLab.unit}</div>
-                                                    <div className="text-gray-300 text-center text-xs mt-0.5">{d.date}</div>
+                                                <div className="font-bold text-sm">{d.value} {currentLab.unit}</div>
+                                                <div className="text-gray-300 text-center text-xs mt-0.5">{d.date}</div>
                                                   </div>
                                                   {d.id && (
                                                     <button
@@ -3995,26 +3995,26 @@ export default function CancerCareApp() {
                         )}
 
                         {/* Lab Value Cards - Organized by Category with Expandable Cards */}
-                        {(() => {
+                          {(() => {
                           // Helper function to render lab card (smaller, cleaner)
                           const renderLabCard = (key, lab) => {
                             if (lab.isNumeric) {
-                              const labStatus = getLabStatus(lab.current, lab.normalRange);
-                              const statusColors = {
+                                  const labStatus = getLabStatus(lab.current, lab.normalRange);
+                                  const statusColors = {
                                 green: { dot: 'bg-medical-accent-500', text: 'text-medical-accent-700' },
                                 yellow: { dot: 'bg-amber-500', text: 'text-amber-700' },
-                                red: { dot: 'bg-red-500', text: 'text-red-700' },
+                                    red: { dot: 'bg-red-500', text: 'text-red-700' },
                                 gray: { dot: 'bg-medical-neutral-400', text: 'text-medical-neutral-600' }
-                              };
-                              const colors = statusColors[labStatus.color];
+                                  };
+                                  const colors = statusColors[labStatus.color];
                               // Normalize lab name to canonical key for description lookup
                               const canonicalKey = normalizeLabName(lab.name);
                               const labDescription = canonicalKey ? (labValueDescriptions[canonicalKey] || '') : '';
                               const displayName = getLabDisplayName(lab.name);
 
-                              return (
+                                  return (
                                 <div
-                                  key={key}
+                                      key={key}
                                   className={`relative bg-white rounded-lg shadow-sm p-4 border border-medical-neutral-200 border-l-4 hover:shadow-md transition-all ${
                                     labStatus.color === 'green' ? 'border-l-medical-accent-500' :
                                     labStatus.color === 'yellow' ? 'border-l-amber-500' :
@@ -4068,7 +4068,7 @@ export default function CancerCareApp() {
                                         title="View chart"
                                       >
                                         <TrendingUp className="w-4 h-4" />
-                                      </button>
+                                    </button>
                                       <div className="relative">
                                         <button
                                           onClick={(e) => {
@@ -4180,7 +4180,7 @@ export default function CancerCareApp() {
                                       {lab.normalRange && (
                                         <p className="text-xs text-medical-neutral-500 mt-1">Normal: {lab.normalRange}</p>
                                       )}
-                                    </div>
+                                  </div>
                                     <div className="flex items-center gap-1 ml-2">
                                       {lab.data && lab.data.length > 0 && (
                                         <button
@@ -4272,10 +4272,10 @@ export default function CancerCareApp() {
                                                 <Trash2 className="w-4 h-4" />
                                                 Delete All
                                               </button>
-                                            </div>
+                                </div>
                                           </>
                                         )}
-                                      </div>
+                        </div>
                                     </div>
                                   </div>
                                 </div>
@@ -4302,13 +4302,13 @@ export default function CancerCareApp() {
                             <div className="space-y-4 mt-6">
                               {/* Add Lab Metric Button - Upper Right */}
                               <div className="flex justify-end mb-2">
-                                <button
+                          <button
                                   onClick={() => setShowAddLab(true)}
                                   className="flex items-center gap-2 text-medical-primary-600 hover:text-medical-primary-700 transition-colors"
-                                >
+                          >
                                   <Plus className="w-4 h-4" />
                                   <span className="text-sm font-medium">Add Lab Metric</span>
-                                </button>
+                          </button>
                               </div>
                               {categoryOrder.map(category => {
                                 const labsInCategory = categorizedLabs[category];
@@ -4390,9 +4390,9 @@ export default function CancerCareApp() {
             )}
 
             {healthSection === 'vitals' && (
-              <>
-                {/* Empty State - No Vital Data */}
-                {!hasRealVitalData && Object.keys(vitalsData).length === 0 && (
+                  <>
+                    {/* Empty State - No Vital Data */}
+                    {!hasRealVitalData && Object.keys(vitalsData).length === 0 && (
                       <div className="border-2 border-medical-primary-500 rounded-lg p-6 text-center bg-white">
                         <div className="flex flex-col items-center gap-3">
                           <Heart className="w-12 h-12 text-medical-primary-400" />
@@ -4409,13 +4409,13 @@ export default function CancerCareApp() {
                                 <Edit2 className="w-4 h-4" />
                                 Manual Enter
                               </button>
-                              <button
-                                onClick={() => setActiveTab('chat')}
+                            <button
+                              onClick={() => setActiveTab('chat')}
                                 className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center justify-center gap-2"
-                              >
+                            >
                                 <MessageSquare className="w-4 h-4" />
                                 Add via Chat
-                              </button>
+                            </button>
                             </div>
                           </div>
                         </div>
@@ -4432,11 +4432,11 @@ export default function CancerCareApp() {
                             <h2 className="text-base sm:text-lg font-semibold text-gray-900">Vital Signs</h2>
                             <div className="flex items-center gap-2">
                               {Object.keys(allVitalsData).length > 0 ? (
-                                <select
-                                  value={selectedVital}
-                                  onChange={(e) => setSelectedVital(e.target.value)}
-                                  className="text-sm border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 focus:ring-2 focus:ring-green-500"
-                                >
+                            <select
+                              value={selectedVital}
+                              onChange={(e) => setSelectedVital(e.target.value)}
+                              className="text-sm border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 focus:ring-2 focus:ring-green-500"
+                            >
                                   {(() => {
                                     // Organize vitals by category
                                     const vitalCategoryMap = {
@@ -4482,7 +4482,7 @@ export default function CancerCareApp() {
                                         </optgroup>
                                       ));
                                   })()}
-                                </select>
+                            </select>
                               ) : (
                                 <div className="text-sm text-gray-500">No vitals available</div>
                               )}
@@ -4909,13 +4909,13 @@ export default function CancerCareApp() {
                                                     <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl">
                                                       <div className="flex items-center justify-between gap-3">
                                                         <div>
-                                                          <div className="font-bold text-sm">
-                                                            {selectedVital === 'bp' || selectedVital === 'bloodpressure' 
-                                                              ? `${d.systolic || d.value}/${d.diastolic || ''} ${currentVital.unit}`
-                                                              : `${d.value} ${currentVital.unit}`
-                                                            }
-                                                          </div>
-                                                          <div className="text-gray-300 text-center text-xs mt-0.5">{d.date}</div>
+                                                      <div className="font-bold text-sm">
+                                                        {selectedVital === 'bp' || selectedVital === 'bloodpressure' 
+                                                          ? `${d.systolic || d.value}/${d.diastolic || ''} ${currentVital.unit}`
+                                                          : `${d.value} ${currentVital.unit}`
+                                                        }
+                                                      </div>
+                                                      <div className="text-gray-300 text-center text-xs mt-0.5">{d.date}</div>
                                                         </div>
                                                         {d.id && (
                                                           <button
@@ -5023,8 +5023,8 @@ export default function CancerCareApp() {
                         >
                           + Log Vital Reading
                         </button>
-                      </>
-                    )}
+                  </>
+                )}
               </>
             )}
 
@@ -5047,13 +5047,13 @@ export default function CancerCareApp() {
                             <Edit2 className="w-4 h-4" />
                             Manual Enter
                           </button>
-                          <button
-                            onClick={() => setActiveTab('chat')}
+                    <button
+                      onClick={() => setActiveTab('chat')}
                             className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center justify-center gap-2"
-                          >
+                    >
                             <MessageSquare className="w-4 h-4" />
                             Add via Chat
-                          </button>
+                    </button>
                         </div>
                       </div>
                     </div>
@@ -5159,16 +5159,16 @@ export default function CancerCareApp() {
                         // Only include symptoms from the current calendar month
                         if (localSymptomDate.getMonth() === currentMonth && localSymptomDate.getFullYear() === currentYear) {
                           const day = localSymptomDate.getDate().toString();
-                          if (!symptomsByDate[day]) {
-                            symptomsByDate[day] = [];
-                          }
-                          symptomsByDate[day].push({
+                        if (!symptomsByDate[day]) {
+                          symptomsByDate[day] = [];
+                        }
+                        symptomsByDate[day].push({
                             id: symptom.id,
-                            type: symptom.name || symptom.type,
-                            severity: symptom.severity,
+                          type: symptom.name || symptom.type,
+                          severity: symptom.severity,
                             time: symptom.time || symptomDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
                             tags: symptom.tags || []
-                          });
+                        });
                         }
                       });
 
@@ -5278,7 +5278,7 @@ export default function CancerCareApp() {
                                         <p className="text-sm font-medium truncate">{symptom.type}</p>
                                       </div>
                                       <div className="flex items-center gap-2 flex-shrink-0">
-                                        <span className="text-xs text-gray-600">{symptom.time}</span>
+                                      <span className="text-xs text-gray-600">{symptom.time}</span>
                                         <button
                                           onClick={async (e) => {
                                             e.stopPropagation();
@@ -5396,24 +5396,24 @@ export default function CancerCareApp() {
                     </div>
                   </div>
                 ) : (
-                  <>
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <div className="flex items-start gap-2">
-                        <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-semibold text-blue-900">Medication Adherence</p>
-                          <p className="text-xs text-blue-700 mt-1">
-                            All medications taken on schedule. Next IV infusion scheduled for Jan 5.
-                          </p>
-                        </div>
-                      </div>
+              <>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-blue-900">Medication Adherence</p>
+                      <p className="text-xs text-blue-700 mt-1">
+                        All medications taken on schedule. Next IV infusion scheduled for Jan 5.
+                      </p>
                     </div>
+                  </div>
+                </div>
 
-                    {/* Active Medications */}
-                    <div className="bg-white rounded-lg shadow p-4">
-                      <h3 className="font-semibold text-gray-800 mb-3">Active Medications</h3>
-                      <div className="space-y-3">
-                        {medications.filter(med => med.active).map(med => {
+                {/* Active Medications */}
+                <div className="bg-white rounded-lg shadow p-4">
+                  <h3 className="font-semibold text-gray-800 mb-3">Active Medications</h3>
+                  <div className="space-y-3">
+                    {medications.filter(med => med.active).map(med => {
                       const colorClasses = {
                         purple: 'bg-purple-100 border-purple-300 text-purple-800',
                         blue: 'bg-blue-100 border-blue-300 text-blue-800',
@@ -5572,7 +5572,7 @@ export default function CancerCareApp() {
                 <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
                   <div className="bg-gray-100 p-2 rounded-lg">
                     <FolderOpen className="w-5 h-5 text-gray-600" />
-                  </div>
+                </div>
                   Medical Documents
                 </h3>
               )}
@@ -5584,15 +5584,15 @@ export default function CancerCareApp() {
                   <h3 className="text-lg font-semibold text-medical-neutral-900 mb-2">No documents uploaded yet</h3>
                   <p className="text-sm text-medical-neutral-600 mb-6">Upload lab results, imaging scans, clinical reports, or genomic test results</p>
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                    <button
-                      onClick={() => {
-                        openDocumentOnboarding('general');
-                      }}
+                  <button
+                    onClick={() => {
+                      openDocumentOnboarding('general');
+                    }}
                       className="px-6 py-3 bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
-                    >
+                  >
                       <Upload className="w-4 h-4" />
-                      Upload Your First Document
-                    </button>
+                    Upload Your First Document
+                  </button>
                   </div>
                 </div>
               ) : (
@@ -5774,15 +5774,15 @@ export default function CancerCareApp() {
             </div>
 
             {documents.length > 0 && (
-              <button
-                onClick={() => {
-                  openDocumentOnboarding('general');
-                }}
-                className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 transition flex items-center justify-center gap-2"
-              >
-                <Upload size={18} />
-                Upload Document
-              </button>
+            <button
+              onClick={() => {
+                openDocumentOnboarding('general');
+              }}
+              className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 transition flex items-center justify-center gap-2"
+            >
+              <Upload size={18} />
+              Upload Document
+            </button>
             )}
           </div>
         )}
@@ -5845,7 +5845,7 @@ export default function CancerCareApp() {
                           ? `${patientProfile.firstName || ''} ${patientProfile.middleName ? patientProfile.middleName + ' ' : ''}${patientProfile.lastName || ''}`.trim()
                           : patientProfile.name || user?.displayName || 'Patient'}
                       </h2>
-                      {patientProfile.gender && (
+                    {patientProfile.gender && (
                         <span className="text-sm text-gray-600">
                           {patientProfile.gender}
                         </span>
@@ -5911,7 +5911,7 @@ export default function CancerCareApp() {
                         </div>
                       </div>
                     )}
-                    {patientProfile.height && (
+                        {patientProfile.height && (
                       <div className="flex items-center gap-2 text-sm">
                         <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
                           <TrendingUp className="w-4 h-4 text-green-600" />
@@ -5921,8 +5921,8 @@ export default function CancerCareApp() {
                           <p className="font-semibold text-gray-900">{patientProfile.height} cm</p>
                         </div>
                       </div>
-                    )}
-                    {patientProfile.weight && (
+                        )}
+                        {patientProfile.weight && (
                       <div className="flex items-center gap-2 text-sm">
                         <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
                           <Activity className="w-4 h-4 text-blue-600" />
@@ -5963,13 +5963,13 @@ export default function CancerCareApp() {
                   <div className="flex flex-col">
                     <span className="text-gray-600 mb-1 text-sm">Cancer Subtype</span>
                     <span className="font-medium text-gray-900">{currentStatus?.subtype || patientProfile?.cancerType || '—'}</span>
-                  </div>
+                </div>
                 )}
                 {(currentStatus?.stage || patientProfile?.stage) && (
                   <div className="flex flex-col">
                     <span className="text-gray-600 mb-1 text-sm">Stage</span>
                     <span className="font-medium text-gray-900">{currentStatus?.stage || patientProfile?.stage || '—'}</span>
-                  </div>
+                </div>
                 )}
                 <div className="flex flex-col">
                   <span className="text-gray-600 mb-1 text-sm">Treatment Status</span>
@@ -5995,74 +5995,74 @@ export default function CancerCareApp() {
             {/* Genomic Profile */}
             <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border-2 border-purple-200">
               {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 && (
-                <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-2.5 rounded-lg">
                       <Dna className="w-6 h-6 text-purple-600" />
                     </div>
-                    <h2 className="font-semibold text-gray-800 text-lg">Genomic Profile</h2>
+                <h2 className="font-semibold text-gray-800 text-lg">Genomic Profile</h2>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setGenomicExpanded(!genomicExpanded)}
-                      className="text-purple-600 hover:text-purple-700 flex items-center gap-1 text-sm font-medium"
-                    >
-                      {genomicExpanded ? (
-                        <>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                          </svg>
-                          Collapse
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                          Expand
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => {
-                        // Initialize editing state with current profile or empty structure
-                        setEditingGenomicProfile(genomicProfile ? {
-                          mutations: genomicProfile.mutations || [],
-                          biomarkers: genomicProfile.biomarkers || {},
-                          testName: genomicProfile.testName || '',
-                          testDate: genomicProfile.testDate ? (typeof genomicProfile.testDate === 'string' ? genomicProfile.testDate.split('T')[0] : new Date(genomicProfile.testDate).toISOString().split('T')[0]) : '',
-                          laboratoryName: genomicProfile.laboratoryName || '',
-                          specimenType: genomicProfile.specimenType || '',
-                          tumorPurity: genomicProfile.tumorPurity || '',
-                          tmb: genomicProfile.tmb || genomicProfile.biomarkers?.tumorMutationalBurden?.value || '',
-                          msi: genomicProfile.msi || genomicProfile.biomarkers?.microsatelliteInstability?.status || '',
-                          hrdScore: genomicProfile.hrdScore || genomicProfile.biomarkers?.hrdScore?.value || '',
-                          cnvs: genomicProfile.cnvs || [],
-                          fusions: genomicProfile.fusions || [],
-                          germlineFindings: genomicProfile.germlineFindings || []
-                        } : {
-                          mutations: [],
-                          biomarkers: {},
-                          testName: '',
-                          testDate: '',
-                          laboratoryName: '',
-                          specimenType: '',
-                          tumorPurity: '',
-                          tmb: '',
-                          msi: '',
-                          hrdScore: '',
-                          cnvs: [],
-                          fusions: [],
-                          germlineFindings: []
-                        });
-                        setShowEditGenomic(true);
-                      }}
-                      className="text-purple-600 hover:text-purple-700"
-                    >
-                      <Edit2 size={18} />
-                    </button>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setGenomicExpanded(!genomicExpanded)}
+                    className="text-purple-600 hover:text-purple-700 flex items-center gap-1 text-sm font-medium"
+                  >
+                    {genomicExpanded ? (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                        </svg>
+                        Collapse
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                        Expand
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      // Initialize editing state with current profile or empty structure
+                      setEditingGenomicProfile(genomicProfile ? {
+                        mutations: genomicProfile.mutations || [],
+                        biomarkers: genomicProfile.biomarkers || {},
+                        testName: genomicProfile.testName || '',
+                        testDate: genomicProfile.testDate ? (typeof genomicProfile.testDate === 'string' ? genomicProfile.testDate.split('T')[0] : new Date(genomicProfile.testDate).toISOString().split('T')[0]) : '',
+                        laboratoryName: genomicProfile.laboratoryName || '',
+                        specimenType: genomicProfile.specimenType || '',
+                        tumorPurity: genomicProfile.tumorPurity || '',
+                        tmb: genomicProfile.tmb || genomicProfile.biomarkers?.tumorMutationalBurden?.value || '',
+                        msi: genomicProfile.msi || genomicProfile.biomarkers?.microsatelliteInstability?.status || '',
+                        hrdScore: genomicProfile.hrdScore || genomicProfile.biomarkers?.hrdScore?.value || '',
+                        cnvs: genomicProfile.cnvs || [],
+                        fusions: genomicProfile.fusions || [],
+                        germlineFindings: genomicProfile.germlineFindings || []
+                      } : {
+                        mutations: [],
+                        biomarkers: {},
+                        testName: '',
+                        testDate: '',
+                        laboratoryName: '',
+                        specimenType: '',
+                        tumorPurity: '',
+                        tmb: '',
+                        msi: '',
+                        hrdScore: '',
+                        cnvs: [],
+                        fusions: [],
+                        germlineFindings: []
+                      });
+                      setShowEditGenomic(true);
+                    }}
+                    className="text-purple-600 hover:text-purple-700"
+                  >
+                    <Edit2 size={18} />
+                  </button>
                 </div>
+              </div>
               )}
 
               {/* Summary View - Always Visible */}
@@ -6094,15 +6094,15 @@ export default function CancerCareApp() {
                   <h3 className="text-lg font-semibold text-medical-neutral-900 mb-2">No genomic data yet</h3>
                   <p className="text-sm text-medical-neutral-600 mb-6">Upload your genomic test report to match with targeted therapies and clinical trials</p>
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                    <button
-                      onClick={() => {
-                        openDocumentOnboarding('genomic');
-                      }}
+                  <button
+                    onClick={() => {
+                      openDocumentOnboarding('genomic');
+                    }}
                       className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
-                    >
+                  >
                       <Upload className="w-4 h-4" />
                       Upload Genomic Report
-                    </button>
+                  </button>
                   </div>
                 </div>
               )}
@@ -6328,54 +6328,54 @@ export default function CancerCareApp() {
                 {(patientProfile.oncologist || patientProfile.hospital || patientProfile.clinicalTrialCoordinator) ? (
                   <div className="text-sm text-gray-700 space-y-2">
                     {patientProfile.oncologist && (
-                      <div>
+                  <div>
                         <p><strong>Oncologist:</strong> {patientProfile.oncologist}</p>
                         {patientProfile.oncologistPhone && <p className="text-xs text-gray-600 ml-4">Phone: {patientProfile.oncologistPhone}</p>}
                         {patientProfile.oncologistEmail && <p className="text-xs text-gray-600 ml-4">Email: {patientProfile.oncologistEmail}</p>}
-                      </div>
+                  </div>
                     )}
                     {patientProfile.hospital && (
                       <p><strong>Hospital/Clinic:</strong> {patientProfile.hospital}</p>
                     )}
                     {patientProfile.clinicalTrialCoordinator && (
-                      <div>
+                  <div>
                         <p><strong>Clinical Trial Coordinator:</strong> {patientProfile.clinicalTrialCoordinator}</p>
                         {patientProfile.clinicalTrialCoordinatorPhone && <p className="text-xs text-gray-600 ml-4">Phone: {patientProfile.clinicalTrialCoordinatorPhone}</p>}
                         {patientProfile.clinicalTrialCoordinatorEmail && <p className="text-xs text-gray-600 ml-4">Email: {patientProfile.clinicalTrialCoordinatorEmail}</p>}
-                      </div>
-                    )}
                   </div>
+                )}
+              </div>
                 ) : (
                   <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center">
                     <div className="w-16 h-16 bg-medical-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Users className="w-8 h-8 text-medical-primary-600" />
-                    </div>
+            </div>
                     <h3 className="text-lg font-semibold text-medical-neutral-900 mb-2">No medical team added yet</h3>
                     <p className="text-sm text-medical-neutral-600 mb-6">Add your oncologist, hospital, and clinical trial coordinator</p>
                     <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                      <button
-                        onClick={() => setShowEditMedicalTeam(true)}
+                <button
+                  onClick={() => setShowEditMedicalTeam(true)}
                         className="px-6 py-3 bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
-                      >
+                >
                         <Plus className="w-4 h-4" />
                         Add Medical Team
-                      </button>
-                    </div>
-                  </div>
-                )}
+                </button>
               </div>
+              </div>
+                )}
+            </div>
 
               {/* Emergency Contacts */}
               <div className="flex-1 bg-white rounded-lg shadow-sm p-4 border-2 border-amber-200">
                 {emergencyContacts.length > 0 && (
-                  <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <div className="bg-amber-50 p-2.5 rounded-lg">
                         <Phone className="w-5 h-5 text-amber-600" />
                       </div>
-                      <h2 className="font-semibold text-gray-800">Emergency Contacts</h2>
+                <h2 className="font-semibold text-gray-800">Emergency Contacts</h2>
                     </div>
-                    <button
+                <button
                       onClick={async () => { 
                         // Load and filter contacts when opening modal
                         const contacts = await emergencyContactService.getEmergencyContacts(user.uid);
@@ -6387,33 +6387,33 @@ export default function CancerCareApp() {
                         setShowEditContacts(true); 
                       }}
                       className="text-amber-600 hover:text-amber-700"
-                    >
-                      <Edit2 size={18} />
-                    </button>
-                  </div>
+                >
+                  <Edit2 size={18} />
+                </button>
+              </div>
                 )}
-                {emergencyContacts.length > 0 ? (
-                  <div className="space-y-2">
-                    {emergencyContacts.map((contact, idx) => {
-                      return (
+              {emergencyContacts.length > 0 ? (
+                <div className="space-y-2">
+                  {emergencyContacts.map((contact, idx) => {
+                    return (
                         <div key={contact.id} className="bg-amber-50 rounded-lg p-3">
-                          <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1">
                             <User size={14} className="text-amber-600" />
-                            <p className="text-xs text-gray-600 font-medium">{contact.relationship}</p>
-                          </div>
-                          <p className="text-sm font-semibold text-gray-900">{contact.name}</p>
-                          <p className="text-xs text-gray-600 mt-0.5">{contact.phone}</p>
-                          {contact.email && (
-                            <p className="text-xs text-gray-600">{contact.email}</p>
-                          )}
-                          {contact.address && (
-                            <p className="text-xs text-gray-600">{contact.address}{contact.city ? `, ${contact.city}` : ''}{contact.state ? ` ${contact.state}` : ''}{contact.zip ? ` ${contact.zip}` : ''}</p>
-                          )}
+                          <p className="text-xs text-gray-600 font-medium">{contact.relationship}</p>
                         </div>
-                      );
-                    })}
-                  </div>
-                ) : (
+                        <p className="text-sm font-semibold text-gray-900">{contact.name}</p>
+                        <p className="text-xs text-gray-600 mt-0.5">{contact.phone}</p>
+                        {contact.email && (
+                          <p className="text-xs text-gray-600">{contact.email}</p>
+                        )}
+                        {contact.address && (
+                          <p className="text-xs text-gray-600">{contact.address}{contact.city ? `, ${contact.city}` : ''}{contact.state ? ` ${contact.state}` : ''}{contact.zip ? ` ${contact.zip}` : ''}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
                   <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center">
                     <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Phone className="w-8 h-8 text-amber-600" />
@@ -6421,7 +6421,7 @@ export default function CancerCareApp() {
                     <h3 className="text-lg font-semibold text-medical-neutral-900 mb-2">No emergency contacts added</h3>
                     <p className="text-sm text-medical-neutral-600 mb-6">Add emergency contacts for quick access</p>
                     <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                      <button
+                  <button
                         onClick={async () => { 
                           // Load and filter contacts when opening modal
                           const contacts = await emergencyContactService.getEmergencyContacts(user.uid);
@@ -6435,11 +6435,11 @@ export default function CancerCareApp() {
                         className="px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
                       >
                         <Plus className="w-4 h-4" />
-                        Add Emergency Contact
-                      </button>
+                    Add Emergency Contact
+                  </button>
                     </div>
-                  </div>
-                )}
+                </div>
+              )}
               </div>
             </div>
 
@@ -6520,31 +6520,31 @@ export default function CancerCareApp() {
                 <div>
                   <p className="text-xs text-medical-neutral-500 mb-2">Data Management</p>
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => {
-                        setDeletionType('data');
-                        setShowDeletionConfirm(true);
-                      }}
+                <button
+                  onClick={() => {
+                    setDeletionType('data');
+                    setShowDeletionConfirm(true);
+                  }}
                       className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition"
-                    >
+                >
                       <Trash2 className="w-4 h-4" />
                       Clear Health Data
-                    </button>
-                    <button
-                      onClick={() => {
-                        setDeletionType('account');
-                        setShowDeletionConfirm(true);
-                      }}
+                </button>
+                <button
+                  onClick={() => {
+                    setDeletionType('account');
+                    setShowDeletionConfirm(true);
+                  }}
                       className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-red-300 text-red-700 rounded-lg text-sm font-medium hover:bg-red-50 transition"
-                    >
+                >
                       <Trash2 className="w-4 h-4" />
                       Delete Account
-                    </button>
-                  </div>
+                </button>
+              </div>
                   <p className="text-xs text-medical-neutral-400 mt-2">
                     These actions cannot be undone.
                   </p>
-                </div>
+            </div>
               </div>
             )}
           </div>
@@ -7172,7 +7172,7 @@ export default function CancerCareApp() {
                             }`}
                           >
                             {tag.label}
-                          </button>
+                      </button>
                         );
                       })}
                     </div>
@@ -7587,7 +7587,7 @@ export default function CancerCareApp() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 md:p-4">
           <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
             <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
-              <h3 className="font-bold text-lg text-gray-800">Add {selectedLabForValue.name} Value</h3>
+              <h3 className="font-bold text-lg text-gray-800">Add {selectedLabForValue.name} Metric</h3>
               <button
                 onClick={(e) => {
                   e.preventDefault();
@@ -7607,14 +7607,14 @@ export default function CancerCareApp() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Value <span className="text-red-600">*</span>
+                    Metric <span className="text-red-600">*</span>
                   </label>
                   <input
                     type="number"
                     step="any"
                     value={newLabValue.value}
                     onChange={(e) => setNewLabValue({ ...newLabValue, value: e.target.value })}
-                    placeholder={`Enter ${selectedLabForValue.name} value`}
+                    placeholder={`Enter ${selectedLabForValue.name} metric`}
                     className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   {selectedLabForValue.unit && (
@@ -7710,7 +7710,7 @@ export default function CancerCareApp() {
                   className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
                 >
                   <Check className="w-4 h-4" />
-                  Add Value
+                  Add Metric
                 </button>
               </div>
             </div>
@@ -8161,7 +8161,7 @@ export default function CancerCareApp() {
                       <div className="w-1 h-1 bg-green-600 rounded-full"></div>
                       <span>ClinicalTrials.gov</span>
                     </div>
-                  </div>
+                    </div>
                 </div>
               </div>
 
@@ -8221,10 +8221,10 @@ export default function CancerCareApp() {
               <div className="flex-1 overflow-y-auto p-4">
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
+                  <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
-                      <input
-                        type="text"
+                    <input
+                      type="text"
                         value={patientProfile.firstName || ''}
                         onChange={(e) => setPatientProfile({ ...patientProfile, firstName: e.target.value })}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -8295,18 +8295,18 @@ export default function CancerCareApp() {
                         onChange={(e) => setPatientProfile({ ...patientProfile, height: e.target.value })}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
-                    </div>
+                  </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={patientProfile.weight}
-                        onChange={(e) => setPatientProfile({ ...patientProfile, weight: e.target.value })}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={patientProfile.weight}
+                      onChange={(e) => setPatientProfile({ ...patientProfile, weight: e.target.value })}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
+                    />
+                  </div>
                   </div>
 
                   <div>
@@ -8454,7 +8454,7 @@ export default function CancerCareApp() {
 
                   {/* Cancer Subtype - matching onboarding */}
                   {currentStatus.diagnosis && (CANCER_SUBTYPES[currentStatus.diagnosis] || []).length > 0 && (
-                    <div>
+                  <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Cancer Subtype (optional)</label>
                       <select
                         value={currentStatus.subtype === 'Other (specify)' ? 'Other (specify)' : (currentStatus.subtype || '')}
@@ -8476,15 +8476,15 @@ export default function CancerCareApp() {
                         ))}
                       </select>
                       {updateStatusSubtypeCustom && (
-                        <input
-                          type="text"
+                    <input
+                      type="text"
                           value={currentStatus.subtype === 'Other (specify)' ? '' : currentStatus.subtype}
                           onChange={(e) => setCurrentStatus({ ...currentStatus, subtype: e.target.value })}
                           className="w-full mt-2 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           placeholder="Specify subtype"
                         />
                       )}
-                    </div>
+                  </div>
                   )}
 
                   {/* Stage - matching onboarding */}
@@ -8532,8 +8532,8 @@ export default function CancerCareApp() {
                       {TREATMENT_STATUS_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                     {updateStatusTreatmentCustom && (
-                      <input
-                        type="text"
+                    <input
+                      type="text"
                         value={currentStatus.treatmentLine === 'Other (specify)' ? '' : currentStatus.treatmentLine}
                         onChange={(e) => setCurrentStatus({ ...currentStatus, treatmentLine: e.target.value })}
                         className="w-full mt-2 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -9254,7 +9254,7 @@ export default function CancerCareApp() {
 
                   <div className="border-t pt-4">
                     <label className="block text-sm font-medium text-gray-700 mb-3">Clinical Trial Coordinator</label>
-                    <div>
+                  <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
                       <input
                         type="text"
@@ -9263,7 +9263,7 @@ export default function CancerCareApp() {
                         placeholder="e.g., Jane Smith, RN"
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
-                    </div>
+                          </div>
                     <div className="grid grid-cols-2 gap-3 mt-3">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
@@ -9274,7 +9274,7 @@ export default function CancerCareApp() {
                           placeholder="e.g., (555) 123-4567"
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
-                      </div>
+                        </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                         <input
@@ -9366,12 +9366,12 @@ export default function CancerCareApp() {
                     />
                   </div>
                 ) : (
-                  <div className="inline-flex items-center justify-center w-20 h-20 mb-6">
-                    <div className="relative">
-                      <div className="w-20 h-20 border-4 border-blue-200 rounded-full"></div>
-                      <div className="w-20 h-20 border-4 border-blue-600 rounded-full absolute top-0 left-0 animate-spin border-t-transparent"></div>
-                    </div>
+                <div className="inline-flex items-center justify-center w-20 h-20 mb-6">
+                  <div className="relative">
+                    <div className="w-20 h-20 border-4 border-blue-200 rounded-full"></div>
+                    <div className="w-20 h-20 border-4 border-blue-600 rounded-full absolute top-0 left-0 animate-spin border-t-transparent"></div>
                   </div>
+                </div>
                 )}
 
                 {/* Progress text */}
