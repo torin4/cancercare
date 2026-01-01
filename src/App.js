@@ -320,7 +320,12 @@ export default function CancerCareApp() {
     cancerType: '',
     country: 'United States',
     oncologist: '',
-    hospital: ''
+    oncologistPhone: '',
+    oncologistEmail: '',
+    hospital: '',
+    primaryCareDoctor: '',
+    primaryCarePhone: '',
+    primaryCareEmail: ''
   });
   const [trialLocation, setTrialLocation] = useState({
     country: 'United States',
@@ -878,7 +883,12 @@ export default function CancerCareApp() {
             cancerType: '',
             country: 'United States',
             oncologist: '',
-            hospital: ''
+            oncologistPhone: '',
+            oncologistEmail: '',
+            hospital: '',
+            primaryCareDoctor: '',
+            primaryCarePhone: '',
+            primaryCareEmail: ''
           });
           setLabsData({});
           setVitalsData({});
@@ -984,7 +994,12 @@ export default function CancerCareApp() {
               stageOther: profile.stageOther || '',
               country: profile.country || 'United States',
               oncologist: profile.oncologist || '',
-              hospital: profile.hospital || ''
+              oncologistPhone: profile.oncologistPhone || '',
+              oncologistEmail: profile.oncologistEmail || '',
+              hospital: profile.hospital || '',
+              primaryCareDoctor: profile.primaryCareDoctor || '',
+              primaryCarePhone: profile.primaryCarePhone || '',
+              primaryCareEmail: profile.primaryCareEmail || ''
             });
             // Load current status if present, and merge with patientProfile fields
             if (profile.currentStatus) {
@@ -5724,7 +5739,7 @@ export default function CancerCareApp() {
             <div className="flex flex-col sm:flex-row gap-4">
               {/* Medical Team */}
               <div className="flex-1 bg-white rounded-lg shadow-sm p-4 border-2 border-medical-primary-200">
-                {(patientProfile.oncologist || patientProfile.hospital || emergencyContacts.find(c => c.contactType === 'primaryCare' || c.contactType === 'primary_care' || c.contactType === 'primary')) && (
+                {(patientProfile.oncologist || patientProfile.hospital || patientProfile.primaryCareDoctor) && (
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <div className="bg-medical-primary-50 p-2.5 rounded-lg">
@@ -5740,17 +5755,25 @@ export default function CancerCareApp() {
                     </button>
                   </div>
                 )}
-                {(patientProfile.oncologist || patientProfile.hospital || emergencyContacts.find(c => c.contactType === 'primaryCare' || c.contactType === 'primary_care' || c.contactType === 'primary')) ? (
-                  <div className="text-sm text-gray-700 space-y-1">
-                    <p><strong>Oncologist:</strong> {patientProfile.oncologist || '—'}</p>
-                    <p><strong>Hospital/Clinic:</strong> {patientProfile.hospital || '—'}</p>
-                    {(() => {
-                      const pc = emergencyContacts.find(c => c.contactType === 'primaryCare' || c.contactType === 'primary_care' || c.contactType === 'primary');
-                      if (pc) {
-                        return <p><strong>Primary Care:</strong> {pc.name} {pc.phone ? `(${pc.phone})` : ''}</p>;
-                      }
-                      return <p><strong>Primary Care:</strong> —</p>;
-                    })()}
+                {(patientProfile.oncologist || patientProfile.hospital || patientProfile.primaryCareDoctor) ? (
+                  <div className="text-sm text-gray-700 space-y-2">
+                    {patientProfile.oncologist && (
+                      <div>
+                        <p><strong>Oncologist:</strong> {patientProfile.oncologist}</p>
+                        {patientProfile.oncologistPhone && <p className="text-xs text-gray-600 ml-4">Phone: {patientProfile.oncologistPhone}</p>}
+                        {patientProfile.oncologistEmail && <p className="text-xs text-gray-600 ml-4">Email: {patientProfile.oncologistEmail}</p>}
+                      </div>
+                    )}
+                    {patientProfile.hospital && (
+                      <p><strong>Hospital/Clinic:</strong> {patientProfile.hospital}</p>
+                    )}
+                    {patientProfile.primaryCareDoctor && (
+                      <div>
+                        <p><strong>Primary Care Doctor:</strong> {patientProfile.primaryCareDoctor}</p>
+                        {patientProfile.primaryCarePhone && <p className="text-xs text-gray-600 ml-4">Phone: {patientProfile.primaryCarePhone}</p>}
+                        {patientProfile.primaryCareEmail && <p className="text-xs text-gray-600 ml-4">Email: {patientProfile.primaryCareEmail}</p>}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center">
@@ -8195,6 +8218,29 @@ export default function CancerCareApp() {
                     />
                   </div>
 
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Oncologist Phone</label>
+                      <input
+                        type="tel"
+                        value={patientProfile.oncologistPhone || ''}
+                        onChange={(e) => setPatientProfile({ ...patientProfile, oncologistPhone: e.target.value })}
+                        placeholder="e.g., (555) 123-4567"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Oncologist Email</label>
+                      <input
+                        type="email"
+                        value={patientProfile.oncologistEmail || ''}
+                        onChange={(e) => setPatientProfile({ ...patientProfile, oncologistEmail: e.target.value })}
+                        placeholder="e.g., doctor@hospital.com"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Hospital/Clinic</label>
                     <input
@@ -8206,35 +8252,40 @@ export default function CancerCareApp() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Primary Care Physician</label>
-                    {(() => {
-                      const pc = emergencyContacts.find(c => c.contactType === 'primaryCare' || c.contactType === 'primary_care' || c.contactType === 'primary');
-                      if (pc) {
-                        return (
-                          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                            <p className="text-sm text-gray-700"><strong>{pc.name}</strong></p>
-                            {pc.phone && <p className="text-sm text-gray-600">{pc.phone}</p>}
-                            {pc.email && <p className="text-sm text-gray-600">{pc.email}</p>}
-                            <p className="text-xs text-gray-500 mt-2">Manage in Emergency Contacts</p>
-                          </div>
-                        );
-                      }
-                      return (
-                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                          <p className="text-sm text-gray-500">No primary care physician added</p>
-                          <button
-                            onClick={() => {
-                              setShowEditMedicalTeam(false);
-                              setShowEditContacts(true);
-                            }}
-                            className="text-xs text-blue-600 hover:underline mt-1"
-                          >
-                            Add in Emergency Contacts →
-                          </button>
-                        </div>
-                      );
-                    })()}
+                  <div className="border-t pt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">Primary Care Doctor</label>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                      <input
+                        type="text"
+                        value={patientProfile.primaryCareDoctor || ''}
+                        onChange={(e) => setPatientProfile({ ...patientProfile, primaryCareDoctor: e.target.value })}
+                        placeholder="e.g., Dr. John Doe"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mt-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                        <input
+                          type="tel"
+                          value={patientProfile.primaryCarePhone || ''}
+                          onChange={(e) => setPatientProfile({ ...patientProfile, primaryCarePhone: e.target.value })}
+                          placeholder="e.g., (555) 123-4567"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input
+                          type="email"
+                          value={patientProfile.primaryCareEmail || ''}
+                          onChange={(e) => setPatientProfile({ ...patientProfile, primaryCareEmail: e.target.value })}
+                          placeholder="e.g., doctor@clinic.com"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -8253,7 +8304,12 @@ export default function CancerCareApp() {
                       try {
                         const toSave = {
                           oncologist: patientProfile.oncologist || '',
-                          hospital: patientProfile.hospital || ''
+                          oncologistPhone: patientProfile.oncologistPhone || '',
+                          oncologistEmail: patientProfile.oncologistEmail || '',
+                          hospital: patientProfile.hospital || '',
+                          primaryCareDoctor: patientProfile.primaryCareDoctor || '',
+                          primaryCarePhone: patientProfile.primaryCarePhone || '',
+                          primaryCareEmail: patientProfile.primaryCareEmail || ''
                         };
                         console.log('Saving Medical Team:', toSave);
                         await patientService.savePatient(user.uid, toSave);
@@ -8264,7 +8320,12 @@ export default function CancerCareApp() {
                         setPatientProfile(prev => ({
                           ...prev,
                           oncologist: patientProfile.oncologist || prev.oncologist,
-                          hospital: patientProfile.hospital || prev.hospital
+                          oncologistPhone: patientProfile.oncologistPhone || prev.oncologistPhone,
+                          oncologistEmail: patientProfile.oncologistEmail || prev.oncologistEmail,
+                          hospital: patientProfile.hospital || prev.hospital,
+                          primaryCareDoctor: patientProfile.primaryCareDoctor || prev.primaryCareDoctor,
+                          primaryCarePhone: patientProfile.primaryCarePhone || prev.primaryCarePhone,
+                          primaryCareEmail: patientProfile.primaryCareEmail || prev.primaryCareEmail
                         }));
                         setShowEditMedicalTeam(false);
                         setMessages(prev => [...prev, {
