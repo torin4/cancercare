@@ -8113,6 +8113,7 @@ export default function CancerCareApp() {
                     value={newVital.vitalType || ''}
                     onChange={(e) => setNewVital({ ...newVital, vitalType: e.target.value, value: '', systolic: '', diastolic: '' })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={!!newVital.vitalType}
                   >
                     <option value="">Select vital sign...</option>
                     <option value="bp">Blood Pressure</option>
