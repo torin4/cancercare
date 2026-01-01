@@ -5076,7 +5076,7 @@ export default function CancerCareApp() {
         )}
 
         {activeTab === 'profile' && (
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-4 pb-24">
             {/* Patient Info */}
             <div className="bg-white rounded-xl shadow-sm p-6 border border-medical-neutral-200">
               <div className="flex items-center gap-4 mb-4">
@@ -5602,6 +5602,24 @@ export default function CancerCareApp() {
                 </button>
               </div>
             </div>
+
+            {/* Sign Out Section */}
+            {user && (
+              <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Signed in as</p>
+                    <p className="text-sm font-medium text-gray-900">{user.email}</p>
+                  </div>
+                  <button
+                    onClick={handleSignOut}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -7991,27 +8009,6 @@ export default function CancerCareApp() {
         )
       }
 
-      {/* Sign Out Section in Profile */}
-      {
-        activeTab === 'profile' && user && (
-          <div className="p-4">
-            <div className="bg-white rounded-lg shadow p-4 border-t border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Signed in as</p>
-                  <p className="text-sm font-medium text-gray-900">{user.email}</p>
-                </div>
-                <button
-                  onClick={handleSignOut}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition"
-                >
-                  Sign Out
-                </button>
-              </div>
-            </div>
-          </div>
-        )
-      }
 
       {/* Upload Progress Overlay */}
       {
