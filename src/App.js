@@ -2025,15 +2025,19 @@ export default function CancerCareApp() {
   // Auto-locate to today when symptoms section is opened
   useEffect(() => {
     if (healthSection === 'symptoms') {
+      // Use local timezone for today's date
       const today = new Date();
-      setSymptomCalendarDate(today);
+      const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      setSymptomCalendarDate(localToday);
       // Check if today has symptoms and auto-select it
-      const todayDay = today.getDate().toString();
+      const todayDay = localToday.getDate().toString();
       const hasSymptomsToday = symptoms.some(s => {
-        const symptomDate = new Date(s.date);
-        return symptomDate.getDate().toString() === todayDay && 
-               symptomDate.getMonth() === today.getMonth() && 
-               symptomDate.getFullYear() === today.getFullYear();
+        // Ensure symptom date is in local timezone
+        const symptomDate = s.date instanceof Date ? s.date : new Date(s.date);
+        const localSymptomDate = new Date(symptomDate.getFullYear(), symptomDate.getMonth(), symptomDate.getDate());
+        return localSymptomDate.getDate().toString() === todayDay && 
+               localSymptomDate.getMonth() === localToday.getMonth() && 
+               localSymptomDate.getFullYear() === localToday.getFullYear();
       });
       if (hasSymptomsToday) {
         setSelectedDate(todayDay);
@@ -4876,9 +4880,11 @@ export default function CancerCareApp() {
                       </h3>
                       <button
                         onClick={() => {
+                          // Use local timezone for today's date
                           const today = new Date();
-                          setSymptomCalendarDate(today);
-                          setSelectedDate(today.getDate().toString());
+                          const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                          setSymptomCalendarDate(localToday);
+                          setSelectedDate(localToday.getDate().toString());
                         }}
                         className="px-3 py-1 text-sm text-medical-primary-600 hover:bg-medical-primary-50 rounded-lg transition"
                       >
@@ -4962,8 +4968,8 @@ export default function CancerCareApp() {
                       for (let day = 1; day <= daysInMonth; day++) {
                         const dayStr = day.toString();
                         const hasSymptoms = symptomsByDate[dayStr];
-                        // Check if this is today's date
-                        const isToday = isCurrentMonth && today.getDate() === day;
+                        // Check if this is today's date (using local timezone)
+                        const isToday = isCurrentMonth && localToday.getDate() === day;
                         const uniqueSymptomTypes = hasSymptoms ? [...new Set(hasSymptoms.map(s => s.type))] : [];
 
                         calendar.push(
