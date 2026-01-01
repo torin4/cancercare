@@ -16,19 +16,20 @@ import DocumentUploadOnboarding from './components/DocumentUploadOnboarding';
 import Onboarding from './components/Onboarding';
 
 // Chat suggestions covering common app actions (only capabilities the chatbot can handle)
+// These use natural language templates that users can fill in
 const chatSuggestions = [
-  { text: "Log a symptom", icon: Thermometer, color: "bg-medical-primary-500/80" },
-  { text: "Add lab value", icon: BarChart, color: "bg-medical-accent-500/80" },
-  { text: "Add vital sign", icon: Heart, color: "bg-medical-accent-400/80" },
-  { text: "Add medication", icon: Pill, color: "bg-medical-primary-500/80" },
-  { text: "What does my CA-125 mean?", icon: Info, color: "bg-medical-accent-500/80" },
-  { text: "Explain my lab results", icon: FileText, color: "bg-medical-secondary-500/80" },
+  { text: "I had [symptom] yesterday", icon: Thermometer, color: "bg-medical-primary-500/80" },
+  { text: "My CA-125 was [value] on [date]", icon: BarChart, color: "bg-medical-accent-500/80" },
+  { text: "My blood pressure is [value] this morning", icon: Heart, color: "bg-medical-accent-400/80" },
+  { text: "I started taking [medication] [dosage]", icon: Pill, color: "bg-medical-primary-500/80" },
+  { text: "What does my CA-125 of [value] mean?", icon: Info, color: "bg-medical-accent-500/80" },
+  { text: "Explain my latest lab results", icon: FileText, color: "bg-medical-secondary-500/80" },
   { text: "How is my treatment progressing?", icon: TrendingUp, color: "bg-medical-primary-600/80" },
-  { text: "What are common side effects?", icon: AlertCircle, color: "bg-medical-accent-600/80" },
-  { text: "Explain my symptoms", icon: Activity, color: "bg-medical-secondary-600/80" },
-  { text: "What should I ask my doctor?", icon: MessageSquare, color: "bg-medical-secondary-400/80" },
-  { text: "Analyze my health trends", icon: TrendingUp, color: "bg-medical-primary-500/80" },
-  { text: "What do my vitals mean?", icon: Heart, color: "bg-medical-accent-500/80" },
+  { text: "What are common side effects of [medication]?", icon: AlertCircle, color: "bg-medical-accent-600/80" },
+  { text: "I'm experiencing [symptom] with [severity] severity", icon: Activity, color: "bg-medical-secondary-600/80" },
+  { text: "What should I ask my doctor about [topic]?", icon: MessageSquare, color: "bg-medical-secondary-400/80" },
+  { text: "Show me trends in my [lab/vital]", icon: TrendingUp, color: "bg-medical-primary-500/80" },
+  { text: "My heart rate is [value] bpm", icon: Heart, color: "bg-medical-accent-500/80" },
 ];
 
 // Comprehensive list of countries for dropdowns
