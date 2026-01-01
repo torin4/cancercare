@@ -4113,15 +4113,6 @@ export default function CancerCareApp() {
                                       </div>
                                       <div className="flex items-baseline gap-2">
                                         <p className="text-xl font-bold text-medical-neutral-900">{lab.current}</p>
-                                        {lab.trend && lab.data && lab.data.length > 0 && (
-                                          lab.trend === 'up' ? (
-                                            <TrendingUp className="w-4 h-4 text-red-500" />
-                                          ) : lab.trend === 'down' ? (
-                                            <TrendingDown className="w-4 h-4 text-green-500" />
-                                          ) : (
-                                            <Minus className="w-4 h-4 text-gray-400" />
-                                          )
-                                        )}
                                         <p className="text-xs text-medical-neutral-500">{lab.unit}</p>
                                       </div>
                                       <p className={`text-xs ${colors.text} font-medium mt-1`}>{labStatus.label}</p>
