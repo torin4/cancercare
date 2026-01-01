@@ -3136,28 +3136,24 @@ export default function CancerCareApp() {
 
             {/* Chat Suggestions */}
             <div className="px-4 py-3 bg-medical-neutral-50 border-t border-medical-neutral-200">
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                {(() => {
-                  const startIdx = suggestionIndex * 4;
-                  const currentSuggestions = chatSuggestions.slice(startIdx, startIdx + 4);
-                  return currentSuggestions.map((suggestion, idx) => (
-                    <button
-                      key={`${startIdx}-${idx}`}
-                      onClick={() => {
-                        setInputText(suggestion.text);
-                        // Focus on input after setting text
-                        setTimeout(() => {
-                          const input = document.querySelector('input[type="text"]');
-                          if (input) input.focus();
-                        }, 0);
-                      }}
-                      className={`${suggestion.color} text-white px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap hover:opacity-100 opacity-90 transition-opacity flex-shrink-0 flex items-center gap-2`}
-                    >
-                      {suggestion.icon && <suggestion.icon className="w-4 h-4" />}
-                      {suggestion.text}
-                    </button>
-                  ));
-                })()}
+              <div className="flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}>
+                {chatSuggestions.map((suggestion, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      setInputText(suggestion.text);
+                      // Focus on input after setting text
+                      setTimeout(() => {
+                        const input = document.querySelector('input[type="text"]');
+                        if (input) input.focus();
+                      }, 0);
+                    }}
+                    className={`${suggestion.color} text-white px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap hover:opacity-100 opacity-90 transition-opacity flex-shrink-0 flex items-center gap-2`}
+                  >
+                    {suggestion.icon && <suggestion.icon className="w-4 h-4" />}
+                    {suggestion.text}
+                  </button>
+                ))}
               </div>
             </div>
 
