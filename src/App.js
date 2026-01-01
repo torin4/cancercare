@@ -2725,7 +2725,7 @@ export default function CancerCareApp() {
             })() : (
               <div className="bg-medical-primary-50 rounded-lg sm:rounded-xl p-6 sm:p-8 text-center border-2 border-medical-primary-200 shadow-sm">
                 <div className="w-16 h-16 bg-medical-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Activity className="w-8 h-8 text-medical-primary-600" />
+                  <ClipboardList className="w-8 h-8 text-medical-primary-600" />
                 </div>
                 <h3 className="text-lg font-semibold text-medical-neutral-900 mb-2">No health data tracked yet</h3>
                 <p className="text-sm text-medical-neutral-600 mb-6">Start by uploading lab results or chatting with the AI assistant</p>
