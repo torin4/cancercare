@@ -1174,8 +1174,11 @@ export default function CancerCareApp() {
     'WBC': 'White blood cell count. Measures immune system cells. Low counts (neutropenia) increase infection risk during chemotherapy.',
     'RBC': 'Red blood cell count. Measures oxygen-carrying cells. Low levels indicate anemia.',
     'Hemoglobin': 'Protein in red blood cells that carries oxygen. Low levels (anemia) cause fatigue and weakness.',
+    'HGB': 'Hemoglobin. Protein in red blood cells that carries oxygen. Low levels (anemia) cause fatigue and weakness.',
     'Hematocrit': 'Percentage of red blood cells in blood. Low levels indicate anemia.',
+    'HCT': 'Hematocrit. Percentage of red blood cells in blood. Low levels indicate anemia.',
     'Platelets': 'Blood cells that help with clotting. Low levels (thrombocytopenia) increase bleeding risk.',
+    'PLT': 'Platelets. Blood cells that help with clotting. Low levels (thrombocytopenia) increase bleeding risk.',
     'ANC': 'Absolute neutrophil count. Critical for infection risk. Should be >1500/μL to reduce infection risk.',
     'Neutrophils': 'Type of white blood cell that fights bacterial infections. Low levels increase infection risk.',
     'Lymphocytes': 'Type of white blood cell important for immune function. Low levels may indicate immune suppression.',
@@ -1186,6 +1189,7 @@ export default function CancerCareApp() {
     'MCH': 'Mean corpuscular hemoglobin. Average amount of hemoglobin per red blood cell. Low in iron deficiency anemia.',
     'MCHC': 'Mean corpuscular hemoglobin concentration. Average concentration of hemoglobin in red blood cells. Used in anemia diagnosis.',
     'RDW': 'Red cell distribution width. Measures variation in red blood cell size. Elevated in iron deficiency or other anemias.',
+    'RDW-CV': 'Red cell distribution width - coefficient of variation. Measures variation in red blood cell size as a percentage. Elevated in iron deficiency or other anemias.',
     'Creatinine': 'Waste product filtered by kidneys. High levels indicate kidney dysfunction or dehydration.',
     'CRE': 'Creatinine. Waste product filtered by the kidneys. Normal levels indicate adequate kidney filtration and overall renal function.',
     'eGFR': 'Estimated glomerular filtration rate. Measures kidney filtering capacity. Adjusted for age, gender, and race.',
@@ -1196,8 +1200,10 @@ export default function CancerCareApp() {
     'ALT': 'Alanine aminotransferase. Liver enzyme. Elevated levels indicate liver damage, often from medications or disease.',
     'AST': 'Aspartate aminotransferase. Liver enzyme. Elevated levels indicate liver or muscle damage.',
     'AST/ALT Ratio': 'Ratio of aspartate aminotransferase to alanine aminotransferase. Used to assess patterns of liver injury; abnormal values may suggest specific liver conditions such as alcoholic liver disease or advanced fibrosis.',
+    'AST/ALT': 'Ratio of aspartate aminotransferase to alanine aminotransferase. Used to assess patterns of liver injury; abnormal values may suggest specific liver conditions such as alcoholic liver disease or advanced fibrosis.',
     'ALP': 'Alkaline phosphatase. Liver and bone enzyme. Elevated in liver disease or bone disorders.',
     'ALP (IFCC)': 'Alkaline phosphatase. Liver and bone enzyme. Abnormal levels may indicate bile duct obstruction, liver disease, or bone disorders.',
+    'ALP IFCC': 'Alkaline phosphatase. Liver and bone enzyme. Abnormal levels may indicate bile duct obstruction, liver disease, or bone disorders.',
     'Bilirubin': 'Breakdown product of red blood cells. High levels cause jaundice and indicate liver dysfunction.',
     'ALB': 'Albumin. Major blood protein made by the liver. Low levels indicate impaired liver function, inflammation, protein loss, or poor nutritional status.',
     'Albumin': 'Main protein in blood. Low levels indicate malnutrition, liver disease, or kidney disease.',
@@ -1216,17 +1222,29 @@ export default function CancerCareApp() {
     'CRP': 'C-reactive protein. Measures inflammation in the body. Elevated in infection, inflammation, or autoimmune conditions.',
     'ESR': 'Erythrocyte sedimentation rate. Non-specific marker of inflammation. Elevated in many conditions including infection and autoimmune disease.',
     'Ferritin': 'Iron storage protein. Low levels indicate iron deficiency. High levels may indicate iron overload or inflammation.',
+    'フェリチン': 'Ferritin. Iron storage protein. Low levels indicate iron deficiency. High levels may indicate iron overload or inflammation.',
     'Fibrinogen': 'Blood clotting protein. Elevated in inflammation or infection. Low levels increase bleeding risk.',
+    'Fbg': 'Fibrinogen. Blood clotting protein. Elevated in inflammation or infection. Low levels increase bleeding risk.',
     'Sodium': 'Essential electrolyte. Regulates fluid balance and nerve function. Imbalances can cause confusion or seizures.',
+    'NA': 'Sodium. Essential electrolyte. Regulates fluid balance and nerve function. Imbalances can cause confusion or seizures.',
     'Potassium': 'Essential electrolyte. Important for heart and muscle function. Dangerous if too high or too low.',
+    'K': 'Potassium. Essential electrolyte. Important for heart and muscle function. Dangerous if too high or too low.',
     'Calcium': 'Mineral essential for bones, muscles, and nerve function. Regulated by parathyroid hormone and vitamin D.',
+    'CA': 'Calcium. Mineral essential for bones, muscles, and nerve function. Regulated by parathyroid hormone and vitamin D.',
     'Magnesium': 'Essential mineral for muscle and nerve function. Low levels can cause muscle cramps and irregular heartbeat.',
+    'Mg': 'Magnesium. Essential mineral for muscle and nerve function. Low levels can cause muscle cramps and irregular heartbeat.',
     'Chloride': 'Essential electrolyte. Works with sodium to maintain fluid balance and acid-base balance in the body.',
+    'CI': 'Chloride. Essential electrolyte. Works with sodium to maintain fluid balance and acid-base balance in the body.',
     'Bicarbonate': 'Buffer that maintains blood pH. Low levels indicate acidosis. High levels indicate alkalosis.',
+    'HCO3': 'Bicarbonate. Buffer that maintains blood pH. Low levels indicate acidosis. High levels indicate alkalosis.',
+    'Bicarb': 'Bicarbonate. Buffer that maintains blood pH. Low levels indicate acidosis. High levels indicate alkalosis.',
     'CO2': 'Carbon dioxide. Reflects acid-base balance and respiratory function. Used to assess metabolic and respiratory status.',
     'Phosphorus': 'Essential mineral for bone health, energy production, and cell function. Imbalances can affect multiple body systems.',
+    'P': 'Phosphorus. Essential mineral for bone health, energy production, and cell function. Imbalances can affect multiple body systems.',
+    'Phos': 'Phosphorus. Essential mineral for bone health, energy production, and cell function. Imbalances can affect multiple body systems.',
     'Glucose': 'Blood sugar. High levels indicate diabetes or prediabetes. Low levels (hypoglycemia) can be dangerous.',
     'PT': 'Prothrombin time. Measures blood clotting function. Important for monitoring anticoagulant medications.',
+    'PT活性値': 'PT Activity. Measures blood clotting function as a percentage of normal. Important for monitoring anticoagulant medications and liver function.',
     'INR': 'International normalized ratio. Standardized measure of blood clotting. Used to monitor warfarin therapy.',
     'APTT': 'Activated partial thromboplastin time. Measures intrinsic clotting pathway. Used to monitor heparin therapy.',
     'D-dimer': 'Fragment from blood clots. Elevated in deep vein thrombosis, pulmonary embolism, and DIC.',
@@ -1238,16 +1256,16 @@ export default function CancerCareApp() {
 
   // Categorize labs by organ function and type
   const categorizeLabs = (labs) => {
-    // Predefined lab types by category
-    const diseaseMarkers = ['ca125', 'cea', 'afp', 'psa', 'he4', 'ca199', 'ca153', 'ca724', 'ca242', 'ca50', 'inhibinb', 'romaindex'];
-    const liverFunction = ['alt', 'ast', 'bilirubin', 'albumin', 'alkalinephosphatase', 'alp', 'ggt', 'ldh', 'pt', 'inr', 'aptt'];
-    const kidneyFunction = ['creatinine', 'egfr', 'bun', 'urea', 'urineprotein', 'urinecreatinine'];
-    const bloodCounts = ['wbc', 'rbc', 'hemoglobin', 'hematocrit', 'platelets', 'anc', 'lymphocytes', 'neutrophils', 'monocytes', 'eosinophils', 'basophils', 'mcv', 'mch', 'mchc', 'rdw'];
-    const thyroidFunction = ['tsh', 't3', 't4', 'ft3', 'ft4', 'thyroglobulin'];
-    const cardiacMarkers = ['troponin', 'bnp', 'ntprobnp', 'ckmb', 'myoglobin'];
-    const inflammation = ['crp', 'esr', 'ferritin', 'fibrinogen'];
-    const electrolytes = ['sodium', 'potassium', 'chloride', 'bicarbonate', 'co2', 'magnesium', 'phosphorus', 'calcium'];
-    const coagulation = ['pt', 'inr', 'aptt', 'dimer', 'ddimer', 'fibrinogen'];
+    // Predefined lab types by category (including common abbreviations and variations)
+    const diseaseMarkers = ['ca125', 'cea', 'afp', 'psa', 'he4', 'ca199', 'ca153', 'ca724', 'ca242', 'ca50', 'inhibinb', 'romaindex', 'ca-125', 'ca 19-9', 'ca 15-3'];
+    const liverFunction = ['alt', 'ast', 'bilirubin', 'albumin', 'alkalinephosphatase', 'alp', 'ggt', 'ldh', 'pt', 'inr', 'aptt', 'alb', 'ast/alt', 'alp ifcc', 'pt活性値'];
+    const kidneyFunction = ['creatinine', 'egfr', 'bun', 'urea', 'urineprotein', 'urinecreatinine', 'cre'];
+    const bloodCounts = ['wbc', 'rbc', 'hemoglobin', 'hematocrit', 'platelets', 'anc', 'lymphocytes', 'neutrophils', 'monocytes', 'eosinophils', 'basophils', 'mcv', 'mch', 'mchc', 'rdw', 'rdw-cv', 'hgb', 'hct', 'plt'];
+    const thyroidFunction = ['tsh', 't3', 't4', 'ft3', 'ft4', 'thyroglobulin', 'free t3', 'free t4'];
+    const cardiacMarkers = ['troponin', 'bnp', 'ntprobnp', 'ckmb', 'myoglobin', 'nt-probnp', 'ck-mb'];
+    const inflammation = ['crp', 'esr', 'ferritin', 'fibrinogen', 'フェリチン', 'fbg'];
+    const electrolytes = ['sodium', 'potassium', 'chloride', 'bicarbonate', 'co2', 'magnesium', 'phosphorus', 'calcium', 'na', 'k', 'ci', 'ca', 'mg', 'p', 'phos'];
+    const coagulation = ['pt', 'inr', 'aptt', 'dimer', 'ddimer', 'fibrinogen', 'd-dimer', 'fbg'];
     const tumorMarkers = ['ca125', 'cea', 'afp', 'psa', 'ca199', 'ca153', 'ca724', 'ca242', 'ca50', 'he4', 'inhibinb', 'romaindex', 'ca2729', 'ca549', 'ca195'];
 
     const categories = {
@@ -1270,41 +1288,70 @@ export default function CancerCareApp() {
       ...thyroidFunction, ...cardiacMarkers, ...inflammation, ...electrolytes, ...coagulation
     ];
 
+    // Track categorized labs to prevent duplicates
+    const categorizedKeys = new Set();
+
     Object.entries(labs).forEach(([key, lab]) => {
+      // Skip if already categorized
+      if (categorizedKeys.has(key)) return;
+
       const labKey = key.toLowerCase();
       const labName = (lab.name || '').toLowerCase();
 
-      // Check if it's a custom value (not in predefined list)
-      const isCustom = !allKnownTypes.includes(labKey) && 
-                       !diseaseMarkers.some(m => labName.includes(m)) &&
-                       !liverFunction.some(m => labName.includes(m)) &&
-                       !kidneyFunction.some(m => labName.includes(m)) &&
-                       !bloodCounts.some(m => labName.includes(m));
+      // Note: "Custom Values" should only contain manually added labs (via Add Lab modal)
+      // Document-extracted labs that don't fit categories go to "Others"
+      // Since we can't easily distinguish manually added vs document-extracted at this level,
+      // we'll put all unknown labs in "Others" by default. Custom Values will be populated
+      // when we add the capability to mark labs as manually added.
 
-      // Categorize
-      if (diseaseMarkers.includes(labKey) || tumorMarkers.some(m => labName.includes(m))) {
+      // Categorize (using if-else to ensure only one category)
+      if (diseaseMarkers.includes(labKey) || tumorMarkers.some(m => labKey.includes(m) || labName.includes(m))) {
         categories['Disease-Specific Markers'].push([key, lab]);
-      } else if (liverFunction.includes(labKey) || ['alt', 'ast', 'bilirubin', 'albumin', 'ldh'].some(m => labName.includes(m))) {
+        categorizedKeys.add(key);
+      } else if (liverFunction.includes(labKey) || liverFunction.some(m => labKey.includes(m) || labName.includes(m) || lab.name?.toLowerCase().includes(m))) {
         categories['Liver Function'].push([key, lab]);
-      } else if (kidneyFunction.includes(labKey) || ['creatinine', 'egfr', 'bun', 'urea'].some(m => labName.includes(m))) {
+        categorizedKeys.add(key);
+      } else if (kidneyFunction.includes(labKey) || kidneyFunction.some(m => labKey.includes(m) || labName.includes(m) || lab.name?.toLowerCase().includes(m))) {
         categories['Kidney Function'].push([key, lab]);
-      } else if (bloodCounts.includes(labKey) || ['wbc', 'rbc', 'hemoglobin', 'platelets', 'anc'].some(m => labName.includes(m))) {
+        categorizedKeys.add(key);
+      } else if (bloodCounts.includes(labKey) || bloodCounts.some(m => labKey.includes(m) || labName.includes(m) || lab.name?.toLowerCase().includes(m))) {
         categories['Blood Counts'].push([key, lab]);
-      } else if (thyroidFunction.includes(labKey) || ['tsh', 't3', 't4', 'thyroid'].some(m => labName.includes(m))) {
+        categorizedKeys.add(key);
+      } else if (thyroidFunction.includes(labKey) || thyroidFunction.some(m => labKey.includes(m) || labName.includes(m) || lab.name?.toLowerCase().includes(m))) {
         categories['Thyroid Function'].push([key, lab]);
-      } else if (cardiacMarkers.includes(labKey) || ['troponin', 'bnp', 'cardiac'].some(m => labName.includes(m))) {
+        categorizedKeys.add(key);
+      } else if (cardiacMarkers.includes(labKey) || cardiacMarkers.some(m => labKey.includes(m) || labName.includes(m) || lab.name?.toLowerCase().includes(m))) {
         categories['Cardiac Markers'].push([key, lab]);
-      } else if (inflammation.includes(labKey) || ['crp', 'esr', 'ferritin'].some(m => labName.includes(m))) {
+        categorizedKeys.add(key);
+      } else if (inflammation.includes(labKey) || inflammation.some(m => labKey.includes(m) || labName.includes(m) || lab.name?.toLowerCase().includes(m))) {
         categories['Inflammation'].push([key, lab]);
-      } else if (electrolytes.includes(labKey) || ['sodium', 'potassium', 'chloride', 'calcium', 'magnesium'].some(m => labName.includes(m))) {
+        categorizedKeys.add(key);
+      } else if (electrolytes.includes(labKey) || electrolytes.some(m => labKey.includes(m) || labName.includes(m) || lab.name?.toLowerCase().includes(m))) {
         categories['Electrolytes'].push([key, lab]);
-      } else if (coagulation.includes(labKey) || ['pt', 'inr', 'aptt', 'dimer', 'coagulation'].some(m => labName.includes(m))) {
+        categorizedKeys.add(key);
+      } else if (coagulation.includes(labKey) || coagulation.some(m => labKey.includes(m) || labName.includes(m) || lab.name?.toLowerCase().includes(m))) {
         categories['Coagulation'].push([key, lab]);
-      } else if (isCustom) {
-        categories['Custom Values'].push([key, lab]);
+        categorizedKeys.add(key);
       } else {
+        // Labs that don't fit any category go to "Others"
+        // (Document-extracted labs that don't match categories)
+        // "Custom Values" is reserved for manually added labs (to be implemented)
         categories['Others'].push([key, lab]);
+        categorizedKeys.add(key);
       }
+    });
+
+    // Remove duplicates within each category (same lab name)
+    Object.keys(categories).forEach(category => {
+      const seen = new Map();
+      categories[category] = categories[category].filter(([key, lab]) => {
+        const labNameKey = (lab.name || key).toLowerCase();
+        if (seen.has(labNameKey)) {
+          return false; // Duplicate
+        }
+        seen.set(labNameKey, true);
+        return true;
+      });
     });
 
     // Sort labs within each category by relevance score, then alphabetically
