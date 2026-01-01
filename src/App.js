@@ -15,24 +15,20 @@ import ClinicalTrials from './components/ClinicalTrials';
 import DocumentUploadOnboarding from './components/DocumentUploadOnboarding';
 import Onboarding from './components/Onboarding';
 
-// Chat suggestions covering common app actions
+// Chat suggestions covering common app actions (only capabilities the chatbot can handle)
 const chatSuggestions = [
   { text: "Log a symptom", icon: Thermometer, color: "bg-medical-primary-500/80" },
   { text: "Add lab value", icon: BarChart, color: "bg-medical-accent-500/80" },
-  { text: "Upload document", icon: Upload, color: "bg-medical-secondary-500/80" },
-  { text: "Search clinical trials", icon: FlaskConical, color: "bg-medical-primary-400/80" },
+  { text: "Add vital sign", icon: Heart, color: "bg-medical-accent-400/80" },
+  { text: "Add medication", icon: Pill, color: "bg-medical-primary-500/80" },
   { text: "What does my CA-125 mean?", icon: Info, color: "bg-medical-accent-500/80" },
   { text: "Explain my lab results", icon: FileText, color: "bg-medical-secondary-500/80" },
-  { text: "Track medication", icon: Pill, color: "bg-medical-primary-500/80" },
-  { text: "Add vital sign", icon: Heart, color: "bg-medical-accent-400/80" },
-  { text: "What should I ask my doctor?", icon: MessageSquare, color: "bg-medical-secondary-400/80" },
   { text: "How is my treatment progressing?", icon: TrendingUp, color: "bg-medical-primary-600/80" },
   { text: "What are common side effects?", icon: AlertCircle, color: "bg-medical-accent-600/80" },
   { text: "Explain my symptoms", icon: Activity, color: "bg-medical-secondary-600/80" },
-  { text: "What trials match my profile?", icon: Target, color: "bg-medical-primary-500/80" },
-  { text: "Upload genomic report", icon: Dna, color: "bg-medical-secondary-500/80" },
-  { text: "View my health summary", icon: ClipboardList, color: "bg-medical-accent-500/80" },
-  { text: "Schedule medication reminder", icon: Clock, color: "bg-medical-primary-400/80" },
+  { text: "What should I ask my doctor?", icon: MessageSquare, color: "bg-medical-secondary-400/80" },
+  { text: "Analyze my health trends", icon: TrendingUp, color: "bg-medical-primary-500/80" },
+  { text: "What do my vitals mean?", icon: Heart, color: "bg-medical-accent-500/80" },
 ];
 
 // Comprehensive list of countries for dropdowns
