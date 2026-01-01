@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2, Calendar, Globe, Scale, Ruler, Clock, FileText, Users, Phone, Dna, UserCircle, ClipboardList, MessageCircle, Bot, Thermometer, Pill } from 'lucide-react';
+import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2, Calendar, Globe, Scale, Ruler, Clock, FileText, Users, Phone, Dna, UserCircle, ClipboardList, MessageCircle, Bot, Thermometer, Pill, BarChart } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Lottie from 'lottie-react';
 import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
@@ -3119,7 +3119,7 @@ export default function CancerCareApp() {
                 >
                   {section === 'labs' && (
                     <>
-                      <Activity className="w-4 h-4" />
+                      <BarChart className="w-4 h-4" />
                       Labs
                     </>
                   )}
@@ -3151,7 +3151,7 @@ export default function CancerCareApp() {
                     {!hasRealLabData && Object.keys(labsData).length === 0 && (
                       <div className="bg-medical-primary-50 border border-medical-primary-200 rounded-lg p-6 text-center">
                         <div className="flex flex-col items-center gap-3">
-                          <Activity className="w-12 h-12 text-medical-primary-400" />
+                          <BarChart className="w-12 h-12 text-medical-primary-400" />
                           <div>
                             <h3 className="font-semibold text-medical-primary-900 mb-1">No Lab Data Yet</h3>
                             <p className="text-sm text-medical-primary-700 mb-4">
