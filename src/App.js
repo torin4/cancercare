@@ -5096,7 +5096,7 @@ export default function CancerCareApp() {
         {activeTab === 'profile' && (
           <div className="p-4 space-y-4 pb-24">
             {/* Patient Info */}
-            <div className="bg-gradient-to-br from-medical-primary-50 via-white to-medical-accent-50 rounded-xl shadow-lg p-6 border border-medical-primary-100">
+            <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-medical-neutral-200">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
                 {/* Profile Picture */}
                 <div className="relative flex-shrink-0">
@@ -5159,10 +5159,9 @@ export default function CancerCareApp() {
                     </div>
                     <button
                       onClick={() => setShowEditInfo(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-medical-primary-300 text-medical-primary-700 rounded-lg hover:bg-medical-primary-50 hover:border-medical-primary-400 transition font-medium text-sm shadow-sm flex-shrink-0"
+                      className="text-blue-600 hover:text-blue-700"
                     >
-                      <Edit2 className="w-4 h-4" />
-                      Edit
+                      <Edit2 size={18} />
                     </button>
                   </div>
 
@@ -5251,9 +5250,9 @@ export default function CancerCareApp() {
                 <h2 className="font-semibold text-gray-800 text-lg">Current Status</h2>
                 <button
                   onClick={() => setShowUpdateStatus(true)}
-                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                  className="text-blue-600 hover:text-blue-700"
                 >
-                  Update
+                  <Edit2 size={18} />
                 </button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
