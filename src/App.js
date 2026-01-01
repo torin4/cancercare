@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2 } from 'lucide-react';
+import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2, Calendar, Globe, Scale, Ruler, Clock } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Lottie from 'lottie-react';
 import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
@@ -4455,18 +4455,30 @@ export default function CancerCareApp() {
             {healthSection === 'symptoms' && (
               <>
                 {symptoms.length === 0 ? (
-                  <div className="bg-white rounded-lg shadow p-8 text-center">
-                    <AlertCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Symptoms Tracked Yet</h3>
-                    <p className="text-gray-600 mb-6">
-                      Start logging symptoms through the AI chat to track patterns and correlations with your health data.
-                    </p>
-                    <button
-                      onClick={() => setActiveTab('chat')}
-                      className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                    >
-                      Log Symptoms with AI
-                    </button>
+                  <div className="bg-medical-primary-50 border border-medical-primary-200 rounded-lg p-6 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <Activity className="w-12 h-12 text-medical-primary-400" />
+                      <div>
+                        <h3 className="font-semibold text-medical-primary-900 mb-1">No Symptoms Tracked Yet</h3>
+                        <p className="text-sm text-medical-primary-700 mb-4">
+                          Track symptoms to identify patterns and correlations with your health data
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                          <button
+                            onClick={() => setShowAddSymptomModal(true)}
+                            className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm"
+                          >
+                            Manual Enter
+                          </button>
+                          <button
+                            onClick={() => setActiveTab('chat')}
+                            className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm"
+                          >
+                            Add via Chat
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <>
@@ -4692,23 +4704,51 @@ export default function CancerCareApp() {
 
             {healthSection === 'medications' && (
               <>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-semibold text-blue-900">Medication Adherence</p>
-                      <p className="text-xs text-blue-700 mt-1">
-                        All medications taken on schedule. Next IV infusion scheduled for Jan 5.
-                      </p>
+                {medications.length === 0 ? (
+                  <div className="bg-medical-primary-50 border border-medical-primary-200 rounded-lg p-6 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <Activity className="w-12 h-12 text-medical-primary-400" />
+                      <div>
+                        <h3 className="font-semibold text-medical-primary-900 mb-1">No Medications Tracked Yet</h3>
+                        <p className="text-sm text-medical-primary-700 mb-4">
+                          Track your medications to monitor adherence and schedule doses
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                          <button
+                            onClick={() => setShowAddMedication(true)}
+                            className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm"
+                          >
+                            Manual Enter
+                          </button>
+                          <button
+                            onClick={() => setActiveTab('chat')}
+                            className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm"
+                          >
+                            Add via Chat
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-semibold text-blue-900">Medication Adherence</p>
+                          <p className="text-xs text-blue-700 mt-1">
+                            All medications taken on schedule. Next IV infusion scheduled for Jan 5.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
 
-                {/* Active Medications */}
-                <div className="bg-white rounded-lg shadow p-4">
-                  <h3 className="font-semibold text-gray-800 mb-3">Active Medications</h3>
-                  <div className="space-y-3">
-                    {medications.filter(med => med.active).map(med => {
+                    {/* Active Medications */}
+                    <div className="bg-white rounded-lg shadow p-4">
+                      <h3 className="font-semibold text-gray-800 mb-3">Active Medications</h3>
+                      <div className="space-y-3">
+                        {medications.filter(med => med.active).map(med => {
                       const colorClasses = {
                         purple: 'bg-purple-100 border-purple-300 text-purple-800',
                         blue: 'bg-blue-100 border-blue-300 text-blue-800',
@@ -4838,6 +4878,8 @@ export default function CancerCareApp() {
                 >
                   + Add Medication
                 </button>
+                  </>
+                )}
               </>
             )}
 
@@ -5065,22 +5107,40 @@ export default function CancerCareApp() {
                       ? `${patientProfile.firstName || ''} ${patientProfile.middleName ? patientProfile.middleName + ' ' : ''}${patientProfile.lastName || ''}`.trim()
                       : patientProfile.name || user?.displayName || 'Patient'}
                   </h2>
-                  <div className="space-y-1">
-                    <p className="text-sm text-gray-600">Age: {patientProfile.age || '--'}</p>
-                    <p className="text-sm text-gray-600">DOB: {patientProfile.dateOfBirth ? new Date(patientProfile.dateOfBirth).toLocaleDateString() : '--'}</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-gray-400" />
+                      <p className="text-sm text-gray-600">Age: {patientProfile.age || '--'}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-gray-400" />
+                      <p className="text-sm text-gray-600">DOB: {patientProfile.dateOfBirth ? new Date(patientProfile.dateOfBirth).toLocaleDateString() : '--'}</p>
+                    </div>
                     {patientProfile.gender && (
-                      <p className="text-sm text-gray-600">Gender: {patientProfile.gender}</p>
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-gray-400" />
+                        <p className="text-sm text-gray-600">Gender: {patientProfile.gender}</p>
+                      </div>
                     )}
                     {patientProfile.country && (
-                      <p className="text-sm text-gray-600">Country: {patientProfile.country}</p>
+                      <div className="flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-gray-400" />
+                        <p className="text-sm text-gray-600">Country: {patientProfile.country}</p>
+                      </div>
                     )}
                     {(patientProfile.height || patientProfile.weight) && (
                       <div className="flex gap-4 text-sm text-gray-600">
                         {patientProfile.height && (
-                          <span>Height: {patientProfile.height} cm</span>
+                          <div className="flex items-center gap-2">
+                            <Ruler className="w-4 h-4 text-gray-400" />
+                            <span>Height: {patientProfile.height} cm</span>
+                          </div>
                         )}
                         {patientProfile.weight && (
-                          <span>Weight: {patientProfile.weight} kg</span>
+                          <div className="flex items-center gap-2">
+                            <Scale className="w-4 h-4 text-gray-400" />
+                            <span>Weight: {patientProfile.weight} kg</span>
+                          </div>
                         )}
                       </div>
                     )}
