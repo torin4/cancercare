@@ -3052,14 +3052,15 @@ export default function CancerCareApp() {
                           <Activity className="w-12 h-12 text-medical-primary-400" />
                           <div>
                             <h3 className="font-semibold text-medical-primary-900 mb-1">No Lab Data Yet</h3>
-                            <p className="text-sm text-medical-primary-700 mb-3">
-                              Upload lab reports or add values via chat to track trends over time
+                            <p className="text-sm text-medical-primary-700 mb-4">
+                              Upload lab reports to automatically extract and track your lab values
                             </p>
                             <button
-                              onClick={() => setActiveTab('chat')}
-                              className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm"
+                              onClick={() => openDocumentOnboarding('lab-report')}
+                              className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center gap-2 mx-auto"
                             >
-                              Go to Chat to Add Data
+                              <Upload className="w-4 h-4" />
+                              Upload Lab Report
                             </button>
                           </div>
                         </div>
@@ -3832,15 +3833,23 @@ export default function CancerCareApp() {
                           <Activity className="w-12 h-12 text-medical-primary-400" />
                           <div>
                             <h3 className="font-semibold text-medical-primary-900 mb-1">No Vital Signs Data Yet</h3>
-                            <p className="text-sm text-medical-primary-700 mb-3">
-                              Track blood pressure, heart rate, weight, and more via chat or manual entry
+                            <p className="text-sm text-medical-primary-700 mb-4">
+                              Track blood pressure, heart rate, weight, and more
                             </p>
-                            <button
-                              onClick={() => setActiveTab('chat')}
-                              className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm"
-                            >
-                              Go to Chat to Add Data
-                            </button>
+                            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                              <button
+                                onClick={() => setShowAddVital(true)}
+                                className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm"
+                              >
+                                Manual Enter
+                              </button>
+                              <button
+                                onClick={() => setActiveTab('chat')}
+                                className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm"
+                              >
+                                Add via Chat
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
