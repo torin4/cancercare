@@ -368,26 +368,35 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             {!isSaved && !savedTrialIds.has(trial.id) ? (
               <button
                 onClick={() => handleSaveTrial(trial)}
-                className="p-1.5 hover:bg-medical-accent-50 rounded-lg transition"
-                title="Save trial"
+                className="p-1.5 hover:bg-medical-accent-50 rounded-lg transition relative group"
+                title="Save Trial"
               >
                 <Bookmark className="w-5 h-5 text-medical-accent-600" />
+                <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-medical-neutral-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                  Save Trial
+                </span>
               </button>
             ) : !isSaved ? (
               <button
                 disabled
-                className="p-1.5 rounded-lg cursor-not-allowed"
+                className="p-1.5 rounded-lg cursor-not-allowed relative group"
                 title="Trial saved"
               >
                 <Bookmark className="w-5 h-5 text-medical-accent-600 fill-medical-accent-600" />
+                <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-medical-neutral-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                  Trial saved
+                </span>
               </button>
             ) : (
               <button
                 onClick={() => handleRemoveTrial(trial.id)}
-                className="p-1.5 hover:bg-red-50 rounded-lg transition"
+                className="p-1.5 hover:bg-red-50 rounded-lg transition relative group"
                 title="Remove from saved"
               >
                 <Bookmark className="w-5 h-5 text-red-600 fill-red-600" />
+                <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-medical-neutral-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                  Remove from saved
+                </span>
               </button>
             )}
           </div>
