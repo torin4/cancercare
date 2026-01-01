@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, AlertTriangle, XCircle, Star, Search as SearchIcon, MapPin, Globe, X, AlertCircle, MessageSquare, Bookmark, FlaskConical } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, Star, Search as SearchIcon, MapPin, Globe, X, AlertCircle, MessageSquare, Bookmark, FlaskConical, FileText } from 'lucide-react';
 import { auth } from '../firebase/config';
 import { patientService, genomicProfileService, clinicalTrialsService, trialLocationService } from '../firebase/services';
 import { getTrialDetails } from '../services/clinicalTrials/trialSearchService';
@@ -355,14 +355,42 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
               <p className="text-sm text-medical-neutral-600 mb-2">{trial.titleJa}</p>
             )}
           </div>
-          {isSaved && (
-            <button
-              onClick={() => handleToggleFavorite(trial.id, trial.isFavorite)}
-              className="text-2xl ml-3"
-            >
-              <Star className={`w-5 h-5 ${trial.isFavorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
-            </button>
-          )}
+          <div className="flex items-center gap-2 ml-3">
+            {isSaved && (
+              <button
+                onClick={() => handleToggleFavorite(trial.id, trial.isFavorite)}
+                className="p-1.5 hover:bg-medical-neutral-100 rounded-lg transition"
+                title={trial.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              >
+                <Star className={`w-5 h-5 ${trial.isFavorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
+              </button>
+            )}
+            {!isSaved && !savedTrialIds.has(trial.id) ? (
+              <button
+                onClick={() => handleSaveTrial(trial)}
+                className="p-1.5 hover:bg-medical-accent-50 rounded-lg transition"
+                title="Save trial"
+              >
+                <Bookmark className="w-5 h-5 text-medical-accent-600" />
+              </button>
+            ) : !isSaved ? (
+              <button
+                disabled
+                className="p-1.5 rounded-lg cursor-not-allowed"
+                title="Trial saved"
+              >
+                <Bookmark className="w-5 h-5 text-medical-accent-600 fill-medical-accent-600" />
+              </button>
+            ) : (
+              <button
+                onClick={() => handleRemoveTrial(trial.id)}
+                className="p-1.5 hover:bg-red-50 rounded-lg transition"
+                title="Remove from saved"
+              >
+                <Bookmark className="w-5 h-5 text-red-600 fill-red-600" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Eligibility Badge */}
@@ -492,38 +520,29 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                 }
               }
             }}
-            className="flex-1 bg-medical-primary-500 text-white px-4 py-2.5 rounded-lg hover:bg-medical-primary-600 transition text-sm font-medium shadow-sm hover:shadow-md"
+            className="flex-1 border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2.5 rounded-lg hover:bg-medical-primary-50 transition text-sm font-medium flex items-center justify-center gap-2"
           >
+            <FileText className="w-4 h-4" />
             View Details
           </button>
-          {!isSaved && !savedTrialIds.has(trial.id) ? (
+          {onTrialSelected && (
             <button
-              onClick={() => handleSaveTrial(trial)}
-              className="flex-1 bg-medical-accent-500 text-white px-4 py-2.5 rounded-lg hover:bg-medical-accent-600 transition text-sm font-medium shadow-sm hover:shadow-md"
+              onClick={() => {
+                onTrialSelected(trial);
+              }}
+              className="flex-1 border-2 border-medical-accent-500 text-medical-accent-600 px-4 py-2.5 rounded-lg hover:bg-medical-accent-50 transition text-sm font-medium flex items-center justify-center gap-2"
             >
-              Save Trial
-            </button>
-          ) : !isSaved ? (
-            <button
-              disabled
-              className="flex-1 bg-medical-neutral-400 text-white px-4 py-2.5 rounded-lg cursor-not-allowed text-sm font-medium"
-            >
-              Saved
-            </button>
-          ) : (
-            <button
-              onClick={() => handleRemoveTrial(trial.id)}
-              className="flex-1 bg-red-600 text-white px-4 py-2.5 rounded-lg hover:bg-red-700 transition text-sm font-medium shadow-sm hover:shadow-md"
-            >
-              Remove
+              <MessageSquare className="w-4 h-4" />
+              Ask About This Trial
             </button>
           )}
           <a
             href={trial.url || (trial.id ? `https://clinicaltrials.gov/study/${trial.id}` : '#')}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 bg-medical-neutral-600 text-white px-4 py-2.5 rounded-lg hover:bg-medical-neutral-700 transition text-sm font-medium text-center shadow-sm hover:shadow-md"
+            className="flex-1 border-2 border-medical-neutral-500 text-medical-neutral-700 px-4 py-2.5 rounded-lg hover:bg-medical-neutral-50 transition text-sm font-medium text-center flex items-center justify-center gap-2"
           >
+            <Globe className="w-4 h-4" />
             View on ClinicalTrials.gov
           </a>
         </div>
