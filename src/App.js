@@ -4926,25 +4926,35 @@ export default function CancerCareApp() {
 
                   <div className="grid grid-cols-7 gap-1">
                     {(() => {
-                      // December 2024 starts on Sunday (day 0)
-                      const daysInMonth = 31;
-                      const firstDayOfWeek = 0; // Sunday
+                      const currentMonth = symptomCalendarDate.getMonth();
+                      const currentYear = symptomCalendarDate.getFullYear();
+                      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+                      const firstDayOfWeek = new Date(currentYear, currentMonth, 1).getDay();
                       const calendar = [];
+                      // Use local timezone for today's date
+                      const today = new Date();
+                      const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                      const isCurrentMonth = localToday.getMonth() === currentMonth && localToday.getFullYear() === currentYear;
 
-                      // Map real symptoms to dates
+                      // Map real symptoms to dates (using local timezone)
                       const symptomsByDate = {};
                       symptoms.forEach(symptom => {
-                        const date = new Date(symptom.date);
-                        const day = date.getDate().toString();
-                        if (!symptomsByDate[day]) {
-                          symptomsByDate[day] = [];
+                        // Ensure date is in local timezone
+                        const symptomDate = symptom.date instanceof Date ? symptom.date : new Date(symptom.date);
+                        const localSymptomDate = new Date(symptomDate.getFullYear(), symptomDate.getMonth(), symptomDate.getDate());
+                        // Only include symptoms from the current calendar month
+                        if (localSymptomDate.getMonth() === currentMonth && localSymptomDate.getFullYear() === currentYear) {
+                          const day = localSymptomDate.getDate().toString();
+                          if (!symptomsByDate[day]) {
+                            symptomsByDate[day] = [];
+                          }
+                          symptomsByDate[day].push({
+                            id: symptom.id,
+                            type: symptom.name || symptom.type,
+                            severity: symptom.severity,
+                            time: symptom.time || symptomDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })
+                          });
                         }
-                        symptomsByDate[day].push({
-                          id: symptom.id,
-                          type: symptom.name || symptom.type,
-                          severity: symptom.severity,
-                          time: symptom.time || new Date(symptom.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-                        });
                       });
 
                       // Symptom type colors
