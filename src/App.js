@@ -2381,7 +2381,8 @@ export default function CancerCareApp() {
       setUploadProgress('Uploading to secure storage...');
       const uploadResult = await uploadDocument(file, user.uid, {
         category: processingResult.documentType || docType,
-        documentType: processingResult.documentType || docType
+        documentType: processingResult.documentType || docType,
+        note: providedNote || null // Store note with document record
       });
 
       console.log('File uploaded successfully:', uploadResult);
@@ -2398,7 +2399,8 @@ export default function CancerCareApp() {
         date: docDate,
         fileUrl: uploadResult.fileUrl,
         storagePath: uploadResult.storagePath,
-        icon: (processingResult.documentType || docType).toLowerCase()
+        icon: (processingResult.documentType || docType).toLowerCase(),
+        note: providedNote || null // Include note in local state
       };
 
       setDocuments([newDoc, ...documents]);
