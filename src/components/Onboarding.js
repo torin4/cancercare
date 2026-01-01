@@ -269,27 +269,62 @@ export default function Onboarding({ onComplete }) {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
-                    <input type="text" value={formData.firstName} onChange={(e) => updateField('firstName', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900" />
+                    <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1.5">First Name *</label>
+                    <input 
+                      id="firstName"
+                      type="text" 
+                      value={formData.firstName} 
+                      onChange={(e) => updateField('firstName', e.target.value)} 
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all" 
+                      placeholder="Enter first name"
+                      aria-required="true"
+                    />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Middle Name</label>
-                    <input type="text" value={formData.middleName} onChange={(e) => updateField('middleName', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900" />
+                    <label htmlFor="middleName" className="block text-sm font-medium text-gray-700 mb-1.5">Middle Name</label>
+                    <input 
+                      id="middleName"
+                      type="text" 
+                      value={formData.middleName} 
+                      onChange={(e) => updateField('middleName', e.target.value)} 
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all" 
+                      placeholder="Enter middle name (optional)"
+                    />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
-                    <input type="text" value={formData.lastName} onChange={(e) => updateField('lastName', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900" />
+                    <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1.5">Last Name *</label>
+                    <input 
+                      id="lastName"
+                      type="text" 
+                      value={formData.lastName} 
+                      onChange={(e) => updateField('lastName', e.target.value)} 
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all" 
+                      placeholder="Enter last name"
+                      aria-required="true"
+                    />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth *</label>
-                    <input type="date" value={formData.dateOfBirth} onChange={(e) => updateField('dateOfBirth', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900" />
+                    <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 mb-1.5">Date of Birth *</label>
+                    <input 
+                      id="dateOfBirth"
+                      type="date" 
+                      value={formData.dateOfBirth} 
+                      onChange={(e) => updateField('dateOfBirth', e.target.value)} 
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all" 
+                      aria-required="true"
+                    />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                    <select value={formData.country} onChange={(e) => updateField('country', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900">
+                    <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1.5">Country</label>
+                    <select 
+                      id="country"
+                      value={formData.country} 
+                      onChange={(e) => updateField('country', e.target.value)} 
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all"
+                    >
                       <option value="">Select country</option>
                       {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
@@ -298,18 +333,40 @@ export default function Onboarding({ onComplete }) {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Height (cm) *</label>
-                    <input type="number" value={formData.height} onChange={(e) => updateField('height', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900" />
+                    <label htmlFor="height" className="block text-sm font-medium text-gray-700 mb-1.5">Height (cm) *</label>
+                    <input 
+                      id="height"
+                      type="number" 
+                      value={formData.height} 
+                      onChange={(e) => updateField('height', e.target.value)} 
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all" 
+                      placeholder="e.g., 170"
+                      aria-required="true"
+                    />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg) *</label>
-                    <input type="number" value={formData.weight} onChange={(e) => updateField('weight', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900" />
+                    <label htmlFor="weight" className="block text-sm font-medium text-gray-700 mb-1.5">Weight (kg) *</label>
+                    <input 
+                      id="weight"
+                      type="number" 
+                      value={formData.weight} 
+                      onChange={(e) => updateField('weight', e.target.value)} 
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all" 
+                      placeholder="e.g., 70"
+                      aria-required="true"
+                    />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender *</label>
-                  <select value={formData.gender} onChange={(e) => updateField('gender', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900">
+                  <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-1.5">Gender *</label>
+                  <select 
+                    id="gender"
+                    value={formData.gender} 
+                    onChange={(e) => updateField('gender', e.target.value)} 
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all"
+                    aria-required="true"
+                  >
                     <option value="">Select gender</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>

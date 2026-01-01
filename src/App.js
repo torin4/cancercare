@@ -5052,7 +5052,8 @@ export default function CancerCareApp() {
                       };
                       input.click();
                     }}
-                    className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-lg hover:bg-blue-700 transition"
+                    className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all"
+                    aria-label="Change profile picture"
                   >
                     <Camera className="w-4 h-4" />
                   </button>
@@ -5087,7 +5088,8 @@ export default function CancerCareApp() {
                   {/* Diagnosis and Stage removed from this Information block — shown under Current Status */}
                   <button
                     onClick={() => setShowEditInfo(true)}
-                    className="text-blue-600 text-sm font-medium mt-2 hover:underline"
+                    className="text-blue-600 text-sm font-medium mt-2 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-2 py-1 transition-all"
+                    aria-label="Edit patient information"
                   >
                     Edit Information
                   </button>
