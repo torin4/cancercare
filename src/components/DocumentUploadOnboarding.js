@@ -85,28 +85,28 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
             const isSelected = selectedType === type.id;
             const colorClasses = {
               blue: {
-                border: 'border-blue-200',
-                bg: 'bg-blue-50',
-                selectedBorder: 'border-blue-500',
-                selectedBg: 'bg-blue-50',
-                icon: 'text-blue-600',
-                badge: 'bg-blue-100 text-blue-700'
+                border: 'border-medical-primary-200',
+                bg: 'bg-medical-primary-50',
+                selectedBorder: 'border-medical-primary-500',
+                selectedBg: 'bg-medical-primary-50',
+                icon: 'text-medical-primary-600',
+                badge: 'bg-medical-primary-100 text-medical-primary-700'
               },
               purple: {
-                border: 'border-purple-200',
-                bg: 'bg-purple-50',
-                selectedBorder: 'border-purple-500',
-                selectedBg: 'bg-purple-50',
-                icon: 'text-purple-600',
-                badge: 'bg-purple-100 text-purple-700'
+                border: 'border-medical-secondary-200',
+                bg: 'bg-medical-secondary-50',
+                selectedBorder: 'border-medical-secondary-500',
+                selectedBg: 'bg-medical-secondary-50',
+                icon: 'text-medical-secondary-600',
+                badge: 'bg-medical-secondary-100 text-medical-secondary-700'
               },
               green: {
-                border: 'border-green-200',
-                bg: 'bg-green-50',
-                selectedBorder: 'border-green-500',
-                selectedBg: 'bg-green-50',
-                icon: 'text-green-600',
-                badge: 'bg-green-100 text-green-700'
+                border: 'border-medical-accent-200',
+                bg: 'bg-medical-accent-50',
+                selectedBorder: 'border-medical-accent-500',
+                selectedBg: 'bg-medical-accent-50',
+                icon: 'text-medical-accent-600',
+                badge: 'bg-medical-accent-100 text-medical-accent-700'
               }
             }[type.color];
 

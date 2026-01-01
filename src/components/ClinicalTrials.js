@@ -244,7 +244,7 @@ const ClinicalTrials = ({ onTrialSelected }) => {
   const getEligibilityBadge = (level) => {
     switch (level) {
       case 'highly_eligible':
-        return <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Highly Eligible</span>;
+        return <span className="px-3 py-1 bg-medical-accent-100 text-medical-accent-700 rounded-full text-sm font-medium flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Highly Eligible</span>;
       case 'potentially_eligible':
         return <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-medium flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> Potentially Eligible</span>;
       case 'unlikely_eligible':
@@ -358,9 +358,9 @@ const ClinicalTrials = ({ onTrialSelected }) => {
 
         {/* Match Details */}
         {trial.matchResult && trial.matchResult.matchDetails && (
-          <div className="mb-3 p-3 bg-green-50 rounded-lg">
-            <p className="font-medium text-green-800 text-sm mb-2">Why this matches:</p>
-            <ul className="text-sm text-green-700 space-y-1">
+          <div className="mb-3 p-3 bg-medical-accent-50 rounded-lg">
+            <p className="font-medium text-medical-accent-800 text-sm mb-2">Why this matches:</p>
+            <ul className="text-sm text-medical-accent-700 space-y-1">
               {trial.matchResult.matchDetails.map((detail, idx) => (
                 <li key={idx}>• {detail.detail}</li>
               ))}
@@ -407,14 +407,14 @@ const ClinicalTrials = ({ onTrialSelected }) => {
                 }
               }
             }}
-            className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+            className="flex-1 bg-medical-primary-500 text-white px-4 py-2 rounded-lg hover:bg-medical-primary-600 transition text-sm font-medium shadow-sm"
           >
             View Details
           </button>
           {!isSaved && !savedTrialIds.has(trial.id) ? (
             <button
               onClick={() => handleSaveTrial(trial)}
-              className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-sm font-medium"
+              className="flex-1 bg-medical-accent-500 text-white px-4 py-2 rounded-lg hover:bg-medical-accent-600 transition text-sm font-medium shadow-sm"
             >
               Save Trial
             </button>
@@ -450,28 +450,28 @@ const ClinicalTrials = ({ onTrialSelected }) => {
     <div className="max-w-6xl mx-auto p-4">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Clinical Trials</h1>
-        <p className="text-gray-600">Search and save clinical trials from ClinicalTrials.gov</p>
+        <h1 className="text-3xl font-bold text-medical-neutral-900 mb-2">Clinical Trials</h1>
+        <p className="text-medical-neutral-600">Search and save clinical trials from ClinicalTrials.gov</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-4 mb-6 border-b border-gray-200">
+      <div className="flex gap-4 mb-6 border-b border-medical-neutral-200">
         <button
           onClick={() => setActiveTab('search')}
-          className={`pb-3 px-4 font-medium transition ${
+          className={`pb-3 px-4 font-medium transition-all duration-200 ${
             activeTab === 'search'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-600 hover:text-gray-900'
+              ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
+              : 'text-medical-neutral-600 hover:text-medical-primary-600'
           }`}
         >
           Search Trials
         </button>
         <button
           onClick={() => setActiveTab('saved')}
-          className={`pb-3 px-4 font-medium transition ${
+          className={`pb-3 px-4 font-medium transition-all duration-200 ${
             activeTab === 'saved'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-600 hover:text-gray-900'
+              ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
+              : 'text-medical-neutral-600 hover:text-medical-primary-600'
           }`}
         >
           Saved Trials ({savedTrials.length})
@@ -482,14 +482,14 @@ const ClinicalTrials = ({ onTrialSelected }) => {
       {activeTab === 'search' && (
         <div>
           {/* Search Info */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <h3 className="font-medium text-blue-900 mb-2">Search Criteria</h3>
-            <div className="text-sm text-blue-800 space-y-1">
+          <div className="bg-medical-primary-50 border border-medical-primary-200 rounded-lg p-4 mb-6">
+            <h3 className="font-medium text-medical-primary-900 mb-2">Search Criteria</h3>
+            <div className="text-sm text-medical-primary-800 space-y-1">
               <p><strong>Diagnosis:</strong> {patientProfile?.diagnosis || 'Not set'}</p>
               <p><strong>Age:</strong> {patientProfile?.age || 'Not set'}</p>
               <p><strong>Gender:</strong> {patientProfile?.gender || 'Not set'}</p>
               {genomicProfile && (
-                <p className="flex items-center gap-1"><strong>Genomic Profile:</strong> <CheckCircle className="w-4 h-4 text-green-600" /> Available (will be used for matching)</p>
+                <p className="flex items-center gap-1"><strong>Genomic Profile:</strong> <CheckCircle className="w-4 h-4 text-medical-accent-600" /> Available (will be used for matching)</p>
               )}
               {trialLocation && (
                 <p className="flex items-center gap-2">
@@ -515,7 +515,7 @@ const ClinicalTrials = ({ onTrialSelected }) => {
           <button
             onClick={handleSearchTrials}
             disabled={searching || !patientProfile?.diagnosis}
-            className="w-full bg-green-600 text-white px-6 py-4 rounded-lg hover:bg-green-700 transition font-medium text-lg mb-6 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="w-full bg-medical-primary-500 text-white px-6 py-4 rounded-lg hover:bg-medical-primary-600 transition font-medium text-lg mb-6 disabled:bg-medical-neutral-400 disabled:cursor-not-allowed shadow-sm"
           >
             {searching ? (
               <span className="flex items-center gap-2"><SearchIcon className="w-5 h-5" /> Searching sources...</span>
@@ -555,7 +555,7 @@ const ClinicalTrials = ({ onTrialSelected }) => {
                     <button
                       onClick={handleLoadMore}
                       disabled={loadingMore || searching}
-                      className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      className="px-6 py-3 bg-medical-primary-500 text-white rounded-lg font-medium hover:bg-medical-primary-600 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm"
                     >
                       {loadingMore ? (
                         <>
@@ -625,7 +625,7 @@ const ClinicalTrials = ({ onTrialSelected }) => {
                   href={error.match(/https:\/\/[^\s]+/)?.[0]} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline text-sm block mb-2"
+                  className="text-medical-primary-600 hover:underline text-sm block mb-2"
                 >
                   Click here to create the required index →
                 </a>
@@ -722,7 +722,7 @@ const ClinicalTrials = ({ onTrialSelected }) => {
                       onTrialSelected(selectedTrial);
                       setSelectedTrial(null);
                     }}
-                    className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-center font-medium"
+                    className="flex-1 bg-medical-accent-500 text-white px-4 py-2 rounded-lg hover:bg-medical-accent-600 transition text-center font-medium shadow-sm"
                   >
                     Ask About This Trial
                   </button>
@@ -731,7 +731,7 @@ const ClinicalTrials = ({ onTrialSelected }) => {
                   href={selectedTrial.url || (selectedTrial.id ? `https://clinicaltrials.gov/study/${selectedTrial.id}` : '#')}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-center font-medium"
+                  className="flex-1 bg-medical-primary-500 text-white px-4 py-2 rounded-lg hover:bg-medical-primary-600 transition text-center font-medium shadow-sm"
                 >
                   View on ClinicalTrials.gov
                 </a>

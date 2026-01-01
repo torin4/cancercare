@@ -1,3 +1,57 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  body {
+    @apply font-sans antialiased;
+  }
+}
+
+@layer components {
+  /* Medical-themed button styles */
+  .btn-primary {
+    @apply bg-medical-primary-500 text-white px-6 py-2.5 rounded-lg font-medium transition-all duration-200 hover:bg-medical-primary-600 active:scale-98 shadow-sm hover:shadow-md;
+  }
+  
+  .btn-secondary {
+    @apply bg-medical-secondary-500 text-white px-6 py-2.5 rounded-lg font-medium transition-all duration-200 hover:bg-medical-secondary-600 active:scale-98 shadow-sm hover:shadow-md;
+  }
+  
+  .btn-outline {
+    @apply border-2 border-medical-primary-500 text-medical-primary-600 px-6 py-2.5 rounded-lg font-medium transition-all duration-200 hover:bg-medical-primary-50 active:scale-98;
+  }
+  
+  /* Card styles */
+  .card {
+    @apply bg-white rounded-xl p-6 shadow-sm border border-medical-neutral-200 hover:shadow-md transition-shadow duration-200;
+  }
+  
+  .card-header {
+    @apply text-lg font-semibold text-medical-neutral-900 mb-4;
+  }
+  
+  /* Input styles */
+  .input-medical {
+    @apply w-full px-4 py-2.5 border border-medical-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all duration-200;
+  }
+  
+  /* Status badges */
+  .badge-success {
+    @apply px-3 py-1 bg-medical-accent-100 text-medical-accent-700 rounded-full text-xs font-medium;
+  }
+  
+  .badge-warning {
+    @apply px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium;
+  }
+  
+  .badge-danger {
+    @apply px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium;
+  }
+  
+  .badge-info {
+    @apply px-3 py-1 bg-medical-primary-100 text-medical-primary-700 rounded-full text-xs font-medium;
+  }
+}

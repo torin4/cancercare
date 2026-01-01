@@ -248,8 +248,8 @@ export default function Onboarding({ onComplete }) {
           {step === 1 && (
             <div className="space-y-6 animate-fade-scale">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                  <User className="w-6 h-6 text-blue-600" />
+                <div className="w-12 h-12 bg-medical-primary-100 rounded-full flex items-center justify-center">
+                  <User className="w-6 h-6 text-medical-primary-600" />
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">Patient Information</h2>
@@ -305,8 +305,8 @@ export default function Onboarding({ onComplete }) {
           {step === 2 && (
             <div className="space-y-6 animate-fade-scale">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                  <Search className="w-6 h-6 text-green-600" />
+                <div className="w-12 h-12 bg-medical-accent-100 rounded-full flex items-center justify-center">
+                  <Search className="w-6 h-6 text-medical-accent-600" />
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">Diagnosis</h2>

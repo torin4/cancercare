@@ -46,15 +46,15 @@ export default function Login({ onLoginSuccess }) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-medical-primary-50 to-medical-secondary-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md animate-fade-scale">
         {/* Logo/Header */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Activity className="w-8 h-8 text-green-600" />
+          <div className="w-16 h-16 bg-medical-primary-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+            <Activity className="w-8 h-8 text-medical-primary-600" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">CancerCare</h1>
-          <p className="text-sm text-gray-600 mt-2">
+          <h1 className="text-2xl font-bold text-medical-neutral-900">CancerCare</h1>
+          <p className="text-sm text-medical-neutral-600 mt-2">
             {isSignUp ? 'Create your account' : 'Sign in to continue'}
           </p>
         </div>
@@ -71,17 +71,17 @@ export default function Login({ onLoginSuccess }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Email Input */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-medical-neutral-700 mb-1">
               Email
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-medical-neutral-400" />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2.5 border border-medical-neutral-300 rounded-lg focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all duration-200"
                 placeholder="your@email.com"
                 disabled={loading}
               />
@@ -90,24 +90,24 @@ export default function Login({ onLoginSuccess }) {
 
           {/* Password Input */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-medical-neutral-700 mb-1">
               Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-medical-neutral-400" />
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2.5 border border-medical-neutral-300 rounded-lg focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all duration-200"
                 placeholder="••••••••"
                 disabled={loading}
               />
             </div>
             {isSignUp && (
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-medical-neutral-500 mt-1">
                 Password must be at least 6 characters
               </p>
             )}
@@ -117,7 +117,7 @@ export default function Login({ onLoginSuccess }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-green-600 text-white py-2.5 rounded-lg font-medium hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-medical-primary-500 text-white py-2.5 rounded-lg font-medium hover:bg-medical-primary-600 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
           >
             {loading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
           </button>
@@ -169,7 +169,7 @@ export default function Login({ onLoginSuccess }) {
               setIsSignUp(!isSignUp);
               setError('');
             }}
-            className="text-sm text-green-600 hover:text-green-700 font-medium"
+            className="text-sm text-medical-primary-600 hover:text-medical-primary-700 font-medium"
             disabled={loading}
           >
             {isSignUp
@@ -179,8 +179,8 @@ export default function Login({ onLoginSuccess }) {
         </div>
 
         {/* Info Note */}
-        <div className="mt-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-xs text-blue-700">
+        <div className="mt-6 p-3 bg-medical-primary-50 border border-medical-primary-200 rounded-lg">
+          <p className="text-xs text-medical-primary-700">
             <strong>Note:</strong> For first-time use, create an account. Your email will be used as your patient ID.
           </p>
         </div>
