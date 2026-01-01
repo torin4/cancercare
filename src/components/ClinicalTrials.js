@@ -642,7 +642,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
           <button
             onClick={handleSearchTrials}
             disabled={searching || !patientProfile?.diagnosis}
-            className="w-full bg-medical-accent-500 text-white px-6 py-3.5 rounded-lg hover:bg-medical-accent-600 transition font-medium text-base sm:text-lg mb-6 disabled:bg-medical-neutral-400 disabled:cursor-not-allowed shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+            className="w-full border-2 border-medical-accent-500 text-medical-accent-600 px-6 py-3.5 rounded-lg hover:bg-medical-accent-50 transition font-medium text-base sm:text-lg mb-6 disabled:border-medical-neutral-400 disabled:text-medical-neutral-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {searching ? (
               <span className="flex items-center gap-2"><SearchIcon className="w-5 h-5" /> Searching sources...</span>
@@ -682,7 +682,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                     <button
                       onClick={handleLoadMore}
                       disabled={loadingMore || searching}
-                      className="px-6 py-3 bg-medical-accent-500 text-white rounded-lg font-medium hover:bg-medical-accent-600 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm hover:shadow-md"
+                      className="px-6 py-3 border-2 border-medical-accent-500 text-medical-accent-600 rounded-lg font-medium hover:bg-medical-accent-50 transition disabled:border-medical-neutral-400 disabled:text-medical-neutral-400 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       {loadingMore ? (
                         <>
@@ -950,7 +950,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                     onTrialSelected(selectedTrial);
                     setSelectedTrial(null);
                   }}
-                  className="flex-1 bg-medical-accent-500 text-white px-6 py-3 rounded-lg hover:bg-medical-accent-600 transition-all duration-200 font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                  className="flex-1 border-2 border-medical-accent-500 text-medical-accent-600 px-6 py-3 rounded-lg hover:bg-medical-accent-50 transition-all duration-200 font-semibold flex items-center justify-center gap-2"
                 >
                   <MessageSquare className="w-5 h-5" />
                   Ask About This Trial
@@ -960,7 +960,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                 href={selectedTrial.url || (selectedTrial.id ? `https://clinicaltrials.gov/study/${selectedTrial.id}` : '#')}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 bg-medical-accent-500 text-white px-6 py-3 rounded-lg hover:bg-medical-accent-600 transition-all duration-200 text-center font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                className="flex-1 border-2 border-medical-accent-500 text-medical-accent-600 px-6 py-3 rounded-lg hover:bg-medical-accent-50 transition-all duration-200 text-center font-semibold flex items-center justify-center gap-2"
               >
                 <Globe className="w-5 h-5" />
                 View on ClinicalTrials.gov
@@ -1068,7 +1068,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             <div className="border-t border-medical-neutral-200 p-4 flex gap-3 flex-shrink-0">
               <button
                 onClick={() => setShowEditLocation(false)}
-                className="flex-1 bg-medical-neutral-200 text-medical-neutral-700 py-2.5 rounded-lg font-medium hover:bg-medical-neutral-300 transition"
+                className="flex-1 border-2 border-medical-neutral-500 text-medical-neutral-700 py-2.5 rounded-lg font-medium hover:bg-medical-neutral-50 transition"
               >
                 Cancel
               </button>
@@ -1088,7 +1088,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                     alert('Failed to save location settings. Please try again.');
                   }
                 }}
-                className="flex-1 bg-medical-primary-500 text-white py-2.5 rounded-lg font-medium hover:bg-medical-primary-600 transition shadow-sm"
+                className="flex-1 border-2 border-medical-primary-500 text-medical-primary-600 py-2.5 rounded-lg font-medium hover:bg-medical-primary-50 transition"
               >
                 Save
               </button>
