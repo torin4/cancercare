@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, AlertTriangle, XCircle, Star, Search as SearchIcon, MapPin, Globe, X, AlertCircle, MessageSquare, Bookmark } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, Star, Search as SearchIcon, MapPin, Globe, X, AlertCircle, MessageSquare, Bookmark, FlaskConical } from 'lucide-react';
 import { auth } from '../firebase/config';
 import { patientService, genomicProfileService, clinicalTrialsService, trialLocationService } from '../firebase/services';
 import { getTrialDetails } from '../services/clinicalTrials/trialSearchService';
@@ -29,14 +29,36 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
   const [searching, setSearching] = useState(false);
   const [activeTab, setActiveTab] = useState('search'); // 'search' or 'saved'
 
-  const [searchResults, setSearchResults] = useState([]);
-  const [searchSources, setSearchSources] = useState([]);
+  const [searchResults, setSearchResults] = useState(() => {
+    // Load persisted search results from localStorage
+    try {
+      const saved = localStorage.getItem('clinicalTrials_searchResults');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [searchSources, setSearchSources] = useState(() => {
+    try {
+      const saved = localStorage.getItem('clinicalTrials_searchSources');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [searchProgress, setSearchProgress] = useState(null);
   const [savedTrials, setSavedTrials] = useState([]);
   const [savedTrialIds, setSavedTrialIds] = useState(new Set()); // Track which trial IDs are saved
   const [selectedTrial, setSelectedTrial] = useState(null);
   const [loadingTrialDetails, setLoadingTrialDetails] = useState(false);
-  const [pagination, setPagination] = useState(null);
+  const [pagination, setPagination] = useState(() => {
+    try {
+      const saved = localStorage.getItem('clinicalTrials_pagination');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [loadingMore, setLoadingMore] = useState(false);
 
   const [patientProfile, setPatientProfile] = useState(null);
@@ -51,6 +73,11 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
     loadPatientData();
     // Always load saved trials to get accurate count (silently in background)
     loadSavedTrials(false);
+    
+    // Restore saved trial IDs from persisted search results
+    if (searchResults.length > 0) {
+      checkSavedStatus(searchResults);
+    }
   }, []); // Load once on mount
 
   // Reset search results when health data is cleared (resetKey changes)
@@ -62,6 +89,14 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
       setPagination(null);
       setSelectedTrial(null);
       setError(null);
+      // Clear persisted search state
+      try {
+        localStorage.removeItem('clinicalTrials_searchResults');
+        localStorage.removeItem('clinicalTrials_searchSources');
+        localStorage.removeItem('clinicalTrials_pagination');
+      } catch (error) {
+        console.error('Error clearing search state:', error);
+      }
       // Reload patient data to get updated profile
       loadPatientData();
       // Reload saved trials (they should be empty after clearHealthData)
@@ -201,6 +236,18 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
           ? results.searchSources
           : Array.from(new Set((results.trials || []).map(t => t.source || t.sourceName).filter(Boolean)));
         setSearchSources(sources);
+        
+        // Persist search state to localStorage
+        try {
+          localStorage.setItem('clinicalTrials_searchResults', JSON.stringify(results.trials));
+          localStorage.setItem('clinicalTrials_searchSources', JSON.stringify(sources));
+          if (results.pagination) {
+            localStorage.setItem('clinicalTrials_pagination', JSON.stringify(results.pagination));
+          }
+        } catch (error) {
+          console.error('Error saving search state:', error);
+        }
+        
         // Check saved status for search results
         if (results.trials && results.trials.length > 0) {
           checkSavedStatus(results.trials);
@@ -487,9 +534,14 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-medical-neutral-900 mb-2">Clinical Trials</h1>
-        <p className="text-sm sm:text-base text-medical-neutral-600">Search and save clinical trials from ClinicalTrials.gov</p>
+      <div className="mb-6 flex items-center gap-3">
+        <div className="bg-medical-accent-50 p-2.5 rounded-lg">
+          <FlaskConical className="w-6 h-6 text-medical-accent-600" />
+        </div>
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-medical-neutral-900 mb-1">Clinical Trials</h1>
+          <p className="text-sm sm:text-base text-medical-neutral-600">Search and save clinical trials from ClinicalTrials.gov</p>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -498,8 +550,8 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
           onClick={() => setActiveTab('search')}
           className={`pb-3 px-4 font-medium transition-all duration-200 flex items-center gap-2 ${
             activeTab === 'search'
-              ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
-              : 'text-medical-neutral-600 hover:text-medical-primary-600'
+              ? 'text-medical-accent-600 border-b-2 border-medical-accent-600'
+              : 'text-medical-neutral-600 hover:text-medical-accent-600'
           }`}
         >
           <SearchIcon className="w-4 h-4" />
@@ -509,8 +561,8 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
           onClick={() => setActiveTab('saved')}
           className={`pb-3 px-4 font-medium transition-all duration-200 flex items-center gap-2 ${
             activeTab === 'saved'
-              ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
-              : 'text-medical-neutral-600 hover:text-medical-primary-600'
+              ? 'text-medical-accent-600 border-b-2 border-medical-accent-600'
+              : 'text-medical-neutral-600 hover:text-medical-accent-600'
           }`}
         >
           <Bookmark className="w-4 h-4" />
@@ -522,9 +574,9 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
       {activeTab === 'search' && (
         <div>
           {/* Search Info */}
-          <div className="bg-medical-primary-50 border border-medical-primary-200 rounded-lg p-4 sm:p-5 mb-6">
-            <h3 className="font-medium text-medical-primary-900 mb-2">Search Criteria</h3>
-            <div className="text-sm text-medical-primary-800 space-y-1">
+          <div className="bg-medical-accent-50 border border-medical-accent-200 rounded-lg p-4 sm:p-5 mb-6">
+            <h3 className="font-medium text-medical-accent-900 mb-2">Search Criteria</h3>
+            <div className="text-sm text-medical-accent-800 space-y-1">
               <p><strong>Diagnosis:</strong> {patientProfile?.diagnosis || 'Not set'}</p>
               <p><strong>Age:</strong> {patientProfile?.age || 'Not set'}</p>
               <p><strong>Gender:</strong> {patientProfile?.gender || 'Not set'}</p>
@@ -542,17 +594,17 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                   <strong>Search Location:</strong> {
                     trialLocation.includeAllLocations 
                       ? (
-                        <span className="flex items-center gap-1 text-medical-primary-600">
+                        <span className="flex items-center gap-1 text-medical-accent-600">
                           <Globe className="w-4 h-4" /> Global (All Countries)
                         </span>
                       )
                       : (
-                        <span className="flex items-center gap-1 text-medical-primary-600">
+                        <span className="flex items-center gap-1 text-medical-accent-600">
                           <MapPin className="w-4 h-4" /> {trialLocation.country}
                         </span>
                       )
                   }
-                  <span className="text-xs text-medical-primary-500 ml-1">(Click to change)</span>
+                  <span className="text-xs text-medical-accent-500 ml-1">(Click to change)</span>
                 </button>
               )}
             </div>
@@ -562,7 +614,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
           <button
             onClick={handleSearchTrials}
             disabled={searching || !patientProfile?.diagnosis}
-            className="w-full bg-medical-primary-500 text-white px-6 py-3.5 rounded-lg hover:bg-medical-primary-600 transition font-medium text-base sm:text-lg mb-6 disabled:bg-medical-neutral-400 disabled:cursor-not-allowed shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+            className="w-full bg-medical-accent-500 text-white px-6 py-3.5 rounded-lg hover:bg-medical-accent-600 transition font-medium text-base sm:text-lg mb-6 disabled:bg-medical-neutral-400 disabled:cursor-not-allowed shadow-sm hover:shadow-md flex items-center justify-center gap-2"
           >
             {searching ? (
               <span className="flex items-center gap-2"><SearchIcon className="w-5 h-5" /> Searching sources...</span>
@@ -602,7 +654,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                     <button
                       onClick={handleLoadMore}
                       disabled={loadingMore || searching}
-                      className="px-6 py-3 bg-medical-primary-500 text-white rounded-lg font-medium hover:bg-medical-primary-600 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm"
+                      className="px-6 py-3 bg-medical-accent-500 text-white rounded-lg font-medium hover:bg-medical-accent-600 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm hover:shadow-md"
                     >
                       {loadingMore ? (
                         <>
@@ -718,15 +770,15 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
               {selectedTrial.titleJa && selectedTrial.title !== selectedTrial.titleJa && (
-                <div className="bg-medical-primary-50 border border-medical-primary-200 rounded-lg p-3">
-                  <p className="text-sm text-medical-primary-800">{selectedTrial.titleJa}</p>
+                <div className="bg-medical-accent-50 border border-medical-accent-200 rounded-lg p-3">
+                  <p className="text-sm text-medical-accent-800">{selectedTrial.titleJa}</p>
                 </div>
               )}
 
               {/* Summary */}
               <div className="bg-white rounded-lg border border-medical-neutral-200 p-4">
                 <h3 className="font-semibold text-medical-neutral-900 mb-3 flex items-center gap-2">
-                  <SearchIcon className="w-5 h-5 text-medical-primary-600" />
+                  <SearchIcon className="w-5 h-5 text-medical-accent-600" />
                   Summary
                 </h3>
                 {loadingTrialDetails ? (
@@ -790,7 +842,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                 return (
                   <div className="bg-white rounded-lg border border-medical-neutral-200 p-4">
                     <h3 className="font-semibold text-medical-neutral-900 mb-3 flex items-center gap-2">
-                      <MapPin className="w-5 h-5 text-medical-primary-600" />
+                      <MapPin className="w-5 h-5 text-medical-accent-600" />
                       Study Locations
                     </h3>
                     <ul className="space-y-3">
@@ -829,27 +881,27 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                             key={idx} 
                             className={`rounded-lg p-3 border ${
                               isSelectedLocation
-                                ? 'bg-medical-primary-50 border-medical-primary-300 border-2'
+                                ? 'bg-medical-accent-50 border-medical-accent-300 border-2'
                                 : 'bg-medical-neutral-50 border-medical-neutral-200'
                             }`}
                           >
                             {isSelectedLocation && (
                               <div className="flex items-center gap-2 mb-2">
-                                <CheckCircle className="w-4 h-4 text-medical-primary-600" />
-                                <span className="text-xs font-semibold text-medical-primary-700 uppercase tracking-wide">
+                                <CheckCircle className="w-4 h-4 text-medical-accent-600" />
+                                <span className="text-xs font-semibold text-medical-accent-700 uppercase tracking-wide">
                                   Your Selected Location
                                 </span>
                               </div>
                             )}
                             {facilityName && (
                               <div className={`font-semibold mb-1 ${
-                                isSelectedLocation ? 'text-medical-primary-900' : 'text-medical-neutral-900'
+                                isSelectedLocation ? 'text-medical-accent-900' : 'text-medical-neutral-900'
                               }`}>
                                 {facilityName}
                               </div>
                             )}
                             <div className={`text-sm ${
-                              isSelectedLocation ? 'text-medical-primary-800' : 'text-medical-neutral-700'
+                              isSelectedLocation ? 'text-medical-accent-800' : 'text-medical-neutral-700'
                             }`}>
                               {locationText}
                             </div>
@@ -870,7 +922,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                     onTrialSelected(selectedTrial);
                     setSelectedTrial(null);
                   }}
-                  className="flex-1 bg-medical-primary-500 text-white px-6 py-3 rounded-lg hover:bg-medical-primary-600 transition-all duration-200 font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                  className="flex-1 bg-medical-accent-500 text-white px-6 py-3 rounded-lg hover:bg-medical-accent-600 transition-all duration-200 font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
                 >
                   <MessageSquare className="w-5 h-5" />
                   Ask About This Trial
