@@ -109,6 +109,7 @@ export default function CancerCareApp() {
   const [healthSection, setHealthSection] = useState('labs'); // 'labs', 'vitals', 'symptoms', 'medications'
   const [selectedLab, setSelectedLab] = useState('ca125');
   const [selectedDate, setSelectedDate] = useState(null);
+  const [symptomCalendarDate, setSymptomCalendarDate] = useState(new Date()); // Current month/year for symptoms calendar
   const [showAddMedication, setShowAddMedication] = useState(false);
   const [savedTrials, setSavedTrials] = useState([]);
   const [loadingSavedTrials, setLoadingSavedTrials] = useState(false);
@@ -4905,8 +4906,7 @@ export default function CancerCareApp() {
                         const dayStr = day.toString();
                         const hasSymptoms = symptomsByDate[dayStr];
                         // Check if this is today's date
-                        const today = new Date();
-                        const isToday = today.getDate() === day && today.getMonth() === 11 && today.getFullYear() === 2024;
+                        const isToday = isCurrentMonth && today.getDate() === day;
                         const uniqueSymptomTypes = hasSymptoms ? [...new Set(hasSymptoms.map(s => s.type))] : [];
 
                         calendar.push(
@@ -4922,13 +4922,13 @@ export default function CancerCareApp() {
                               }
                             }}
                             className={`aspect-square rounded-lg flex flex-col items-center justify-center text-sm transition-all relative ${isToday
-                              ? 'bg-green-100 border-2 border-green-500 font-bold'
+                              ? 'bg-medical-primary-50 border-2 border-medical-primary-500 font-bold'
                               : hasSymptoms
                                 ? 'hover:bg-gray-100 border border-gray-200'
                                 : 'border border-transparent text-gray-400'
-                              } ${selectedDate === dayStr ? 'ring-2 ring-blue-500 bg-blue-50' : ''}`}
+                              } ${selectedDate === dayStr ? 'ring-2 ring-medical-primary-500 bg-medical-primary-50' : ''}`}
                           >
-                            <span className={isToday ? 'text-green-700' : hasSymptoms ? 'text-gray-900' : ''}>{day}</span>
+                            <span className={isToday ? 'text-medical-primary-700' : hasSymptoms ? 'text-gray-900' : ''}>{day}</span>
 
                             {/* Symptom dots */}
                             {hasSymptoms && (
@@ -4954,7 +4954,9 @@ export default function CancerCareApp() {
                           {selectedDate && symptomsByDate[selectedDate] && (
                             <div className="col-span-7 mt-4 bg-gray-50 rounded-lg p-4 animate-fade-scale">
                               <div className="flex items-center justify-between mb-3">
-                                <h4 className="font-semibold text-gray-800">December {selectedDate}, 2024</h4>
+                                <h4 className="font-semibold text-gray-800">
+                                  {symptomCalendarDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).replace(selectedDate, selectedDate)}
+                                </h4>
                                 <button
                                   onClick={() => setSelectedDate(null)}
                                   className="text-gray-500 hover:text-gray-700"
