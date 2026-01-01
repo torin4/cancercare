@@ -1912,6 +1912,20 @@ export default function CancerCareApp() {
     }
   }, [labsData]);
 
+  // Auto-select first available vital when data loads
+  useEffect(() => {
+    if (Object.keys(vitalsData).length > 0) {
+      // Check if current selection is valid
+      if (!vitalsData[selectedVital] || !vitalsData[selectedVital].data || vitalsData[selectedVital].data.length === 0) {
+        // Find first vital with data
+        const firstVital = Object.keys(vitalsData).find(key => vitalsData[key] && vitalsData[key].data && vitalsData[key].data.length > 0);
+        if (firstVital) {
+          setSelectedVital(firstVital);
+        }
+      }
+    }
+  }, [vitalsData]);
+
 
   // Load saved trials when dashboard is active
   useEffect(() => {
@@ -3066,9 +3080,101 @@ export default function CancerCareApp() {
                                 onChange={(e) => setSelectedLab(e.target.value)}
                                 className="text-sm border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 focus:ring-2 focus:ring-green-500"
                               >
-                                {Object.keys(allLabData).filter(key => allLabData[key].isNumeric).map(key => (
-                                  <option key={key} value={key}>{allLabData[key].name}</option>
-                                ))}
+                                {(() => {
+                                  // Organize labs by category
+                                  const categoryMap = {
+                                    'disease_specific_markers': 'Disease-Specific Markers',
+                                    'liver_function': 'Liver Function',
+                                    'kidney_function': 'Kidney Function',
+                                    'blood_counts': 'Blood Counts',
+                                    'thyroid_function': 'Thyroid Function',
+                                    'cardiac_markers': 'Cardiac Markers',
+                                    'inflammation': 'Inflammation',
+                                    'electrolytes': 'Electrolytes',
+                                    'coagulation': 'Coagulation',
+                                    'other': 'Others'
+                                  };
+
+                                  // Map canonical keys to categories (from categorizeLabs function)
+                                  const canonicalKeyToCategory = {
+                                    'ca125': 'disease_specific_markers', 'ca199': 'disease_specific_markers', 'ca153': 'disease_specific_markers',
+                                    'ca724': 'disease_specific_markers', 'ca242': 'disease_specific_markers', 'ca50': 'disease_specific_markers',
+                                    'ca2729': 'disease_specific_markers', 'cea': 'disease_specific_markers', 'afp': 'disease_specific_markers',
+                                    'psa': 'disease_specific_markers', 'he4': 'disease_specific_markers', 'inhibinb': 'disease_specific_markers',
+                                    'romaindex': 'disease_specific_markers', 'scc_antigen': 'disease_specific_markers',
+                                    'cyfra211': 'disease_specific_markers', 'nse': 'disease_specific_markers', 'betahcg': 'disease_specific_markers',
+                                    'alt': 'liver_function', 'ast': 'liver_function', 'ast_alt_ratio': 'liver_function',
+                                    'alp': 'liver_function', 'alp_ifcc': 'liver_function', 'bilirubin_total': 'liver_function',
+                                    'bilirubin_direct': 'liver_function', 'bilirubin_indirect': 'liver_function',
+                                    'albumin': 'liver_function', 'ggt': 'liver_function', 'ldh': 'liver_function',
+                                    'creatinine': 'kidney_function', 'egfr': 'kidney_function', 'bun': 'kidney_function',
+                                    'urea': 'kidney_function', 'urineprotein': 'kidney_function', 'urinecreatinine': 'kidney_function',
+                                    'wbc': 'blood_counts', 'rbc': 'blood_counts', 'hemoglobin': 'blood_counts',
+                                    'hematocrit': 'blood_counts', 'platelets': 'blood_counts', 'anc': 'blood_counts',
+                                    'neutrophils_abs': 'blood_counts', 'neutrophils_pct': 'blood_counts',
+                                    'lymphocytes_abs': 'blood_counts', 'lymphocytes_pct': 'blood_counts',
+                                    'monocytes_abs': 'blood_counts', 'monocytes_pct': 'blood_counts',
+                                    'eosinophils_abs': 'blood_counts', 'eosinophils_pct': 'blood_counts',
+                                    'basophils_abs': 'blood_counts', 'basophils_pct': 'blood_counts',
+                                    'mcv': 'blood_counts', 'mch': 'blood_counts', 'mchc': 'blood_counts',
+                                    'rdw': 'blood_counts', 'rdw_cv': 'blood_counts',
+                                    'mpv': 'blood_counts', 'nrbc': 'blood_counts', 'nrbc_pct': 'blood_counts',
+                                    'reticulocyte_count': 'blood_counts', 'reticulocyte_pct': 'blood_counts',
+                                    'tsh': 'thyroid_function', 't3': 'thyroid_function', 't4': 'thyroid_function',
+                                    'ft3': 'thyroid_function', 'ft4': 'thyroid_function', 'thyroglobulin': 'thyroid_function',
+                                    'troponin': 'cardiac_markers', 'bnp': 'cardiac_markers', 'ntprobnp': 'cardiac_markers',
+                                    'ckmb': 'cardiac_markers', 'myoglobin': 'cardiac_markers',
+                                    'crp': 'inflammation', 'esr': 'inflammation', 'ferritin': 'inflammation',
+                                    'il6': 'inflammation',
+                                    'sodium': 'electrolytes', 'potassium': 'electrolytes', 'chloride': 'electrolytes',
+                                    'bicarbonate': 'electrolytes', 'co2': 'electrolytes', 'magnesium': 'electrolytes',
+                                    'phosphorus': 'electrolytes', 'calcium': 'electrolytes', 'calcium_ionized': 'electrolytes',
+                                    'phosphate': 'electrolytes',
+                                    'pt': 'coagulation', 'inr': 'coagulation', 'aptt': 'coagulation',
+                                    'ddimer': 'coagulation', 'fdp': 'coagulation', 'fibrinogen': 'coagulation',
+                                    'antithrombin_iii': 'coagulation', 'protein_c': 'coagulation', 'protein_s': 'coagulation',
+                                    'glucose': 'other', 'hba1c': 'other', 'iga': 'other', 'igg': 'other', 'igm': 'other', 'vitamin_d': 'other',
+                                    'beta2_microglobulin': 'other', 'procalcitonin': 'other'
+                                  };
+
+                                  // Group labs by category
+                                  const labsByCategory = {};
+                                  Object.keys(allLabData)
+                                    .filter(key => allLabData[key].isNumeric)
+                                    .forEach(key => {
+                                      const canonicalKey = normalizeLabName(key) || key.toLowerCase();
+                                      const category = canonicalKeyToCategory[canonicalKey] || 'other';
+                                      const uiCategory = categoryMap[category] || 'Others';
+                                      
+                                      if (!labsByCategory[uiCategory]) {
+                                        labsByCategory[uiCategory] = [];
+                                      }
+                                      labsByCategory[uiCategory].push({
+                                        key,
+                                        displayName: getLabDisplayName(key) || allLabData[key].name
+                                      });
+                                    });
+
+                                  // Sort categories by predefined order
+                                  const categoryOrder = [
+                                    'Disease-Specific Markers', 'Blood Counts', 'Liver Function', 'Kidney Function',
+                                    'Electrolytes', 'Coagulation', 'Thyroid Function', 'Cardiac Markers',
+                                    'Inflammation', 'Others'
+                                  ];
+
+                                  // Render optgroups
+                                  return categoryOrder
+                                    .filter(cat => labsByCategory[cat] && labsByCategory[cat].length > 0)
+                                    .map(category => (
+                                      <optgroup key={category} label={category}>
+                                        {labsByCategory[category]
+                                          .sort((a, b) => a.displayName.localeCompare(b.displayName))
+                                          .map(({ key, displayName }) => (
+                                            <option key={key} value={key}>{displayName}</option>
+                                          ))}
+                                      </optgroup>
+                                    ));
+                                })()}
                               </select>
                             </div>
 
@@ -3393,11 +3499,17 @@ export default function CancerCareApp() {
                                                         e.stopPropagation();
                                                         if (window.confirm(`Delete this ${currentLab.name} reading (${d.value} ${currentLab.unit} on ${d.date})?`)) {
                                                           try {
+                                                            console.log('Deleting lab with ID:', d.id);
                                                             await labService.deleteLab(d.id);
+                                                            console.log('Lab deleted, waiting for Firestore to sync...');
+                                                            // Wait a moment for Firestore to sync, then reload
+                                                            await new Promise(resolve => setTimeout(resolve, 500));
                                                             // Reload data to reflect deletion
                                                             const labs = await labService.getLabs(user.uid);
+                                                            console.log('Reloaded labs:', labs.length);
                                                             const transformedLabs = transformLabsData(labs);
                                                             setLabsData(transformedLabs);
+                                                            console.log('Updated labs data:', Object.keys(transformedLabs));
                                                           } catch (error) {
                                                             console.error('Error deleting lab:', error);
                                                             alert('Failed to delete lab reading. Please try again.');
@@ -3538,9 +3650,14 @@ export default function CancerCareApp() {
                                                   const count = lab.data?.length || 0;
                                                   if (window.confirm(`Delete all ${displayName} data? This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'}. This action cannot be undone.`)) {
                                                     try {
-                                                      await labService.deleteAllLabsByType(user.uid, labType);
+                                                      console.log('Deleting all labs of type:', labType);
+                                                      const deletedCount = await labService.deleteAllLabsByType(user.uid, labType);
+                                                      console.log('Deleted labs count:', deletedCount);
+                                                      // Wait a moment for Firestore to sync
+                                                      await new Promise(resolve => setTimeout(resolve, 500));
                                                       // Reload data to reflect deletion
                                                       const labs = await labService.getLabs(user.uid);
+                                                      console.log('Reloaded labs after bulk delete:', labs.length);
                                                       const transformedLabs = transformLabsData(labs);
                                                       setLabsData(transformedLabs);
                                                     } catch (error) {
@@ -3705,20 +3822,61 @@ export default function CancerCareApp() {
                           <div className="flex items-center justify-between mb-4">
                             <h2 className="text-base sm:text-lg font-semibold text-gray-900">Vital Signs</h2>
                             <div className="flex items-center gap-2">
-                              <select
-                                value={selectedVital}
-                                onChange={(e) => setSelectedVital(e.target.value)}
-                                className="text-sm border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 focus:ring-2 focus:ring-green-500"
-                              >
-                                {Object.keys(allVitalsData).map(key => {
-                                  const vital = allVitalsData[key];
-                                  // Use normalized display name
-                                  const displayName = getVitalDisplayName(vital.name || key);
-                                  return (
-                                    <option key={key} value={key}>{displayName}</option>
-                                  );
-                                })}
-                              </select>
+                              {Object.keys(allVitalsData).length > 0 ? (
+                                <select
+                                  value={selectedVital}
+                                  onChange={(e) => setSelectedVital(e.target.value)}
+                                  className="text-sm border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 focus:ring-2 focus:ring-green-500"
+                                >
+                                  {(() => {
+                                    // Organize vitals by category
+                                    const vitalCategoryMap = {
+                                      'blood_pressure': 'Cardiovascular',
+                                      'heart_rate': 'Cardiovascular',
+                                      'oxygen_saturation': 'Respiratory',
+                                      'respiratory_rate': 'Respiratory',
+                                      'temperature': 'General',
+                                      'weight': 'Metabolic'
+                                    };
+
+                                    // Group vitals by category
+                                    const vitalsByCategory = {};
+                                    Object.keys(allVitalsData).forEach(key => {
+                                      const vital = allVitalsData[key];
+                                      const canonicalKey = normalizeVitalName(key) || key.toLowerCase();
+                                      const category = vitalCategoryMap[canonicalKey] || 'General';
+                                      
+                                      if (!vitalsByCategory[category]) {
+                                        vitalsByCategory[category] = [];
+                                      }
+                                      vitalsByCategory[category].push({
+                                        key,
+                                        displayName: getVitalDisplayName(vital.name || key)
+                                      });
+                                    });
+
+                                    // Sort categories by predefined order
+                                    const categoryOrder = [
+                                      'Cardiovascular', 'Respiratory', 'Metabolic', 'General'
+                                    ];
+
+                                    // Render optgroups
+                                    return categoryOrder
+                                      .filter(cat => vitalsByCategory[cat] && vitalsByCategory[cat].length > 0)
+                                      .map(category => (
+                                        <optgroup key={category} label={category}>
+                                          {vitalsByCategory[category]
+                                            .sort((a, b) => a.displayName.localeCompare(b.displayName))
+                                            .map(({ key, displayName }) => (
+                                              <option key={key} value={key}>{displayName}</option>
+                                            ))}
+                                        </optgroup>
+                                      ));
+                                  })()}
+                                </select>
+                              ) : (
+                                <div className="text-sm text-gray-500">No vitals available</div>
+                              )}
                               <div className="relative">
                                 <button
                                   onClick={(e) => {
@@ -3747,9 +3905,14 @@ export default function CancerCareApp() {
                                           const count = vital?.data?.length || 0;
                                               if (window.confirm(`Delete all ${displayName} data? This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'}. This action cannot be undone.`)) {
                                                 try {
-                                                  await vitalService.deleteAllVitalsByType(user.uid, vitalType);
+                                                  console.log('Deleting all vitals of type:', vitalType);
+                                                  const deletedCount = await vitalService.deleteAllVitalsByType(user.uid, vitalType);
+                                                  console.log('Deleted vitals count:', deletedCount);
+                                                  // Wait a moment for Firestore to sync
+                                                  await new Promise(resolve => setTimeout(resolve, 500));
                                                   // Reload data to reflect deletion
                                                   const vitals = await vitalService.getVitals(user.uid);
+                                                  console.log('Reloaded vitals after bulk delete:', vitals.length);
                                                   const transformedVitals = transformVitalsData(vitals);
                                                   setVitalsData(transformedVitals);
                                                 } catch (error) {
@@ -3771,7 +3934,28 @@ export default function CancerCareApp() {
                           </div>
 
                           {(() => {
-                            const currentVital = allVitalsData[selectedVital];
+                            const currentVital = allVitalsData[selectedVital] || {
+                              name: 'No Data',
+                              current: '--',
+                              unit: '',
+                              status: 'normal',
+                              data: []
+                            };
+                            
+                            if (!currentVital || !currentVital.data || currentVital.data.length === 0) {
+                              return (
+                                <div className="text-center py-8 text-gray-500">
+                                  <p>No vital data available for {getVitalDisplayName(selectedVital)}</p>
+                                  <button
+                                    onClick={() => setActiveTab('chat')}
+                                    className="mt-4 bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition"
+                                  >
+                                    Go to Chat to Add Data
+                                  </button>
+                                </div>
+                              );
+                            }
+                            
                             return (
                               <>
                                 <div className="mb-4">
@@ -4115,11 +4299,17 @@ export default function CancerCareApp() {
                                                                 : d.value;
                                                               if (window.confirm(`Delete this ${displayName} reading (${valueDisplay} ${currentVital.unit} on ${d.date})?`)) {
                                                                 try {
+                                                                  console.log('Deleting vital with ID:', d.id);
                                                                   await vitalService.deleteVital(d.id);
+                                                                  console.log('Vital deleted, waiting for Firestore to sync...');
+                                                                  // Wait a moment for Firestore to sync, then reload
+                                                                  await new Promise(resolve => setTimeout(resolve, 500));
                                                                   // Reload data to reflect deletion
                                                                   const vitals = await vitalService.getVitals(user.uid);
+                                                                  console.log('Reloaded vitals:', vitals.length);
                                                                   const transformedVitals = transformVitalsData(vitals);
                                                                   setVitalsData(transformedVitals);
+                                                                  console.log('Updated vitals data:', Object.keys(transformedVitals));
                                                                 } catch (error) {
                                                                   console.error('Error deleting vital:', error);
                                                                   alert('Failed to delete vital reading. Please try again.');

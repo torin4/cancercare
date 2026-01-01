@@ -157,6 +157,16 @@ export const labService = {
 
   // Delete individual lab document (one data point)
   async deleteLab(labId) {
+    // Also delete any subcollection values
+    try {
+      const valuesRef = collection(db, COLLECTIONS.LABS, labId, 'values');
+      const valuesSnapshot = await getDocs(valuesRef);
+      const deleteValuePromises = valuesSnapshot.docs.map(d => deleteDoc(d.ref));
+      await Promise.all(deleteValuePromises);
+    } catch (error) {
+      console.warn('Error deleting lab subcollection values:', error);
+      // Continue with main document deletion even if subcollection deletion fails
+    }
     await deleteDoc(doc(db, COLLECTIONS.LABS, labId));
   },
 
@@ -173,7 +183,18 @@ export const labService = {
       where('labType', '==', labType)
     );
     const querySnapshot = await getDocs(q);
-    const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
+    const deletePromises = querySnapshot.docs.map(async (docSnap) => {
+      // Also delete any subcollection values
+      try {
+        const valuesRef = collection(db, COLLECTIONS.LABS, docSnap.id, 'values');
+        const valuesSnapshot = await getDocs(valuesRef);
+        const deleteValuePromises = valuesSnapshot.docs.map(d => deleteDoc(d.ref));
+        await Promise.all(deleteValuePromises);
+      } catch (error) {
+        console.warn(`Error deleting subcollection values for lab ${docSnap.id}:`, error);
+      }
+      return deleteDoc(docSnap.ref);
+    });
     await Promise.all(deletePromises);
     return querySnapshot.docs.length;
   }
@@ -269,6 +290,16 @@ export const vitalService = {
 
   // Delete individual vital document (one data point)
   async deleteVital(vitalId) {
+    // Also delete any subcollection values
+    try {
+      const valuesRef = collection(db, COLLECTIONS.VITALS, vitalId, 'values');
+      const valuesSnapshot = await getDocs(valuesRef);
+      const deleteValuePromises = valuesSnapshot.docs.map(d => deleteDoc(d.ref));
+      await Promise.all(deleteValuePromises);
+    } catch (error) {
+      console.warn('Error deleting vital subcollection values:', error);
+      // Continue with main document deletion even if subcollection deletion fails
+    }
     await deleteDoc(doc(db, COLLECTIONS.VITALS, vitalId));
   },
 
@@ -285,7 +316,18 @@ export const vitalService = {
       where('vitalType', '==', vitalType)
     );
     const querySnapshot = await getDocs(q);
-    const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
+    const deletePromises = querySnapshot.docs.map(async (docSnap) => {
+      // Also delete any subcollection values
+      try {
+        const valuesRef = collection(db, COLLECTIONS.VITALS, docSnap.id, 'values');
+        const valuesSnapshot = await getDocs(valuesRef);
+        const deleteValuePromises = valuesSnapshot.docs.map(d => deleteDoc(d.ref));
+        await Promise.all(deleteValuePromises);
+      } catch (error) {
+        console.warn(`Error deleting subcollection values for vital ${docSnap.id}:`, error);
+      }
+      return deleteDoc(docSnap.ref);
+    });
     await Promise.all(deletePromises);
     return querySnapshot.docs.length;
   }
