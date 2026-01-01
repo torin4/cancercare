@@ -760,47 +760,104 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
               )}
 
               {/* Study Locations */}
-              {selectedTrial.locations && selectedTrial.locations.length > 0 && (
-                <div className="bg-white rounded-lg border border-medical-neutral-200 p-4">
-                  <h3 className="font-semibold text-medical-neutral-900 mb-3 flex items-center gap-2">
-                    <MapPin className="w-5 h-5 text-medical-primary-600" />
-                    Study Locations
-                  </h3>
-                  <ul className="space-y-3">
-                    {selectedTrial.locations.map((location, idx) => {
-                      // Handle both string and object location formats
-                      let locationText = '';
-                      let facilityName = '';
-                      
-                      if (typeof location === 'string') {
-                        locationText = location;
-                      } else if (location && typeof location === 'object') {
-                        // Extract facility name if available
-                        facilityName = location.facility || '';
+              {selectedTrial.locations && selectedTrial.locations.length > 0 && (() => {
+                // Helper function to extract country from location
+                const getLocationCountry = (location) => {
+                  if (typeof location === 'string') {
+                    const parts = location.split(',').map(s => s.trim());
+                    return parts[parts.length - 1] || '';
+                  } else if (location && typeof location === 'object') {
+                    return location.country || '';
+                  }
+                  return '';
+                };
+
+                // Sort locations: selected country first, then others
+                const selectedCountry = trialLocation?.country || '';
+                const sortedLocations = [...selectedTrial.locations].sort((a, b) => {
+                  const countryA = getLocationCountry(a);
+                  const countryB = getLocationCountry(b);
+                  const matchesA = selectedCountry && countryA.toLowerCase().includes(selectedCountry.toLowerCase());
+                  const matchesB = selectedCountry && countryB.toLowerCase().includes(selectedCountry.toLowerCase());
+                  
+                  if (matchesA && !matchesB) return -1;
+                  if (!matchesA && matchesB) return 1;
+                  return 0;
+                });
+
+                return (
+                  <div className="bg-white rounded-lg border border-medical-neutral-200 p-4">
+                    <h3 className="font-semibold text-medical-neutral-900 mb-3 flex items-center gap-2">
+                      <MapPin className="w-5 h-5 text-medical-primary-600" />
+                      Study Locations
+                    </h3>
+                    <ul className="space-y-3">
+                      {sortedLocations.map((location, idx) => {
+                        // Handle both string and object location formats
+                        let locationText = '';
+                        let facilityName = '';
+                        let locationCountry = '';
                         
-                        // Format object location: "Facility, City, State, Country" or "City, Country"
-                        const parts = [];
-                        if (facilityName) parts.push(facilityName);
-                        if (location.city) parts.push(location.city);
-                        if (location.state) parts.push(location.state);
-                        if (location.country) parts.push(location.country);
-                        locationText = parts.length > 0 ? parts.join(', ') : JSON.stringify(location);
-                      } else {
-                        locationText = String(location || 'Unknown location');
-                      }
-                      
-                      return (
-                        <li key={idx} className="bg-medical-neutral-50 rounded-lg p-3 border border-medical-neutral-200">
-                          {facilityName && (
-                            <div className="font-semibold text-medical-neutral-900 mb-1">{facilityName}</div>
-                          )}
-                          <div className="text-sm text-medical-neutral-700">{locationText}</div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              )}
+                        if (typeof location === 'string') {
+                          locationText = location;
+                          const parts = location.split(',').map(s => s.trim());
+                          locationCountry = parts[parts.length - 1] || '';
+                        } else if (location && typeof location === 'object') {
+                          // Extract facility name if available
+                          facilityName = location.facility || '';
+                          locationCountry = location.country || '';
+                          
+                          // Format object location: "Facility, City, State, Country" or "City, Country"
+                          const parts = [];
+                          if (facilityName) parts.push(facilityName);
+                          if (location.city) parts.push(location.city);
+                          if (location.state) parts.push(location.state);
+                          if (location.country) parts.push(location.country);
+                          locationText = parts.length > 0 ? parts.join(', ') : JSON.stringify(location);
+                        } else {
+                          locationText = String(location || 'Unknown location');
+                        }
+                        
+                        // Check if this location matches the selected country
+                        const isSelectedLocation = selectedCountry && 
+                          locationCountry.toLowerCase().includes(selectedCountry.toLowerCase());
+                        
+                        return (
+                          <li 
+                            key={idx} 
+                            className={`rounded-lg p-3 border ${
+                              isSelectedLocation
+                                ? 'bg-medical-primary-50 border-medical-primary-300 border-2'
+                                : 'bg-medical-neutral-50 border-medical-neutral-200'
+                            }`}
+                          >
+                            {isSelectedLocation && (
+                              <div className="flex items-center gap-2 mb-2">
+                                <CheckCircle className="w-4 h-4 text-medical-primary-600" />
+                                <span className="text-xs font-semibold text-medical-primary-700 uppercase tracking-wide">
+                                  Your Selected Location
+                                </span>
+                              </div>
+                            )}
+                            {facilityName && (
+                              <div className={`font-semibold mb-1 ${
+                                isSelectedLocation ? 'text-medical-primary-900' : 'text-medical-neutral-900'
+                              }`}>
+                                {facilityName}
+                              </div>
+                            )}
+                            <div className={`text-sm ${
+                              isSelectedLocation ? 'text-medical-primary-800' : 'text-medical-neutral-700'
+                            }`}>
+                              {locationText}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Footer Actions */}
