@@ -6431,8 +6431,9 @@ export default function CancerCareApp() {
                         notes: ''
                       });
                     }}
-                    className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition"
+                    className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition flex items-center justify-center gap-2"
                   >
+                    <X className="w-4 h-4" />
                     Cancel
                   </button>
                   <button
@@ -6640,8 +6641,9 @@ export default function CancerCareApp() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setShowAddMedication(false)}
-                    className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition"
+                    className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition flex items-center justify-center gap-2"
                   >
+                    <X className="w-4 h-4" />
                     Cancel
                   </button>
                   <button
@@ -6649,8 +6651,9 @@ export default function CancerCareApp() {
                       setShowAddMedication(false);
                       alert('Medication added successfully!');
                     }}
-                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"
+                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
                   >
+                    <Plus className="w-4 h-4" />
                     Add Medication
                   </button>
                 </div>
@@ -7293,8 +7296,9 @@ export default function CancerCareApp() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setShowEditInfo(false)}
-                    className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition"
+                    className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition flex items-center justify-center gap-2"
                   >
+                    <X className="w-4 h-4" />
                     Cancel
                   </button>
                   <button
@@ -7343,8 +7347,9 @@ export default function CancerCareApp() {
                         alert('Failed to save patient information. Please try again.');
                       }
                     }}
-                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"
+                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
                   >
+                    <Check className="w-4 h-4" />
                     Save Changes
                   </button>
                 </div>
@@ -7543,8 +7548,9 @@ export default function CancerCareApp() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setShowUpdateStatus(false)}
-                    className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition"
+                    className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition flex items-center justify-center gap-2"
                   >
+                    <X className="w-4 h-4" />
                     Cancel
                   </button>
                   <button
@@ -7589,8 +7595,9 @@ export default function CancerCareApp() {
                         alert('Failed to save current status.');
                       }
                     }}
-                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"
+                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
                   >
+                    <Check className="w-4 h-4" />
                     Save Changes
                   </button>
                 </div>
@@ -7698,9 +7705,10 @@ export default function CancerCareApp() {
                           mutations: [...(editingGenomicProfile.mutations || []), { gene: '', variant: '', dna: '', protein: '', significance: '', type: '' }]
                         });
                       }}
-                      className="text-sm text-purple-600 hover:text-purple-700 font-medium"
+                      className="text-sm text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
                     >
-                      + Add Mutation
+                      <Plus className="w-4 h-4" />
+                      Add Mutation
                     </button>
                   </div>
                   <div className="space-y-3">
@@ -7804,8 +7812,9 @@ export default function CancerCareApp() {
                               const updated = editingGenomicProfile.mutations.filter((_, i) => i !== idx);
                               setEditingGenomicProfile({...editingGenomicProfile, mutations: updated});
                             }}
-                            className="text-xs text-red-600 hover:text-red-700"
+                            className="text-xs text-red-600 hover:text-red-700 flex items-center gap-1"
                           >
+                            <Trash2 className="w-3 h-3" />
                             Remove
                           </button>
                         </div>
@@ -7864,8 +7873,9 @@ export default function CancerCareApp() {
                       setShowEditGenomic(false);
                       setEditingGenomicProfile(null);
                     }}
-                    className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition"
+                    className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition flex items-center justify-center gap-2"
                   >
+                    <X className="w-4 h-4" />
                     Cancel
                   </button>
                   <button
@@ -7907,8 +7917,9 @@ export default function CancerCareApp() {
                         alert('Failed to save genomic profile. Please try again.');
                       }
                     }}
-                    className="flex-1 bg-purple-600 text-white py-2.5 rounded-lg font-medium hover:bg-purple-700 transition"
+                    className="flex-1 bg-purple-600 text-white py-2.5 rounded-lg font-medium hover:bg-purple-700 transition flex items-center justify-center gap-2"
                   >
+                    <Check className="w-4 h-4" />
                     Save Changes
                   </button>
                 </div>
@@ -7961,8 +7972,9 @@ export default function CancerCareApp() {
                         </h4>
                         <button
                           onClick={() => setEditContacts(prev => prev.filter((_, idx) => idx !== i))}
-                          className="text-sm text-red-600 hover:underline"
+                          className="text-sm text-red-600 hover:underline flex items-center gap-1"
                         >
+                          <Trash2 className="w-4 h-4" />
                           Remove
                         </button>
                       </div>
@@ -8032,9 +8044,10 @@ export default function CancerCareApp() {
                   <div>
                     <button
                       onClick={() => setEditContacts(prev => [...prev, { contactType: 'Emergency', name: '', relationship: '', phone: '', email: '', address: '', city: '', state: '', zip: '' }])}
-                      className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm"
+                      className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm flex items-center gap-2"
                     >
-                      + Add Contact
+                      <Plus className="w-4 h-4" />
+                      Add Contact
                     </button>
                   </div>
                 </div>
@@ -8044,8 +8057,9 @@ export default function CancerCareApp() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setShowEditContacts(false)}
-                    className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition"
+                    className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition flex items-center justify-center gap-2"
                   >
+                    <X className="w-4 h-4" />
                     Cancel
                   </button>
                   <button
@@ -8071,8 +8085,9 @@ export default function CancerCareApp() {
                         alert('Failed to save emergency contacts.');
                       }
                     }}
-                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition"
+                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
                   >
+                    <Check className="w-4 h-4" />
                     Save Changes
                   </button>
                 </div>

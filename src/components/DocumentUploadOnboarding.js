@@ -268,8 +268,9 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleSkipDate}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-900 font-medium transition"
+                  className="px-4 py-2 text-gray-600 hover:text-gray-900 font-medium transition flex items-center gap-2"
                 >
+                  <ChevronRight className="w-4 h-4" />
                   Skip Date
                 </button>
                 <button
