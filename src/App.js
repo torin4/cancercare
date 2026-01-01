@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2, Calendar, Globe, Scale, Ruler, Clock, FileText, Users, Phone, Dna, UserCircle, ClipboardList, MessageCircle, Bot, Thermometer, Pill, BarChart, Check, LogOut, ChevronLeft, Save, Link2, Loader2, Unlink, Settings, FlaskConical, RefreshCw } from 'lucide-react';
+import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, TrendingDown, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2, Calendar, Globe, Scale, Ruler, Clock, FileText, Users, Phone, Dna, UserCircle, ClipboardList, MessageCircle, Bot, Thermometer, Pill, BarChart, Check, LogOut, ChevronLeft, Save, Link2, Loader2, Unlink, Settings, FlaskConical, RefreshCw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Lottie from 'lottie-react';
 import { onAuthStateChanged, signOut, deleteUser, linkWithPopup, unlink, GoogleAuthProvider } from 'firebase/auth';
@@ -4045,6 +4045,15 @@ export default function CancerCareApp() {
                                       </div>
                                       <div className="flex items-baseline gap-2">
                                         <p className="text-xl font-bold text-medical-neutral-900">{lab.current}</p>
+                                        {lab.trend && (
+                                          lab.trend === 'up' ? (
+                                            <TrendingUp className="w-4 h-4 text-red-500" />
+                                          ) : lab.trend === 'down' ? (
+                                            <TrendingDown className="w-4 h-4 text-green-500" />
+                                          ) : (
+                                            <TrendingUp className="w-4 h-4 text-gray-400 rotate-90" />
+                                          )
+                                        )}
                                         <p className="text-xs text-medical-neutral-500">{lab.unit}</p>
                                       </div>
                                       <p className={`text-xs ${colors.text} font-medium mt-1`}>{labStatus.label}</p>
