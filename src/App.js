@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2, Calendar, Globe, Scale, Ruler, Clock, FileText, Users, Phone, Dna, UserCircle, ClipboardList, MessageCircle, Bot, Thermometer, Pill, BarChart, Check, LogOut, ChevronLeft, Save, Link2, Loader2 } from 'lucide-react';
+import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2, Calendar, Globe, Scale, Ruler, Clock, FileText, Users, Phone, Dna, UserCircle, ClipboardList, MessageCircle, Bot, Thermometer, Pill, BarChart, Check, LogOut, ChevronLeft, Save, Link2, Loader2, Unlink } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Lottie from 'lottie-react';
-import { onAuthStateChanged, signOut, deleteUser, linkWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { onAuthStateChanged, signOut, deleteUser, linkWithPopup, unlink, GoogleAuthProvider } from 'firebase/auth';
 import { uploadDocument, deleteUserDirectory, deleteDocument } from './firebase/storage';
 import { documentService, labService, vitalService, patientService, accountService, genomicProfileService, emergencyContactService, medicationService, symptomService, trialLocationService, messageService } from './firebase/services';
 import { getSavedTrials } from './services/clinicalTrials/clinicalTrialsService';
@@ -303,6 +303,7 @@ export default function CancerCareApp() {
   const [showDeletionConfirm, setShowDeletionConfirm] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isLinkingGoogle, setIsLinkingGoogle] = useState(false);
+  const [isUnlinkingGoogle, setIsUnlinkingGoogle] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
   const [deletionType, setDeletionType] = useState(null); // 'data' or 'account'
   const [isDeleting, setIsDeleting] = useState(false);
@@ -2342,6 +2343,40 @@ export default function CancerCareApp() {
       }
     } finally {
       setIsLinkingGoogle(false);
+    }
+  };
+
+  // Handle unlinking Google account
+  const handleUnlinkGoogleAccount = async () => {
+    if (!user || isUnlinkingGoogle) return;
+    
+    // Check if user has at least one other sign-in method
+    const hasEmailPassword = user.providerData?.some(p => p.providerId === 'password');
+    if (!hasEmailPassword) {
+      alert('Cannot unlink Google account. You must have at least one sign-in method. Please add an email/password account first.');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to unlink your Google account? You will only be able to sign in with email/password.')) {
+      return;
+    }
+
+    setIsUnlinkingGoogle(true);
+    try {
+      await unlink(user, 'google.com');
+      alert('Google account unlinked successfully.');
+      // The user object will be updated automatically via onAuthStateChanged
+    } catch (error) {
+      console.error('Account unlinking error:', error);
+      if (error.code === 'auth/no-such-provider') {
+        alert('Google account is not linked to this account.');
+      } else if (error.code === 'auth/cannot-unlink-provider') {
+        alert('Cannot unlink this provider. You must have at least one sign-in method.');
+      } else {
+        alert('Failed to unlink Google account: ' + error.message);
+      }
+    } finally {
+      setIsUnlinkingGoogle(false);
     }
   };
 
@@ -5953,6 +5988,30 @@ export default function CancerCareApp() {
                         <>
                           <Link2 className="w-4 h-4" />
                           Link Google Account
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {/* Account Unlinking */}
+                {user.providerData && user.providerData.some(p => p.providerId === 'google.com') && user.providerData.some(p => p.providerId === 'password') && (
+                  <div className="pt-3 border-t border-gray-200">
+                    <p className="text-xs text-gray-600 mb-2">Unlink your Google account</p>
+                    <button
+                      onClick={handleUnlinkGoogleAccount}
+                      disabled={isUnlinkingGoogle}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white border-2 border-medical-neutral-300 text-medical-neutral-700 rounded-lg text-sm font-medium hover:bg-medical-neutral-50 hover:border-medical-neutral-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isUnlinkingGoogle ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Unlinking...
+                        </>
+                      ) : (
+                        <>
+                          <Unlink className="w-4 h-4" />
+                          Unlink Google Account
                         </>
                       )}
                     </button>
