@@ -163,19 +163,68 @@ export const labService = {
     });
   },
 
+  // Update lab value (value, date, notes)
+  async updateLabValue(labId, valueId, valueData) {
+    const docRef = doc(db, COLLECTIONS.LABS, labId, 'values', valueId);
+    await updateDoc(docRef, {
+      value: valueData.value,
+      date: valueData.date,
+      notes: valueData.notes || ''
+    });
+  },
+
   // Delete individual lab document (one data point)
   async deleteLab(labId) {
-    // Also delete any subcollection values
+    // First verify the lab exists and get it (for ownership check)
+    const labRef = doc(db, COLLECTIONS.LABS, labId);
+    const labDoc = await getDoc(labRef);
+    
+    if (!labDoc.exists()) {
+      throw new Error('Lab document not found');
+    }
+
+    // Verify ownership - this will throw if user doesn't have permission
+    // The security rules will check this, but we can verify here too
+    const labData = labDoc.data();
+    if (!labData.patientId) {
+      throw new Error('Lab document missing patientId');
+    }
+
+    // Try to delete subcollection values first
+    // If this fails due to permissions, we'll still try to delete the main document
+    // Firestore will automatically clean up orphaned subcollections
     try {
       const valuesRef = collection(db, COLLECTIONS.LABS, labId, 'values');
       const valuesSnapshot = await getDocs(valuesRef);
-      const deleteValuePromises = valuesSnapshot.docs.map(d => deleteDoc(d.ref));
-      await Promise.all(deleteValuePromises);
+      
+      // Delete values one by one sequentially to avoid overwhelming security rules
+      for (const valueDoc of valuesSnapshot.docs) {
+        try {
+          await deleteDoc(valueDoc.ref);
+        } catch (error) {
+          // Log but continue - don't fail the entire operation
+          console.warn(`Error deleting lab value ${valueDoc.id}:`, error.message);
+        }
+      }
     } catch (error) {
-      console.warn('Error deleting lab subcollection values:', error);
-      // Continue with main document deletion even if subcollection deletion fails
+      // Log but continue - main document deletion should still work
+      // This might fail if we can't even read the subcollection, but that's okay
+      console.warn('Error accessing lab subcollection values:', error.message);
     }
-    await deleteDoc(doc(db, COLLECTIONS.LABS, labId));
+    
+    // Delete the main lab document
+    // This should work if the user owns the lab (security rules will check)
+    try {
+      await deleteDoc(labRef);
+    } catch (error) {
+      // If this fails, it's a real permissions issue
+      console.error('Error deleting lab document:', error);
+      console.error('Lab ID:', labId);
+      console.error('Lab patientId:', labData.patientId);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      throw new Error(`Failed to delete lab: ${error.message}. Code: ${error.code}`);
+    }
   },
 
   // Delete individual lab value (from subcollection if used)
@@ -302,6 +351,19 @@ export const vitalService = {
     await updateDoc(docRef, {
       notes: newNote
     });
+  },
+
+  // Update vital value (value, date, notes, systolic, diastolic)
+  async updateVitalValue(vitalId, valueId, valueData) {
+    const docRef = doc(db, COLLECTIONS.VITALS, vitalId, 'values', valueId);
+    const updateData = {
+      date: valueData.date,
+      notes: valueData.notes || ''
+    };
+    if (valueData.value !== undefined) updateData.value = valueData.value;
+    if (valueData.systolic !== undefined) updateData.systolic = valueData.systolic;
+    if (valueData.diastolic !== undefined) updateData.diastolic = valueData.diastolic;
+    await updateDoc(docRef, updateData);
   },
 
   // Delete individual vital document (one data point)

@@ -32,8 +32,8 @@ service cloud.firestore {
 
       // Lab values subcollection
       match /values/{valueId} {
-        allow read, write: if request.auth != null &&
-                              get(/databases/$(database)/documents/labs/$(labId)).data.patientId == request.auth.uid;
+        allow read, create, update, delete: if request.auth != null &&
+                                               get(/databases/$(database)/documents/labs/$(labId)).data.patientId == request.auth.uid;
       }
     }
 
@@ -50,8 +50,8 @@ service cloud.firestore {
 
       // Vital values subcollection
       match /values/{valueId} {
-        allow read, write: if request.auth != null &&
-                              get(/databases/$(database)/documents/vitals/$(vitalId)).data.patientId == request.auth.uid;
+        allow read, create, update, delete: if request.auth != null &&
+                                               get(/databases/$(database)/documents/vitals/$(vitalId)).data.patientId == request.auth.uid;
       }
     }
 

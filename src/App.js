@@ -271,6 +271,10 @@ export default function CancerCareApp() {
   const [genomicExpanded, setGenomicExpanded] = useState(false);
   const [selectedVital, setSelectedVital] = useState('bp');
   const [showAddVital, setShowAddVital] = useState(false);
+  const [showAddVitalValue, setShowAddVitalValue] = useState(false);
+  const [selectedVitalForValue, setSelectedVitalForValue] = useState(null);
+  const [newVitalValue, setNewVitalValue] = useState({ value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
+  const [isEditingVitalValue, setIsEditingVitalValue] = useState(false);
   const [newVital, setNewVital] = useState({ vitalType: '', value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
   const [messages, setMessages] = useState([]);
   const [chatHistoryLoaded, setChatHistoryLoaded] = useState(false);
@@ -334,6 +338,10 @@ export default function CancerCareApp() {
   const [showAddLabValue, setShowAddLabValue] = useState(false);
   const [selectedLabForValue, setSelectedLabForValue] = useState(null);
   const [newLabValue, setNewLabValue] = useState({ value: '', date: getTodayLocalDate(), notes: '' });
+  const [isEditingLabValue, setIsEditingLabValue] = useState(false);
+  const [editingLabValueId, setEditingLabValueId] = useState(null);
+  const [isEditingVital, setIsEditingVital] = useState(false);
+  const [editingVitalValueId, setEditingVitalValueId] = useState(null);
   const [showEditGenomic, setShowEditGenomic] = useState(false);
   const [editingGenomicProfile, setEditingGenomicProfile] = useState(null);
   const [showEditContacts, setShowEditContacts] = useState(false);
@@ -649,7 +657,7 @@ export default function CancerCareApp() {
       ]
     },
     hr: {
-      name: 'Heart Rate',
+      name: 'Resting Heart Rate',
       unit: 'BPM',
       current: 72,
       status: 'normal',
@@ -1041,9 +1049,13 @@ export default function CancerCareApp() {
 
           // Load vitals
           const vitals = await vitalService.getVitals(user.uid);
-          const transformedVitals = transformVitalsData(vitals);
+          const transformedVitals = await transformVitalsData(vitals);
           setVitalsData(transformedVitals);
-          setHasRealVitalData(vitals.length > 0);
+          // Check if any vitals have actual data, not just if vitals exist
+          const hasData = Object.values(transformedVitals).some(vital => 
+            vital?.data && Array.isArray(vital.data) && vital.data.length > 0
+          );
+          setHasRealVitalData(hasData);
 
           // Load patient profile
           const profile = await patientService.getPatient(user.uid);
@@ -1198,7 +1210,7 @@ export default function CancerCareApp() {
       const threshold = parseFloat(lessThanMatch[1]);
       const warningThreshold = threshold * 0.1;
 
-      if (value < threshold) {
+      if (value <= threshold) {
         return { status: 'normal', color: 'green', label: 'Normal' };
       } else if (value < threshold + warningThreshold) {
         return { status: 'warning-high', color: 'yellow', label: 'Slightly High' };
@@ -1213,7 +1225,7 @@ export default function CancerCareApp() {
       const threshold = parseFloat(greaterThanMatch[1]);
       const warningThreshold = threshold * 0.1;
 
-      if (value > threshold) {
+      if (value >= threshold) {
         return { status: 'normal', color: 'green', label: 'Normal' };
       } else if (value > threshold - warningThreshold) {
         return { status: 'warning-low', color: 'yellow', label: 'Slightly Low' };
@@ -1223,6 +1235,137 @@ export default function CancerCareApp() {
     }
 
     return { status: 'unknown', color: 'gray', label: 'Unknown' };
+  };
+
+  // Calculate detailed status with color coding for vitals based on normal range
+  const getVitalStatus = (value, normalRange, vitalType = null) => {
+    if (!normalRange) {
+      return { status: 'unknown', color: 'gray', label: 'Unknown' };
+    }
+
+    // Special handling for blood pressure (systolic/diastolic format)
+    if (vitalType === 'bp' || vitalType === 'blood_pressure' || (typeof value === 'string' && value.includes('/'))) {
+      // Parse blood pressure value (e.g., "128/82")
+      const bpMatch = typeof value === 'string' ? value.match(/(\d+)\/(\d+)/) : null;
+      if (bpMatch) {
+        const systolic = parseFloat(bpMatch[1]);
+        const diastolic = parseFloat(bpMatch[2]);
+        
+        // Parse normal range (e.g., "<140/90" or "<120/80")
+        const rangeMatch = normalRange.match(/<\s*(\d+)\/(\d+)/);
+        if (rangeMatch) {
+          const normSystolic = parseFloat(rangeMatch[1]);
+          const normDiastolic = parseFloat(rangeMatch[2]);
+          const warningThreshold = 10; // 10 mmHg buffer
+          
+          // Check if either value is high (BP is abnormal if either is high)
+          const systolicHigh = systolic > normSystolic;
+          const diastolicHigh = diastolic > normDiastolic;
+          const systolicWarning = systolic > normSystolic - warningThreshold && systolic <= normSystolic;
+          const diastolicWarning = diastolic > normDiastolic - warningThreshold && diastolic <= normDiastolic;
+          
+          if (systolicHigh || diastolicHigh) {
+            // If either is clearly high, it's abnormal
+            if (systolicHigh && diastolicHigh) {
+              return { status: 'abnormal-high', color: 'red', label: 'High' };
+            }
+            // If one is in warning zone and other is normal, it's slightly high
+            if ((systolicWarning && !systolicHigh && diastolic <= normDiastolic) || 
+                (diastolicWarning && !diastolicHigh && systolic <= normSystolic)) {
+              return { status: 'warning-high', color: 'yellow', label: 'Slightly High' };
+            }
+            // Otherwise it's high
+            return { status: 'abnormal-high', color: 'red', label: 'High' };
+          } else if (systolic <= normSystolic && diastolic <= normDiastolic) {
+            return { status: 'normal', color: 'green', label: 'Normal' };
+          }
+        }
+      }
+      // Fallback for BP if parsing fails
+      return { status: 'unknown', color: 'gray', label: 'Unknown' };
+    }
+
+    // For numeric vitals, use similar logic to labs
+    const numValue = typeof value === 'number' ? value : parseFloat(value);
+    if (isNaN(numValue)) {
+      return { status: 'unknown', color: 'gray', label: 'Unknown' };
+    }
+
+    // Parse different normal range formats
+    const rangeMatch = normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+    if (rangeMatch) {
+      const min = parseFloat(rangeMatch[1]);
+      const max = parseFloat(rangeMatch[2]);
+      const range = max - min;
+      const warningThreshold = range * 0.1; // 10% buffer zone
+
+      if (numValue < min) {
+        // Below normal range
+        if (numValue >= min - warningThreshold) {
+          return { status: 'warning-low', color: 'yellow', label: 'Slightly Low' };
+        }
+        return { status: 'abnormal-low', color: 'red', label: 'Low' };
+      } else if (numValue > max) {
+        // Above normal range
+        if (numValue <= max + warningThreshold) {
+          return { status: 'warning-high', color: 'yellow', label: 'Slightly High' };
+        }
+        return { status: 'abnormal-high', color: 'red', label: 'High' };
+      } else {
+        // Within normal range
+        return { status: 'normal', color: 'green', label: 'Normal' };
+      }
+    }
+
+    // Handle "< X" format (e.g., D-dimer: "< 0.5")
+    const lessThanMatch = normalRange.match(/<\s*(\d+\.?\d*)/);
+    if (lessThanMatch) {
+      const threshold = parseFloat(lessThanMatch[1]);
+      const warningThreshold = threshold * 0.1;
+
+      if (numValue <= threshold) {
+        return { status: 'normal', color: 'green', label: 'Normal' };
+      } else if (numValue < threshold + warningThreshold) {
+        return { status: 'warning-high', color: 'yellow', label: 'Slightly High' };
+      } else {
+        return { status: 'abnormal-high', color: 'red', label: 'High' };
+      }
+    }
+
+    // Handle "> X" format (e.g., eGFR: "> 60" or SpO2: ">95")
+    const greaterThanMatch = normalRange.match(/>\s*(\d+\.?\d*)/);
+    if (greaterThanMatch) {
+      const threshold = parseFloat(greaterThanMatch[1]);
+      const warningThreshold = threshold * 0.1;
+
+      if (numValue >= threshold) {
+        return { status: 'normal', color: 'green', label: 'Normal' };
+      } else if (numValue > threshold - warningThreshold) {
+        return { status: 'warning-low', color: 'yellow', label: 'Slightly Low' };
+      } else {
+        return { status: 'abnormal-low', color: 'red', label: 'Low' };
+      }
+    }
+
+    return { status: 'unknown', color: 'gray', label: 'Unknown' };
+  };
+
+  // Calculate weight normal range based on BMI (18.5-24.9) using height
+  const getWeightNormalRange = (height, gender = null) => {
+    if (!height || height <= 0) {
+      return null;
+    }
+    
+    // Convert height to meters (assuming cm input)
+    const heightM = height / 100;
+    
+    // BMI normal range: 18.5-24.9
+    // Weight = BMI * height² (in meters)
+    const minWeight = 18.5 * (heightM * heightM);
+    const maxWeight = 24.9 * (heightM * heightM);
+    
+    // Round to 1 decimal place
+    return `${minWeight.toFixed(1)}-${maxWeight.toFixed(1)}`;
   };
 
   const transformLabsData = async (labs) => {
@@ -1266,8 +1409,10 @@ export default function CancerCareApp() {
             grouped[labType].data.push({
               id: v.id,
               date: v.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+              dateOriginal: v.date, // Store original Date object for editing
               value: v.value,
-              timestamp: v.timestamp
+              timestamp: v.timestamp,
+              notes: v.notes || '' // Store notes for editing
             });
           });
 
@@ -1305,8 +1450,10 @@ export default function CancerCareApp() {
           grouped[labType].data.push({
             id: lab.id,
             date: timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            dateOriginal: timestamp, // Store original Date object for editing
             value: lab.currentValue,
-            timestamp: timestamp.getTime()
+            timestamp: timestamp.getTime(),
+            notes: '' // No notes for initial value
           });
           grouped[labType].trend = 'stable';
         }
@@ -1317,8 +1464,10 @@ export default function CancerCareApp() {
         grouped[labType].data.push({
           id: lab.id,
           date: timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          dateOriginal: timestamp, // Store original Date object for editing
           value: lab.currentValue,
-          timestamp: timestamp.getTime()
+          timestamp: timestamp.getTime(),
+          notes: '' // No notes for fallback value
         });
         grouped[labType].trend = 'stable';
       }
@@ -1380,7 +1529,7 @@ export default function CancerCareApp() {
   // Display name mapping: canonical key -> user-friendly display name
   const vitalDisplayNames = {
     'blood_pressure': 'Blood Pressure',
-    'heart_rate': 'Heart Rate',
+    'heart_rate': 'Resting Heart Rate',
     'temperature': 'Temperature',
     'weight': 'Weight',
     'oxygen_saturation': 'Oxygen Saturation',
@@ -1390,7 +1539,7 @@ export default function CancerCareApp() {
   // Vital descriptions
   const vitalDescriptions = {
     'blood_pressure': 'Blood pressure measures the force of blood against artery walls. Systolic (top number) is pressure when heart beats, diastolic (bottom number) is pressure when heart rests. Normal is typically <120/80 mmHg.',
-    'heart_rate': 'Heart rate (pulse) measures how many times your heart beats per minute. Normal resting heart rate is typically 60-100 beats per minute for adults.',
+    'heart_rate': 'Resting heart rate (pulse) measures how many times your heart beats per minute when at rest. Normal resting heart rate is typically 60-100 beats per minute for adults. Note: Heart rate can vary significantly with activity, so this should be measured when resting.',
     'temperature': 'Body temperature indicates whether you have a fever or hypothermia. Normal body temperature is typically 97.5-99.5°F (36.4-37.5°C).',
     'weight': 'Body weight is an important vital sign that can indicate fluid retention, nutritional status, or response to treatment. Significant changes may require medical attention.',
     'oxygen_saturation': 'Oxygen saturation (SpO2) measures how much oxygen your blood is carrying. Normal levels are typically >95%. Low levels may indicate breathing problems or lung issues.',
@@ -2026,10 +2175,11 @@ export default function CancerCareApp() {
   };
 
   // Transform Firestore vitals data to UI format
-  const transformVitalsData = (vitals) => {
+  const transformVitalsData = async (vitals) => {
     const grouped = {};
 
-    vitals.forEach(vital => {
+    // Process each vital and load its values
+    for (const vital of vitals) {
       const vitalType = vital.vitalType || 'unknown';
 
       // Normalize vital type to canonical key
@@ -2049,13 +2199,71 @@ export default function CancerCareApp() {
         };
       }
 
-      grouped[canonicalKey].current = vital.currentValue;
-      grouped[canonicalKey].data.push({
-        id: vital.id, // Store vital document ID for deletion
-        date: new Date(vital.createdAt?.toDate ? vital.createdAt.toDate() : vital.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        value: vital.currentValue
-      });
-    });
+      // Load vital values from subcollection
+      try {
+        const values = await vitalService.getVitalValues(vital.id);
+        if (values && values.length > 0) {
+          // Sort by date (oldest first) for trend calculation
+          const sortedValues = values
+            .map(v => ({
+              id: v.id,
+              value: v.value,
+              systolic: v.systolic,
+              diastolic: v.diastolic,
+              date: v.date?.toDate ? v.date.toDate() : (v.date ? new Date(v.date) : new Date()),
+              timestamp: v.date?.toDate ? v.date.toDate().getTime() : (v.date ? new Date(v.date).getTime() : Date.now()),
+              notes: v.notes || ''
+            }))
+            .sort((a, b) => a.timestamp - b.timestamp);
+
+          // Add all values to data array
+          sortedValues.forEach(v => {
+            grouped[canonicalKey].data.push({
+              id: v.id,
+              date: v.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+              dateOriginal: v.date, // Store original Date object for editing
+              value: v.value,
+              systolic: v.systolic,
+              diastolic: v.diastolic,
+              timestamp: v.timestamp,
+              notes: v.notes || ''
+            });
+          });
+
+          // Update current value to most recent
+          if (sortedValues.length > 0) {
+            const lastValue = sortedValues[sortedValues.length - 1];
+            grouped[canonicalKey].current = lastValue.value;
+            if (lastValue.systolic && lastValue.diastolic) {
+              grouped[canonicalKey].current = `${lastValue.systolic}/${lastValue.diastolic}`;
+            }
+          }
+        } else {
+          // No values yet, just use the vital document data
+          const vitalDate = new Date(vital.createdAt?.toDate ? vital.createdAt.toDate() : vital.createdAt);
+          grouped[canonicalKey].data.push({
+            id: vital.id, // Store vital document ID for deletion
+            date: vitalDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            dateOriginal: vitalDate, // Store original Date object for editing
+            value: vital.currentValue,
+            timestamp: vitalDate.getTime(),
+            notes: '' // No notes for initial value
+          });
+        }
+      } catch (error) {
+        console.error(`Error loading values for vital ${vital.id}:`, error);
+        // Fallback to vital document data
+        const vitalDate = new Date(vital.createdAt?.toDate ? vital.createdAt.toDate() : vital.createdAt);
+        grouped[canonicalKey].data.push({
+          id: vital.id, // Store vital document ID for deletion
+          date: vitalDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          dateOriginal: vitalDate, // Store original Date object for editing
+          value: vital.currentValue,
+          timestamp: vitalDate.getTime(),
+          notes: '' // No notes for fallback value
+        });
+      }
+    }
 
     return grouped;
   };
@@ -2070,9 +2278,13 @@ export default function CancerCareApp() {
         setHasRealLabData(labs.length > 0);
 
         const vitals = await vitalService.getVitals(user.uid);
-        const transformedVitals = transformVitalsData(vitals);
+        const transformedVitals = await transformVitalsData(vitals);
         setVitalsData(transformedVitals);
-        setHasRealVitalData(vitals.length > 0);
+        // Check if any vitals have actual data, not just if vitals exist
+        const hasData = Object.values(transformedVitals).some(vital => 
+          vital?.data && Array.isArray(vital.data) && vital.data.length > 0
+        );
+        setHasRealVitalData(hasData);
 
         // Reload genomic profile
         const genomic = await genomicProfileService.getGenomicProfile(user.uid);
@@ -3622,12 +3834,13 @@ export default function CancerCareApp() {
                                     'beta2_microglobulin': 'other', 'procalcitonin': 'other'
                                   };
 
-                                  // Group labs by category
+                                  // Group labs by category - similar to vitals approach
                                   const labsByCategory = {};
                                   Object.keys(allLabData)
-                                    .filter(key => allLabData[key].isNumeric)
+                                    .filter(key => allLabData[key] && allLabData[key].isNumeric)
                                     .forEach(key => {
-                                      const canonicalKey = normalizeLabName(key) || key.toLowerCase();
+                                      const lab = allLabData[key];
+                                      const canonicalKey = normalizeLabName(lab?.name || key) || key.toLowerCase();
                                       const category = canonicalKeyToCategory[canonicalKey] || 'other';
                                       const uiCategory = categoryMap[category] || 'Others';
                                       
@@ -3636,7 +3849,7 @@ export default function CancerCareApp() {
                                       }
                                       labsByCategory[uiCategory].push({
                                         key,
-                                        displayName: getLabDisplayName(key) || allLabData[key].name
+                                        displayName: getLabDisplayName(lab?.name || key) || lab?.name || key
                                       });
                                     });
 
@@ -3669,10 +3882,20 @@ export default function CancerCareApp() {
                                 <div className="flex items-baseline gap-2 mb-1">
                                   <span className="text-2xl sm:text-3xl font-bold text-gray-900">{currentLab.current}</span>
                                   <span className="text-sm text-gray-600">{currentLab.unit}</span>
-                                  <span className={`ml-auto text-xs px-2 py-1 rounded-full ${currentLab.status === 'warning' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
-                                    }`}>
-                                    {currentLab.status === 'warning' ? 'High' : 'Normal'}
-                                  </span>
+                                  {(() => {
+                                    const labStatus = getLabStatus(currentLab.current, currentLab.normalRange);
+                                    const statusColors = {
+                                      green: 'bg-green-100 text-green-700',
+                                      yellow: 'bg-amber-100 text-amber-700',
+                                      red: 'bg-red-100 text-red-700',
+                                      gray: 'bg-gray-100 text-gray-700'
+                                    };
+                                    return (
+                                      <span className={`ml-auto text-xs px-2 py-1 rounded-full ${statusColors[labStatus.color] || statusColors.gray}`}>
+                                        {labStatus.label}
+                                      </span>
+                                    );
+                                  })()}
                                 </div>
                                 <p className="text-xs sm:text-sm text-gray-600">Normal range: {currentLab.normalRange} {currentLab.unit}</p>
                               </div>
@@ -3813,8 +4036,8 @@ export default function CancerCareApp() {
                                       <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 400 160" preserveAspectRatio="none">
                                         <defs>
                                           <linearGradient id={`gradient-${selectedLab}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                                            <stop offset="0%" stopColor={currentLab.status === 'warning' ? '#f97316' : '#10b981'} stopOpacity="0.2" />
-                                            <stop offset="100%" stopColor={currentLab.status === 'warning' ? '#f97316' : '#10b981'} stopOpacity="0.05" />
+                                            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.2" />
+                                            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.05" />
                                           </linearGradient>
                                         </defs>
 
@@ -3836,12 +4059,12 @@ export default function CancerCareApp() {
                                                     y={normMaxY}
                                                     width="400"
                                                     height={normMinY - normMaxY}
-                                                    fill="#10b981"
+                                                    fill="#3b82f6"
                                                     opacity="0.08"
                                                   />
                                                   {/* Normal range boundary lines */}
-                                                  <line x1="0" y1={normMinY} x2="400" y2={normMinY} stroke="#10b981" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
-                                                  <line x1="0" y1={normMaxY} x2="400" y2={normMaxY} stroke="#10b981" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                  <line x1="0" y1={normMinY} x2="400" y2={normMinY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                  <line x1="0" y1={normMaxY} x2="400" y2={normMaxY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
                                                 </>
                                               );
                                             }
@@ -3860,11 +4083,11 @@ export default function CancerCareApp() {
                                                       y={thresholdY}
                                                       width="400"
                                                       height={160 - thresholdY}
-                                                      fill="#10b981"
+                                                      fill="#3b82f6"
                                                       opacity="0.08"
                                                     />
                                                     {/* Threshold line */}
-                                                    <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#10b981" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                    <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
                                                   </>
                                                 );
                                               }
@@ -3883,11 +4106,11 @@ export default function CancerCareApp() {
                                                         y="0"
                                                         width="400"
                                                         height={thresholdY}
-                                                        fill="#10b981"
-                                                        opacity="0.08"
-                                                      />
-                                                      {/* Threshold line */}
-                                                      <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#10b981" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                          fill="#3b82f6"
+                                                          opacity="0.08"
+                                                        />
+                                                        {/* Threshold line */}
+                                                        <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
                                                     </>
                                                   );
                                                 }
@@ -3918,7 +4141,7 @@ export default function CancerCareApp() {
                                             ).join(' ');
                                           })()}
                                           fill="none"
-                                          stroke={currentLab.status === 'warning' ? '#f97316' : '#10b981'}
+                                          stroke="#3b82f6"
                                           strokeWidth="3"
                                           strokeLinecap="round"
                                           strokeLinejoin="round"
@@ -3931,6 +4154,22 @@ export default function CancerCareApp() {
                                         const x = (i / dataLength) * 100;
                                         const y = ((d.value - yMin) / yRange) * 100;
                                         const isLatest = i === currentLab.data.length - 1;
+                                        
+                                        // Calculate lab status for this data point
+                                        const labStatus = getLabStatus(parseFloat(d.value), currentLab.normalRange);
+                                        const statusColors = {
+                                          green: '#10b981',
+                                          yellow: '#f59e0b',
+                                          red: '#ef4444',
+                                          gray: '#6b7280'
+                                        };
+                                        const dotColor = statusColors[labStatus.color] || statusColors.gray;
+                                        const statusBadgeColors = {
+                                          green: 'bg-green-100 text-green-700',
+                                          yellow: 'bg-amber-100 text-amber-700',
+                                          red: 'bg-red-100 text-red-700',
+                                          gray: 'bg-gray-100 text-gray-700'
+                                        };
 
                                         return (
                                           <div
@@ -3952,8 +4191,8 @@ export default function CancerCareApp() {
                                                 width: '20px',
                                                 height: '20px',
                                                 margin: '-10px',
-                                                border: `2px solid ${currentLab.status === 'warning' ? '#f97316' : '#10b981'}`,
-                                                backgroundColor: currentLab.status === 'warning' ? 'rgba(249, 115, 22, 0.1)' : 'rgba(16, 185, 129, 0.1)'
+                                                border: `2px solid ${dotColor}`,
+                                                backgroundColor: `${dotColor}20`
                                               }}
                                             />
 
@@ -3962,7 +4201,7 @@ export default function CancerCareApp() {
                                               className={`rounded-full transition-all relative z-10 group-hover:scale-125 ${isLatest ? 'w-3.5 h-3.5' : 'w-3 h-3'
                                                 }`}
                                               style={{
-                                                backgroundColor: currentLab.status === 'warning' ? '#f97316' : '#10b981',
+                                                backgroundColor: dotColor,
                                                 border: '2px solid white',
                                                 boxShadow: isLatest
                                                   ? '0 2px 8px rgba(0,0,0,0.25)'
@@ -3970,58 +4209,107 @@ export default function CancerCareApp() {
                                               }}
                                             />
 
-                                            {/* Tooltip with delete button */}
+                                            {/* Tooltip with edit and delete buttons */}
                                             <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4 opacity-0 group-hover:opacity-100 transition-opacity z-30">
-                                              <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap shadow-xl">
+                                              <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl">
                                                 <div className="flex items-center justify-between gap-3">
                                                   <div>
                                                 <div className="font-bold text-sm">{d.value} {currentLab.unit}</div>
-                                                <div className="text-gray-300 text-center text-xs mt-0.5">{d.date}</div>
                                                   </div>
                                                   {d.id && (
-                                                    <button
-                                                      onClick={async (e) => {
-                                                        e.stopPropagation();
-                                                        if (window.confirm(`Delete this ${currentLab.name} reading (${d.value} ${currentLab.unit} on ${d.date})?`)) {
-                                                          try {
-                                                            console.log('Deleting lab with ID:', d.id);
-                                                            
-                                                            // Optimistically update UI immediately
-                                                            const updatedLabsData = { ...labsData };
-                                                            if (updatedLabsData[selectedLab] && updatedLabsData[selectedLab].data) {
-                                                              const filteredData = updatedLabsData[selectedLab].data.filter(item => item.id !== d.id);
-                                                              // Get most recent value (first item after sorting by timestamp)
-                                                              const sortedData = [...filteredData].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-                                                              updatedLabsData[selectedLab] = {
-                                                                ...updatedLabsData[selectedLab],
-                                                                data: filteredData,
-                                                                current: sortedData.length > 0 ? sortedData[0].value : '--'
-                                                              };
-                                                              setLabsData(updatedLabsData);
+                                                    <div className="flex items-center gap-2">
+                                                      <button
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          const currentLabDoc = allLabData[selectedLab];
+                                                          if (currentLabDoc && currentLabDoc.id) {
+                                                            setSelectedLabForValue({ id: currentLabDoc.id, name: getLabDisplayName(currentLabDoc.name || selectedLab), unit: currentLabDoc.unit, key: selectedLab });
+                                                            // Pre-fill with existing value data
+                                                            const valueData = currentLab.data.find(item => item.id === d.id);
+                                                            // Use dateOriginal if available, otherwise fall back to timestamp, then formatted date
+                                                            let dateValue = getTodayLocalDate();
+                                                            if (valueData?.dateOriginal) {
+                                                              dateValue = valueData.dateOriginal.toISOString().split('T')[0];
+                                                            } else if (valueData?.timestamp) {
+                                                              dateValue = new Date(valueData.timestamp).toISOString().split('T')[0];
+                                                            } else if (valueData?.date) {
+                                                              // Try to parse the formatted date string (e.g., "Dec 14")
+                                                              const parsed = new Date(valueData.date);
+                                                              if (!isNaN(parsed.getTime())) {
+                                                                dateValue = parsed.toISOString().split('T')[0];
+                                                              }
                                                             }
-                                                            
-                                                            // Delete from Firestore in background
-                                                            await labService.deleteLab(d.id);
-                                                            
-                                                            // Reload to ensure sync (but UI already updated)
-                                                            setTimeout(async () => {
-                                                              const labs = await labService.getLabs(user.uid);
-                                                              const transformedLabs = transformLabsData(labs);
-                                                              setLabsData(transformedLabs);
-                                                            }, 300);
-                                                          } catch (error) {
-                                                            console.error('Error deleting lab:', error);
-                                                            // Revert optimistic update on error
-                                                            reloadHealthData();
-                                                            alert('Failed to delete lab reading. Please try again.');
+                                                            setNewLabValue({ 
+                                                              value: valueData?.value || '', 
+                                                              date: dateValue, 
+                                                              notes: valueData?.notes || '' 
+                                                            });
+                                                            setEditingLabValueId(d.id); // Store the value ID being edited
+                                                            setIsEditingLabValue(true);
+                                                            setShowAddLabValue(true);
                                                           }
-                                                        }
-                                                      }}
-                                                      className="text-red-400 hover:text-red-300 transition-colors p-1 rounded hover:bg-red-900/20"
-                                                      title="Delete this reading"
-                                                    >
-                                                      <Trash2 className="w-3.5 h-3.5" />
-                                                    </button>
+                                                        }}
+                                                        className="text-blue-400 hover:text-blue-300 transition-colors p-1 rounded hover:bg-blue-900/20"
+                                                        title="Edit this reading"
+                                                      >
+                                                        <Edit2 className="w-3.5 h-3.5" />
+                                                      </button>
+                                                      <button
+                                                        onClick={async (e) => {
+                                                          e.stopPropagation();
+                                                          if (window.confirm(`Delete this ${currentLab.name} reading (${d.value} ${currentLab.unit} on ${d.date})?`)) {
+                                                            try {
+                                                              console.log('Deleting lab with ID:', d.id);
+                                                              
+                                                              // Optimistically update UI immediately
+                                                              const updatedLabsData = { ...labsData };
+                                                              if (updatedLabsData[selectedLab] && updatedLabsData[selectedLab].data) {
+                                                                const filteredData = updatedLabsData[selectedLab].data.filter(item => item.id !== d.id);
+                                                                // Get most recent value (first item after sorting by timestamp)
+                                                                const sortedData = [...filteredData].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                                                                updatedLabsData[selectedLab] = {
+                                                                  ...updatedLabsData[selectedLab],
+                                                                  data: filteredData,
+                                                                  current: sortedData.length > 0 ? sortedData[0].value : '--'
+                                                                };
+                                                                setLabsData(updatedLabsData);
+                                                                // Update hasRealLabData if all labs are now empty
+                                                                const hasAnyData = Object.values(updatedLabsData).some(lab => lab.data && lab.data.length > 0);
+                                                                setHasRealLabData(hasAnyData);
+                                                              }
+                                                              
+                                                              // Delete from Firestore in background
+                                                              // Verify user is authenticated before deletion
+                                                              if (!user || !user.uid) {
+                                                                throw new Error('User not authenticated');
+                                                              }
+                                                              // d.id is the value ID in the subcollection, not the lab document ID
+                                                              // Get the lab document ID from currentLab
+                                                              const currentLabDoc = allLabData[selectedLab];
+                                                              if (!currentLabDoc || !currentLabDoc.id) {
+                                                                throw new Error('Lab document ID not found');
+                                                              }
+                                                              await labService.deleteLabValue(currentLabDoc.id, d.id);
+                                                              
+                                                              // Reload to ensure sync (but UI already updated)
+                                                              // Use reloadHealthData to properly reload all data
+                                                              setTimeout(async () => {
+                                                                await reloadHealthData();
+                                                              }, 300);
+                                                            } catch (error) {
+                                                              console.error('Error deleting lab:', error);
+                                                              // Revert optimistic update on error
+                                                              reloadHealthData();
+                                                              alert('Failed to delete lab reading. Please try again.');
+                                                            }
+                                                          }
+                                                        }}
+                                                        className="text-red-400 hover:text-red-300 transition-colors p-1 rounded hover:bg-red-900/20"
+                                                        title="Delete this reading"
+                                                      >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                      </button>
+                                                    </div>
                                                   )}
                                                 </div>
                                                 {/* Arrow */}
@@ -4083,12 +4371,12 @@ export default function CancerCareApp() {
                                   return (
                                 <div
                                       key={key}
-                                  className={`relative bg-white rounded-lg shadow-sm p-4 border border-medical-neutral-200 border-l-4 hover:shadow-md transition-all ${
-                                    labStatus.color === 'green' ? 'border-l-medical-accent-500' :
-                                    labStatus.color === 'yellow' ? 'border-l-amber-500' :
-                                    labStatus.color === 'red' ? 'border-l-red-500' :
-                                    'border-l-medical-neutral-400'
+                                  className={`relative bg-white rounded-lg shadow-sm p-4 border-2 transition-all cursor-pointer ${
+                                    selectedLab === key
+                                      ? 'border-medical-primary-500 bg-medical-primary-50'
+                                      : 'border-medical-neutral-200 hover:border-medical-neutral-300 hover:shadow-md'
                                   }`}
+                                  onClick={() => setSelectedLab(key)}
                                 >
 
                                   <div className="flex items-start justify-between mb-2">
@@ -4157,6 +4445,7 @@ export default function CancerCareApp() {
                                                   if (labDoc && labDoc.id) {
                                                     setSelectedLabForValue({ id: labDoc.id, name: displayName, unit: lab.unit, key: key });
                                                     setNewLabValue({ value: '', date: getTodayLocalDate(), notes: '' });
+                                                    setIsEditingLabValue(false);
                                                     setShowAddLabValue(true);
                                                   }
                                                 }}
@@ -4179,6 +4468,9 @@ export default function CancerCareApp() {
                                                       const updatedLabsData = { ...labsData };
                                                       delete updatedLabsData[labType];
                                                       setLabsData(updatedLabsData);
+                                                      // Update hasRealLabData if all labs are now empty
+                                                      const hasAnyData = Object.keys(updatedLabsData).length > 0;
+                                                      setHasRealLabData(hasAnyData);
                                                       
                                                       // If deleted lab was selected, select first available
                                                       if (selectedLab === labType) {
@@ -4197,6 +4489,7 @@ export default function CancerCareApp() {
                                                         const labs = await labService.getLabs(user.uid);
                                                         const transformedLabs = transformLabsData(labs);
                                                         setLabsData(transformedLabs);
+                                                        setHasRealLabData(labs.length > 0);
                                                       }, 300);
                                                     } catch (error) {
                                                       console.error('Error deleting labs:', error);
@@ -4209,7 +4502,13 @@ export default function CancerCareApp() {
                                                 className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
                                               >
                                                 <Trash2 className="w-4 h-4" />
-                                                Delete All
+                                                {(() => {
+                                                  const hasValues = lab.data && Array.isArray(lab.data) && (
+                                                    lab.data.length > 1 || 
+                                                    (lab.data.length === 1 && lab.data[0].value != null && lab.data[0].value !== undefined)
+                                                  );
+                                                  return hasValues ? 'Delete All' : 'Delete Metric';
+                                                })()}
                                               </button>
                                             </div>
                                           </>
@@ -4292,6 +4591,9 @@ export default function CancerCareApp() {
                                                       const updatedLabsData = { ...labsData };
                                                       delete updatedLabsData[labType];
                                                       setLabsData(updatedLabsData);
+                                                      // Update hasRealLabData if all labs are now empty
+                                                      const hasAnyData = Object.keys(updatedLabsData).length > 0;
+                                                      setHasRealLabData(hasAnyData);
                                                       
                                                       // If deleted lab was selected, select first available
                                                       if (selectedLab === labType) {
@@ -4310,6 +4612,7 @@ export default function CancerCareApp() {
                                                         const labs = await labService.getLabs(user.uid);
                                                         const transformedLabs = transformLabsData(labs);
                                                         setLabsData(transformedLabs);
+                                                        setHasRealLabData(labs.length > 0);
                                                       }, 300);
                                                     } catch (error) {
                                                       console.error('Error deleting labs:', error);
@@ -4322,7 +4625,13 @@ export default function CancerCareApp() {
                                                 className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
                                               >
                                                 <Trash2 className="w-4 h-4" />
-                                                Delete All
+                                                {(() => {
+                                                  const hasValues = lab.data && Array.isArray(lab.data) && (
+                                                    lab.data.length > 1 || 
+                                                    (lab.data.length === 1 && lab.data[0].value != null && lab.data[0].value !== undefined)
+                                                  );
+                                                  return hasValues ? 'Delete All' : 'Delete Metric';
+                                                })()}
                                               </button>
                                 </div>
                                           </>
@@ -4352,8 +4661,15 @@ export default function CancerCareApp() {
 
                           return (
                             <div className="space-y-4 mt-6">
-                              {/* Add Lab Metric Button - Upper Right */}
-                              <div className="flex justify-end mb-2">
+                              {/* Upload Lab Report and Add Lab Metric Buttons */}
+                              <div className="flex justify-end gap-3 mb-2">
+                          <button
+                                  onClick={() => simulateDocumentUpload('lab')}
+                                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+                          >
+                                  <Upload className="w-4 h-4" />
+                                  <span className="text-sm font-medium">Upload Lab Report</span>
+                          </button>
                           <button
                                   onClick={() => setShowAddLab(true)}
                                   className="flex items-center gap-2 text-medical-primary-600 hover:text-medical-primary-700 transition-colors"
@@ -4418,24 +4734,6 @@ export default function CancerCareApp() {
                             </div>
                           );
                         })()}
-
-
-                        <div className="space-y-2">
-                          <button
-                            onClick={() => setShowAddLab(true)}
-                            className="w-full py-2 border-2 border-dashed border-medical-neutral-300 rounded-lg text-medical-neutral-600 hover:border-medical-primary-500 hover:text-medical-primary-600 transition flex items-center justify-center gap-2"
-                          >
-                            <Plus className="w-4 h-4" />
-                            Add Lab Metric to Track
-                          </button>
-                          <button
-                            onClick={() => simulateDocumentUpload('lab')}
-                            className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium flex items-center justify-center gap-2"
-                          >
-                            <Upload className="w-4 h-4" />
-                            Upload Lab Report
-                          </button>
-                        </div>
                       </>
                     )}
                   </>
@@ -4455,7 +4753,10 @@ export default function CancerCareApp() {
                             </p>
                             <div className="flex flex-col sm:flex-row gap-3 justify-center">
                               <button
-                                onClick={() => setShowAddVital(true)}
+                                onClick={() => {
+                                  setIsEditingVital(false);
+                                  setShowAddVital(true);
+                                }}
                                 className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2"
                               >
                                 <Edit2 className="w-4 h-4" />
@@ -4538,78 +4839,6 @@ export default function CancerCareApp() {
                               ) : (
                                 <div className="text-sm text-gray-500">No vitals available</div>
                               )}
-                              <div className="relative">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setOpenDeleteMenu(openDeleteMenu === `vital:${selectedVital}` ? null : `vital:${selectedVital}`);
-                                  }}
-                                  className="p-1.5 text-medical-neutral-500 hover:bg-medical-neutral-100 rounded transition-colors"
-                                  title="More options"
-                                >
-                                  <MoreVertical className="w-4 h-4" />
-                                </button>
-                                {openDeleteMenu === `vital:${selectedVital}` && (
-                                  <>
-                                    <div
-                                            className="fixed inset-0 z-[90]"
-                                            onClick={() => setOpenDeleteMenu(null)}
-                                          />
-                                            <div className="absolute right-0 top-8 z-[100] bg-white rounded-lg shadow-lg border border-medical-neutral-200 py-1 min-w-[160px]">
-                                      <button
-                                        onClick={async (e) => {
-                                          e.stopPropagation();
-                                          setOpenDeleteMenu(null);
-                                          const vitalType = selectedVital;
-                                          const vital = allVitalsData[vitalType];
-                                          const displayName = getVitalDisplayName(vital?.name || vitalType);
-                                          const count = vital?.data?.length || 0;
-                                              if (window.confirm(`Delete all ${displayName} data? This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'}. This action cannot be undone.`)) {
-                                                try {
-                                                  console.log('Deleting all vitals of type:', vitalType);
-                                                  
-                                                  // Optimistically update UI immediately
-                                                  const updatedVitalsData = { ...vitalsData };
-                                                  delete updatedVitalsData[vitalType];
-                                                  setVitalsData(updatedVitalsData);
-                                                  
-                                                  // If deleted vital was selected, select first available
-                                                  if (selectedVital === vitalType) {
-                                                    const firstAvailable = Object.keys(updatedVitalsData).find(key => 
-                                                      updatedVitalsData[key] && updatedVitalsData[key].data && updatedVitalsData[key].data.length > 0
-                                                    );
-                                                    if (firstAvailable) {
-                                                      setSelectedVital(firstAvailable);
-                                                    }
-                                                  }
-                                                  
-                                                  // Delete from Firestore in background
-                                                  const deletedCount = await vitalService.deleteAllVitalsByType(user.uid, vitalType);
-                                                  console.log('Deleted vitals count:', deletedCount);
-                                                  
-                                                  // Reload to ensure sync (but UI already updated)
-                                                  setTimeout(async () => {
-                                                    const vitals = await vitalService.getVitals(user.uid);
-                                                    const transformedVitals = transformVitalsData(vitals);
-                                                    setVitalsData(transformedVitals);
-                                                  }, 300);
-                                                } catch (error) {
-                                                  console.error('Error deleting vitals:', error);
-                                                  // Revert optimistic update on error
-                                                  reloadHealthData();
-                                                  alert('Failed to delete vital data. Please try again.');
-                                                }
-                                              }
-                                        }}
-                                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                        Delete All {getVitalDisplayName(allVitalsData[selectedVital]?.name || selectedVital)}
-                                      </button>
-                                    </div>
-                                  </>
-                                )}
-                              </div>
                             </div>
                           </div>
 
@@ -4642,12 +4871,110 @@ export default function CancerCareApp() {
                                   <div className="flex items-baseline gap-2 mb-1">
                                     <span className="text-2xl sm:text-3xl font-bold text-gray-900">{currentVital.current}</span>
                                     <span className="text-sm text-gray-600">{currentVital.unit}</span>
-                                    <span className={`ml-auto text-xs px-2 py-1 rounded-full ${currentVital.status === 'warning' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
-                                      }`}>
-                                      {currentVital.status === 'warning' ? 'Abnormal' : 'Normal'}
-                                    </span>
+                                    {(() => {
+                                      const normalRange = currentVital.normalRange || (() => {
+                                        const age = patientProfile.age || (patientProfile.dateOfBirth ? Math.floor((new Date() - new Date(patientProfile.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000)) : null);
+                                        const normalizedKey = normalizeVitalName(selectedVital) || selectedVital.toLowerCase();
+                                        
+                                        switch (normalizedKey) {
+                                          case 'blood_pressure':
+                                          case 'bp':
+                                            return age && age < 18 ? '<120/80' : '<140/90';
+                                          case 'heart_rate':
+                                          case 'hr':
+                                            if (age) {
+                                              if (age < 1) return '100-160';
+                                              if (age < 3) return '90-150';
+                                              if (age < 10) return '70-120';
+                                              if (age < 18) return '60-100';
+                                            }
+                                            return '60-100';
+                                          case 'temperature':
+                                          case 'temp':
+                                            return '97.5-99.5';
+                                          case 'weight':
+                                            // Calculate weight normal range based on BMI (18.5-24.9) using height
+                                            if (patientProfile.height) {
+                                              return getWeightNormalRange(patientProfile.height, patientProfile.gender);
+                                            }
+                                            return null;
+                                          case 'oxygen_saturation':
+                                          case 'o2sat':
+                                          case 'spo2':
+                                            return '>95';
+                                          case 'respiratory_rate':
+                                          case 'rr':
+                                            if (age) {
+                                              if (age < 1) return '30-60';
+                                              if (age < 3) return '24-40';
+                                              if (age < 12) return '20-30';
+                                            }
+                                            return '12-20';
+                                          default: return null;
+                                        }
+                                      })();
+                                      const vitalStatus = getVitalStatus(currentVital.current, normalRange, selectedVital);
+                                      const statusColors = {
+                                        green: 'text-green-700',
+                                        yellow: 'text-amber-700',
+                                        red: 'text-red-700',
+                                        gray: 'text-gray-700'
+                                      };
+                                      return (
+                                        <span className={`ml-auto text-xs ${statusColors[vitalStatus.color] || statusColors.gray}`}>
+                                          {vitalStatus.label}
+                                        </span>
+                                      );
+                                    })()}
                                   </div>
-                                  <p className="text-xs sm:text-sm text-gray-600">Normal range: {currentVital.normalRange} {currentVital.unit}</p>
+                                  <p className="text-xs sm:text-sm text-gray-600">
+                                    Normal range: {(() => {
+                                      const normalRange = currentVital.normalRange || (() => {
+                                        // Fallback to default normal ranges if not set
+                                        const age = patientProfile.age || (patientProfile.dateOfBirth ? Math.floor((new Date() - new Date(patientProfile.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000)) : null);
+                                        // Normalize the vital key to handle both short and canonical keys
+                                        const normalizedKey = normalizeVitalName(selectedVital) || selectedVital.toLowerCase();
+                                        
+                                        switch (normalizedKey) {
+                                          case 'blood_pressure':
+                                          case 'bp':
+                                            return age && age < 18 ? '<120/80' : '<140/90';
+                                          case 'heart_rate':
+                                          case 'hr':
+                                            if (age) {
+                                              if (age < 1) return '100-160';
+                                              if (age < 3) return '90-150';
+                                              if (age < 10) return '70-120';
+                                              if (age < 18) return '60-100';
+                                            }
+                                            return '60-100';
+                                          case 'temperature':
+                                          case 'temp':
+                                            return '97.5-99.5';
+                                          case 'weight':
+                                            // Calculate weight normal range based on BMI (18.5-24.9) using height
+                                            if (patientProfile.height) {
+                                              return getWeightNormalRange(patientProfile.height, patientProfile.gender);
+                                            }
+                                            return null;
+                                          case 'oxygen_saturation':
+                                          case 'o2sat':
+                                          case 'spo2':
+                                            return '>95';
+                                          case 'respiratory_rate':
+                                          case 'rr':
+                                            if (age) {
+                                              if (age < 1) return '30-60';
+                                              if (age < 3) return '24-40';
+                                              if (age < 12) return '20-30';
+                                            }
+                                            return '12-20';
+                                          default: return 'N/A';
+                                        }
+                                      })();
+                                      return normalRange ? `${normalRange} ${currentVital.unit}` : 'N/A';
+                                    })()}
+                                  </p>
                                 </div>
 
                                 {/* Chart - Responsive with Y-axis and hover tooltips */}
@@ -4752,33 +5079,93 @@ export default function CancerCareApp() {
                                         let minVal = Math.min(...values);
                                         let maxVal = Math.max(...values);
 
+                                        // Get normal range (calculate if not set, especially for weight)
+                                        const normalRangeForChart = currentVital.normalRange || (() => {
+                                          const age = patientProfile.age || (patientProfile.dateOfBirth ? Math.floor((new Date() - new Date(patientProfile.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000)) : null);
+                                          // Normalize the vital key to handle both short and canonical keys
+                                          const normalizedKey = normalizeVitalName(selectedVital) || selectedVital.toLowerCase();
+                                          
+                                          switch (normalizedKey) {
+                                            case 'blood_pressure':
+                                            case 'bp':
+                                              return age && age < 18 ? '<120/80' : '<140/90';
+                                            case 'heart_rate':
+                                            case 'hr':
+                                              if (age) {
+                                                if (age < 1) return '100-160';
+                                                if (age < 3) return '90-150';
+                                                if (age < 10) return '70-120';
+                                                if (age < 18) return '60-100';
+                                              }
+                                              return '60-100';
+                                            case 'temperature':
+                                            case 'temp':
+                                              return '97.5-99.5';
+                                            case 'weight':
+                                              // Calculate weight normal range based on BMI (18.5-24.9) using height
+                                              if (patientProfile.height) {
+                                                return getWeightNormalRange(patientProfile.height, patientProfile.gender);
+                                              }
+                                              return null;
+                                            case 'oxygen_saturation':
+                                            case 'o2sat':
+                                            case 'spo2':
+                                              return '>95';
+                                            case 'respiratory_rate':
+                                            case 'rr':
+                                              if (age) {
+                                                if (age < 1) return '30-60';
+                                                if (age < 3) return '24-40';
+                                                if (age < 12) return '20-30';
+                                              }
+                                              return '12-20';
+                                            default: return null;
+                                          }
+                                        })();
+
                                         // Parse normal range if available
-                                        if (currentVital.normalRange) {
-                                          // Try standard range format "X-Y"
-                                          let rangeMatch = currentVital.normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
-                                          if (rangeMatch) {
-                                            const normMin = parseFloat(rangeMatch[1]);
-                                            const normMax = parseFloat(rangeMatch[2]);
-                                            if (!isNaN(normMin) && !isNaN(normMax)) {
-                                              minVal = Math.min(minVal, normMin);
-                                              maxVal = Math.max(maxVal, normMax);
+                                        if (normalRangeForChart) {
+                                          // Special handling for blood pressure format "<140/90"
+                                          const bpMatch = normalRangeForChart.match(/<\s*(\d+)\/(\d+)/);
+                                          if (bpMatch && (selectedVital === 'bp' || selectedVital === 'blood_pressure')) {
+                                            // For BP, use the systolic threshold (first number)
+                                            const threshold = parseFloat(bpMatch[1]);
+                                            if (!isNaN(threshold)) {
+                                              minVal = Math.min(minVal, 0);
+                                              maxVal = Math.max(maxVal, threshold);
                                             }
                                           } else {
-                                            // Try "< X" format
-                                            const lessThanMatch = currentVital.normalRange.match(/<\s*(\d+\.?\d*)/);
-                                            if (lessThanMatch) {
-                                              const threshold = parseFloat(lessThanMatch[1]);
-                                              if (!isNaN(threshold)) {
-                                                minVal = Math.min(minVal, 0);
-                                                maxVal = Math.max(maxVal, threshold);
+                                            // Try standard range format "X-Y"
+                                            let rangeMatch = normalRangeForChart.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+                                            if (rangeMatch) {
+                                              const normMin = parseFloat(rangeMatch[1]);
+                                              const normMax = parseFloat(rangeMatch[2]);
+                                              if (!isNaN(normMin) && !isNaN(normMax)) {
+                                                minVal = Math.min(minVal, normMin);
+                                                maxVal = Math.max(maxVal, normMax);
                                               }
                                             } else {
-                                              // Try "> X" format
-                                              const greaterThanMatch = currentVital.normalRange.match(/>\s*(\d+\.?\d*)/);
-                                              if (greaterThanMatch) {
-                                                const threshold = parseFloat(greaterThanMatch[1]);
+                                              // Try "< X" format (single number, not BP)
+                                              const lessThanMatch = normalRangeForChart.match(/<\s*(\d+\.?\d*)/);
+                                              if (lessThanMatch) {
+                                                const threshold = parseFloat(lessThanMatch[1]);
                                                 if (!isNaN(threshold)) {
-                                                  minVal = Math.min(minVal, threshold);
+                                                  minVal = Math.min(minVal, 0);
+                                                  maxVal = Math.max(maxVal, threshold);
+                                                }
+                                              } else {
+                                                // Try "> X" format
+                                                const greaterThanMatch = normalRangeForChart.match(/>\s*(\d+\.?\d*)/);
+                                                if (greaterThanMatch) {
+                                                  const threshold = parseFloat(greaterThanMatch[1]);
+                                                  if (!isNaN(threshold)) {
+                                                    // For "> X" format, include threshold in Y-axis bounds if it's close to data
+                                                    // Only adjust if threshold is within reasonable range of the data
+                                                    if (threshold >= minVal * 0.8 && threshold <= maxVal * 1.2) {
+                                                      minVal = Math.min(minVal, threshold * 0.95);
+                                                      maxVal = Math.max(maxVal, threshold * 1.05);
+                                                    }
+                                                  }
                                                 }
                                               }
                                             }
@@ -4796,15 +5183,46 @@ export default function CancerCareApp() {
                                             <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 400 160" preserveAspectRatio="none">
                                               <defs>
                                                 <linearGradient id={`gradient-vital-${selectedVital}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                                                  <stop offset="0%" stopColor={currentVital.status === 'warning' ? '#f97316' : '#10b981'} stopOpacity="0.2" />
-                                                  <stop offset="100%" stopColor={currentVital.status === 'warning' ? '#f97316' : '#10b981'} stopOpacity="0.05" />
+                                                  <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.2" />
+                                                  <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.05" />
                                                 </linearGradient>
                                               </defs>
 
                                               {/* Normal range boundaries (if available) */}
-                                              {currentVital.normalRange && (() => {
+                                              {(() => {
+                                                // Use the normal range calculated earlier for Y-axis
+                                                const normalRange = normalRangeForChart;
+                                                
+                                                if (!normalRange) return null;
+                                                
+                                                return (() => {
+                                                // Special handling for blood pressure format "<140/90"
+                                                const bpMatch = normalRange.match(/<\s*(\d+)\/(\d+)/);
+                                                if (bpMatch && (selectedVital === 'bp' || selectedVital === 'blood_pressure')) {
+                                                  // For BP, we show the systolic threshold (first number)
+                                                  const threshold = parseFloat(bpMatch[1]);
+                                                  if (!isNaN(threshold) && isFinite(threshold)) {
+                                                    const thresholdY = 160 - ((threshold - yMin) / yRange) * 160;
+                                                    return (
+                                                      <>
+                                                        {/* Shaded area below threshold */}
+                                                        <rect
+                                                          x="0"
+                                                          y={thresholdY}
+                                                          width="400"
+                                                          height={160 - thresholdY}
+                                                          fill="#3b82f6"
+                                                          opacity="0.08"
+                                                        />
+                                                        {/* Threshold line */}
+                                                        <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                      </>
+                                                    );
+                                                  }
+                                                }
+                                                
                                                 // Try standard range format "X-Y"
-                                                let rangeMatch = currentVital.normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+                                                let rangeMatch = normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
                                                 if (rangeMatch) {
                                                   const normMin = parseFloat(rangeMatch[1]);
                                                   const normMax = parseFloat(rangeMatch[2]);
@@ -4819,18 +5237,18 @@ export default function CancerCareApp() {
                                                           y={normMaxY}
                                                           width="400"
                                                           height={normMinY - normMaxY}
-                                                          fill="#10b981"
+                                                          fill="#3b82f6"
                                                           opacity="0.08"
                                                         />
                                                         {/* Normal range boundary lines */}
-                                                        <line x1="0" y1={normMinY} x2="400" y2={normMinY} stroke="#10b981" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
-                                                        <line x1="0" y1={normMaxY} x2="400" y2={normMaxY} stroke="#10b981" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                        <line x1="0" y1={normMinY} x2="400" y2={normMinY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                        <line x1="0" y1={normMaxY} x2="400" y2={normMaxY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
                                                       </>
                                                     );
                                                   }
                                                 } else {
-                                                  // Try "< X" format
-                                                  const lessThanMatch = currentVital.normalRange.match(/<\s*(\d+\.?\d*)/);
+                                                  // Try "< X" format (single number, not BP)
+                                                  const lessThanMatch = normalRange.match(/<\s*(\d+\.?\d*)/);
                                                   if (lessThanMatch) {
                                                     const threshold = parseFloat(lessThanMatch[1]);
                                                     if (!isNaN(threshold) && isFinite(threshold)) {
@@ -4843,41 +5261,45 @@ export default function CancerCareApp() {
                                                             y={thresholdY}
                                                             width="400"
                                                             height={160 - thresholdY}
-                                                            fill="#10b981"
-                                                            opacity="0.08"
-                                                          />
-                                                          {/* Threshold line */}
-                                                          <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#10b981" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                          fill="#3b82f6"
+                                                          opacity="0.08"
+                                                        />
+                                                        {/* Threshold line */}
+                                                        <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
                                                         </>
                                                       );
                                                     }
                                                   } else {
                                                     // Try "> X" format
-                                                    const greaterThanMatch = currentVital.normalRange.match(/>\s*(\d+\.?\d*)/);
+                                                    const greaterThanMatch = normalRange.match(/>\s*(\d+\.?\d*)/);
                                                     if (greaterThanMatch) {
                                                       const threshold = parseFloat(greaterThanMatch[1]);
                                                       if (!isNaN(threshold) && isFinite(threshold)) {
                                                         const thresholdY = 160 - ((threshold - yMin) / yRange) * 160;
-                                                        return (
-                                                          <>
-                                                            {/* Shaded area above threshold */}
-                                                            <rect
-                                                              x="0"
-                                                              y="0"
-                                                              width="400"
-                                                              height={thresholdY}
-                                                              fill="#10b981"
-                                                              opacity="0.08"
-                                                            />
-                                                            {/* Threshold line */}
-                                                            <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#10b981" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
-                                                          </>
-                                                        );
+                                                        // Only show if threshold is within visible range
+                                                        if (thresholdY >= 0 && thresholdY <= 160) {
+                                                          return (
+                                                            <>
+                                                              {/* Shaded area above threshold */}
+                                                              <rect
+                                                                x="0"
+                                                                y="0"
+                                                                width="400"
+                                                                height={thresholdY}
+                                                            fill="#3b82f6"
+                                                            opacity="0.08"
+                                                          />
+                                                          {/* Threshold line */}
+                                                          <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                            </>
+                                                          );
+                                                        }
                                                       }
                                                     }
                                                   }
                                                 }
                                                 return null;
+                                                })();
                                               })()}
 
                                               {/* Area under line */}
@@ -4903,7 +5325,7 @@ export default function CancerCareApp() {
                                                   }).join(' ');
                                                 })()}
                                                 fill="none"
-                                                stroke={currentVital.status === 'warning' ? '#f97316' : '#10b981'}
+                                                stroke="#3b82f6"
                                                 strokeWidth="3"
                                                 strokeLinecap="round"
                                                 strokeLinejoin="round"
@@ -4914,9 +5336,70 @@ export default function CancerCareApp() {
                                             {currentVital.data.map((d, i) => {
                                               const dataLength = Math.max(currentVital.data.length - 1, 1); // Prevent division by zero
                                               const val = (selectedVital === 'bp' || selectedVital === 'bloodpressure') ? (d.systolic || d.value) : d.value;
+                                              const displayValue = (selectedVital === 'bp' || selectedVital === 'bloodpressure') 
+                                                ? `${d.systolic || d.value}/${d.diastolic || ''}` 
+                                                : d.value;
                                               const x = (i / dataLength) * 100;
                                               const y = ((parseFloat(val) - yMin) / yRange) * 100;
                                               const isLatest = i === currentVital.data.length - 1;
+                                              
+                                              // Get normal range for status calculation
+                                              const normalRange = currentVital.normalRange || (() => {
+                                                const age = patientProfile.age || (patientProfile.dateOfBirth ? Math.floor((new Date() - new Date(patientProfile.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000)) : null);
+                                                const normalizedKey = normalizeVitalName(selectedVital) || selectedVital.toLowerCase();
+                                                
+                                                switch (normalizedKey) {
+                                                  case 'blood_pressure':
+                                                  case 'bp':
+                                                    return age && age < 18 ? '<120/80' : '<140/90';
+                                                  case 'heart_rate':
+                                                  case 'hr':
+                                                    if (age) {
+                                                      if (age < 1) return '100-160';
+                                                      if (age < 3) return '90-150';
+                                                      if (age < 10) return '70-120';
+                                                      if (age < 18) return '60-100';
+                                                    }
+                                                    return '60-100';
+                                                  case 'temperature':
+                                                  case 'temp':
+                                                    return '97.5-99.5';
+                                                  case 'weight':
+                                                    // Calculate weight normal range based on BMI (18.5-24.9) using height
+                                                    if (patientProfile.height) {
+                                                      return getWeightNormalRange(patientProfile.height, patientProfile.gender);
+                                                    }
+                                                    return null;
+                                                  case 'oxygen_saturation':
+                                                  case 'o2sat':
+                                                  case 'spo2':
+                                                    return '>95';
+                                                  case 'respiratory_rate':
+                                                  case 'rr':
+                                                    if (age) {
+                                                      if (age < 1) return '30-60';
+                                                      if (age < 3) return '24-40';
+                                                      if (age < 12) return '20-30';
+                                                    }
+                                                    return '12-20';
+                                                  default: return null;
+                                                }
+                                              })();
+                                              
+                                              const vitalStatus = getVitalStatus(displayValue, normalRange, selectedVital);
+                                              const statusColors = {
+                                                green: '#10b981',
+                                                yellow: '#f59e0b',
+                                                red: '#ef4444',
+                                                gray: '#6b7280'
+                                              };
+                                              const dotColor = statusColors[vitalStatus.color] || statusColors.gray;
+                                              const statusBadgeColors = {
+                                                green: 'bg-green-100 text-green-700',
+                                                yellow: 'bg-amber-100 text-amber-700',
+                                                red: 'bg-red-100 text-red-700',
+                                                gray: 'bg-gray-100 text-gray-700'
+                                              };
 
                                               return (
                                                 <div
@@ -4938,8 +5421,8 @@ export default function CancerCareApp() {
                                                       width: '20px',
                                                       height: '20px',
                                                       margin: '-10px',
-                                                      border: `2px solid ${currentVital.status === 'warning' ? '#f97316' : '#10b981'}`,
-                                                      backgroundColor: currentVital.status === 'warning' ? 'rgba(249, 115, 22, 0.1)' : 'rgba(16, 185, 129, 0.1)'
+                                                      border: `2px solid ${dotColor}`,
+                                                      backgroundColor: `${dotColor}20`
                                                     }}
                                                   />
 
@@ -4948,7 +5431,7 @@ export default function CancerCareApp() {
                                                     className={`rounded-full transition-all relative z-10 group-hover:scale-125 ${isLatest ? 'w-3.5 h-3.5' : 'w-3 h-3'
                                                       }`}
                                                     style={{
-                                                      backgroundColor: currentVital.status === 'warning' ? '#f97316' : '#10b981',
+                                                      backgroundColor: dotColor,
                                                       border: '2px solid white',
                                                       boxShadow: isLatest
                                                         ? '0 2px 8px rgba(0,0,0,0.25)'
@@ -4956,67 +5439,116 @@ export default function CancerCareApp() {
                                                     }}
                                                   />
 
-                                                  {/* Tooltip with delete button */}
+                                                  {/* Tooltip with edit and delete buttons */}
                                                   <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4 opacity-0 group-hover:opacity-100 transition-opacity z-30">
                                                     <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl">
                                                       <div className="flex items-center justify-between gap-3">
                                                         <div>
                                                       <div className="font-bold text-sm">
-                                                        {selectedVital === 'bp' || selectedVital === 'bloodpressure' 
-                                                          ? `${d.systolic || d.value}/${d.diastolic || ''} ${currentVital.unit}`
-                                                          : `${d.value} ${currentVital.unit}`
-                                                        }
+                                                        {displayValue} {currentVital.unit}
                                                       </div>
-                                                      <div className="text-gray-300 text-center text-xs mt-0.5">{d.date}</div>
                                                         </div>
                                                         {d.id && (
-                                                          <button
-                                                            onClick={async (e) => {
-                                                              e.stopPropagation();
-                                                              const displayName = getVitalDisplayName(currentVital.name || selectedVital);
-                                                              const valueDisplay = selectedVital === 'bp' || selectedVital === 'bloodpressure' 
-                                                                ? `${d.systolic || d.value}/${d.diastolic || ''}`
-                                                                : d.value;
-                                                              if (window.confirm(`Delete this ${displayName} reading (${valueDisplay} ${currentVital.unit} on ${d.date})?`)) {
-                                                                try {
-                                                                  console.log('Deleting vital with ID:', d.id);
-                                                                  
-                                                                  // Optimistically update UI immediately
-                                                                  const updatedVitalsData = { ...vitalsData };
-                                                                  if (updatedVitalsData[selectedVital] && updatedVitalsData[selectedVital].data) {
-                                                                    const filteredData = updatedVitalsData[selectedVital].data.filter(item => item.id !== d.id);
-                                                                    // Get most recent value (first item after sorting by timestamp)
-                                                                    const sortedData = [...filteredData].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-                                                                    updatedVitalsData[selectedVital] = {
-                                                                      ...updatedVitalsData[selectedVital],
-                                                                      data: filteredData,
-                                                                      current: sortedData.length > 0 ? sortedData[0].value : '--'
-                                                                    };
-                                                                    setVitalsData(updatedVitalsData);
+                                                          <div className="flex items-center gap-2">
+                                                            <button
+                                                              onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const currentVitalDoc = allVitalsData[selectedVital];
+                                                                if (currentVitalDoc && currentVitalDoc.id) {
+                                                                  // Pre-fill with existing value data
+                                                                  const valueData = currentVital.data.find(item => item.id === d.id);
+                                                                  // Use dateOriginal if available, otherwise try to parse formatted date
+                                                                  let dateTimeValue = new Date().toISOString().slice(0, 16);
+                                                                  if (valueData?.dateOriginal) {
+                                                                    dateTimeValue = valueData.dateOriginal.toISOString().slice(0, 16);
+                                                                  } else if (valueData?.date) {
+                                                                    // Try to parse the formatted date string (e.g., "Dec 14")
+                                                                    const parsed = new Date(valueData.date);
+                                                                    if (!isNaN(parsed.getTime())) {
+                                                                      dateTimeValue = parsed.toISOString().slice(0, 16);
+                                                                    }
                                                                   }
-                                                                  
-                                                                  // Delete from Firestore in background
-                                                                  await vitalService.deleteVital(d.id);
-                                                                  
-                                                                  // Reload to ensure sync (but UI already updated)
-                                                                  setTimeout(async () => {
-                                                                    const vitals = await vitalService.getVitals(user.uid);
-                                                                    const transformedVitals = transformVitalsData(vitals);
-                                                                    setVitalsData(transformedVitals);
-                                                                  }, 300);
-                                                                } catch (error) {
-                                                                  console.error('Error deleting vital:', error);
-                                                                  // Revert optimistic update on error
-                                                                  reloadHealthData();
-                                                                  alert('Failed to delete vital reading. Please try again.');
+                                                                  const displayName = getVitalDisplayName(currentVitalDoc.name || selectedVital);
+                                                                  setSelectedVitalForValue({ 
+                                                                    id: currentVitalDoc.id, 
+                                                                    name: displayName, 
+                                                                    unit: currentVitalDoc.unit, 
+                                                                    key: selectedVital,
+                                                                    vitalType: selectedVital
+                                                                  });
+                                                                  setNewVitalValue({ 
+                                                                    value: valueData?.value || '', 
+                                                                    systolic: valueData?.systolic || '', 
+                                                                    diastolic: valueData?.diastolic || '', 
+                                                                    dateTime: dateTimeValue, 
+                                                                    notes: valueData?.notes || '' 
+                                                                  });
+                                                                  setEditingVitalValueId(d.id); // Store the value ID being edited
+                                                                  setIsEditingVitalValue(true);
+                                                                  setShowAddVitalValue(true);
                                                                 }
-                                                              }
-                                                            }}
-                                                            className="text-red-400 hover:text-red-300 transition-colors p-1 rounded hover:bg-red-900/20 flex-shrink-0"
-                                                            title="Delete this reading"
-                                                          >
-                                                            <Trash2 className="w-3.5 h-3.5" />
-                                                          </button>
+                                                              }}
+                                                              className="text-blue-400 hover:text-blue-300 transition-colors p-1 rounded hover:bg-blue-900/20 flex-shrink-0"
+                                                              title="Edit this reading"
+                                                            >
+                                                              <Edit2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                            <button
+                                                              onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                const displayName = getVitalDisplayName(currentVital.name || selectedVital);
+                                                                const valueDisplay = selectedVital === 'bp' || selectedVital === 'bloodpressure' 
+                                                                  ? `${d.systolic || d.value}/${d.diastolic || ''}`
+                                                                  : d.value;
+                                                                if (window.confirm(`Delete this ${displayName} reading (${valueDisplay} ${currentVital.unit} on ${d.date})?`)) {
+                                                                  try {
+                                                                    console.log('Deleting vital with ID:', d.id);
+                                                                    
+                                                                    // Optimistically update UI immediately
+                                                                    const updatedVitalsData = { ...vitalsData };
+                                                                    if (updatedVitalsData[selectedVital] && updatedVitalsData[selectedVital].data) {
+                                                                      const filteredData = updatedVitalsData[selectedVital].data.filter(item => item.id !== d.id);
+                                                                      // Get most recent value (first item after sorting by timestamp)
+                                                                      const sortedData = [...filteredData].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                                                                      updatedVitalsData[selectedVital] = {
+                                                                        ...updatedVitalsData[selectedVital],
+                                                                        data: filteredData,
+                                                                        current: sortedData.length > 0 ? sortedData[0].value : '--'
+                                                                      };
+                                                                      setVitalsData(updatedVitalsData);
+                                                                      // Update hasRealVitalData if all vitals are now empty
+                                                                      const hasAnyData = Object.values(updatedVitalsData).some(vital => vital.data && vital.data.length > 0);
+                                                                      setHasRealVitalData(hasAnyData);
+                                                                    }
+                                                                    
+                                                                    // Delete from Firestore in background
+                                                                    // d.id is the value ID in the subcollection, not the vital document ID
+                                                                    // Get the vital document ID from currentVitalDoc
+                                                                    const currentVitalDoc = allVitalsData[selectedVital];
+                                                                    if (!currentVitalDoc || !currentVitalDoc.id) {
+                                                                      throw new Error('Vital document ID not found');
+                                                                    }
+                                                                    await vitalService.deleteVitalValue(currentVitalDoc.id, d.id);
+                                                                    
+                                                                    // Reload to ensure sync (but UI already updated)
+                                                                    // Use reloadHealthData to properly reload all data
+                                                                    setTimeout(async () => {
+                                                                      await reloadHealthData();
+                                                                    }, 300);
+                                                                  } catch (error) {
+                                                                    console.error('Error deleting vital:', error);
+                                                                    // Revert optimistic update on error
+                                                                    reloadHealthData();
+                                                                    alert('Failed to delete vital reading. Please try again.');
+                                                                  }
+                                                                }
+                                                              }}
+                                                              className="text-red-400 hover:text-red-300 transition-colors p-1 rounded hover:bg-red-900/20 flex-shrink-0"
+                                                              title="Delete this reading"
+                                                            >
+                                                              <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                          </div>
                                                         )}
                                                       </div>
                                                       {/* Arrow */}
@@ -5048,28 +5580,104 @@ export default function CancerCareApp() {
                           })()}
                         </div>
 
+                        {/* Log Vital Reading Button */}
+                        <div className="flex justify-end mb-2">
+                          <button
+                            onClick={() => setShowAddVital(true)}
+                            className="flex items-center gap-2 text-green-600 hover:text-green-700 transition-colors"
+                          >
+                            <Plus className="w-4 h-4" />
+                            <span className="text-sm font-medium">Add Vital Reading</span>
+                          </button>
+                        </div>
+
                         {/* Quick Vital Stats */}
                         <div className="bg-white rounded-lg shadow p-4">
                           <h3 className="font-semibold text-gray-800 mb-3">All Vitals (Latest)</h3>
                           <div className="grid grid-cols-2 gap-2">
                             {Object.entries(allVitalsData).map(([key, vital]) => {
                               const displayName = getVitalDisplayName(vital.name || key);
+                              // Get normal range for display
+                              const normalRange = vital.normalRange || (() => {
+                                const age = patientProfile.age || (patientProfile.dateOfBirth ? Math.floor((new Date() - new Date(patientProfile.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000)) : null);
+                                const normalizedKey = normalizeVitalName(key) || key.toLowerCase();
+                                
+                                switch (normalizedKey) {
+                                  case 'blood_pressure':
+                                  case 'bp':
+                                    return age && age < 18 ? '<120/80' : '<140/90';
+                                  case 'heart_rate':
+                                  case 'hr':
+                                    if (age) {
+                                      if (age < 1) return '100-160';
+                                      if (age < 3) return '90-150';
+                                      if (age < 10) return '70-120';
+                                      if (age < 18) return '60-100';
+                                    }
+                                    return '60-100';
+                                  case 'temperature':
+                                  case 'temp':
+                                    return '97.5-99.5';
+                                  case 'weight':
+                                    // Calculate weight normal range based on BMI (18.5-24.9) using height
+                                    if (patientProfile.height) {
+                                      return getWeightNormalRange(patientProfile.height, patientProfile.gender);
+                                    }
+                                    return null;
+                                  case 'oxygen_saturation':
+                                  case 'o2sat':
+                                  case 'spo2':
+                                    return '>95';
+                                  case 'respiratory_rate':
+                                  case 'rr':
+                                    if (age) {
+                                      if (age < 1) return '30-60';
+                                      if (age < 3) return '24-40';
+                                      if (age < 12) return '20-30';
+                                    }
+                                    return '12-20';
+                                  default: return null;
+                                }
+                              })();
+                              
                               return (
                                 <div
                                   key={key}
-                                  className={`relative p-3 rounded-lg border-2 transition ${selectedVital === key
-                                    ? 'border-green-500 bg-green-50'
-                                    : 'border-gray-200 hover:border-gray-300 bg-white'
-                                    }`}
+                                  className={`relative bg-white rounded-lg shadow-sm p-4 border-2 transition-all cursor-pointer ${
+                                    selectedVital === key
+                                      ? 'border-medical-primary-500 bg-medical-primary-50'
+                                      : 'border-medical-neutral-200 hover:border-medical-neutral-300 hover:shadow-md'
+                                  }`}
+                                  onClick={() => setSelectedVital(key)}
                                 >
-                                  <button
-                                    onClick={() => setSelectedVital(key)}
-                                    className="w-full text-left"
-                                  >
-                                    <p className="text-xs text-gray-600 mb-0.5">{displayName}</p>
-                                    <p className="text-lg font-bold text-gray-900">{vital.current}</p>
-                                    <p className="text-xs text-gray-500">{vital.unit}</p>
-                                  </button>
+                                  <div className="flex items-start justify-between mb-2">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <p className="text-sm font-semibold text-medical-neutral-900">{displayName}</p>
+                                      </div>
+                                      <div className="flex items-baseline gap-2">
+                                        <p className="text-xl font-bold text-medical-neutral-900">{vital.current}</p>
+                                        <p className="text-xs text-medical-neutral-500">{vital.unit}</p>
+                                      </div>
+                                      {(() => {
+                                        const vitalStatus = getVitalStatus(vital.current, normalRange, key);
+                                        const statusColors = {
+                                          green: 'text-green-700',
+                                          yellow: 'text-amber-700',
+                                          red: 'text-red-700',
+                                          gray: 'text-gray-700'
+                                        };
+                                        return (
+                                          <p className={`text-xs ${statusColors[vitalStatus.color] || statusColors.gray} font-medium mt-1`}>
+                                            {vitalStatus.label}
+                                          </p>
+                                        );
+                                      })()}
+                                      {normalRange && (
+                                        <p className="text-xs text-medical-neutral-500 mt-1">Normal: {normalRange}</p>
+                                      )}
+                                    </div>
+                                  </div>
                                   <div className="absolute top-2 right-2">
                                     <div className="relative">
                                       <button
@@ -5093,18 +5701,27 @@ export default function CancerCareApp() {
                                               onClick={(e) => {
                                                 e.stopPropagation();
                                                 setOpenDeleteMenu(null);
-                                                // Open add vital modal for this specific vital
+                                                // Open add vital value modal for this specific vital
                                                 const vitalDoc = allVitalsData[key];
                                                 if (vitalDoc) {
-                                                  setNewVital({ 
-                                                    vitalType: key, 
+                                                  const displayName = getVitalDisplayName(vitalDoc.name || key);
+                                                  setSelectedVitalForValue({ 
+                                                    id: vitalDoc.id, 
+                                                    name: displayName, 
+                                                    unit: vitalDoc.unit, 
+                                                    key: key,
+                                                    vitalType: key
+                                                  });
+                                                  setNewVitalValue({ 
                                                     value: '', 
                                                     systolic: '', 
                                                     diastolic: '', 
                                                     dateTime: new Date().toISOString().slice(0, 16), 
                                                     notes: '' 
                                                   });
-                                                  setShowAddVital(true);
+                                                  setIsEditingVitalValue(false);
+                                                  setEditingVitalValueId(null);
+                                                  setShowAddVitalValue(true);
                                                 }
                                               }}
                                               className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
@@ -5117,8 +5734,14 @@ export default function CancerCareApp() {
                                                 e.stopPropagation();
                                                 setOpenDeleteMenu(null);
                                                 const vitalType = key;
-                                                const count = vital.data?.length || 0;
-                                                if (window.confirm(`Delete all ${displayName} data? This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'}. This action cannot be undone.`)) {
+                                                const vital = allVitalsData[key] || vitalsData[key];
+                                                const displayName = getVitalDisplayName(vital?.name || vitalType);
+                                                const count = vital?.data?.length || 0;
+                                                const hasValues = (vital?.data && Array.isArray(vital.data) && vital.data.length > 0 && vital.data.some(item => item.value != null && item.value !== undefined));
+                                                const confirmMessage = hasValues
+                                                  ? `Delete all ${displayName} data? This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'}. This action cannot be undone.`
+                                                  : `Delete ${displayName} metric? This will permanently remove the metric. This action cannot be undone.`;
+                                                if (window.confirm(confirmMessage)) {
                                                   try {
                                                     console.log('Deleting all vitals of type:', vitalType);
                                                     
@@ -5127,11 +5750,22 @@ export default function CancerCareApp() {
                                                     delete updatedVitalsData[vitalType];
                                                     setVitalsData(updatedVitalsData);
                                                     
+                                                    // Update hasRealVitalData - check if any remaining vitals have actual data
+                                                    const hasAnyData = Object.values(updatedVitalsData).some(vital => 
+                                                      vital?.data && Array.isArray(vital.data) && vital.data.length > 0
+                                                    );
+                                                    setHasRealVitalData(hasAnyData);
+                                                    
                                                     // If deleted vital was selected, select first available
                                                     if (selectedVital === vitalType) {
-                                                      const firstAvailable = Object.keys(updatedVitalsData).find(key => updatedVitalsData[key]);
+                                                      const firstAvailable = Object.keys(updatedVitalsData).find(key => 
+                                                        updatedVitalsData[key] && updatedVitalsData[key].data && updatedVitalsData[key].data.length > 0
+                                                      );
                                                       if (firstAvailable) {
                                                         setSelectedVital(firstAvailable);
+                                                      } else {
+                                                        // No vitals with data left, clear selection
+                                                        setSelectedVital(null);
                                                       }
                                                     }
                                                     
@@ -5144,6 +5778,11 @@ export default function CancerCareApp() {
                                                       const vitals = await vitalService.getVitals(user.uid);
                                                       const transformedVitals = transformVitalsData(vitals);
                                                       setVitalsData(transformedVitals);
+                                                      // Check if any vitals have actual data, not just if vitals exist
+                                                      const hasData = Object.values(transformedVitals).some(vital => 
+                                                        vital?.data && Array.isArray(vital.data) && vital.data.length > 0
+                                                      );
+                                                      setHasRealVitalData(hasData);
                                                     }, 300);
                                                   } catch (error) {
                                                     console.error('Error deleting vitals:', error);
@@ -5156,7 +5795,11 @@ export default function CancerCareApp() {
                                               className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
                                             >
                                               <Trash2 className="w-4 h-4" />
-                                              Delete All
+                                              {(() => {
+                                                const vital = allVitalsData[key] || vitalsData[key];
+                                                const hasValues = vital?.data && Array.isArray(vital.data) && vital.data.length > 0 && vital.data.some(item => item.value != null && item.value !== undefined);
+                                                return hasValues ? 'Delete All' : 'Delete Metric';
+                                              })()}
                                             </button>
                                           </div>
                                         </>
@@ -5168,13 +5811,6 @@ export default function CancerCareApp() {
                             })}
                           </div>
                         </div>
-
-                        <button
-                          onClick={() => setShowAddVital(true)}
-                          className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 transition"
-                        >
-                          + Log Vital Reading
-                        </button>
                   </>
                 )}
               </>
@@ -7739,13 +8375,15 @@ export default function CancerCareApp() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 md:p-4">
           <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
             <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
-              <h3 className="font-bold text-lg text-gray-800">Add {selectedLabForValue.name} Value</h3>
+              <h3 className="font-bold text-lg text-gray-800">{isEditingLabValue ? 'Edit Metric Value' : `Add ${selectedLabForValue.name} Value`}</h3>
               <button
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   setShowAddLabValue(false);
                   setSelectedLabForValue(null);
+                  setIsEditingLabValue(false);
+                  setEditingLabValueId(null);
                   setNewLabValue({ value: '', date: getTodayLocalDate(), notes: '' });
                 }}
                 className="text-gray-500 hover:text-gray-700"
@@ -7808,6 +8446,8 @@ export default function CancerCareApp() {
                   onClick={() => {
                     setShowAddLabValue(false);
                     setSelectedLabForValue(null);
+                    setIsEditingLabValue(false);
+                    setEditingLabValueId(null);
                     setNewLabValue({ value: '', date: getTodayLocalDate(), notes: '' });
                   }}
                   className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition flex items-center justify-center gap-2"
@@ -7829,12 +8469,21 @@ export default function CancerCareApp() {
                         return;
                       }
 
-                      // Add the value to the existing lab
-                      await labService.addLabValue(selectedLabForValue.id, {
-                        value: parseFloat(newLabValue.value),
-                        date: valueDate,
-                        notes: newLabValue.notes || ''
-                      });
+                      if (isEditingLabValue && editingLabValueId) {
+                        // Update existing value
+                        await labService.updateLabValue(selectedLabForValue.id, editingLabValueId, {
+                          value: parseFloat(newLabValue.value),
+                          date: valueDate,
+                          notes: newLabValue.notes || ''
+                        });
+                      } else {
+                        // Add new value
+                        await labService.addLabValue(selectedLabForValue.id, {
+                          value: parseFloat(newLabValue.value),
+                          date: valueDate,
+                          notes: newLabValue.notes || ''
+                        });
+                      }
 
                       // Update the lab's current value
                       const lab = await labService.getLab(selectedLabForValue.id);
@@ -7852,17 +8501,19 @@ export default function CancerCareApp() {
                       setSelectedLab(selectedLabForValue.key);
 
                       setShowAddLabValue(false);
+                      setIsEditingLabValue(false);
+                      setEditingLabValueId(null);
                       setSelectedLabForValue(null);
                       setNewLabValue({ value: '', date: getTodayLocalDate(), notes: '' });
                     } catch (error) {
-                      console.error('Error adding lab value:', error);
-                      alert('Failed to add lab value. Please try again.');
+                      console.error('Error saving lab value:', error);
+                      alert('Failed to save lab value. Please try again.');
                     }
                   }}
                   className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
                 >
                   <Check className="w-4 h-4" />
-                  Add Value
+                  {isEditingLabValue ? 'Save' : 'Add Value'}
                 </button>
               </div>
             </div>
@@ -8128,12 +8779,13 @@ export default function CancerCareApp() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 md:p-4">
             <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
               <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
-                <h3 className="font-bold text-lg text-gray-800">Log Vital Reading</h3>
+                <h3 className="font-bold text-lg text-gray-800">{isEditingVital ? 'Edit Vital Value' : 'Log Vital Reading'}</h3>
                 <button
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     setShowAddVital(false);
+                    setIsEditingVital(false);
                   }}
                   className="text-gray-500 hover:text-gray-700"
                   type="button"
@@ -8167,7 +8819,7 @@ export default function CancerCareApp() {
                   >
                     <option value="">Select vital sign...</option>
                     <option value="bp">Blood Pressure</option>
-                    <option value="hr">Heart Rate</option>
+                    <option value="hr">Resting Heart Rate</option>
                     <option value="temp">Temperature</option>
                     <option value="weight">Weight</option>
                     <option value="o2sat">Oxygen Saturation</option>
@@ -8243,6 +8895,8 @@ export default function CancerCareApp() {
                   <button
                     onClick={() => {
                       setShowAddVital(false);
+                      setIsEditingVital(false);
+                      setEditingVitalValueId(null);
                       setNewVital({ vitalType: '', value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
                     }}
                     className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition flex items-center justify-center gap-2"
@@ -8279,7 +8933,7 @@ export default function CancerCareApp() {
                         // Get vital label
                         const vitalLabels = {
                           bp: 'Blood Pressure',
-                          hr: 'Heart Rate',
+                          hr: 'Resting Heart Rate',
                           temp: 'Temperature',
                           weight: 'Weight',
                           o2sat: 'Oxygen Saturation',
@@ -8295,25 +8949,107 @@ export default function CancerCareApp() {
                           rr: '/min'
                         };
 
-                        // Check if vital already exists
-                        let existingVital = await vitalService.getVitalByType(user.uid, newVital.vitalType);
+                        // Calculate normal ranges based on patient demographics
+                        const getVitalNormalRange = (vitalType) => {
+                          const age = patientProfile.age || (patientProfile.dateOfBirth ? Math.floor((new Date() - new Date(patientProfile.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000)) : null);
+                          
+                          switch (vitalType) {
+                            case 'bp':
+                              // Blood pressure: <140/90 for adults, may vary by age
+                              if (age && age < 18) {
+                                // Pediatric BP varies by age, height, and gender - simplified here
+                                return '<120/80';
+                              }
+                              return '<140/90';
+                            
+                            case 'hr':
+                              // Heart rate: varies by age
+                              if (age) {
+                                if (age < 1) return '100-160'; // Infants
+                                if (age < 3) return '90-150'; // Toddlers
+                                if (age < 10) return '70-120'; // Children
+                                if (age < 18) return '60-100'; // Adolescents
+                                // Adults: 60-100
+                              }
+                              return '60-100';
+                            
+                            case 'temp':
+                              // Temperature: generally consistent, but may vary slightly
+                              return '97.5-99.5';
+                            
+                            case 'weight':
+                              // Calculate weight normal range based on BMI (18.5-24.9) using height
+                              if (patientProfile.height) {
+                                return getWeightNormalRange(patientProfile.height, patientProfile.gender);
+                              }
+                              return '';
+                            
+                            case 'o2sat':
+                              // Oxygen saturation: generally consistent, may be lower at altitude
+                              return '>95';
+                            
+                            case 'rr':
+                              // Respiratory rate: varies by age
+                              if (age) {
+                                if (age < 1) return '30-60'; // Infants
+                                if (age < 3) return '24-40'; // Toddlers
+                                if (age < 12) return '20-30'; // Children
+                                // Adults: 12-20
+                              }
+                              return '12-20';
+                            
+                            default:
+                              return '';
+                          }
+                        };
+
                         let vitalId;
 
-                        if (existingVital) {
-                          vitalId = existingVital.id;
+                        if (isEditingVital && editingVitalValueId) {
+                          // When editing, get the vitalId from the current vital document
+                          const currentVitalDoc = allVitalsData[newVital.vitalType];
+                          if (currentVitalDoc && currentVitalDoc.id) {
+                            vitalId = currentVitalDoc.id;
+                          } else {
+                            // Fallback: try to get existing vital
+                            const existingVital = await vitalService.getVitalByType(user.uid, newVital.vitalType);
+                            if (existingVital) {
+                              vitalId = existingVital.id;
+                            } else {
+                              alert('Error: Could not find vital document to update.');
+                              return;
+                            }
+                          }
                         } else {
-                          // Create new vital
-                          vitalId = await vitalService.saveVital({
-                            patientId: user.uid,
-                            vitalType: newVital.vitalType,
-                            label: vitalLabels[newVital.vitalType],
-                            currentValue: newVital.vitalType === 'bp' ? `${newVital.systolic}/${newVital.diastolic}` : parseFloat(newVital.value),
-                            unit: vitalUnits[newVital.vitalType],
-                            createdAt: vitalDate
-                          });
+                          // When adding new value, check if vital already exists
+                          let existingVital = await vitalService.getVitalByType(user.uid, newVital.vitalType);
+                          if (existingVital) {
+                            vitalId = existingVital.id;
+                            // Update normal range if it's missing
+                            if (!existingVital.normalRange) {
+                              const calculatedNormalRange = getVitalNormalRange(newVital.vitalType);
+                              if (calculatedNormalRange) {
+                                await vitalService.saveVital({
+                                  id: vitalId,
+                                  normalRange: calculatedNormalRange
+                                });
+                              }
+                            }
+                          } else {
+                            // Create new vital
+                            vitalId = await vitalService.saveVital({
+                              patientId: user.uid,
+                              vitalType: newVital.vitalType,
+                              label: vitalLabels[newVital.vitalType],
+                              currentValue: newVital.vitalType === 'bp' ? `${newVital.systolic}/${newVital.diastolic}` : parseFloat(newVital.value),
+                              unit: vitalUnits[newVital.vitalType],
+                              normalRange: getVitalNormalRange(newVital.vitalType),
+                              createdAt: vitalDate
+                            });
+                          }
                         }
 
-                        // Add vital value
+                        // Prepare value data
                         const valueData = {
                           date: vitalDate,
                           notes: newVital.notes || ''
@@ -8327,7 +9063,13 @@ export default function CancerCareApp() {
                           valueData.value = parseFloat(newVital.value);
                         }
 
-                        await vitalService.addVitalValue(vitalId, valueData);
+                        if (isEditingVital && editingVitalValueId) {
+                          // Update existing value
+                          await vitalService.updateVitalValue(vitalId, editingVitalValueId, valueData);
+                        } else {
+                          // Add new value
+                          await vitalService.addVitalValue(vitalId, valueData);
+                        }
 
                         // Update current value
                         const vital = await vitalService.getVital(vitalId);
@@ -8342,6 +9084,8 @@ export default function CancerCareApp() {
                         await reloadHealthData();
 
                         setShowAddVital(false);
+                        setIsEditingVital(false);
+                        setEditingVitalValueId(null);
                         setNewVital({ vitalType: '', value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
                       } catch (error) {
                         console.error('Error adding vital:', error);
@@ -8351,7 +9095,7 @@ export default function CancerCareApp() {
                     className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
                   >
                     <Heart className="w-4 h-4" />
-                    Log Reading
+                    {isEditingVital ? 'Save' : 'Log Reading'}
                   </button>
                 </div>
               </div>
@@ -8359,6 +9103,197 @@ export default function CancerCareApp() {
           </div>
         )
       }
+
+      {/* Add Vital Value Modal (for existing vitals) */}
+      {showAddVitalValue && selectedVitalForValue && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 md:p-4">
+          <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
+            <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
+              <h3 className="font-bold text-lg text-gray-800">{isEditingVitalValue ? 'Edit Metric Value' : `Add ${selectedVitalForValue.name} Value`}</h3>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowAddVitalValue(false);
+                  setSelectedVitalForValue(null);
+                  setIsEditingVitalValue(false);
+                  setEditingVitalValueId(null);
+                  setNewVitalValue({ value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
+                }}
+                className="text-gray-500 hover:text-gray-700"
+                type="button"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              <div className="space-y-4">
+                {selectedVitalForValue.vitalType === 'bp' ? (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Reading <span className="text-red-600">*</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="number"
+                        placeholder="Systolic"
+                        value={newVitalValue.systolic || ''}
+                        onChange={(e) => setNewVitalValue({ ...newVitalValue, systolic: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Diastolic"
+                        value={newVitalValue.diastolic || ''}
+                        onChange={(e) => setNewVitalValue({ ...newVitalValue, diastolic: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    {selectedVitalForValue.unit && (
+                      <p className="text-xs text-gray-500 mt-1">Unit: {selectedVitalForValue.unit}</p>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Value <span className="text-red-600">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={newVitalValue.value}
+                      onChange={(e) => setNewVitalValue({ ...newVitalValue, value: e.target.value })}
+                      placeholder={`Enter ${selectedVitalForValue.name} value`}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {selectedVitalForValue.unit && (
+                      <p className="text-xs text-gray-500 mt-1">Unit: {selectedVitalForValue.unit}</p>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Date & Time <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={newVitalValue.dateTime || new Date().toISOString().slice(0, 16)}
+                    onChange={(e) => setNewVitalValue({ ...newVitalValue, dateTime: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Notes <span className="text-gray-500 text-xs">(optional)</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={newVitalValue.notes}
+                    onChange={(e) => setNewVitalValue({ ...newVitalValue, notes: e.target.value })}
+                    placeholder="Add any context about this reading..."
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-shrink-0 bg-white border-t p-4">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowAddVitalValue(false);
+                    setSelectedVitalForValue(null);
+                    setIsEditingVitalValue(false);
+                    setEditingVitalValueId(null);
+                    setNewVitalValue({ value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
+                  }}
+                  className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition flex items-center justify-center gap-2"
+                >
+                  <X className="w-4 h-4" />
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!selectedVitalForValue || !user) {
+                      alert('Please fill in all required fields.');
+                      return;
+                    }
+
+                    if (selectedVitalForValue.vitalType === 'bp') {
+                      if (!newVitalValue.systolic || !newVitalValue.diastolic) {
+                        alert('Please enter both systolic and diastolic values for blood pressure.');
+                        return;
+                      }
+                    } else {
+                      if (!newVitalValue.value) {
+                        alert('Please enter a value.');
+                        return;
+                      }
+                    }
+
+                    if (!newVitalValue.dateTime) {
+                      alert('Please enter a date and time.');
+                      return;
+                    }
+
+                    try {
+                      const vitalDate = new Date(newVitalValue.dateTime);
+                      if (isNaN(vitalDate.getTime())) {
+                        alert('Please enter a valid date and time.');
+                        return;
+                      }
+
+                      const valueData = {
+                        value: selectedVitalForValue.vitalType === 'bp' ? parseFloat(newVitalValue.systolic) : parseFloat(newVitalValue.value),
+                        systolic: selectedVitalForValue.vitalType === 'bp' ? parseFloat(newVitalValue.systolic) : null,
+                        diastolic: selectedVitalForValue.vitalType === 'bp' ? parseFloat(newVitalValue.diastolic) : null,
+                        date: vitalDate,
+                        notes: newVitalValue.notes || ''
+                      };
+
+                      if (isEditingVitalValue && editingVitalValueId) {
+                        // Update existing value
+                        await vitalService.updateVitalValue(selectedVitalForValue.id, editingVitalValueId, valueData);
+                      } else {
+                        // Add new value
+                        await vitalService.addVitalValue(selectedVitalForValue.id, valueData);
+                      }
+
+                      // Update current value
+                      const vital = await vitalService.getVital(selectedVitalForValue.id);
+                      if (vital) {
+                        await vitalService.saveVital({
+                          id: selectedVitalForValue.id,
+                          currentValue: selectedVitalForValue.vitalType === 'bp' ? `${newVitalValue.systolic}/${newVitalValue.diastolic}` : parseFloat(newVitalValue.value)
+                        });
+                      }
+
+                      // Reload health data
+                      await reloadHealthData();
+
+                      setShowAddVitalValue(false);
+                      setSelectedVitalForValue(null);
+                      setIsEditingVitalValue(false);
+                      setEditingVitalValueId(null);
+                      setNewVitalValue({ value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
+                    } catch (error) {
+                      console.error('Error adding vital value:', error);
+                      alert('Failed to add vital reading. Please try again.');
+                    }
+                  }}
+                  className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
+                >
+                  <Heart className="w-4 h-4" />
+                  {isEditingVitalValue ? 'Save' : 'Add Value'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Location Modal - Comprehensive */}
       {
