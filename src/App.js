@@ -4015,10 +4015,13 @@ export default function CancerCareApp() {
                               return (
                                 <div
                                   key={key}
-                                  className="relative bg-white rounded-lg shadow-sm p-4 border border-medical-neutral-200 hover:shadow-md transition-all"
+                                  className={`relative bg-white rounded-lg shadow-sm p-4 border border-medical-neutral-200 border-l-4 hover:shadow-md transition-all ${
+                                    labStatus.color === 'green' ? 'border-l-medical-accent-500' :
+                                    labStatus.color === 'yellow' ? 'border-l-amber-500' :
+                                    labStatus.color === 'red' ? 'border-l-red-500' :
+                                    'border-l-medical-neutral-400'
+                                  }`}
                                 >
-                                  {/* Status indicator dot */}
-                                  <div className={`absolute top-3 right-3 w-2.5 h-2.5 ${colors.dot} rounded-full`}></div>
 
                                   <div className="flex items-start justify-between mb-2">
                                     <div className="flex-1 min-w-0">
