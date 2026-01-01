@@ -31,7 +31,7 @@ const chatSuggestions = [
   { text: "Explain my symptoms", populateText: "Explain my symptoms", icon: Activity, color: "bg-medical-secondary-500/80" },
   { text: "What should I ask my doctor?", populateText: "What should I ask my doctor about [topic]?", icon: MessageSquare, color: "bg-medical-secondary-500/80" },
   { text: "Analyze my health trends", populateText: "Show me trends in my [lab/vital]", icon: TrendingUp, color: "bg-medical-secondary-500/80" },
-  { text: "What do my vitals mean?", populateText: "My heart rate is [value] bpm", icon: Heart, color: "bg-medical-secondary-500/80" },
+  { text: "What do my vitals mean?", populateText: "What do my vitals mean?", icon: Heart, color: "bg-medical-secondary-500/80" },
 ];
 
 // Trial-specific suggestions (shown when discussing a trial)
