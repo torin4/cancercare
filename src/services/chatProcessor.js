@@ -23,6 +23,8 @@ export async function processChatMessage(message, userId, conversationHistory = 
         return int.name || int.description || JSON.stringify(int);
       }).filter(Boolean).join(', ');
 
+      const trialUrl = trialContext.url || (trialContext.id ? `https://clinicaltrials.gov/study/${trialContext.id}` : null);
+      
       trialContextSection = `
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -37,6 +39,7 @@ Trial Information:
 - Conditions: ${Array.isArray(trialContext.conditions) ? trialContext.conditions.join(', ') : (trialContext.conditions || 'Not specified')}
 - Drugs/Interventions: ${drugs || 'Not specified'}
 - Summary: ${trialContext.summary || 'Not available'}
+- Trial URL: ${trialUrl || 'Not available'}
 ${trialContext.eligibility ? `- Eligibility Criteria: ${typeof trialContext.eligibility === 'string' ? trialContext.eligibility : JSON.stringify(trialContext.eligibility)}` : ''}
 ${trialContext.matchResult ? `- Match Score: ${trialContext.matchResult.matchScore || 'Not calculated'}` : ''}
 
@@ -49,6 +52,16 @@ When answering questions about this trial, you should:
 6. Be helpful and educational while being clear that you're providing general information, not medical advice
 7. Keep responses CONCISE (2-4 paragraphs) but THOROUGH - include all key information without being verbose
 8. Use MARKDOWN formatting: **bold** for drug names and key terms, bullet points for lists, \`code\` for dosages/values
+9. ALWAYS include links to authoritative sources:
+   - For trial information: Include the trial study link: ${trialUrl ? `[View trial on ClinicalTrials.gov](${trialUrl})` : 'Trial link not available'}
+   - For drug information: Provide links to FDA labels, prescribing information, or medical databases (e.g., FDA.gov, Drugs.com, PubMed)
+   - Format links as markdown: [Link Text](URL)
+10. You can discuss drugs beyond the information provided in the trial context - use your knowledge and provide links to FDA labels, prescribing information, or medical literature
+11. When discussing specific drugs, search for and provide links to:
+    - FDA-approved labels: https://www.accessdata.fda.gov/scripts/cder/daf/
+    - Prescribing information (package inserts)
+    - Medical literature (PubMed, clinical trials)
+    - Drug information databases (Drugs.com, MedlinePlus)
 
 ═══════════════════════════════════════════════════════════════════════════════`;
     }
@@ -120,7 +133,13 @@ IMPORTANT:
   * Use \`code\` formatting for technical terms, dosages, or specific values
   * Use headers (##) sparingly for major sections if needed
   * Use line breaks to separate ideas clearly
+  * Use links: [Link Text](URL) for references and authoritative sources
 - If trial context is provided, prioritize answering trial-related questions with detailed, educational information about drugs, phases, eligibility, and trial design
+- ALWAYS include authoritative links when discussing:
+  * Drugs: FDA labels (https://www.accessdata.fda.gov/scripts/cder/daf/), prescribing information, medical literature
+  * Trials: ClinicalTrials.gov study link (provided in trial context)
+  * Medical information: PubMed, medical databases, official health organization sites
+- You can discuss drugs beyond the information provided - use your knowledge and provide links to authoritative sources (FDA, medical literature, prescribing information)
 - If no medical data is mentioned, just respond conversationally (or about the trial if trial context is provided)
 - Return ONLY valid JSON
 

@@ -3,7 +3,7 @@ import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircl
 import ReactMarkdown from 'react-markdown';
 import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
 import { uploadDocument, deleteUserDirectory, deleteDocument } from './firebase/storage';
-import { documentService, labService, vitalService, patientService, accountService, genomicProfileService, emergencyContactService, medicationService, symptomService, trialLocationService } from './firebase/services';
+import { documentService, labService, vitalService, patientService, accountService, genomicProfileService, emergencyContactService, medicationService, symptomService, trialLocationService, messageService } from './firebase/services';
 import { getSavedTrials } from './services/clinicalTrials/clinicalTrialsService';
 import { IMPORTANT_GENES } from './config/importantGenes';
 import { processDocument, generateExtractionSummary } from './services/documentProcessor';
@@ -266,6 +266,7 @@ export default function CancerCareApp() {
   const [showFab, setShowFab] = useState(true);
   const [fabAnimating, setFabAnimating] = useState(false);
   const [messages, setMessages] = useState([]);
+  const [chatHistoryLoaded, setChatHistoryLoaded] = useState(false);
   const [quickLogInput, setQuickLogInput] = useState('');
   const [inputText, setInputText] = useState('');
   const [quickLogMode, setQuickLogMode] = useState('general'); // 'general' or 'symptom'
@@ -1245,6 +1246,68 @@ export default function CancerCareApp() {
     loadSavedTrials();
   }, [activeTab, user]);
 
+  // Load chat history when chat tab is opened (only once per session)
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      if (activeTab === 'chat' && user && !chatHistoryLoaded) {
+        try {
+          const savedMessages = await messageService.getMessages(user.uid, 100);
+          if (savedMessages.length > 0) {
+            setMessages(savedMessages.map(msg => ({
+              type: msg.type,
+              text: msg.text,
+              isAnalysis: msg.isAnalysis || false
+            })));
+          }
+          setChatHistoryLoaded(true);
+        } catch (error) {
+          console.error('Error loading chat history:', error);
+          setChatHistoryLoaded(true); // Mark as loaded even on error to prevent retry loops
+        }
+      }
+    };
+    loadChatHistory();
+  }, [activeTab, user, chatHistoryLoaded]);
+
+  // Cleanup old messages (older than 90 days) - run once per day
+  useEffect(() => {
+    if (!user) return;
+
+    const cleanupOldMessages = async () => {
+      try {
+        const allMessages = await messageService.getMessages(user.uid, 1000);
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        
+        const oldMessages = allMessages.filter(msg => {
+          const msgDate = msg.createdAt?.toDate ? msg.createdAt.toDate() : new Date(msg.createdAt);
+          return msgDate < ninetyDaysAgo;
+        });
+
+        // Delete old messages (limit to 50 at a time to avoid rate limits)
+        for (const msg of oldMessages.slice(0, 50)) {
+          try {
+            await messageService.deleteMessage(msg.id);
+          } catch (err) {
+            console.error('Error deleting old message:', err);
+          }
+        }
+      } catch (error) {
+        console.error('Error cleaning up old messages:', error);
+      }
+    };
+
+    // Run cleanup once per day (check localStorage for last cleanup time)
+    const lastCleanup = localStorage.getItem(`chatCleanup_${user.uid}`);
+    const now = Date.now();
+    const oneDay = 24 * 60 * 60 * 1000;
+
+    if (!lastCleanup || (now - parseInt(lastCleanup)) > oneDay) {
+      cleanupOldMessages();
+      localStorage.setItem(`chatCleanup_${user.uid}`, now.toString());
+    }
+  }, [user]);
+
   const handleSendMessage = async () => {
     if (!inputText.trim() || !user) return;
 
@@ -1252,7 +1315,18 @@ export default function CancerCareApp() {
     setInputText('');
 
     // Add user message immediately
-    setMessages(prev => [...prev, { type: 'user', text: userMessage }]);
+    const userMsg = { type: 'user', text: userMessage };
+    setMessages(prev => [...prev, userMsg]);
+
+    // Save user message to Firestore (async, don't wait)
+    if (user) {
+      messageService.addMessage({
+        patientId: user.uid,
+        type: 'user',
+        text: userMessage,
+        isAnalysis: false
+      }).catch(err => console.error('Error saving user message:', err));
+    }
 
     try {
       // Process message with AI to extract and save medical data
@@ -1278,11 +1352,23 @@ export default function CancerCareApp() {
       }
 
       // Add AI response
-      setMessages(prev => [...prev, {
+      const aiMsg = {
         type: 'ai',
         text: responseText,
         isAnalysis: !!result.extractedData
-      }]);
+      };
+      setMessages(prev => [...prev, aiMsg]);
+
+      // Save AI message to Firestore (async, don't wait)
+      if (user) {
+        messageService.addMessage({
+          patientId: user.uid,
+          type: 'ai',
+          text: responseText,
+          isAnalysis: !!result.extractedData,
+          extractedData: result.extractedData || null
+        }).catch(err => console.error('Error saving AI message:', err));
+      }
 
       // Reload health data if values were extracted
       if (result.extractedData) {
@@ -1291,10 +1377,21 @@ export default function CancerCareApp() {
 
     } catch (error) {
       console.error('Error processing message:', error);
-      setMessages(prev => [...prev, {
+      const errorMsg = {
         type: 'ai',
         text: 'Sorry, I\'m having trouble processing your message right now. Please try again in a moment.'
-      }]);
+      };
+      setMessages(prev => [...prev, errorMsg]);
+      
+      // Save error message to Firestore (async, don't wait)
+      if (user) {
+        messageService.addMessage({
+          patientId: user.uid,
+          type: 'ai',
+          text: errorMsg.text,
+          isAnalysis: false
+        }).catch(err => console.error('Error saving error message:', err));
+      }
     }
   };
 
