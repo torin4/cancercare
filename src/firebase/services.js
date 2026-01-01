@@ -155,6 +155,14 @@ export const labService = {
     return docRef.id;
   },
 
+  // Update lab value note
+  async updateLabValueNote(labId, valueId, newNote) {
+    const docRef = doc(db, COLLECTIONS.LABS, labId, 'values', valueId);
+    await updateDoc(docRef, {
+      notes: newNote
+    });
+  },
+
   // Delete individual lab document (one data point)
   async deleteLab(labId) {
     // Also delete any subcollection values
@@ -286,6 +294,14 @@ export const vitalService = {
       }
     );
     return docRef.id;
+  },
+
+  // Update vital value note
+  async updateVitalValueNote(vitalId, valueId, newNote) {
+    const docRef = doc(db, COLLECTIONS.VITALS, vitalId, 'values', valueId);
+    await updateDoc(docRef, {
+      notes: newNote
+    });
   },
 
   // Delete individual vital document (one data point)

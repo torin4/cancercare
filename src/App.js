@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2, Calendar, Globe, Scale, Ruler, Clock, FileText, Users, Phone, Dna, UserCircle, ClipboardList, MessageCircle, Bot, Thermometer, Pill, BarChart, Check, LogOut, ChevronLeft, Save, Link2, Loader2, Unlink, Settings, FlaskConical } from 'lucide-react';
+import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2, Calendar, Globe, Scale, Ruler, Clock, FileText, Users, Phone, Dna, UserCircle, ClipboardList, MessageCircle, Bot, Thermometer, Pill, BarChart, Check, LogOut, ChevronLeft, Save, Link2, Loader2, Unlink, Settings, FlaskConical, RefreshCw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Lottie from 'lottie-react';
 import { onAuthStateChanged, signOut, deleteUser, linkWithPopup, unlink, GoogleAuthProvider } from 'firebase/auth';
@@ -335,6 +335,8 @@ export default function CancerCareApp() {
   const [showEditContacts, setShowEditContacts] = useState(false);
   const [showEditLocation, setShowEditLocation] = useState(false);
   const [showEditMedicalTeam, setShowEditMedicalTeam] = useState(false);
+  const [editingDocumentNote, setEditingDocumentNote] = useState(null);
+  const [documentNoteEdit, setDocumentNoteEdit] = useState('');
 
   useEffect(() => {
     if (showEditInfo) {
@@ -2374,7 +2376,8 @@ export default function CancerCareApp() {
 
       // Step 1: Process document with AI to extract medical data
       setUploadProgress('Analyzing document with AI...');
-      const processingResult = await processDocument(file, user.uid, patientProfile, providedDate, providedNote);
+      // Note: documentId will be null for new uploads, set after document is saved
+      const processingResult = await processDocument(file, user.uid, patientProfile, providedDate, providedNote, null);
       console.log('Document processing result:', processingResult);
 
       // Step 2: Upload file to Firebase Storage
@@ -5525,6 +5528,9 @@ export default function CancerCareApp() {
                         <div className="flex-1 min-w-0">
                           <p className="text-base font-semibold truncate">{fileName}</p>
                           <p className="text-xs text-gray-700 mt-0.5">{iconConfig.label}</p>
+                          {doc.note && (
+                            <p className="text-xs text-medical-primary-600 mt-0.5 italic">Note: {doc.note}</p>
+                          )}
                           <p className="text-xs text-gray-500 mt-0.5">
                             {new Date(doc.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                           </p>
@@ -5540,6 +5546,56 @@ export default function CancerCareApp() {
                             >
                               View
                             </a>
+                          )}
+                          {(doc.documentType === 'Lab' || doc.type === 'Lab' || doc.documentType === 'Vitals' || doc.type === 'Vitals' || doc.documentType === 'blood-test') && (
+                            <>
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  if (!window.confirm('Rescan this document? This will re-extract all lab/vital values. Existing values will be preserved.')) return;
+                                  try {
+                                    setIsUploading(true);
+                                    setUploadProgress('Downloading document...');
+                                    // Download file from storage
+                                    const response = await fetch(doc.fileUrl);
+                                    const blob = await response.blob();
+                                    const file = new File([blob], doc.fileName || doc.name || 'document.pdf', { type: blob.type });
+                                    
+                                    setUploadProgress('Re-processing document...');
+                                    // Re-process with existing note and documentId
+                                    const docDate = doc.date ? (typeof doc.date === 'string' ? doc.date : new Date(doc.date).toISOString().split('T')[0]) : null;
+                                    const processingResult = await processDocument(file, user.uid, patientProfile, docDate, doc.note || null, doc.id);
+                                    
+                                    // Reload health data
+                                    await reloadHealthData();
+                                    
+                                    setIsUploading(false);
+                                    setUploadProgress('');
+                                    alert('Document rescanned successfully! New values have been extracted.');
+                                  } catch (error) {
+                                    console.error('Error rescanning document:', error);
+                                    alert('Error rescanning document. Please try again.');
+                                    setIsUploading(false);
+                                    setUploadProgress('');
+                                  }
+                                }}
+                                className="p-1.5 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition"
+                                title="Rescan document"
+                              >
+                                <RefreshCw size={18} />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingDocumentNote(doc);
+                                  setDocumentNoteEdit(doc.note || '');
+                                }}
+                                className="p-1.5 rounded-full text-gray-500 hover:bg-green-100 hover:text-green-600 transition"
+                                title="Edit note"
+                              >
+                                <Edit2 size={18} />
+                              </button>
+                            </>
                           )}
                           <button
                             onClick={handleDelete}
@@ -7215,6 +7271,124 @@ export default function CancerCareApp() {
           </div>
         )
       }
+
+      {/* Edit Document Note Modal */}
+      {editingDocumentNote && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Edit Document Note</h3>
+              <button
+                onClick={() => {
+                  setEditingDocumentNote(null);
+                  setDocumentNoteEdit('');
+                }}
+                className="text-gray-400 hover:text-gray-600 transition"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              This note will be updated for the document and all lab/vital values extracted from it.
+            </p>
+            <textarea
+              value={documentNoteEdit}
+              onChange={(e) => setDocumentNoteEdit(e.target.value)}
+              placeholder="e.g., Before starting treatment, After cycle 2, Post-surgery..."
+              rows={3}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500 resize-none mb-4"
+            />
+            <div className="flex items-center gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setEditingDocumentNote(null);
+                  setDocumentNoteEdit('');
+                }}
+                className="px-4 py-2 text-gray-600 hover:text-gray-900 font-medium transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!editingDocumentNote || !user) return;
+                  try {
+                    setIsUploading(true);
+                    setUploadProgress('Updating note...');
+                    
+                    const oldNote = editingDocumentNote.note || '';
+                    const newNote = documentNoteEdit.trim();
+                    
+                    // Update document note
+                    await documentService.saveDocument({
+                      id: editingDocumentNote.id,
+                      note: newNote || null
+                    });
+                    
+                    // Find and update all lab values with matching note pattern
+                    const labs = await labService.getLabs(user.uid);
+                    for (const lab of labs) {
+                      const values = await labService.getLabValues(lab.id);
+                      for (const value of values) {
+                        const notePattern = oldNote 
+                          ? `Extracted from document. Context: ${oldNote}`
+                          : 'Extracted from document';
+                        if (value.notes === notePattern || (oldNote && value.notes?.includes(`Context: ${oldNote}`))) {
+                          const updatedNote = newNote 
+                            ? `Extracted from document. Context: ${newNote}`
+                            : 'Extracted from document';
+                          await labService.updateLabValueNote(lab.id, value.id, updatedNote);
+                        }
+                      }
+                    }
+                    
+                    // Find and update all vital values with matching note pattern
+                    const vitals = await vitalService.getVitals(user.uid);
+                    for (const vital of vitals) {
+                      const values = await vitalService.getVitalValues(vital.id);
+                      for (const value of values) {
+                        const notePattern = oldNote 
+                          ? `Extracted from document. Context: ${oldNote}`
+                          : 'Extracted from document';
+                        if (value.notes === notePattern || (oldNote && value.notes?.includes(`Context: ${oldNote}`))) {
+                          const updatedNote = newNote 
+                            ? `Extracted from document. Context: ${newNote}`
+                            : 'Extracted from document';
+                          await vitalService.updateVitalValueNote(vital.id, value.id, updatedNote);
+                        }
+                      }
+                    }
+                    
+                    // Update local documents state
+                    setDocuments(docs => docs.map(d => 
+                      d.id === editingDocumentNote.id 
+                        ? { ...d, note: newNote || null }
+                        : d
+                    ));
+                    
+                    // Reload health data to reflect updated notes
+                    await reloadHealthData();
+                    
+                    setIsUploading(false);
+                    setUploadProgress('');
+                    setEditingDocumentNote(null);
+                    setDocumentNoteEdit('');
+                    alert('Note updated successfully! All related lab/vital values have been updated.');
+                  } catch (error) {
+                    console.error('Error updating note:', error);
+                    alert('Error updating note. Please try again.');
+                    setIsUploading(false);
+                    setUploadProgress('');
+                  }
+                }}
+                className="px-6 py-2 bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition font-medium flex items-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                Save Note
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Document Upload Onboarding (First Time) */}
       {
