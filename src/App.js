@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2, Calendar, Globe, Scale, Ruler, Clock, FileText, Users, Phone, Dna, UserCircle, ClipboardList, MessageCircle } from 'lucide-react';
+import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2, Calendar, Globe, Scale, Ruler, Clock, FileText, Users, Phone, Dna, UserCircle, ClipboardList, MessageCircle, Bot } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Lottie from 'lottie-react';
 import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
@@ -2849,7 +2849,7 @@ export default function CancerCareApp() {
                 <div key={idx} className={`flex items-start gap-2 ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {msg.type === 'ai' && (
                     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-medical-primary-500 to-medical-accent-500 flex items-center justify-center shadow-sm">
-                      <Activity className="w-5 h-5 text-white" />
+                      <Bot className="w-5 h-5 text-white" />
                     </div>
                   )}
                   <div className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 ${msg.type === 'user'
