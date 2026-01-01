@@ -8182,12 +8182,12 @@ export default function CancerCareApp() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                   <div className="flex items-start gap-2">
-                    <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-blue-900">Quick Access</p>
-                      <p className="text-xs text-blue-700 mt-0.5">
+                      <p className="text-sm font-medium text-amber-900">Quick Access</p>
+                      <p className="text-xs text-amber-700 mt-0.5">
                         Keep your emergency contacts up to date for quick access
                       </p>
                     </div>
