@@ -5027,14 +5027,14 @@ export default function CancerCareApp() {
         {activeTab === 'profile' && (
           <div className="p-4 space-y-4">
             {/* Patient Info */}
-            <div className="bg-white rounded-lg shadow p-4">
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-medical-neutral-200">
               <div className="flex items-center gap-4 mb-4">
                 <div className="relative">
                   {profileImage ? (
                     <img src={profileImage} alt="Profile" className="w-24 h-24 rounded-full object-cover" />
                   ) : (
                     <div className="w-24 h-24 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                      MJ
+                      {patientProfile.firstName?.[0] || patientProfile.lastName?.[0] || patientProfile.name?.[0] || user?.displayName?.[0] || 'P'}
                     </div>
                   )}
                   <button
@@ -5059,7 +5059,11 @@ export default function CancerCareApp() {
                 </div>
 
                 <div className="flex-1">
-                  <h2 className="font-bold text-lg">{patientProfile.name || user?.displayName || 'Patient'}</h2>
+                  <h2 className="font-bold text-lg">
+                    {patientProfile.firstName || patientProfile.lastName 
+                      ? `${patientProfile.firstName || ''} ${patientProfile.middleName ? patientProfile.middleName + ' ' : ''}${patientProfile.lastName || ''}`.trim()
+                      : patientProfile.name || user?.displayName || 'Patient'}
+                  </h2>
                   <div className="space-y-1">
                     <p className="text-sm text-gray-600">Age: {patientProfile.age || '--'}</p>
                     <p className="text-sm text-gray-600">DOB: {patientProfile.dateOfBirth ? new Date(patientProfile.dateOfBirth).toLocaleDateString() : '--'}</p>
@@ -5091,38 +5095,40 @@ export default function CancerCareApp() {
               </div>
             </div>
 
-            {/* Current Status */}
-            <div className="bg-white rounded-lg shadow p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold text-gray-800">Current Status</h2>
+            {/* Current Status - Full Width */}
+            <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-medical-neutral-200">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-gray-800 text-lg">Current Status</h2>
                 <button
                   onClick={() => setShowUpdateStatus(true)}
-                  className="text-blue-600 text-sm font-medium hover:underline"
+                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
                 >
                   Update
                 </button>
               </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Diagnosis:</span>
-                  <span className="font-medium">{currentStatus?.diagnosis || patientProfile?.diagnosis || 'No diagnosis yet'}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="flex flex-col">
+                  <span className="text-gray-600 mb-1 text-sm">Diagnosis</span>
+                  <span className="font-medium text-gray-900">{currentStatus?.diagnosis || patientProfile?.diagnosis || 'No diagnosis yet'}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Treatment Status:</span>
-                  <span className="font-medium">{currentStatus?.treatmentLine || currentStatus?.currentRegimen || '—'}</span>
+                <div className="flex flex-col">
+                  <span className="text-gray-600 mb-1 text-sm">Treatment Status</span>
+                  <span className="font-medium text-gray-900">{currentStatus?.treatmentLine || currentStatus?.currentRegimen || '—'}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">ECOG Performance:</span>
-                  <span className="font-medium">{currentStatus?.performanceStatus || '—'}</span>
+                <div className="flex flex-col">
+                  <span className="text-gray-600 mb-1 text-sm">ECOG Performance</span>
+                  <span className="font-medium text-gray-900">{currentStatus?.performanceStatus || '—'}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Disease Status:</span>
-                  <span className="font-medium">{currentStatus?.diseaseStatus || '—'}</span>
+                <div className="flex flex-col">
+                  <span className="text-gray-600 mb-1 text-sm">Disease Status</span>
+                  <span className="font-medium text-gray-900">{currentStatus?.diseaseStatus || '—'}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Baseline CA-125:</span>
-                  <span className="font-medium">{currentStatus?.baselineCa125 != null && currentStatus?.baselineCa125 !== '' ? currentStatus.baselineCa125 : '—'}</span>
-                </div>
+                {currentStatus?.baselineCa125 != null && currentStatus?.baselineCa125 !== '' && (
+                  <div className="flex flex-col">
+                    <span className="text-gray-600 mb-1 text-sm">Baseline CA-125</span>
+                    <span className="font-medium text-gray-900">{currentStatus.baselineCa125}</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -6887,14 +6893,34 @@ export default function CancerCareApp() {
 
               <div className="flex-1 overflow-y-auto p-4">
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
-                    <input
-                      type="text"
-                      value={patientProfile.name}
-                      onChange={(e) => setPatientProfile({ ...patientProfile, name: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
+                      <input
+                        type="text"
+                        value={patientProfile.firstName || ''}
+                        onChange={(e) => setPatientProfile({ ...patientProfile, firstName: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Middle Name</label>
+                      <input
+                        type="text"
+                        value={patientProfile.middleName || ''}
+                        onChange={(e) => setPatientProfile({ ...patientProfile, middleName: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
+                      <input
+                        type="text"
+                        value={patientProfile.lastName || ''}
+                        onChange={(e) => setPatientProfile({ ...patientProfile, lastName: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -6904,7 +6930,7 @@ export default function CancerCareApp() {
                         type="number"
                         value={patientProfile.age}
                         onChange={(e) => setPatientProfile({ ...patientProfile, age: e.target.value })}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
 
@@ -6914,7 +6940,7 @@ export default function CancerCareApp() {
                         type="date"
                         value={patientProfile.dateOfBirth}
                         onChange={(e) => setPatientProfile({ ...patientProfile, dateOfBirth: e.target.value })}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   </div>
@@ -6924,7 +6950,7 @@ export default function CancerCareApp() {
                     <select
                       value={patientProfile.gender || ''}
                       onChange={(e) => setPatientProfile({ ...patientProfile, gender: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Select gender</option>
                       <option value="Male">Male</option>
@@ -6933,121 +6959,27 @@ export default function CancerCareApp() {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis</label>
-                    <input
-                      type="text"
-                      value={patientProfile.diagnosis || ''}
-                      onChange={(e) => setPatientProfile({ ...patientProfile, diagnosis: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="e.g., Ovarian Cancer"
-                    />
-                  </div>
-
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis Date</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Height (cm)</label>
                       <input
-                        type="date"
-                        value={patientProfile.diagnosisDate || ''}
-                        onChange={(e) => setPatientProfile({ ...patientProfile, diagnosisDate: e.target.value })}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        type="number"
+                        value={patientProfile.height}
+                        onChange={(e) => setPatientProfile({ ...patientProfile, height: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Cancer Subtype</label>
-                      { (CANCER_SUBTYPES[patientProfile.diagnosis || currentStatus.diagnosis] || []).length > 0 ? (
-                        <>
-                          <select
-                            value={patientProfile.cancerType || ''}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              if (v === 'Other (specify)') {
-                                setEditCancerCustom(true);
-                                setPatientProfile({ ...patientProfile, cancerType: '' });
-                              } else {
-                                setEditCancerCustom(false);
-                                setPatientProfile({ ...patientProfile, cancerType: v });
-                              }
-                            }}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="">Select subtype...</option>
-                            {(CANCER_SUBTYPES[patientProfile.diagnosis || currentStatus.diagnosis] || []).map(s => <option key={s} value={s}>{s}</option>)}
-                          </select>
-                          {editCancerCustom && (
-                            <input
-                              type="text"
-                              value={patientProfile.cancerType || ''}
-                              onChange={(e) => setPatientProfile({ ...patientProfile, cancerType: e.target.value })}
-                              className="w-full mt-2 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="Specify subtype"
-                            />
-                          )}
-                        </>
-                      ) : (
-                        <input
-                          type="text"
-                          value={patientProfile.cancerType || ''}
-                          onChange={(e) => setPatientProfile({ ...patientProfile, cancerType: e.target.value })}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="e.g., Serous, Clear Cell"
-                        />
-                      )}
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={patientProfile.weight}
+                        onChange={(e) => setPatientProfile({ ...patientProfile, weight: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Stage</label>
-                    <div>
-                      <select
-                        value={patientProfile.stage || ''}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          if (v === 'Other (specify)') {
-                            setEditStageCustom(true);
-                            setPatientProfile({ ...patientProfile, stage: '' });
-                          } else {
-                            setEditStageCustom(false);
-                            setPatientProfile({ ...patientProfile, stage: v });
-                          }
-                        }}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        {STAGE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                      {editStageCustom && (
-                        <input
-                          type="text"
-                          value={patientProfile.stageOther || ''}
-                          onChange={(e) => setPatientProfile({ ...patientProfile, stageOther: e.target.value })}
-                          className="w-full mt-2 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Specify stage (e.g., Stage IIIC)"
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={patientProfile.weight}
-                      onChange={(e) => setPatientProfile({ ...patientProfile, weight: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Height (cm)</label>
-                    <input
-                      type="number"
-                      value={patientProfile.height}
-                      onChange={(e) => setPatientProfile({ ...patientProfile, height: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
                   </div>
 
                   <div>
@@ -7094,18 +7026,18 @@ export default function CancerCareApp() {
                   <button
                     onClick={async () => {
                       try {
+                        // Construct name from first/middle/last
+                        const fullName = `${patientProfile.firstName || ''} ${patientProfile.middleName ? patientProfile.middleName + ' ' : ''}${patientProfile.lastName || ''}`.trim();
                         const toSave = {
-                          name: patientProfile.name,
+                          firstName: patientProfile.firstName || '',
+                          middleName: patientProfile.middleName || '',
+                          lastName: patientProfile.lastName || '',
+                          name: fullName || patientProfile.name,
                           age: parseInt(patientProfile.age) || null,
                           dateOfBirth: patientProfile.dateOfBirth,
                           gender: patientProfile.gender || '',
                           weight: parseFloat(patientProfile.weight) || null,
                           height: parseFloat(patientProfile.height) || null,
-                          diagnosis: patientProfile.diagnosis || '',
-                          diagnosisDate: patientProfile.diagnosisDate || '',
-                          cancerType: patientProfile.cancerType || '',
-                          stage: patientProfile.stageOther || patientProfile.stage || '',
-                          stageOther: patientProfile.stageOther || '',
                           country: patientProfile.country || ''
                         };
                         console.log('Saving Edit Patient Info:', toSave);
