@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, AlertTriangle, XCircle, Star, Search as SearchIcon, MapPin, Globe, X, AlertCircle } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, Star, Search as SearchIcon, MapPin, Globe, X, AlertCircle, MessageSquare } from 'lucide-react';
 import { auth } from '../firebase/config';
 import { patientService, genomicProfileService, clinicalTrialsService, trialLocationService } from '../firebase/services';
 import { getTrialDetails } from '../services/clinicalTrials/trialSearchService';
@@ -868,8 +868,9 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                     onTrialSelected(selectedTrial);
                     setSelectedTrial(null);
                   }}
-                  className="flex-1 bg-medical-accent-500 text-white px-6 py-3 rounded-lg hover:bg-medical-accent-600 transition-all duration-200 font-semibold shadow-sm hover:shadow-md"
+                  className="flex-1 bg-medical-primary-500 text-white px-6 py-3 rounded-lg hover:bg-medical-primary-600 transition-all duration-200 font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
                 >
+                  <MessageSquare className="w-5 h-5" />
                   Ask About This Trial
                 </button>
               )}
@@ -877,8 +878,9 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                 href={selectedTrial.url || (selectedTrial.id ? `https://clinicaltrials.gov/study/${selectedTrial.id}` : '#')}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 bg-medical-primary-500 text-white px-6 py-3 rounded-lg hover:bg-medical-primary-600 transition-all duration-200 text-center font-semibold shadow-sm hover:shadow-md"
+                className="flex-1 bg-medical-accent-500 text-white px-6 py-3 rounded-lg hover:bg-medical-accent-600 transition-all duration-200 text-center font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
               >
+                <Globe className="w-5 h-5" />
                 View on ClinicalTrials.gov
               </a>
             </div>
