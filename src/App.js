@@ -6928,7 +6928,7 @@ export default function CancerCareApp() {
                     <div className="flex-1">
                       <p className="text-sm font-medium text-green-900">Trial Matching</p>
                       <p className="text-xs text-green-700 mt-0.5">
-                        Your location helps us find clinical trials nearby. You can also enable global search to include international trials.
+                        Your location helps us find clinical trials from ClinicalTrials.gov. You can enable global search to include international trials.
                       </p>
                     </div>
                   </div>
@@ -6972,32 +6972,12 @@ export default function CancerCareApp() {
                 </div>
 
                 <div className="bg-gray-50 rounded-lg p-3">
-                  <h5 className="text-sm font-semibold text-gray-800 mb-2">What databases will be searched?</h5>
+                  <h5 className="text-sm font-semibold text-gray-800 mb-2">Database</h5>
                   <div className="space-y-1 text-xs text-gray-600">
                     <div className="flex items-center gap-2">
                       <div className="w-1 h-1 bg-green-600 rounded-full"></div>
-                      <span>ClinicalTrials.gov (US federal database)</span>
+                      <span>ClinicalTrials.gov</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-1 h-1 bg-green-600 rounded-full"></div>
-                      <span>NCI Clinical Trials Search</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-1 h-1 bg-green-600 rounded-full"></div>
-                      <span>Major cancer center databases</span>
-                    </div>
-                    {trialLocation.includeAllLocations && (
-                      <>
-                        <div className="flex items-center gap-2">
-                          <div className="w-1 h-1 bg-green-600 rounded-full"></div>
-                          <span className="font-medium">EU Clinical Trials Register</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-1 h-1 bg-green-600 rounded-full"></div>
-                          <span className="font-medium">WHO International Registry</span>
-                        </div>
-                      </>
-                    )}
                   </div>
                 </div>
               </div>
