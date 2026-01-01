@@ -294,18 +294,18 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
 
   const renderTrialCard = (trial, isSaved = false) => {
     return (
-      <div key={trial.id} className="bg-white rounded-lg shadow-md p-6 mb-4 hover:shadow-lg transition">
+      <div key={trial.id} className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-4 border border-medical-neutral-200 hover:shadow-md transition">
         {/* Header */}
         <div className="flex justify-between items-start mb-3">
           <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <h3 className="text-lg font-bold text-gray-900 mb-1">{trial.title || trial.titleJa}</h3>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-1">{trial.title || trial.titleJa}</h3>
               {trial.source && (
-                <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full">{trial.source}</span>
+                <span className="text-xs px-2 py-0.5 bg-medical-neutral-100 text-medical-neutral-700 rounded-full">{trial.source}</span>
               )}
             </div>
             {trial.titleJa && trial.title !== trial.titleJa && (
-              <p className="text-sm text-gray-600 mb-2">{trial.titleJa}</p>
+              <p className="text-sm text-medical-neutral-600 mb-2">{trial.titleJa}</p>
             )}
           </div>
           {isSaved && (
@@ -319,32 +319,32 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
         </div>
 
         {/* Eligibility Badge */}
-        {trial.matchResult && (
-          <div className="mb-3">
+            {trial.matchResult && (
+          <div className="mb-3 flex flex-wrap items-center gap-2">
             {getEligibilityBadge(trial.matchResult.eligibilityLevel)}
-            <span className="ml-3 text-sm text-gray-600">
+            <span className="text-sm text-medical-neutral-600">
               Match: {trial.matchResult.matchPercentage}%
             </span>
           </div>
         )}
 
         {/* Trial Details */}
-        <div className="grid grid-cols-2 gap-4 mb-3 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 text-sm">
           <div>
-            <span className="font-medium text-gray-700">Phase:</span>
-            <span className="ml-2 text-gray-600">{trial.phase || 'Not specified'}</span>
+            <span className="font-medium text-medical-neutral-700">Phase:</span>
+            <span className="ml-2 text-medical-neutral-600">{trial.phase || 'Not specified'}</span>
           </div>
           <div>
-            <span className="font-medium text-gray-700">Status:</span>
-            <span className="ml-2 text-gray-600">{trial.status || 'Unknown'}</span>
+            <span className="font-medium text-medical-neutral-700">Status:</span>
+            <span className="ml-2 text-medical-neutral-600">{trial.status || 'Unknown'}</span>
           </div>
           <div>
-            <span className="font-medium text-gray-700">Sponsor:</span>
-            <span className="ml-2 text-gray-600">{trial.sponsor || 'N/A'}</span>
+            <span className="font-medium text-medical-neutral-700">Sponsor:</span>
+            <span className="ml-2 text-medical-neutral-600">{trial.sponsor || 'N/A'}</span>
           </div>
           <div>
-            <span className="font-medium text-gray-700">Location:</span>
-            <span className="ml-2 text-gray-600">
+            <span className="font-medium text-medical-neutral-700">Location:</span>
+            <span className="ml-2 text-medical-neutral-600">
               {trial.locations && trial.locations.length > 0 ? (() => {
                 // Get unique countries from all locations
                 const countries = [...new Set(trial.locations.map(loc => {
@@ -369,10 +369,10 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
         {/* Conditions */}
         {trial.conditions && trial.conditions.length > 0 && (
           <div className="mb-3">
-            <span className="font-medium text-gray-700 text-sm">Conditions:</span>
+            <span className="font-medium text-medical-neutral-700 text-sm">Conditions:</span>
             <div className="flex flex-wrap gap-2 mt-1">
               {trial.conditions.map((condition, idx) => (
-                <span key={idx} className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">
+                <span key={idx} className="px-2 py-1 bg-medical-primary-50 text-medical-primary-700 rounded text-xs">
                   {condition}
                 </span>
               ))}
@@ -383,7 +383,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
         {/* Interventions */}
         {trial.interventions && trial.interventions.length > 0 && (
           <div className="mb-3">
-            <span className="font-medium text-gray-700 text-sm">Interventions:</span>
+            <span className="font-medium text-medical-neutral-700 text-sm">Interventions:</span>
             <div className="flex flex-wrap gap-2 mt-1">
               {trial.interventions.map((intervention, idx) => (
                 <span key={idx} className="px-2 py-1 bg-purple-50 text-purple-700 rounded text-xs">
@@ -420,13 +420,13 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
 
         {/* Recommendation */}
         {trial.matchResult && trial.matchResult.recommendation && (
-          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-            <p className="text-sm text-gray-700">{trial.matchResult.recommendation}</p>
+          <div className="mb-4 p-3 bg-medical-neutral-50 rounded-lg border border-medical-neutral-200">
+            <p className="text-sm text-medical-neutral-700">{trial.matchResult.recommendation}</p>
           </div>
         )}
 
         {/* Actions */}
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <button
             onClick={async () => {
               setSelectedTrial(trial);
@@ -445,28 +445,28 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                 }
               }
             }}
-            className="flex-1 bg-medical-primary-500 text-white px-4 py-2 rounded-lg hover:bg-medical-primary-600 transition text-sm font-medium shadow-sm"
+            className="flex-1 bg-medical-primary-500 text-white px-4 py-2.5 rounded-lg hover:bg-medical-primary-600 transition text-sm font-medium shadow-sm hover:shadow-md"
           >
             View Details
           </button>
           {!isSaved && !savedTrialIds.has(trial.id) ? (
             <button
               onClick={() => handleSaveTrial(trial)}
-              className="flex-1 bg-medical-accent-500 text-white px-4 py-2 rounded-lg hover:bg-medical-accent-600 transition text-sm font-medium shadow-sm"
+              className="flex-1 bg-medical-accent-500 text-white px-4 py-2.5 rounded-lg hover:bg-medical-accent-600 transition text-sm font-medium shadow-sm hover:shadow-md"
             >
               Save Trial
             </button>
           ) : !isSaved ? (
             <button
               disabled
-              className="flex-1 bg-gray-400 text-white px-4 py-2 rounded-lg cursor-not-allowed text-sm font-medium"
+              className="flex-1 bg-medical-neutral-400 text-white px-4 py-2.5 rounded-lg cursor-not-allowed text-sm font-medium"
             >
               Saved
             </button>
           ) : (
             <button
               onClick={() => handleRemoveTrial(trial.id)}
-              className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition text-sm font-medium"
+              className="flex-1 bg-red-600 text-white px-4 py-2.5 rounded-lg hover:bg-red-700 transition text-sm font-medium shadow-sm hover:shadow-md"
             >
               Remove
             </button>
@@ -475,7 +475,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             href={trial.url || (trial.id ? `https://clinicaltrials.gov/study/${trial.id}` : '#')}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition text-sm font-medium text-center"
+            className="flex-1 bg-medical-neutral-600 text-white px-4 py-2.5 rounded-lg hover:bg-medical-neutral-700 transition text-sm font-medium text-center shadow-sm hover:shadow-md"
           >
             View on ClinicalTrials.gov
           </a>
@@ -485,11 +485,11 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-4">
+    <div className="max-w-6xl mx-auto p-4 sm:p-6">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-medical-neutral-900 mb-2">Clinical Trials</h1>
-        <p className="text-medical-neutral-600">Search and save clinical trials from ClinicalTrials.gov</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-medical-neutral-900 mb-2">Clinical Trials</h1>
+        <p className="text-sm sm:text-base text-medical-neutral-600">Search and save clinical trials from ClinicalTrials.gov</p>
       </div>
 
       {/* Tabs */}
@@ -520,7 +520,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
       {activeTab === 'search' && (
         <div>
           {/* Search Info */}
-          <div className="bg-medical-primary-50 border border-medical-primary-200 rounded-lg p-4 mb-6">
+          <div className="bg-medical-primary-50 border border-medical-primary-200 rounded-lg p-4 sm:p-5 mb-6">
             <h3 className="font-medium text-medical-primary-900 mb-2">Search Criteria</h3>
             <div className="text-sm text-medical-primary-800 space-y-1">
               <p><strong>Diagnosis:</strong> {patientProfile?.diagnosis || 'Not set'}</p>
@@ -560,7 +560,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
           <button
             onClick={handleSearchTrials}
             disabled={searching || !patientProfile?.diagnosis}
-            className="w-full bg-medical-primary-500 text-white px-6 py-4 rounded-lg hover:bg-medical-primary-600 transition font-medium text-lg mb-6 disabled:bg-medical-neutral-400 disabled:cursor-not-allowed shadow-sm"
+            className="w-full bg-medical-primary-500 text-white px-6 py-3.5 rounded-lg hover:bg-medical-primary-600 transition font-medium text-base sm:text-lg mb-6 disabled:bg-medical-neutral-400 disabled:cursor-not-allowed shadow-sm hover:shadow-md flex items-center justify-center gap-2"
           >
             {searching ? (
               <span className="flex items-center gap-2"><SearchIcon className="w-5 h-5" /> Searching sources...</span>
@@ -572,21 +572,21 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
           {searchResults.length > 0 && (
             <div>
               {searchSources && searchSources.length > 0 && (
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="text-sm text-gray-600">Sources used:</span>
+                <div className="mb-3 flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-medical-neutral-600">Sources used:</span>
                   {searchSources.map((s, idx) => (
-                    <span key={idx} className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full">{s}</span>
+                    <span key={idx} className="text-xs px-2 py-0.5 bg-medical-neutral-100 text-medical-neutral-700 rounded-full">{s}</span>
                   ))}
                 </div>
               )}
               {searchProgress && (
-                <div className="mb-2 text-sm text-gray-500">{searchProgress}</div>
+                <div className="mb-2 text-sm text-medical-neutral-500">{searchProgress}</div>
               )}
 
-              <h2 className="text-xl font-bold text-gray-900 mb-4">
+              <h2 className="text-lg sm:text-xl font-semibold text-medical-neutral-900 mb-4">
                 Found {searchResults.length} Matching Trials
                 {pagination && pagination.totalResults && (
-                  <span className="text-base font-normal text-gray-600 ml-2">
+                  <span className="text-sm sm:text-base font-normal text-medical-neutral-600 ml-2">
                     (of {pagination.totalResults} total)
                   </span>
                 )}
@@ -629,8 +629,8 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
 
           {/* Error Display */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-              <p className="text-red-800 font-medium flex items-center gap-2"><AlertTriangle className="w-5 h-5" /> {error}</p>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 sm:p-5 mb-6">
+              <p className="text-red-800 font-medium flex items-center gap-2 text-sm sm:text-base"><AlertTriangle className="w-5 h-5 flex-shrink-0" /> {error}</p>
               {searchSources && searchSources.length > 0 && (
                 <p className="text-sm text-red-600 mt-2">
                   Sources attempted: {searchSources.join(', ')}
@@ -640,8 +640,8 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
           )}
 
           {!searching && searchResults.length === 0 && !error && (
-            <div className="text-center text-gray-500 py-12">
-              <p className="text-lg">Click "Search Clinical Trials" to find matching trials</p>
+            <div className="text-center text-medical-neutral-500 py-12">
+              <p className="text-base sm:text-lg">Click "Search Clinical Trials" to find matching trials</p>
               <p className="text-sm mt-2">Results will appear here after searching</p>
             </div>
           )}
@@ -651,9 +651,9 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
       {/* Saved Tab */}
       {activeTab === 'saved' && (
         <div>
-          {loading ? (
+            {loading ? (
             <div className="text-center py-12">
-              <p className="text-gray-500">Loading saved trials...</p>
+              <p className="text-medical-neutral-500">Loading saved trials...</p>
             </div>
           ) : error ? (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
@@ -681,14 +681,14 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             </div>
           ) : savedTrials.length > 0 ? (
             <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-4">
+              <h2 className="text-lg sm:text-xl font-semibold text-medical-neutral-900 mb-4">
                 Your Saved Trials ({savedTrials.length})
               </h2>
               {savedTrials.map(trial => renderTrialCard(trial, true))}
             </div>
           ) : (
-            <div className="text-center text-gray-500 py-12">
-              <p className="text-lg">No saved trials yet</p>
+            <div className="text-center text-medical-neutral-500 py-12">
+              <p className="text-base sm:text-lg">No saved trials yet</p>
               <p className="text-sm mt-2">Search for trials and save the ones you're interested in</p>
             </div>
           )}
