@@ -697,49 +697,76 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
 
       {/* Trial Detail Modal */}
       {selectedTrial && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
-            <div className="flex justify-between items-start mb-4">
-              <h2 className="text-2xl font-bold text-gray-900">{selectedTrial.title || selectedTrial.titleJa || 'Trial Details'}</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white w-full h-full sm:h-auto sm:max-w-3xl sm:rounded-xl sm:max-h-[85vh] flex flex-col animate-slide-up shadow-lg border border-medical-neutral-200">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-medical-neutral-200 flex-shrink-0">
+              <h2 className="text-xl sm:text-2xl font-bold text-medical-neutral-900 pr-4">
+                {selectedTrial.title || selectedTrial.titleJa || 'Trial Details'}
+              </h2>
               <button
                 onClick={() => setSelectedTrial(null)}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
+                className="p-2 hover:bg-medical-neutral-100 rounded-lg transition flex-shrink-0"
+                type="button"
               >
-                ×
+                <X className="w-5 h-5 text-medical-neutral-600" />
               </button>
             </div>
 
-            {selectedTrial.titleJa && selectedTrial.title !== selectedTrial.titleJa && (
-              <p className="text-gray-600 mb-4">{selectedTrial.titleJa}</p>
-            )}
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+              {selectedTrial.titleJa && selectedTrial.title !== selectedTrial.titleJa && (
+                <div className="bg-medical-primary-50 border border-medical-primary-200 rounded-lg p-3">
+                  <p className="text-sm text-medical-primary-800">{selectedTrial.titleJa}</p>
+                </div>
+              )}
 
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-bold text-gray-900 mb-2">Summary</h3>
+              {/* Summary */}
+              <div className="bg-white rounded-lg border border-medical-neutral-200 p-4">
+                <h3 className="font-semibold text-medical-neutral-900 mb-3 flex items-center gap-2">
+                  <SearchIcon className="w-5 h-5 text-medical-primary-600" />
+                  Summary
+                </h3>
                 {loadingTrialDetails ? (
-                  <p className="text-gray-500 text-sm">Loading summary...</p>
+                  <div className="flex items-center gap-2 text-medical-neutral-600">
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span className="text-sm">Loading summary...</span>
+                  </div>
                 ) : (
-                  <p className="text-gray-700 whitespace-pre-line">
+                  <p className="text-medical-neutral-700 whitespace-pre-line leading-relaxed">
                     {selectedTrial.summary || selectedTrial.summaryJa || 'No summary available. Please visit the trial page for more information.'}
                   </p>
                 )}
               </div>
 
+              {/* Eligibility Criteria */}
               {selectedTrial.eligibility && (
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2">Eligibility Criteria</h3>
-                  <p className="text-gray-700 whitespace-pre-line">
-                    {typeof selectedTrial.eligibility === 'string' 
-                      ? selectedTrial.eligibility
-                      : (selectedTrial.eligibility.criteria || selectedTrial.eligibility.criteriaJa || 'Not specified')}
-                  </p>
+                <div className="bg-white rounded-lg border border-medical-neutral-200 p-4">
+                  <h3 className="font-semibold text-medical-neutral-900 mb-3 flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-medical-accent-600" />
+                    Eligibility Criteria
+                  </h3>
+                  <div className="bg-medical-neutral-50 rounded-lg p-3 border border-medical-neutral-200">
+                    <p className="text-sm text-medical-neutral-700 whitespace-pre-line leading-relaxed">
+                      {typeof selectedTrial.eligibility === 'string' 
+                        ? selectedTrial.eligibility
+                        : (selectedTrial.eligibility.criteria || selectedTrial.eligibility.criteriaJa || 'Not specified')}
+                    </p>
+                  </div>
                 </div>
               )}
 
+              {/* Study Locations */}
               {selectedTrial.locations && selectedTrial.locations.length > 0 && (
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2">Study Locations</h3>
-                  <ul className="space-y-2">
+                <div className="bg-white rounded-lg border border-medical-neutral-200 p-4">
+                  <h3 className="font-semibold text-medical-neutral-900 mb-3 flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-medical-primary-600" />
+                    Study Locations
+                  </h3>
+                  <ul className="space-y-3">
                     {selectedTrial.locations.map((location, idx) => {
                       // Handle both string and object location formats
                       let locationText = '';
@@ -763,45 +790,46 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                       }
                       
                       return (
-                        <li key={idx} className="text-gray-700">
+                        <li key={idx} className="bg-medical-neutral-50 rounded-lg p-3 border border-medical-neutral-200">
                           {facilityName && (
-                            <div className="font-semibold text-gray-900 mb-0.5">{facilityName}</div>
+                            <div className="font-semibold text-medical-neutral-900 mb-1">{facilityName}</div>
                           )}
-                          <div className="text-sm">{locationText}</div>
+                          <div className="text-sm text-medical-neutral-700">{locationText}</div>
                         </li>
                       );
                     })}
                   </ul>
                 </div>
               )}
+            </div>
 
-              <div className="flex gap-3 pt-4">
-                {onTrialSelected && (
-                  <button
-                    onClick={() => {
-                      onTrialSelected(selectedTrial);
-                      setSelectedTrial(null);
-                    }}
-                    className="flex-1 bg-medical-accent-500 text-white px-4 py-2 rounded-lg hover:bg-medical-accent-600 transition text-center font-medium shadow-sm"
-                  >
-                    Ask About This Trial
-                  </button>
-                )}
-                <a
-                  href={selectedTrial.url || (selectedTrial.id ? `https://clinicaltrials.gov/study/${selectedTrial.id}` : '#')}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 bg-medical-primary-500 text-white px-4 py-2 rounded-lg hover:bg-medical-primary-600 transition text-center font-medium shadow-sm"
-                >
-                  View on ClinicalTrials.gov
-                </a>
+            {/* Footer Actions */}
+            <div className="border-t border-medical-neutral-200 p-4 sm:p-6 flex flex-col sm:flex-row gap-3 flex-shrink-0">
+              {onTrialSelected && (
                 <button
-                  onClick={() => setSelectedTrial(null)}
-                  className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition font-medium"
+                  onClick={() => {
+                    onTrialSelected(selectedTrial);
+                    setSelectedTrial(null);
+                  }}
+                  className="flex-1 bg-medical-accent-500 text-white px-4 py-2.5 rounded-lg hover:bg-medical-accent-600 transition font-medium shadow-sm"
                 >
-                  Close
+                  Ask About This Trial
                 </button>
-              </div>
+              )}
+              <a
+                href={selectedTrial.url || (selectedTrial.id ? `https://clinicaltrials.gov/study/${selectedTrial.id}` : '#')}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 bg-medical-primary-500 text-white px-4 py-2.5 rounded-lg hover:bg-medical-primary-600 transition text-center font-medium shadow-sm"
+              >
+                View on ClinicalTrials.gov
+              </a>
+              <button
+                onClick={() => setSelectedTrial(null)}
+                className="flex-1 bg-medical-neutral-200 text-medical-neutral-700 px-4 py-2.5 rounded-lg hover:bg-medical-neutral-300 transition font-medium"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
