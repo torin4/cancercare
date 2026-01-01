@@ -1181,10 +1181,20 @@ export default function CancerCareApp() {
     'PLT': 'Platelets. Blood cells that help with clotting. Low levels (thrombocytopenia) increase bleeding risk.',
     'ANC': 'Absolute neutrophil count. Critical for infection risk. Should be >1500/μL to reduce infection risk.',
     'Neutrophils': 'Type of white blood cell that fights bacterial infections. Low levels increase infection risk.',
+    'NEUTRO#': 'Neutrophil absolute count. Total number of neutrophils in blood. Critical for fighting bacterial infections. Low levels (neutropenia) increase infection risk.',
+    'NEUTRO%': 'Neutrophil percentage. Percentage of white blood cells that are neutrophils. Normal range is typically 48.0-61.0%. Low levels increase infection risk.',
     'Lymphocytes': 'Type of white blood cell important for immune function. Low levels may indicate immune suppression.',
+    'LYMPH#': 'Lymphocyte absolute count. Total number of lymphocytes in blood. Important for immune function. Low levels may indicate immune suppression.',
+    'LYMPH%': 'Lymphocyte percentage. Percentage of white blood cells that are lymphocytes. Normal range is typically 25.0-45.0%. Low levels may indicate immune suppression.',
     'Monocytes': 'Type of white blood cell that fights infections and removes dead cells. Elevated in chronic infections or inflammatory conditions.',
+    'MONO#': 'Monocyte absolute count. Total number of monocytes in blood. Elevated in chronic infections or inflammatory conditions.',
+    'MONO%': 'Monocyte percentage. Percentage of white blood cells that are monocytes. Normal range is typically 4.0-7.0%. Elevated in chronic infections or inflammatory conditions.',
     'Eosinophils': 'Type of white blood cell involved in allergic reactions and parasite defense. Elevated in allergies, asthma, or parasitic infections.',
+    'EO#': 'Eosinophil absolute count. Total number of eosinophils in blood. Elevated in allergies, asthma, or parasitic infections.',
+    'EO%': 'Eosinophil percentage. Percentage of white blood cells that are eosinophils. Normal range is typically 1.0-5.0%. Elevated in allergies or parasitic infections.',
     'Basophils': 'Type of white blood cell involved in allergic reactions. Usually present in very small numbers. Elevated in rare conditions.',
+    'BA#': 'Basophil absolute count. Total number of basophils in blood. Usually very low. Elevated in rare conditions like chronic myeloid leukemia.',
+    'BA%': 'Basophil percentage. Percentage of white blood cells that are basophils. Normal range is typically 0.0-1.0%.',
     'MCV': 'Mean corpuscular volume. Average size of red blood cells. Used to classify types of anemia.',
     'MCH': 'Mean corpuscular hemoglobin. Average amount of hemoglobin per red blood cell. Low in iron deficiency anemia.',
     'MCHC': 'Mean corpuscular hemoglobin concentration. Average concentration of hemoglobin in red blood cells. Used in anemia diagnosis.',
@@ -1205,6 +1215,8 @@ export default function CancerCareApp() {
     'ALP (IFCC)': 'Alkaline phosphatase. Liver and bone enzyme. Abnormal levels may indicate bile duct obstruction, liver disease, or bone disorders.',
     'ALP IFCC': 'Alkaline phosphatase. Liver and bone enzyme. Abnormal levels may indicate bile duct obstruction, liver disease, or bone disorders.',
     'Bilirubin': 'Breakdown product of red blood cells. High levels cause jaundice and indicate liver dysfunction.',
+    'T-Bil': 'Total Bilirubin. Breakdown product of red blood cells. High levels cause jaundice and indicate liver dysfunction.',
+    'Total Bilirubin': 'Total bilirubin. Breakdown product of red blood cells. High levels cause jaundice and indicate liver dysfunction.',
     'ALB': 'Albumin. Major blood protein made by the liver. Low levels indicate impaired liver function, inflammation, protein loss, or poor nutritional status.',
     'Albumin': 'Main protein in blood. Low levels indicate malnutrition, liver disease, or kidney disease.',
     'GGT': 'Gamma-glutamyl transferase. Liver enzyme. Elevated levels indicate liver disease, bile duct obstruction, or alcohol use.',
@@ -1223,6 +1235,7 @@ export default function CancerCareApp() {
     'ESR': 'Erythrocyte sedimentation rate. Non-specific marker of inflammation. Elevated in many conditions including infection and autoimmune disease.',
     'Ferritin': 'Iron storage protein. Low levels indicate iron deficiency. High levels may indicate iron overload or inflammation.',
     'フェリチン': 'Ferritin. Iron storage protein. Low levels indicate iron deficiency. High levels may indicate iron overload or inflammation.',
+    'Ferritin (Japanese)': 'Ferritin. Iron storage protein. Low levels indicate iron deficiency. High levels may indicate iron overload or inflammation.',
     'Fibrinogen': 'Blood clotting protein. Elevated in inflammation or infection. Low levels increase bleeding risk.',
     'Fbg': 'Fibrinogen. Blood clotting protein. Elevated in inflammation or infection. Low levels increase bleeding risk.',
     'Sodium': 'Essential electrolyte. Regulates fluid balance and nerve function. Imbalances can cause confusion or seizures.',
@@ -1231,6 +1244,7 @@ export default function CancerCareApp() {
     'K': 'Potassium. Essential electrolyte. Important for heart and muscle function. Dangerous if too high or too low.',
     'Calcium': 'Mineral essential for bones, muscles, and nerve function. Regulated by parathyroid hormone and vitamin D.',
     'CA': 'Calcium. Mineral essential for bones, muscles, and nerve function. Regulated by parathyroid hormone and vitamin D.',
+    'Ca': 'Calcium. Mineral essential for bones, muscles, and nerve function. Regulated by parathyroid hormone and vitamin D.',
     'Magnesium': 'Essential mineral for muscle and nerve function. Low levels can cause muscle cramps and irregular heartbeat.',
     'Mg': 'Magnesium. Essential mineral for muscle and nerve function. Low levels can cause muscle cramps and irregular heartbeat.',
     'Chloride': 'Essential electrolyte. Works with sodium to maintain fluid balance and acid-base balance in the body.',
@@ -1243,13 +1257,24 @@ export default function CancerCareApp() {
     'P': 'Phosphorus. Essential mineral for bone health, energy production, and cell function. Imbalances can affect multiple body systems.',
     'Phos': 'Phosphorus. Essential mineral for bone health, energy production, and cell function. Imbalances can affect multiple body systems.',
     'Glucose': 'Blood sugar. High levels indicate diabetes or prediabetes. Low levels (hypoglycemia) can be dangerous.',
+    'GLU': 'Glucose. Blood sugar. High levels indicate diabetes or prediabetes. Low levels (hypoglycemia) can be dangerous.',
+    '血糖': 'Glucose (Blood Sugar). High levels indicate diabetes or prediabetes. Low levels (hypoglycemia) can be dangerous.',
     'PT': 'Prothrombin time. Measures blood clotting function. Important for monitoring anticoagulant medications.',
     'PT活性値': 'PT Activity. Measures blood clotting function as a percentage of normal. Important for monitoring anticoagulant medications and liver function.',
+    'PT Activity': 'PT Activity. Measures blood clotting function as a percentage of normal. Important for monitoring anticoagulant medications and liver function.',
+    'PT Activity Value': 'PT Activity. Measures blood clotting function as a percentage of normal. Important for monitoring anticoagulant medications and liver function.',
     'INR': 'International normalized ratio. Standardized measure of blood clotting. Used to monitor warfarin therapy.',
     'APTT': 'Activated partial thromboplastin time. Measures intrinsic clotting pathway. Used to monitor heparin therapy.',
     'D-dimer': 'Fragment from blood clots. Elevated in deep vein thrombosis, pulmonary embolism, and DIC.',
     'Dimer': 'Fragment from blood clots. Elevated in deep vein thrombosis, pulmonary embolism, and DIC.',
+    'D-ダイマー': 'D-dimer. Fragment from blood clots. Elevated in deep vein thrombosis, pulmonary embolism, and DIC.',
+    'FDP': 'Fibrin degradation products. Fragments from blood clot breakdown. Elevated in conditions involving blood clotting such as DIC, deep vein thrombosis, or pulmonary embolism.',
     'LDH': 'Lactate dehydrogenase. Enzyme found in many tissues. Elevated in tissue damage, hemolysis, or cancer.',
+    'LD IFCC': 'Lactate dehydrogenase (IFCC method). Enzyme found in many tissues. Elevated in tissue damage, hemolysis, or cancer.',
+    'LD': 'Lactate dehydrogenase. Enzyme found in many tissues. Elevated in tissue damage, hemolysis, or cancer.',
+    'IgA': 'Immunoglobulin A. Antibody found in mucous membranes and blood. Important for immune defense in respiratory and digestive tracts. Abnormal levels may indicate immune disorders.',
+    'IgG': 'Immunoglobulin G. Most abundant antibody in blood. Provides long-term immunity against infections. Elevated in chronic infections or autoimmune conditions. Low levels increase infection risk.',
+    'IgM': 'Immunoglobulin M. First antibody produced in response to infection. Elevated in acute infections. Low levels may indicate immune deficiency.',
     'Vitamin D': 'Essential vitamin for bone health and immune function. Low levels are common and may require supplementation.',
     'HbA1c': 'Hemoglobin A1c. Average blood sugar over 2-3 months. Used to diagnose and monitor diabetes.'
   };
@@ -1258,12 +1283,12 @@ export default function CancerCareApp() {
   const categorizeLabs = (labs) => {
     // Predefined lab types by category (including common abbreviations and variations)
     const diseaseMarkers = ['ca125', 'cea', 'afp', 'psa', 'he4', 'ca199', 'ca153', 'ca724', 'ca242', 'ca50', 'inhibinb', 'romaindex', 'ca-125', 'ca 19-9', 'ca 15-3'];
-    const liverFunction = ['alt', 'ast', 'bilirubin', 'albumin', 'alkalinephosphatase', 'alp', 'ggt', 'ldh', 'pt', 'inr', 'aptt', 'alb', 'ast/alt', 'alp ifcc', 'pt活性値'];
+    const liverFunction = ['alt', 'ast', 'bilirubin', 'albumin', 'alkalinephosphatase', 'alp', 'ggt', 'ldh', 'pt', 'inr', 'aptt', 'alb', 'ast/alt', 'alp ifcc', 'pt活性値', 'pt activity', 'pt activity value'];
     const kidneyFunction = ['creatinine', 'egfr', 'bun', 'urea', 'urineprotein', 'urinecreatinine', 'cre'];
-    const bloodCounts = ['wbc', 'rbc', 'hemoglobin', 'hematocrit', 'platelets', 'anc', 'lymphocytes', 'neutrophils', 'monocytes', 'eosinophils', 'basophils', 'mcv', 'mch', 'mchc', 'rdw', 'rdw-cv', 'hgb', 'hct', 'plt'];
+    const bloodCounts = ['wbc', 'rbc', 'hemoglobin', 'hematocrit', 'platelets', 'anc', 'lymphocytes', 'neutrophils', 'monocytes', 'eosinophils', 'basophils', 'mcv', 'mch', 'mchc', 'rdw', 'rdw-cv', 'hgb', 'hct', 'plt', 'ba#', 'ba%', 'eo#', 'eo%', 'lymph#', 'lymph%', 'mono#', 'mono%', 'neutro#', 'neutro%'];
     const thyroidFunction = ['tsh', 't3', 't4', 'ft3', 'ft4', 'thyroglobulin', 'free t3', 'free t4'];
     const cardiacMarkers = ['troponin', 'bnp', 'ntprobnp', 'ckmb', 'myoglobin', 'nt-probnp', 'ck-mb'];
-    const inflammation = ['crp', 'esr', 'ferritin', 'fibrinogen', 'フェリチン', 'fbg'];
+    const inflammation = ['crp', 'esr', 'ferritin', 'fibrinogen', 'フェリチン', 'fbg', 'ferritin (japanese)'];
     const electrolytes = ['sodium', 'potassium', 'chloride', 'bicarbonate', 'co2', 'magnesium', 'phosphorus', 'calcium', 'na', 'k', 'ci', 'ca', 'mg', 'p', 'phos'];
     const coagulation = ['pt', 'inr', 'aptt', 'dimer', 'ddimer', 'fibrinogen', 'd-dimer', 'fbg'];
     const tumorMarkers = ['ca125', 'cea', 'afp', 'psa', 'ca199', 'ca153', 'ca724', 'ca242', 'ca50', 'he4', 'inhibinb', 'romaindex', 'ca2729', 'ca549', 'ca195'];
