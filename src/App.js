@@ -2790,20 +2790,27 @@ export default function CancerCareApp() {
                     </button>
                   </>
                 ) : (
-                  <div className="text-center py-6">
-                    <p className="text-medical-neutral-600 text-sm mb-4">No genomic data yet</p>
-                    <button
-                      onClick={() => {
-                        if (!hasUploadedDocument) {
-                          openDocumentOnboarding('genomic');
-                        } else {
-                          setActiveTab('files');
-                        }
-                      }}
-                      className="text-medical-primary-600 text-sm font-medium hover:text-medical-primary-700 transition-colors"
-                    >
-                      Upload Genomic Report →
-                    </button>
+                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg sm:rounded-xl p-6 sm:p-8 text-center border-2 border-purple-200 shadow-sm">
+                    <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Dna className="w-8 h-8 text-purple-600" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-medical-neutral-900 mb-2">No genomic data yet</h3>
+                    <p className="text-sm text-medical-neutral-600 mb-6">Upload your genomic test report to match with targeted therapies and clinical trials</p>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                      <button
+                        onClick={() => {
+                          if (!hasUploadedDocument) {
+                            openDocumentOnboarding('genomic');
+                          } else {
+                            setActiveTab('files');
+                          }
+                        }}
+                        className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                      >
+                        <Upload className="w-4 h-4" />
+                        Upload Genomic Report
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
