@@ -2171,19 +2171,46 @@ export default function CancerCareApp() {
           const savedTrials = await getSavedTrials(user.uid);
           if (savedTrials && savedTrials.length > 0) {
             // Set the first saved trial as context, or the most recent one
+            // Handle Firestore Timestamp objects properly
             const trialToUse = savedTrials.sort((a, b) => {
-              const aTime = a.savedAt?.toMillis?.() || a.savedAt || 0;
-              const bTime = b.savedAt?.toMillis?.() || b.savedAt || 0;
+              let aTime = 0;
+              let bTime = 0;
+              
+              if (a.savedAt) {
+                if (typeof a.savedAt.toMillis === 'function') {
+                  aTime = a.savedAt.toMillis();
+                } else if (typeof a.savedAt === 'number') {
+                  aTime = a.savedAt;
+                } else if (a.savedAt.seconds) {
+                  aTime = a.savedAt.seconds * 1000;
+                }
+              }
+              
+              if (b.savedAt) {
+                if (typeof b.savedAt.toMillis === 'function') {
+                  bTime = b.savedAt.toMillis();
+                } else if (typeof b.savedAt === 'number') {
+                  bTime = b.savedAt;
+                } else if (b.savedAt.seconds) {
+                  bTime = b.savedAt.seconds * 1000;
+                }
+              }
+              
               return bTime - aTime;
             })[0];
-            setCurrentTrialContext(trialToUse);
-            setMessages(prev => [...prev, {
-              type: 'ai',
-              text: `I'm ready to answer questions about "${trialToUse.title || 'your saved trials'}". You can ask me about the drugs being used, what phase the study is in, eligibility criteria, or anything else about the trial.`
-            }]);
+            
+            // Ensure trial has required fields for context
+            if (trialToUse) {
+              setCurrentTrialContext(trialToUse);
+              setMessages(prev => [...prev, {
+                type: 'ai',
+                text: `I'm ready to answer questions about "${trialToUse.title || 'your saved trials'}". You can ask me about the drugs being used, what phase the study is in, eligibility criteria, or anything else about the trial.`
+              }]);
+            }
           }
         } catch (error) {
           console.error('Error loading saved trials for context:', error);
+          // Don't block message processing if trial loading fails
         }
       }
 
