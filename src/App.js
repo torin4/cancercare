@@ -28,7 +28,7 @@ const chatSuggestions = [
   { text: "Explain my lab results", populateText: "Explain my latest lab results", icon: FileText, color: "bg-medical-secondary-500/80" },
   { text: "How is my treatment progressing?", populateText: "How is my treatment progressing?", icon: TrendingUp, color: "bg-medical-secondary-500/80" },
   { text: "What are common side effects?", populateText: "What are common side effects of [medication]?", icon: AlertCircle, color: "bg-medical-secondary-500/80" },
-  { text: "Explain my symptoms", populateText: "I'm experiencing [symptom] with [severity] severity", icon: Activity, color: "bg-medical-secondary-500/80" },
+  { text: "Explain my symptoms", populateText: "I'm experiencing [symptom] with [severity] severity", icon: Activity, color: "bg-medical-primary-500/80" },
   { text: "What should I ask my doctor?", populateText: "What should I ask my doctor about [topic]?", icon: MessageSquare, color: "bg-medical-secondary-500/80" },
   { text: "Analyze my health trends", populateText: "Show me trends in my [lab/vital]", icon: TrendingUp, color: "bg-medical-secondary-500/80" },
   { text: "What do my vitals mean?", populateText: "My heart rate is [value] bpm", icon: Heart, color: "bg-medical-secondary-500/80" },
