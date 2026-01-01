@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, TrendingDown, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2, Calendar, Globe, Scale, Ruler, Clock, FileText, Users, Phone, Dna, UserCircle, ClipboardList, MessageCircle, Bot, Thermometer, Pill, BarChart, Check, LogOut, ChevronLeft, Save, Link2, Loader2, Unlink, Settings, FlaskConical, RefreshCw } from 'lucide-react';
+import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, TrendingDown, Minus, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2, Calendar, Globe, Scale, Ruler, Clock, FileText, Users, Phone, Dna, UserCircle, ClipboardList, MessageCircle, Bot, Thermometer, Pill, BarChart, Check, LogOut, ChevronLeft, Save, Link2, Loader2, Unlink, Settings, FlaskConical, RefreshCw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Lottie from 'lottie-react';
 import { onAuthStateChanged, signOut, deleteUser, linkWithPopup, unlink, GoogleAuthProvider } from 'firebase/auth';
@@ -1035,7 +1035,7 @@ export default function CancerCareApp() {
         try {
           // Load labs
           const labs = await labService.getLabs(user.uid);
-          const transformedLabs = transformLabsData(labs);
+          const transformedLabs = await transformLabsData(labs);
           setLabsData(transformedLabs);
           setHasRealLabData(labs.length > 0);
 
@@ -1225,10 +1225,11 @@ export default function CancerCareApp() {
     return { status: 'unknown', color: 'gray', label: 'Unknown' };
   };
 
-  const transformLabsData = (labs) => {
+  const transformLabsData = async (labs) => {
     const grouped = {};
 
-    labs.forEach(lab => {
+    // Process each lab and load its values
+    for (const lab of labs) {
       const labType = lab.labType || 'unknown';
 
       if (!grouped[labType]) {
@@ -1246,17 +1247,82 @@ export default function CancerCareApp() {
         };
       }
 
-      // Add to history if we have the lab values
-      // Note: We'll load full history when we expand this
-      grouped[labType].current = lab.currentValue;
-      const timestamp = lab.createdAt?.toDate ? lab.createdAt.toDate() : (lab.createdAt ? new Date(lab.createdAt) : new Date());
-      grouped[labType].data.push({
-        id: lab.id, // Store lab document ID for deletion
-        date: timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        value: lab.currentValue,
-        timestamp: timestamp.getTime() // Store timestamp for calculations
-      });
-    });
+      // Load lab values from subcollection
+      try {
+        const values = await labService.getLabValues(lab.id);
+        if (values && values.length > 0) {
+          // Sort by date (oldest first) for trend calculation
+          const sortedValues = values
+            .map(v => ({
+              id: v.id,
+              value: v.value,
+              date: v.date?.toDate ? v.date.toDate() : (v.date ? new Date(v.date) : new Date()),
+              timestamp: v.date?.toDate ? v.date.toDate().getTime() : (v.date ? new Date(v.date).getTime() : Date.now())
+            }))
+            .sort((a, b) => a.timestamp - b.timestamp);
+
+          // Add all values to data array
+          sortedValues.forEach(v => {
+            grouped[labType].data.push({
+              id: v.id,
+              date: v.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+              value: v.value,
+              timestamp: v.timestamp
+            });
+          });
+
+          // Calculate trend based on values
+          if (sortedValues.length === 1) {
+            // Only one value - no trend
+            grouped[labType].trend = 'stable';
+          } else if (sortedValues.length >= 2) {
+            // Compare last two values
+            const lastValue = sortedValues[sortedValues.length - 1].value;
+            const previousValue = sortedValues[sortedValues.length - 2].value;
+            
+            if (typeof lastValue === 'number' && typeof previousValue === 'number') {
+              const difference = lastValue - previousValue;
+              const percentChange = Math.abs(difference / previousValue);
+              
+              // Only show trend if change is significant (> 1% to avoid noise)
+              if (percentChange > 0.01) {
+                grouped[labType].trend = difference > 0 ? 'up' : 'down';
+              } else {
+                grouped[labType].trend = 'stable';
+              }
+            } else {
+              grouped[labType].trend = 'stable';
+            }
+          }
+
+          // Update current value to most recent
+          if (sortedValues.length > 0) {
+            grouped[labType].current = sortedValues[sortedValues.length - 1].value;
+          }
+        } else {
+          // No values yet, just use the lab document data
+          const timestamp = lab.createdAt?.toDate ? lab.createdAt.toDate() : (lab.createdAt ? new Date(lab.createdAt) : new Date());
+          grouped[labType].data.push({
+            id: lab.id,
+            date: timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            value: lab.currentValue,
+            timestamp: timestamp.getTime()
+          });
+          grouped[labType].trend = 'stable';
+        }
+      } catch (error) {
+        console.error(`Error loading values for lab ${lab.id}:`, error);
+        // Fallback to lab document data
+        const timestamp = lab.createdAt?.toDate ? lab.createdAt.toDate() : (lab.createdAt ? new Date(lab.createdAt) : new Date());
+        grouped[labType].data.push({
+          id: lab.id,
+          date: timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          value: lab.currentValue,
+          timestamp: timestamp.getTime()
+        });
+        grouped[labType].trend = 'stable';
+      }
+    }
 
     return grouped;
   };
@@ -4047,13 +4113,13 @@ export default function CancerCareApp() {
                                       </div>
                                       <div className="flex items-baseline gap-2">
                                         <p className="text-xl font-bold text-medical-neutral-900">{lab.current}</p>
-                                        {lab.trend && (
+                                        {lab.trend && lab.data && lab.data.length > 0 && (
                                           lab.trend === 'up' ? (
                                             <TrendingUp className="w-4 h-4 text-red-500" />
                                           ) : lab.trend === 'down' ? (
                                             <TrendingDown className="w-4 h-4 text-green-500" />
                                           ) : (
-                                            <TrendingUp className="w-4 h-4 text-gray-400 rotate-90" />
+                                            <Minus className="w-4 h-4 text-gray-400" />
                                           )
                                         )}
                                         <p className="text-xs text-medical-neutral-500">{lab.unit}</p>
