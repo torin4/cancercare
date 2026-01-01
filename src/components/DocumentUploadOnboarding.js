@@ -256,8 +256,14 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
               <div className="rounded-lg p-4 border bg-blue-50 border-blue-200">
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Add Context Note</h3>
                 <p className="text-sm text-gray-700 mb-4">
-                  Add any context about this lab report that might be helpful for understanding the values (e.g., "Before starting treatment", "After cycle 2", "Post-surgery"). This note will be attached to all values extracted from this document.
+                  Add any context about this lab report that might be helpful for understanding the values (e.g., "Before starting treatment", "After cycle 2", "Post-surgery"). This note will be attached to all lab and vital values extracted from this document.
                 </p>
+                <div className="bg-blue-100 border border-blue-300 rounded-lg p-3 mb-4">
+                  <p className="text-xs text-blue-800 font-medium mb-1">How this helps the AI:</p>
+                  <p className="text-xs text-blue-700">
+                    When you ask questions about your health data, the AI will see this context note and use it to provide more relevant and contextualized insights. For example, if you note "After cycle 2", the AI will understand that values were taken after a specific treatment cycle when analyzing trends or explaining results.
+                  </p>
+                </div>
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -271,7 +277,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                       className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      This note helps the AI understand the context of your lab values when answering questions.
+                      This note will be saved with the document and all extracted values, helping the AI provide better context-aware responses.
                     </p>
                   </div>
                 </div>
