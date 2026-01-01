@@ -5001,20 +5001,120 @@ export default function CancerCareApp() {
                         <div className="bg-white rounded-lg shadow p-4">
                           <h3 className="font-semibold text-gray-800 mb-3">All Vitals (Latest)</h3>
                           <div className="grid grid-cols-2 gap-2">
-                            {Object.entries(allVitalsData).map(([key, vital]) => (
-                              <button
-                                key={key}
-                                onClick={() => setSelectedVital(key)}
-                                className={`p-3 rounded-lg border-2 transition text-left ${selectedVital === key
-                                  ? 'border-green-500 bg-green-50'
-                                  : 'border-gray-200 hover:border-gray-300'
-                                  }`}
-                              >
-                                <p className="text-xs text-gray-600 mb-0.5">{vital.name}</p>
-                                <p className="text-lg font-bold text-gray-900">{vital.current}</p>
-                                <p className="text-xs text-gray-500">{vital.unit}</p>
-                              </button>
-                            ))}
+                            {Object.entries(allVitalsData).map(([key, vital]) => {
+                              const displayName = getVitalDisplayName(vital.name || key);
+                              return (
+                                <div
+                                  key={key}
+                                  className={`relative p-3 rounded-lg border-2 transition ${selectedVital === key
+                                    ? 'border-green-500 bg-green-50'
+                                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                                    }`}
+                                >
+                                  <button
+                                    onClick={() => setSelectedVital(key)}
+                                    className="w-full text-left"
+                                  >
+                                    <p className="text-xs text-gray-600 mb-0.5">{displayName}</p>
+                                    <p className="text-lg font-bold text-gray-900">{vital.current}</p>
+                                    <p className="text-xs text-gray-500">{vital.unit}</p>
+                                  </button>
+                                  <div className="absolute top-2 right-2">
+                                    <div className="relative">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setOpenDeleteMenu(openDeleteMenu === `vital:${key}` ? null : `vital:${key}`);
+                                        }}
+                                        className="p-1.5 text-medical-neutral-500 hover:bg-medical-neutral-100 rounded transition-colors"
+                                        title="More options"
+                                      >
+                                        <MoreVertical className="w-4 h-4" />
+                                      </button>
+                                      {openDeleteMenu === `vital:${key}` && (
+                                        <>
+                                          <div
+                                            className="fixed inset-0 z-40"
+                                            onClick={() => setOpenDeleteMenu(null)}
+                                          />
+                                          <div className="absolute right-0 top-8 z-50 bg-white rounded-lg shadow-lg border border-medical-neutral-200 py-1 min-w-[160px]">
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setOpenDeleteMenu(null);
+                                                // Open add vital modal for this specific vital
+                                                const vitalDoc = allVitalsData[key];
+                                                if (vitalDoc && vitalDoc.id) {
+                                                  setNewVital({ 
+                                                    vitalType: key, 
+                                                    value: '', 
+                                                    systolic: '', 
+                                                    diastolic: '', 
+                                                    dateTime: new Date().toISOString().slice(0, 16), 
+                                                    notes: '' 
+                                                  });
+                                                  setShowAddVital(true);
+                                                }
+                                              }}
+                                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                            >
+                                              <Plus className="w-4 h-4" />
+                                              Add Value
+                                            </button>
+                                            <button
+                                              onClick={async (e) => {
+                                                e.stopPropagation();
+                                                setOpenDeleteMenu(null);
+                                                const vitalType = key;
+                                                const count = vital.data?.length || 0;
+                                                if (window.confirm(`Delete all ${displayName} data? This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'}. This action cannot be undone.`)) {
+                                                  try {
+                                                    console.log('Deleting all vitals of type:', vitalType);
+                                                    
+                                                    // Optimistically update UI immediately
+                                                    const updatedVitalsData = { ...vitalsData };
+                                                    delete updatedVitalsData[vitalType];
+                                                    setVitalsData(updatedVitalsData);
+                                                    
+                                                    // If deleted vital was selected, select first available
+                                                    if (selectedVital === vitalType) {
+                                                      const firstAvailable = Object.keys(updatedVitalsData).find(key => updatedVitalsData[key]);
+                                                      if (firstAvailable) {
+                                                        setSelectedVital(firstAvailable);
+                                                      }
+                                                    }
+                                                    
+                                                    // Delete from Firestore in background
+                                                    const deletedCount = await vitalService.deleteAllVitalsByType(user.uid, vitalType);
+                                                    console.log('Deleted vitals count:', deletedCount);
+                                                    
+                                                    // Reload to ensure sync (but UI already updated)
+                                                    setTimeout(async () => {
+                                                      const vitals = await vitalService.getVitals(user.uid);
+                                                      const transformedVitals = transformVitalsData(vitals);
+                                                      setVitalsData(transformedVitals);
+                                                    }, 300);
+                                                  } catch (error) {
+                                                    console.error('Error deleting vitals:', error);
+                                                    // Revert optimistic update on error
+                                                    reloadHealthData();
+                                                    alert('Failed to delete vital data. Please try again.');
+                                                  }
+                                                }
+                                              }}
+                                              className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                                            >
+                                              <Trash2 className="w-4 h-4" />
+                                              Delete All
+                                            </button>
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
 
