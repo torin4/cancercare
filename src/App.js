@@ -2745,7 +2745,7 @@ export default function CancerCareApp() {
                         setActiveTab('files');
                       }
                     }}
-                    className="px-6 py-3 bg-medical-accent-500 text-white rounded-lg hover:bg-medical-accent-600 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                    className="px-6 py-3 bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
                   >
                     <Upload className="w-4 h-4" />
                     Upload Labs
