@@ -3111,16 +3111,36 @@ export default function CancerCareApp() {
                 <button
                   key={section}
                   onClick={() => setHealthSection(section)}
-                  className={`pb-3 px-4 font-medium transition-all duration-200 ${
+                  className={`pb-3 px-4 font-medium transition-all duration-200 flex items-center gap-2 ${
                     healthSection === section
                       ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
                       : 'text-medical-neutral-600 hover:text-medical-primary-600'
                   }`}
                 >
-                  {section === 'labs' && 'Labs'}
-                  {section === 'vitals' && 'Vitals'}
-                  {section === 'symptoms' && 'Symptoms'}
-                  {section === 'medications' && 'Medications'}
+                  {section === 'labs' && (
+                    <>
+                      <Activity className="w-4 h-4" />
+                      Labs
+                    </>
+                  )}
+                  {section === 'vitals' && (
+                    <>
+                      <Heart className="w-4 h-4" />
+                      Vitals
+                    </>
+                  )}
+                  {section === 'symptoms' && (
+                    <>
+                      <Activity className="w-4 h-4" />
+                      Symptoms
+                    </>
+                  )}
+                  {section === 'medications' && (
+                    <>
+                      <Activity className="w-4 h-4" />
+                      Medications
+                    </>
+                  )}
                 </button>
               ))}
             </div>
