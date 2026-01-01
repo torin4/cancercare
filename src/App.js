@@ -271,6 +271,7 @@ export default function CancerCareApp() {
   const [inputText, setInputText] = useState('');
   const [quickLogMode, setQuickLogMode] = useState('general'); // 'general' or 'symptom'
   const [currentTrialContext, setCurrentTrialContext] = useState(null); // Trial context for chatbot
+  const [currentHealthContext, setCurrentHealthContext] = useState(null); // Health context for chatbot (labs, vitals, symptoms)
   const [quickLogSymptomForm, setQuickLogSymptomForm] = useState({
     name: '',
     severity: '',
@@ -1337,7 +1338,8 @@ export default function CancerCareApp() {
           role: msg.type === 'user' ? 'user' : 'assistant',
           content: msg.text
         })),
-        currentTrialContext // Pass trial context if available
+        currentTrialContext, // Pass trial context if available
+        currentHealthContext // Pass health context if available
       );
 
       // Build response text
@@ -2009,6 +2011,28 @@ export default function CancerCareApp() {
               </div>
             )}
 
+            {/* Health Context Indicator */}
+            {currentHealthContext && (
+              <div className="p-3 bg-green-50 border-b border-green-200 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-green-600 text-sm font-medium">Discussing:</span>
+                  <span className="text-green-800 text-sm">Your Health Data (Labs, Vitals, Symptoms)</span>
+                </div>
+                <button
+                  onClick={() => {
+                    setCurrentHealthContext(null);
+                    setMessages(prev => [...prev, {
+                      type: 'ai',
+                      text: 'Health context cleared. You can now ask general questions or ask about different health data.'
+                    }]);
+                  }}
+                  className="text-green-600 hover:text-green-800 text-sm underline"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+
             <div className="p-4 bg-white border-t">
               <div className="flex gap-2">
                 <input
@@ -2016,7 +2040,13 @@ export default function CancerCareApp() {
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  placeholder={currentTrialContext ? `Ask about ${currentTrialContext.title || 'this trial'}...` : "Ask about symptoms, treatments, or upload results..."}
+                  placeholder={
+                    currentTrialContext 
+                      ? `Ask about ${currentTrialContext.title || 'this trial'}...` 
+                      : currentHealthContext 
+                        ? "Ask about your labs, vitals, or symptoms..." 
+                        : "Ask about symptoms, treatments, or upload results..."
+                  }
                   className="flex-1 border border-gray-300 rounded-full px-4 py-2.5 text-sm sm:text-base focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
                 <div className="flex items-center gap-2">
@@ -2041,6 +2071,50 @@ export default function CancerCareApp() {
 
         {activeTab === 'health' && (
           <div className="p-4 space-y-4">
+            {/* Ask About Health Button */}
+            <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Ask About Your Health Data</h3>
+                  <p className="text-sm text-gray-600">Get insights about your labs, vitals, and symptoms</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!user) return;
+                    try {
+                      // Load all health data
+                      const labs = await labService.getLabs(user.uid);
+                      const vitals = await vitalService.getVitals(user.uid);
+                      const symptoms = await symptomService.getSymptoms(user.uid);
+                      
+                      // Set health context
+                      setCurrentHealthContext({
+                        labs: labs,
+                        vitals: vitals,
+                        symptoms: symptoms
+                      });
+                      
+                      // Switch to chat tab
+                      setActiveTab('chat');
+                      
+                      // Add a message indicating we're now discussing health data
+                      setMessages(prev => [...prev, {
+                        type: 'ai',
+                        text: `I'm ready to answer questions about your health data. I can see your labs, vitals, and symptoms. You can ask me about trends, what values mean, or any concerns you have.`
+                      }]);
+                    } catch (error) {
+                      console.error('Error loading health data:', error);
+                      alert('Error loading health data. Please try again.');
+                    }
+                  }}
+                  className="bg-green-600 text-white px-6 py-2.5 rounded-lg hover:bg-green-700 transition font-medium flex items-center gap-2"
+                >
+                  <MessageSquare className="w-5 h-5" />
+                  Ask About Health
+                </button>
+              </div>
+            </div>
+
             {/* Health Section Tabs */}
             <div className="flex justify-center gap-2 bg-white rounded-lg p-1 shadow">
               {['labs', 'symptoms', 'medications'].map(section => (

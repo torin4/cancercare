@@ -10,7 +10,7 @@ const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY || pro
  * @param {Array} conversationHistory - Previous conversation messages
  * @param {Object} trialContext - Optional trial context (when asking about a specific trial)
  */
-export async function processChatMessage(message, userId, conversationHistory = [], trialContext = null) {
+export async function processChatMessage(message, userId, conversationHistory = [], trialContext = null, healthContext = null) {
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
@@ -66,13 +66,74 @@ When answering questions about this trial, you should:
 ═══════════════════════════════════════════════════════════════════════════════`;
     }
 
+    // Build health context section if provided
+    let healthContextSection = '';
+    if (healthContext) {
+      // Format labs data
+      const labsSummary = healthContext.labs && healthContext.labs.length > 0
+        ? healthContext.labs.map(lab => {
+            const latestValue = lab.values && lab.values.length > 0 
+              ? lab.values[lab.values.length - 1] 
+              : null;
+            return `- ${lab.label || lab.labType}: ${latestValue ? `${latestValue.value} ${lab.unit || ''}` : lab.currentValue || 'N/A'} ${lab.unit || ''} (Normal: ${lab.normalRange || 'N/A'}, Status: ${lab.status || 'unknown'})`;
+          }).join('\n')
+        : 'No lab data available';
+
+      // Format vitals data
+      const vitalsSummary = healthContext.vitals && healthContext.vitals.length > 0
+        ? healthContext.vitals.map(vital => {
+            const latestValue = vital.values && vital.values.length > 0 
+              ? vital.values[vital.values.length - 1] 
+              : null;
+            return `- ${vital.label || vital.vitalType}: ${latestValue ? latestValue.value : vital.currentValue || 'N/A'} ${vital.unit || ''} (Normal: ${vital.normalRange || 'N/A'})`;
+          }).join('\n')
+        : 'No vital signs data available';
+
+      // Format symptoms data
+      const symptomsSummary = healthContext.symptoms && healthContext.symptoms.length > 0
+        ? healthContext.symptoms.map(symptom => {
+            const date = symptom.date?.toDate ? symptom.date.toDate().toLocaleDateString() : (symptom.date || 'Unknown date');
+            return `- ${symptom.name}: ${symptom.severity || 'Not specified'} (${date})${symptom.notes ? ` - ${symptom.notes}` : ''}`;
+          }).join('\n')
+        : 'No symptoms recorded';
+
+      healthContextSection = `
+
+═══════════════════════════════════════════════════════════════════════════════
+HEALTH CONTEXT: The user is asking about their health data (labs, vitals, symptoms)
+═══════════════════════════════════════════════════════════════════════════════
+
+LAB VALUES:
+${labsSummary}
+
+VITAL SIGNS:
+${vitalsSummary}
+
+SYMPTOMS:
+${symptomsSummary}
+
+When answering questions about the user's health data, you should:
+1. Analyze trends and patterns in the data (e.g., "CA-125 has been increasing over time")
+2. Explain what values mean in the context of cancer treatment
+3. Identify concerning patterns or values that may need medical attention
+4. Provide context about normal ranges and what deviations might indicate
+5. Be supportive and educational while being clear that you're providing general information, not medical advice
+6. Keep responses CONCISE (2-4 paragraphs) but THOROUGH - include all key information
+7. Use MARKDOWN formatting: **bold** for important values and key terms, bullet points for lists
+8. If values are outside normal ranges, explain what this might mean but emphasize consulting with their medical team
+9. Look for patterns across different data types (e.g., low hemoglobin + fatigue symptoms)
+
+═══════════════════════════════════════════════════════════════════════════════`;
+    }
+
     // Build prompt for extraction
     const prompt = `You are CancerCare's AI health assistant helping track medical data for a patient with ovarian cancer.
 
-TASK: Analyze the user's message and extract any medical values they mentioned.${trialContext ? ' The user is asking about a specific clinical trial - provide detailed information about the trial, its drugs, phase, and eligibility.' : ''}
+TASK: Analyze the user's message and extract any medical values they mentioned.${trialContext ? ' The user is asking about a specific clinical trial - provide detailed information about the trial, its drugs, phase, and eligibility.' : ''}${healthContext ? ' The user is asking about their health data - analyze their labs, vitals, and symptoms to provide insights and answer questions.' : ''}
 
 USER MESSAGE: "${message}"
 ${trialContextSection}
+${healthContextSection}
 
 Extract any medical data and return a JSON object with this structure:
 
