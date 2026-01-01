@@ -1113,6 +1113,90 @@ export default function CancerCareApp() {
     return grouped;
   };
 
+  // Categorize labs by organ function and type
+  const categorizeLabs = (labs) => {
+    // Predefined lab types by category
+    const diseaseMarkers = ['ca125', 'cea', 'afp', 'psa', 'he4', 'ca199', 'ca153', 'ca724', 'ca242', 'ca50', 'inhibinb', 'romaindex'];
+    const liverFunction = ['alt', 'ast', 'bilirubin', 'albumin', 'alkalinephosphatase', 'alp', 'ggt', 'ldh', 'pt', 'inr', 'aptt'];
+    const kidneyFunction = ['creatinine', 'egfr', 'bun', 'urea', 'urineprotein', 'urinecreatinine'];
+    const bloodCounts = ['wbc', 'rbc', 'hemoglobin', 'hematocrit', 'platelets', 'anc', 'lymphocytes', 'neutrophils', 'monocytes', 'eosinophils', 'basophils', 'mcv', 'mch', 'mchc', 'rdw'];
+    const thyroidFunction = ['tsh', 't3', 't4', 'ft3', 'ft4', 'thyroglobulin'];
+    const cardiacMarkers = ['troponin', 'bnp', 'ntprobnp', 'ckmb', 'myoglobin'];
+    const inflammation = ['crp', 'esr', 'ferritin', 'fibrinogen'];
+    const electrolytes = ['sodium', 'potassium', 'chloride', 'bicarbonate', 'co2', 'magnesium', 'phosphorus', 'calcium'];
+    const coagulation = ['pt', 'inr', 'aptt', 'dimer', 'ddimer', 'fibrinogen'];
+    const tumorMarkers = ['ca125', 'cea', 'afp', 'psa', 'ca199', 'ca153', 'ca724', 'ca242', 'ca50', 'he4', 'inhibinb', 'romaindex', 'ca2729', 'ca549', 'ca195'];
+
+    const categories = {
+      'Disease-Specific Markers': [],
+      'Liver Function': [],
+      'Kidney Function': [],
+      'Blood Counts': [],
+      'Thyroid Function': [],
+      'Cardiac Markers': [],
+      'Inflammation': [],
+      'Electrolytes': [],
+      'Coagulation': [],
+      'Custom Values': [],
+      'Others': []
+    };
+
+    // Known lab types (for detecting custom values)
+    const allKnownTypes = [
+      ...diseaseMarkers, ...liverFunction, ...kidneyFunction, ...bloodCounts,
+      ...thyroidFunction, ...cardiacMarkers, ...inflammation, ...electrolytes, ...coagulation
+    ];
+
+    Object.entries(labs).forEach(([key, lab]) => {
+      const labKey = key.toLowerCase();
+      const labName = (lab.name || '').toLowerCase();
+
+      // Check if it's a custom value (not in predefined list)
+      const isCustom = !allKnownTypes.includes(labKey) && 
+                       !diseaseMarkers.some(m => labName.includes(m)) &&
+                       !liverFunction.some(m => labName.includes(m)) &&
+                       !kidneyFunction.some(m => labName.includes(m)) &&
+                       !bloodCounts.some(m => labName.includes(m));
+
+      // Categorize
+      if (diseaseMarkers.includes(labKey) || tumorMarkers.some(m => labName.includes(m))) {
+        categories['Disease-Specific Markers'].push([key, lab]);
+      } else if (liverFunction.includes(labKey) || ['alt', 'ast', 'bilirubin', 'albumin', 'ldh'].some(m => labName.includes(m))) {
+        categories['Liver Function'].push([key, lab]);
+      } else if (kidneyFunction.includes(labKey) || ['creatinine', 'egfr', 'bun', 'urea'].some(m => labName.includes(m))) {
+        categories['Kidney Function'].push([key, lab]);
+      } else if (bloodCounts.includes(labKey) || ['wbc', 'rbc', 'hemoglobin', 'platelets', 'anc'].some(m => labName.includes(m))) {
+        categories['Blood Counts'].push([key, lab]);
+      } else if (thyroidFunction.includes(labKey) || ['tsh', 't3', 't4', 'thyroid'].some(m => labName.includes(m))) {
+        categories['Thyroid Function'].push([key, lab]);
+      } else if (cardiacMarkers.includes(labKey) || ['troponin', 'bnp', 'cardiac'].some(m => labName.includes(m))) {
+        categories['Cardiac Markers'].push([key, lab]);
+      } else if (inflammation.includes(labKey) || ['crp', 'esr', 'ferritin'].some(m => labName.includes(m))) {
+        categories['Inflammation'].push([key, lab]);
+      } else if (electrolytes.includes(labKey) || ['sodium', 'potassium', 'chloride', 'calcium', 'magnesium'].some(m => labName.includes(m))) {
+        categories['Electrolytes'].push([key, lab]);
+      } else if (coagulation.includes(labKey) || ['pt', 'inr', 'aptt', 'dimer', 'coagulation'].some(m => labName.includes(m))) {
+        categories['Coagulation'].push([key, lab]);
+      } else if (isCustom) {
+        categories['Custom Values'].push([key, lab]);
+      } else {
+        categories['Others'].push([key, lab]);
+      }
+    });
+
+    // Sort labs within each category by relevance score, then alphabetically
+    Object.keys(categories).forEach(category => {
+      categories[category].sort(([keyA, labA], [keyB, labB]) => {
+        const scoreA = labA.relevanceScore || 0;
+        const scoreB = labB.relevanceScore || 0;
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        return labA.name.localeCompare(labB.name);
+      });
+    });
+
+    return categories;
+  };
+
   // Transform Firestore vitals data to UI format
   const transformVitalsData = (vitals) => {
     const grouped = {};
@@ -1588,19 +1672,22 @@ export default function CancerCareApp() {
         {activeTab === 'dashboard' && (
           <>
             {/* Quick Action Buttons */}
-            <div className="bg-white border-b border-medical-neutral-200 px-4 sm:px-6 py-4">
+            <div className="bg-white border-b border-medical-neutral-200 px-4 sm:px-6 py-4 sm:py-5">
               <div className="max-w-6xl mx-auto">
-                <div className="flex flex-wrap gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                   <button
                     onClick={() => {
                       setShowAddSymptomModal(true);
                     }}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-medical-primary-50 hover:bg-medical-primary-100 border border-medical-primary-200 rounded-lg transition-colors duration-200"
+                    className="group relative flex flex-col sm:flex-row items-center sm:items-center justify-center sm:justify-start gap-3 sm:gap-3 px-4 sm:px-5 py-4 sm:py-3.5 bg-gradient-to-br from-medical-primary-50 to-medical-primary-100/50 hover:from-medical-primary-100 hover:to-medical-primary-200/50 border border-medical-primary-200/60 hover:border-medical-primary-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
                   >
-                    <div className="w-8 h-8 bg-medical-primary-500 rounded-lg flex items-center justify-center">
-                      <Activity className="w-4 h-4 text-white" />
+                    <div className="w-10 h-10 sm:w-9 sm:h-9 bg-medical-primary-500 group-hover:bg-medical-primary-600 rounded-lg flex items-center justify-center transition-colors duration-200 shadow-sm">
+                      <Activity className="w-5 h-5 sm:w-4 sm:h-4 text-white" />
                     </div>
-                    <span className="text-sm font-medium text-medical-primary-700">Log Symptom</span>
+                    <div className="flex flex-col items-center sm:items-start">
+                      <span className="text-sm sm:text-base font-semibold text-medical-primary-800 group-hover:text-medical-primary-900">Log Symptom</span>
+                      <span className="text-xs text-medical-primary-600/80 hidden sm:block">Track how you're feeling</span>
+                    </div>
                   </button>
 
                   <button
@@ -1612,24 +1699,30 @@ export default function CancerCareApp() {
                         setShowAddLab(true);
                       }, 300);
                     }}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-medical-accent-50 hover:bg-medical-accent-100 border border-medical-accent-200 rounded-lg transition-colors duration-200"
+                    className="group relative flex flex-col sm:flex-row items-center sm:items-center justify-center sm:justify-start gap-3 sm:gap-3 px-4 sm:px-5 py-4 sm:py-3.5 bg-gradient-to-br from-medical-accent-50 to-medical-accent-100/50 hover:from-medical-accent-100 hover:to-medical-accent-200/50 border border-medical-accent-200/60 hover:border-medical-accent-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
                   >
-                    <div className="w-8 h-8 bg-medical-accent-500 rounded-lg flex items-center justify-center">
-                      <TrendingUp className="w-4 h-4 text-white" />
+                    <div className="w-10 h-10 sm:w-9 sm:h-9 bg-medical-accent-500 group-hover:bg-medical-accent-600 rounded-lg flex items-center justify-center transition-colors duration-200 shadow-sm">
+                      <TrendingUp className="w-5 h-5 sm:w-4 sm:h-4 text-white" />
                     </div>
-                    <span className="text-sm font-medium text-medical-accent-700">Add Lab Value</span>
+                    <div className="flex flex-col items-center sm:items-start">
+                      <span className="text-sm sm:text-base font-semibold text-medical-accent-800 group-hover:text-medical-accent-900">Add Lab Value</span>
+                      <span className="text-xs text-medical-accent-600/80 hidden sm:block">Record test results</span>
+                    </div>
                   </button>
 
                   <button
                     onClick={() => {
                       openDocumentOnboarding('general');
                     }}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-medical-secondary-50 hover:bg-medical-secondary-100 border border-medical-secondary-200 rounded-lg transition-colors duration-200"
+                    className="group relative flex flex-col sm:flex-row items-center sm:items-center justify-center sm:justify-start gap-3 sm:gap-3 px-4 sm:px-5 py-4 sm:py-3.5 bg-gradient-to-br from-medical-secondary-50 to-medical-secondary-100/50 hover:from-medical-secondary-100 hover:to-medical-secondary-200/50 border border-medical-secondary-200/60 hover:border-medical-secondary-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
                   >
-                    <div className="w-8 h-8 bg-medical-secondary-500 rounded-lg flex items-center justify-center">
-                      <Upload className="w-4 h-4 text-white" />
+                    <div className="w-10 h-10 sm:w-9 sm:h-9 bg-medical-secondary-500 group-hover:bg-medical-secondary-600 rounded-lg flex items-center justify-center transition-colors duration-200 shadow-sm">
+                      <Upload className="w-5 h-5 sm:w-4 sm:h-4 text-white" />
                     </div>
-                    <span className="text-sm font-medium text-medical-secondary-700">Upload Document</span>
+                    <div className="flex flex-col items-center sm:items-start">
+                      <span className="text-sm sm:text-base font-semibold text-medical-secondary-800 group-hover:text-medical-secondary-900">Upload Document</span>
+                      <span className="text-xs text-medical-secondary-600/80 hidden sm:block">Add medical records</span>
+                    </div>
                   </button>
                 </div>
               </div>
@@ -2601,84 +2694,140 @@ export default function CancerCareApp() {
                           </div>
                         )}
 
-                        {/* Lab Value Cards */}
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-                          {(() => {
-                            // Sort labs by cancer relevance, then alphabetically
-                            const sortedLabs = Object.entries(allLabData).sort(([keyA, labA], [keyB, labB]) => {
-                              const scoreA = labA.relevanceScore || 0;
-                              const scoreB = labB.relevanceScore || 0;
-                              if (scoreB !== scoreA) return scoreB - scoreA;
-                              return labA.name.localeCompare(labB.name);
-                            });
+                        {/* Lab Value Cards - Organized by Category */}
+                        {(() => {
+                          // Helper function to render lab card
+                          const renderLabCard = (key, lab) => {
+                            if (lab.isNumeric) {
+                              // Numeric lab values - show as cards with trend and status indicator
+                              const labStatus = getLabStatus(lab.current, lab.normalRange);
+                              const statusColors = {
+                                green: { dot: 'bg-medical-accent-500', text: 'text-medical-accent-700' },
+                                yellow: { dot: 'bg-amber-500', text: 'text-amber-700' },
+                                red: { dot: 'bg-red-500', text: 'text-red-700' },
+                                gray: { dot: 'bg-medical-neutral-400', text: 'text-medical-neutral-600' }
+                              };
+                              const colors = statusColors[labStatus.color];
 
-                            // Show top 6 by default, or all if expanded
-                            const labsToShow = showAllLabs ? sortedLabs : sortedLabs.slice(0, 6);
+                              return (
+                                <button
+                                  key={key}
+                                  onClick={() => setSelectedLab(key)}
+                                  className={`relative bg-white rounded-lg shadow-sm p-3 text-left transition-all hover:shadow-md border border-medical-neutral-200 ${selectedLab === key ? 'ring-2 ring-medical-primary-500 shadow-md' : ''
+                                    }`}
+                                >
+                                  {/* Status indicator dot */}
+                                  <div className={`absolute top-2 right-2 w-2 h-2 ${colors.dot} rounded-full`}></div>
 
-                            return labsToShow.map(([key, lab]) => (
-                              lab.isNumeric ? (
-                                // Numeric lab values - show as cards with trend and status indicator
-                                (() => {
-                                  const labStatus = getLabStatus(lab.current, lab.normalRange);
-                                  const statusColors = {
-                                    green: { dot: 'bg-green-500', text: 'text-green-700' },
-                                    yellow: { dot: 'bg-yellow-500', text: 'text-yellow-700' },
-                                    red: { dot: 'bg-red-500', text: 'text-red-700' },
-                                    gray: { dot: 'bg-gray-400', text: 'text-gray-600' }
-                                  };
-                                  const colors = statusColors[labStatus.color];
-
-                                  return (
-                                    <button
-                                      key={key}
-                                      onClick={() => setSelectedLab(key)}
-                                      className={`relative bg-white rounded-lg shadow p-3 text-left transition-all hover:shadow-md ${selectedLab === key ? 'ring-2 ring-blue-500 shadow-md' : ''
-                                        }`}
-                                    >
-                                      {/* Status indicator dot */}
-                                      <div className={`absolute top-2 right-2 w-2 h-2 ${colors.dot} rounded-full`}></div>
-
-                                      <div className="flex items-center justify-between mb-1">
-                                        <p className="text-xs text-gray-600 font-medium pr-3">{lab.name}</p>
-                                        <span className={`text-xs font-medium ${lab.trend === 'up' ? 'text-blue-600' : lab.trend === 'down' ? 'text-blue-600' : 'text-gray-500'
-                                          }`}>
-                                          {lab.trend === 'up' ? '↑' : lab.trend === 'down' ? '↓' : '→'}
-                                        </span>
-                                      </div>
-                                      <p className="text-lg font-bold text-gray-800">{lab.current}</p>
-                                      <p className="text-xs text-gray-500">{lab.unit}</p>
-                                      <p className={`text-xs ${colors.text} font-medium mt-1`}>{labStatus.label}</p>
-                                    </button>
-                                  );
-                                })()
-                              ) : (
-                                // Non-numeric values (color, appearance, etc.) - show as info cards
+                                  <div className="flex items-center justify-between mb-1">
+                                    <p className="text-xs text-medical-neutral-600 font-medium pr-3">{lab.name}</p>
+                                    <span className={`text-xs font-medium ${lab.trend === 'up' ? 'text-medical-primary-600' : lab.trend === 'down' ? 'text-medical-primary-600' : 'text-medical-neutral-500'
+                                      }`}>
+                                      {lab.trend === 'up' ? '↑' : lab.trend === 'down' ? '↓' : '→'}
+                                    </span>
+                                  </div>
+                                  <p className="text-lg font-bold text-medical-neutral-900">{lab.current}</p>
+                                  <p className="text-xs text-medical-neutral-500">{lab.unit}</p>
+                                  <p className={`text-xs ${colors.text} font-medium mt-1`}>{labStatus.label}</p>
+                                </button>
+                              );
+                            } else {
+                              // Non-numeric values (color, appearance, etc.) - show as info cards
+                              return (
                                 <div
                                   key={key}
-                                  className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-left"
+                                  className="bg-medical-primary-50 border border-medical-primary-200 rounded-lg p-3 text-left"
                                 >
                                   <div className="flex items-center justify-between mb-1">
-                                    <p className="text-xs text-blue-700 font-medium">{lab.name}</p>
+                                    <p className="text-xs text-medical-primary-700 font-medium">{lab.name}</p>
                                   </div>
-                                  <p className="text-sm font-semibold text-blue-900">{lab.current}</p>
-                                  <p className="text-xs text-blue-600 mt-1">
+                                  <p className="text-sm font-semibold text-medical-primary-900">{lab.current}</p>
+                                  <p className="text-xs text-medical-primary-600 mt-1">
                                     {new Date(lab.data[lab.data.length - 1]?.date || Date.now()).toLocaleDateString()}
                                   </p>
                                 </div>
-                              )
-                            ));
-                          })()}
-                        </div>
+                              );
+                            }
+                          };
 
-                        {/* Show More/Less Button */}
-                        {Object.keys(allLabData).length > 6 && (
-                          <button
-                            onClick={() => setShowAllLabs(!showAllLabs)}
-                            className="w-full py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-200 transition font-medium text-sm"
-                          >
-                            {showAllLabs ? '− Show Less Labs' : `+ Show All Labs (${Object.keys(allLabData).length})`}
-                          </button>
-                        )}
+                          const categorizedLabs = categorizeLabs(allLabData);
+                          const categoryOrder = [
+                            'Disease-Specific Markers',
+                            'Liver Function',
+                            'Kidney Function',
+                            'Blood Counts',
+                            'Thyroid Function',
+                            'Cardiac Markers',
+                            'Inflammation',
+                            'Electrolytes',
+                            'Coagulation',
+                            'Custom Values',
+                            'Others'
+                          ];
+
+                          return categoryOrder.map(category => {
+                            const labsInCategory = categorizedLabs[category];
+                            if (labsInCategory.length === 0) return null;
+
+                            // For Disease-Specific Markers, show top metrics at top
+                            if (category === 'Disease-Specific Markers') {
+                              const topMarkers = labsInCategory.slice(0, 6);
+                              const remainingMarkers = showAllLabs ? labsInCategory.slice(6) : [];
+
+                              return (
+                                <div key={category} className="space-y-4">
+                                  {/* Disease-Specific Top Metrics Header */}
+                                  <div className="mt-6">
+                                    <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-3">Disease-Specific Markers</h3>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                                      {topMarkers.map(([key, lab]) => (
+                                        renderLabCard(key, lab)
+                                      ))}
+                                    </div>
+                                    {remainingMarkers.length > 0 && (
+                                      <div className="mt-4">
+                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                                          {remainingMarkers.map(([key, lab]) => (
+                                            renderLabCard(key, lab)
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            // For other categories, show with category header
+                            return (
+                              <div key={category} className="mt-6">
+                                <h3 className="text-sm sm:text-base font-semibold text-medical-neutral-700 mb-3">{category}</h3>
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                                  {labsInCategory.map(([key, lab]) => (
+                                    renderLabCard(key, lab)
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
+
+                        {/* Show More/Less Button - Only for Disease-Specific Markers */}
+                        {(() => {
+                          const categorizedLabs = categorizeLabs(allLabData);
+                          const diseaseMarkers = categorizedLabs['Disease-Specific Markers'] || [];
+                          if (diseaseMarkers.length > 6) {
+                            return (
+                              <button
+                                onClick={() => setShowAllLabs(!showAllLabs)}
+                                className="w-full py-2 bg-medical-neutral-100 border border-medical-neutral-300 rounded-lg text-medical-neutral-700 hover:bg-medical-neutral-200 transition font-medium text-sm mt-4"
+                              >
+                                {showAllLabs ? '− Show Less Disease Markers' : `+ Show All Disease Markers (${diseaseMarkers.length})`}
+                              </button>
+                            );
+                          }
+                          return null;
+                        })()}
 
                         <div className="space-y-2">
                           <button
