@@ -5137,26 +5137,28 @@ export default function CancerCareApp() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-semibold text-gray-800 text-lg">Genomic Profile</h2>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setGenomicExpanded(!genomicExpanded)}
-                    className="text-purple-600 hover:text-purple-700 flex items-center gap-1 text-sm font-medium"
-                  >
-                    {genomicExpanded ? (
-                      <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                        </svg>
-                        Collapse
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                        Expand
-                      </>
-                    )}
-                  </button>
+                  {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 && (
+                    <button
+                      onClick={() => setGenomicExpanded(!genomicExpanded)}
+                      className="text-purple-600 hover:text-purple-700 flex items-center gap-1 text-sm font-medium"
+                    >
+                      {genomicExpanded ? (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                          Collapse
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                          Expand
+                        </>
+                      )}
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       // Initialize editing state with current profile or empty structure
@@ -5431,30 +5433,6 @@ export default function CancerCareApp() {
               )}
             </div>
 
-            {/* Trial Location */}
-            <div className="bg-gradient-to-br from-green-50 to-teal-50 rounded-lg shadow p-4 border border-green-200">
-              <h2 className="font-semibold text-gray-800 mb-3">Trial Search Location</h2>
-              <div className="bg-white rounded-lg p-3 mb-3">
-                {trialLocation.includeAllLocations ? (
-                  <div>
-                    <p className="text-sm text-gray-800 font-medium">🌍 Global Search</p>
-                    <p className="text-xs text-gray-600 mt-0.5">Searching all countries worldwide</p>
-                  </div>
-                ) : (
-                  <div>
-                    <p className="text-sm text-gray-800 font-medium">{trialLocation.country}</p>
-                    <p className="text-xs text-gray-600 mt-0.5">Searching trials in this country</p>
-                  </div>
-                )}
-              </div>
-              <button
-                onClick={() => setShowEditLocation(true)}
-                className="w-full text-green-600 font-medium text-sm hover:bg-green-50 py-2 rounded transition"
-              >
-                Edit Location Settings
-              </button>
-            </div>
-
             {/* Emergency Contacts */}
             {/* Medical Team */}
             <div className="bg-white rounded-lg shadow p-4 mb-4">
@@ -5462,9 +5440,9 @@ export default function CancerCareApp() {
                 <h2 className="font-semibold text-gray-800">Medical Team</h2>
                 <button
                   onClick={() => setShowEditMedicalTeam(true)}
-                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                  className="text-blue-600 hover:text-blue-700"
                 >
-                  Edit
+                  <Edit2 size={18} />
                 </button>
               </div>
               <div className="text-sm text-gray-700 space-y-1">
@@ -7048,17 +7026,15 @@ export default function CancerCareApp() {
                         // Ensure UI reflects saved values
                         setPatientProfile(prev => ({
                           ...prev,
-                          name: patientProfile.name,
+                          firstName: patientProfile.firstName || prev.firstName,
+                          middleName: patientProfile.middleName || prev.middleName,
+                          lastName: patientProfile.lastName || prev.lastName,
+                          name: fullName || patientProfile.name || prev.name,
                           age: parseInt(patientProfile.age) || '',
                           dateOfBirth: patientProfile.dateOfBirth,
                           gender: patientProfile.gender || prev.gender,
                           weight: patientProfile.weight,
                           height: patientProfile.height,
-                          diagnosis: patientProfile.diagnosis || prev.diagnosis,
-                          diagnosisDate: patientProfile.diagnosisDate || prev.diagnosisDate,
-                          cancerType: patientProfile.cancerType || prev.cancerType,
-                          stage: patientProfile.stageOther || patientProfile.stage || prev.stage,
-                          stageOther: patientProfile.stageOther || prev.stageOther,
                           country: patientProfile.country || prev.country
                         }));
                         setShowEditInfo(false);
