@@ -5867,7 +5867,7 @@ export default function CancerCareApp() {
                       <h2 className="font-semibold text-gray-800">Emergency Contacts</h2>
                     </div>
                     <button
-                      onClick={() => { setEditContacts(emergencyContacts.length ? emergencyContacts : []); setShowEditContacts(true); }}
+                      onClick={() => { setEditContacts(emergencyContacts.length ? [...emergencyContacts] : []); setShowEditContacts(true); }}
                       className="text-amber-600 hover:text-amber-700"
                     >
                       <Edit2 size={18} />
@@ -5906,7 +5906,7 @@ export default function CancerCareApp() {
                     <p className="text-sm text-medical-neutral-600 mb-6">Add emergency contacts for quick access</p>
                     <div className="flex flex-col sm:flex-row gap-3 justify-center">
                       <button
-                        onClick={() => { setEditContacts(emergencyContacts.length ? emergencyContacts : [{ contactType: 'Emergency', name: '', relationship: '', phone: '', email: '', address: '', city: '', state: '', zip: '' }]); setShowEditContacts(true); }}
+                        onClick={() => { setEditContacts(emergencyContacts.length ? [...emergencyContacts] : []); setShowEditContacts(true); }}
                         className="px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
                       >
                         <Plus className="w-4 h-4" />
@@ -8258,9 +8258,19 @@ export default function CancerCareApp() {
                   <button
                     onClick={async () => {
                       try {
-                        // Save each contact via service
+                        // Filter out empty contacts (must have at least name or phone)
+                        const validContacts = editContacts.filter(c => 
+                          (c.name && c.name.trim()) || (c.phone && c.phone.trim())
+                        );
+                        
+                        if (validContacts.length === 0) {
+                          alert('Please add at least one contact with a name or phone number.');
+                          return;
+                        }
+
+                        // Save each valid contact via service
                         const savedIds = [];
-                        for (const c of editContacts) {
+                        for (const c of validContacts) {
                           const toSave = {
                             ...c,
                             patientId: user.uid
