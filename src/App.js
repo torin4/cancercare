@@ -3465,14 +3465,14 @@ export default function CancerCareApp() {
                             <div className="flex flex-col sm:flex-row gap-3 justify-center">
                               <button
                                 onClick={() => setShowAddLab(true)}
-                                className="px-6 py-3 bg-white border-2 border-medical-primary-500 text-medical-primary-600 rounded-lg hover:bg-medical-primary-50 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                                className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2"
                               >
                                 <Plus className="w-4 h-4" />
                                 Add Metric
                               </button>
                               <button
                                 onClick={() => openDocumentOnboarding('lab-report')}
-                                className="px-6 py-3 bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                                className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center justify-center gap-2"
                               >
                                 <Upload className="w-4 h-4" />
                                 Upload Lab Report
