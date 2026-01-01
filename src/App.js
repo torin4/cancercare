@@ -279,17 +279,26 @@ export default function CancerCareApp() {
   const [quickLogMode, setQuickLogMode] = useState('general'); // 'general' or 'symptom'
   const [currentTrialContext, setCurrentTrialContext] = useState(null); // Trial context for chatbot
   const [currentHealthContext, setCurrentHealthContext] = useState(null); // Health context for chatbot (labs, vitals, symptoms)
+  // Helper function to get today's date in local timezone (YYYY-MM-DD)
+  const getTodayLocalDate = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const [quickLogSymptomForm, setQuickLogSymptomForm] = useState({
     name: '',
     severity: '',
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayLocalDate(),
     time: new Date().toTimeString().slice(0, 5),
     notes: ''
   });
   const [symptomForm, setSymptomForm] = useState({
     name: '',
     severity: '',
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayLocalDate(),
     time: new Date().toTimeString().slice(0, 5),
     notes: ''
   });
@@ -6759,7 +6768,7 @@ export default function CancerCareApp() {
                       setSymptomForm({
                         name: '',
                         severity: '',
-                        date: new Date().toISOString().split('T')[0],
+                        date: getTodayLocalDate(),
                         time: new Date().toTimeString().slice(0, 5),
                         notes: ''
                       });
@@ -6797,7 +6806,7 @@ export default function CancerCareApp() {
                         setSymptomForm({
                           name: '',
                           severity: '',
-                          date: new Date().toISOString().split('T')[0],
+                          date: getTodayLocalDate(),
                           time: new Date().toTimeString().slice(0, 5),
                           notes: ''
                         });
