@@ -128,6 +128,13 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
               }
             }[type.color];
 
+            // Hover classes for each color type
+            const hoverClasses = {
+              blue: 'hover:border-medical-primary-500',
+              purple: 'hover:border-purple-500',
+              green: 'hover:border-medical-accent-500'
+            }[type.color];
+
             return (
               <div
                 key={type.id}
@@ -135,7 +142,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                 className={`border-2 rounded-lg p-5 cursor-pointer transition-all ${
                   isSelected
                     ? `${colorClasses.selectedBorder} ${colorClasses.selectedBg} shadow-md`
-                    : `${colorClasses.border} hover:${colorClasses.selectedBorder} hover:shadow-sm`
+                    : `${colorClasses.border} ${hoverClasses} hover:shadow-sm`
                 }`}
               >
                 <div className="flex items-start gap-4">
@@ -152,7 +159,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                         <p className="text-sm text-gray-600 mt-1">{type.description}</p>
                       </div>
                       {isSelected && (
-                        <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
+                        <CheckCircle className="w-6 h-6 text-medical-primary-600 flex-shrink-0" />
                       )}
                     </div>
 
@@ -241,7 +248,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                 disabled={!selectedType}
                 className={`px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 ${
                   selectedType
-                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    ? 'bg-medical-primary-500 text-white hover:bg-medical-primary-600'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
@@ -267,7 +274,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                 </button>
                 <button
                   onClick={handleContinue}
-                  className="px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 bg-green-600 text-white hover:bg-green-700"
+                  className="px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 bg-medical-primary-500 text-white hover:bg-medical-primary-600"
                 >
                   <Upload className="w-5 h-5" />
                   {isOnboarding ? 'Continue to Upload' : 'Upload'}
