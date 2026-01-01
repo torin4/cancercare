@@ -4147,16 +4147,130 @@ export default function CancerCareApp() {
                                 </div>
                               );
                             } else {
+                              // Non-numeric labs (or labs without values yet)
+                              const displayName = getLabDisplayName(lab.name || key);
                               return (
                                 <div
                                   key={key}
-                                  className="bg-medical-primary-50 border border-medical-primary-200 rounded-lg p-4"
+                                  className="relative bg-white rounded-lg shadow-sm p-4 border border-medical-neutral-200 hover:shadow-md transition-all"
                                 >
-                                  <p className="text-sm font-semibold text-medical-primary-900 mb-1">{lab.name}</p>
-                                  <p className="text-base font-bold text-medical-primary-900">{lab.current}</p>
-                                  <p className="text-xs text-medical-primary-600 mt-1">
-                                    {new Date(lab.data[lab.data.length - 1]?.date || Date.now()).toLocaleDateString()}
-                                  </p>
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-semibold text-medical-neutral-900 mb-1">{displayName}</p>
+                                      {lab.current ? (
+                                        <>
+                                          <p className="text-base font-bold text-medical-neutral-900">{lab.current}</p>
+                                          {lab.unit && <p className="text-xs text-medical-neutral-500">{lab.unit}</p>}
+                                        </>
+                                      ) : (
+                                        <p className="text-sm text-medical-neutral-500 italic">No values yet</p>
+                                      )}
+                                      {lab.normalRange && (
+                                        <p className="text-xs text-medical-neutral-500 mt-1">Normal: {lab.normalRange}</p>
+                                      )}
+                                      {lab.data && lab.data.length > 0 && (
+                                        <p className="text-xs text-medical-neutral-500 mt-1">
+                                          {new Date(lab.data[lab.data.length - 1]?.date || Date.now()).toLocaleDateString()}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1 ml-2">
+                                      {lab.data && lab.data.length > 0 && (
+                                        <button
+                                          onClick={() => setSelectedLab(key)}
+                                          className="p-1.5 text-medical-primary-600 hover:bg-medical-primary-50 rounded transition-colors"
+                                          title="View chart"
+                                        >
+                                          <TrendingUp className="w-4 h-4" />
+                                        </button>
+                                      )}
+                                      <div className="relative">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setOpenDeleteMenu(openDeleteMenu === `lab:${key}` ? null : `lab:${key}`);
+                                          }}
+                                          className="p-1.5 text-medical-neutral-500 hover:bg-medical-neutral-100 rounded transition-colors"
+                                          title="More options"
+                                        >
+                                          <MoreVertical className="w-4 h-4" />
+                                        </button>
+                                        {openDeleteMenu === `lab:${key}` && (
+                                          <>
+                                            <div
+                                              className="fixed inset-0 z-40"
+                                              onClick={() => setOpenDeleteMenu(null)}
+                                            />
+                                            <div className="absolute right-0 top-8 z-50 bg-white rounded-lg shadow-lg border border-medical-neutral-200 py-1 min-w-[160px]">
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setOpenDeleteMenu(null);
+                                                  // Find the lab document ID
+                                                  const labDoc = allLabData[key];
+                                                  if (labDoc && labDoc.id) {
+                                                    setSelectedLabForValue({ id: labDoc.id, name: displayName, unit: lab.unit || '', key: key });
+                                                    setNewLabValue({ value: '', date: getTodayLocalDate(), notes: '' });
+                                                    setShowAddLabValue(true);
+                                                  }
+                                                }}
+                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                              >
+                                                <Plus className="w-4 h-4" />
+                                                Add Value
+                                              </button>
+                                              <button
+                                                onClick={async (e) => {
+                                                  e.stopPropagation();
+                                                  setOpenDeleteMenu(null);
+                                                  const labType = key;
+                                                  const count = lab.data?.length || 0;
+                                                  if (window.confirm(`Delete all ${displayName} data? This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'}. This action cannot be undone.`)) {
+                                                    try {
+                                                      console.log('Deleting all labs of type:', labType);
+                                                      
+                                                      // Optimistically update UI immediately
+                                                      const updatedLabsData = { ...labsData };
+                                                      delete updatedLabsData[labType];
+                                                      setLabsData(updatedLabsData);
+                                                      
+                                                      // If deleted lab was selected, select first available
+                                                      if (selectedLab === labType) {
+                                                        const firstAvailable = Object.keys(updatedLabsData).find(key => updatedLabsData[key].isNumeric);
+                                                        if (firstAvailable) {
+                                                          setSelectedLab(firstAvailable);
+                                                        }
+                                                      }
+                                                      
+                                                      // Delete from Firestore in background
+                                                      const deletedCount = await labService.deleteAllLabsByType(user.uid, labType);
+                                                      console.log('Deleted labs count:', deletedCount);
+                                                      
+                                                      // Reload to ensure sync (but UI already updated)
+                                                      setTimeout(async () => {
+                                                        const labs = await labService.getLabs(user.uid);
+                                                        const transformedLabs = transformLabsData(labs);
+                                                        setLabsData(transformedLabs);
+                                                      }, 300);
+                                                    } catch (error) {
+                                                      console.error('Error deleting labs:', error);
+                                                      // Revert optimistic update on error
+                                                      reloadHealthData();
+                                                      alert('Failed to delete lab data. Please try again.');
+                                                    }
+                                                  }
+                                                }}
+                                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                                              >
+                                                <Trash2 className="w-4 h-4" />
+                                                Delete All {displayName}
+                                              </button>
+                                            </div>
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
                               );
                             }
