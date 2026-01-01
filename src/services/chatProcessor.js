@@ -9,8 +9,10 @@ const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY || pro
  * @param {string} userId - User ID
  * @param {Array} conversationHistory - Previous conversation messages
  * @param {Object} trialContext - Optional trial context (when asking about a specific trial)
+ * @param {Object} healthContext - Optional health context (labs, vitals, symptoms)
+ * @param {Object} patientProfile - Patient demographics (age, gender, weight) for normal range adjustments
  */
-export async function processChatMessage(message, userId, conversationHistory = [], trialContext = null, healthContext = null) {
+export async function processChatMessage(message, userId, conversationHistory = [], trialContext = null, healthContext = null, patientProfile = null) {
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
@@ -126,11 +128,12 @@ When answering questions about the user's health data, you should:
     }
 
     // Build prompt for extraction
-    const prompt = `You are CancerCare's AI health assistant helping track medical data for a patient with ovarian cancer.
+    const prompt = `You are CancerCare's AI health assistant helping track medical data for a patient${patientProfile?.diagnosis ? ` with ${patientProfile.diagnosis}` : ''}.
 
 TASK: Analyze the user's message and extract any medical values they mentioned.${trialContext ? ' The user is asking about a specific clinical trial - provide detailed information about the trial, its drugs, phase, and eligibility.' : ''}${healthContext ? ' The user is asking about their health data - analyze their labs, vitals, and symptoms to provide insights and answer questions.' : ''}
 
 USER MESSAGE: "${message}"
+${patientDemographicsSection}
 ${trialContextSection}
 ${healthContextSection}
 
@@ -146,7 +149,7 @@ Extract any medical data and return a JSON object with this structure:
         "value": 68,
         "unit": "U/mL",
         "date": "2024-12-29",
-        "normalRange": "0-35"
+        "normalRange": "0-35"  // CRITICAL: Adjust based on patient demographics (age, gender) if applicable
       }
     ],
     "vitals": [

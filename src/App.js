@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip } from 'lucide-react';
+import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
 import { uploadDocument, deleteUserDirectory, deleteDocument } from './firebase/storage';
@@ -370,6 +370,19 @@ export default function CancerCareApp() {
   const [hasRealLabData, setHasRealLabData] = useState(false);
   const [hasRealVitalData, setHasRealVitalData] = useState(false);
   const [showAllLabs, setShowAllLabs] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState({
+    'Disease-Specific Markers': true, // Default expanded
+    'Liver Function': false,
+    'Kidney Function': false,
+    'Blood Counts': false,
+    'Thyroid Function': false,
+    'Cardiac Markers': false,
+    'Inflammation': false,
+    'Electrolytes': false,
+    'Coagulation': false,
+    'Custom Values': false,
+    'Others': false
+  });
 
   const [documents, setDocuments] = useState([]);
   const [emergencyContacts, setEmergencyContacts] = useState([]);
@@ -1113,6 +1126,83 @@ export default function CancerCareApp() {
     return grouped;
   };
 
+  // Category descriptions for lab organization
+  const categoryDescriptions = {
+    'Disease-Specific Markers': 'Tumor markers and cancer-specific biomarkers used to monitor disease progression and treatment response',
+    'Liver Function': 'Enzymes and proteins that assess liver health and detect liver damage or dysfunction',
+    'Kidney Function': 'Markers that evaluate kidney health and filtration capacity',
+    'Blood Counts': 'Complete blood count (CBC) components including white cells, red cells, and platelets',
+    'Thyroid Function': 'Hormones and markers that assess thyroid gland function and metabolism',
+    'Cardiac Markers': 'Biomarkers used to detect heart damage, heart failure, or cardiac events',
+    'Inflammation': 'Markers that indicate inflammation, infection, or immune system activity',
+    'Electrolytes': 'Essential minerals and salts that maintain fluid balance and cellular function',
+    'Coagulation': 'Tests that evaluate blood clotting function and bleeding risk',
+    'Custom Values': 'User-added lab values not in standard categories',
+    'Others': 'Additional lab values that don\'t fit into other categories'
+  };
+
+  // Category icons mapping
+  const categoryIcons = {
+    'Disease-Specific Markers': Target,
+    'Liver Function': Activity,
+    'Kidney Function': Heart,
+    'Blood Counts': Droplet,
+    'Thyroid Function': Activity,
+    'Cardiac Markers': Heart,
+    'Inflammation': AlertCircle,
+    'Electrolytes': Zap,
+    'Coagulation': Droplet,
+    'Custom Values': Plus,
+    'Others': Activity
+  };
+
+  // Brief descriptions for common lab values
+  const labValueDescriptions = {
+    'CA-125': 'Tumor marker for ovarian cancer. Elevated levels may indicate disease activity or recurrence.',
+    'CA 19-9': 'Tumor marker for pancreatic and gastrointestinal cancers. Used to monitor treatment response.',
+    'CA 15-3': 'Tumor marker for breast cancer. Helps monitor disease progression and treatment effectiveness.',
+    'CEA': 'Carcinoembryonic antigen. Used to monitor colorectal, lung, and other cancers. Elevated levels may indicate recurrence.',
+    'AFP': 'Alpha-fetoprotein. Marker for liver cancer and germ cell tumors. Also elevated in pregnancy.',
+    'PSA': 'Prostate-specific antigen. Used to screen and monitor prostate cancer. Age-specific normal ranges apply.',
+    'HE4': 'Human epididymis protein 4. Ovarian cancer biomarker, often used with CA-125 for better accuracy.',
+    'WBC': 'White blood cell count. Measures immune system cells. Low counts (neutropenia) increase infection risk during chemotherapy.',
+    'RBC': 'Red blood cell count. Measures oxygen-carrying cells. Low levels indicate anemia.',
+    'Hemoglobin': 'Protein in red blood cells that carries oxygen. Low levels (anemia) cause fatigue and weakness.',
+    'Hematocrit': 'Percentage of red blood cells in blood. Low levels indicate anemia.',
+    'Platelets': 'Blood cells that help with clotting. Low levels (thrombocytopenia) increase bleeding risk.',
+    'ANC': 'Absolute neutrophil count. Critical for infection risk. Should be >1500/μL to reduce infection risk.',
+    'Neutrophils': 'Type of white blood cell that fights bacterial infections. Low levels increase infection risk.',
+    'Lymphocytes': 'Type of white blood cell important for immune function. Low levels may indicate immune suppression.',
+    'Creatinine': 'Waste product filtered by kidneys. High levels indicate kidney dysfunction or dehydration.',
+    'eGFR': 'Estimated glomerular filtration rate. Measures kidney filtering capacity. Adjusted for age, gender, and race.',
+    'BUN': 'Blood urea nitrogen. Waste product from protein breakdown. High levels may indicate kidney dysfunction.',
+    'ALT': 'Alanine aminotransferase. Liver enzyme. Elevated levels indicate liver damage, often from medications or disease.',
+    'AST': 'Aspartate aminotransferase. Liver enzyme. Elevated levels indicate liver or muscle damage.',
+    'ALP': 'Alkaline phosphatase. Liver and bone enzyme. Elevated in liver disease or bone disorders.',
+    'Bilirubin': 'Breakdown product of red blood cells. High levels cause jaundice and indicate liver dysfunction.',
+    'Albumin': 'Main protein in blood. Low levels indicate malnutrition, liver disease, or kidney disease.',
+    'TSH': 'Thyroid-stimulating hormone. Regulates thyroid function. High levels indicate hypothyroidism, low levels indicate hyperthyroidism.',
+    'T3': 'Triiodothyronine. Active thyroid hormone. Regulates metabolism.',
+    'T4': 'Thyroxine. Thyroid hormone. Regulates metabolism and energy.',
+    'Troponin': 'Heart muscle protein. Elevated levels indicate heart damage from heart attack or other cardiac events.',
+    'BNP': 'B-type natriuretic peptide. Marker for heart failure. Elevated levels indicate heart stress.',
+    'CRP': 'C-reactive protein. Measures inflammation in the body. Elevated in infection, inflammation, or autoimmune conditions.',
+    'ESR': 'Erythrocyte sedimentation rate. Non-specific marker of inflammation. Elevated in many conditions including infection and autoimmune disease.',
+    'Ferritin': 'Iron storage protein. Low levels indicate iron deficiency. High levels may indicate iron overload or inflammation.',
+    'Sodium': 'Essential electrolyte. Regulates fluid balance and nerve function. Imbalances can cause confusion or seizures.',
+    'Potassium': 'Essential electrolyte. Important for heart and muscle function. Dangerous if too high or too low.',
+    'Calcium': 'Mineral essential for bones, muscles, and nerve function. Regulated by parathyroid hormone and vitamin D.',
+    'Magnesium': 'Essential mineral for muscle and nerve function. Low levels can cause muscle cramps and irregular heartbeat.',
+    'Glucose': 'Blood sugar. High levels indicate diabetes or prediabetes. Low levels (hypoglycemia) can be dangerous.',
+    'PT': 'Prothrombin time. Measures blood clotting function. Important for monitoring anticoagulant medications.',
+    'INR': 'International normalized ratio. Standardized measure of blood clotting. Used to monitor warfarin therapy.',
+    'APTT': 'Activated partial thromboplastin time. Measures intrinsic clotting pathway. Used to monitor heparin therapy.',
+    'D-dimer': 'Fragment from blood clots. Elevated in deep vein thrombosis, pulmonary embolism, and DIC.',
+    'LDH': 'Lactate dehydrogenase. Enzyme found in many tissues. Elevated in tissue damage, hemolysis, or cancer.',
+    'Vitamin D': 'Essential vitamin for bone health and immune function. Low levels are common and may require supplementation.',
+    'HbA1c': 'Hemoglobin A1c. Average blood sugar over 2-3 months. Used to diagnose and monitor diabetes.'
+  };
+
   // Categorize labs by organ function and type
   const categorizeLabs = (labs) => {
     // Predefined lab types by category
@@ -1398,7 +1488,8 @@ export default function CancerCareApp() {
           content: msg.text
         })),
         currentTrialContext, // Pass trial context if available
-        currentHealthContext // Pass health context if available
+        currentHealthContext, // Pass health context if available
+        patientProfile // Pass patient profile for demographic-based normal ranges
       );
 
       // Build response text
@@ -1489,7 +1580,7 @@ export default function CancerCareApp() {
 
       // Step 1: Process document with AI to extract medical data
       setUploadProgress('Analyzing document with AI...');
-      const processingResult = await processDocument(file, user.uid);
+      const processingResult = await processDocument(file, user.uid, patientProfile);
       console.log('Document processing result:', processingResult);
 
       // Step 2: Upload file to Firebase Storage
@@ -2694,12 +2785,11 @@ export default function CancerCareApp() {
                           </div>
                         )}
 
-                        {/* Lab Value Cards - Organized by Category */}
+                        {/* Lab Value Cards - Organized by Category with Expandable Cards */}
                         {(() => {
-                          // Helper function to render lab card
+                          // Helper function to render lab card (smaller, cleaner)
                           const renderLabCard = (key, lab) => {
                             if (lab.isNumeric) {
-                              // Numeric lab values - show as cards with trend and status indicator
                               const labStatus = getLabStatus(lab.current, lab.normalRange);
                               const statusColors = {
                                 green: { dot: 'bg-medical-accent-500', text: 'text-medical-accent-700' },
@@ -2708,40 +2798,60 @@ export default function CancerCareApp() {
                                 gray: { dot: 'bg-medical-neutral-400', text: 'text-medical-neutral-600' }
                               };
                               const colors = statusColors[labStatus.color];
+                              const labDescription = labValueDescriptions[lab.name] || '';
 
-                              return (
-                                <button
-                                  key={key}
-                                  onClick={() => setSelectedLab(key)}
-                                  className={`relative bg-white rounded-lg shadow-sm p-3 text-left transition-all hover:shadow-md border border-medical-neutral-200 ${selectedLab === key ? 'ring-2 ring-medical-primary-500 shadow-md' : ''
-                                    }`}
-                                >
-                                  {/* Status indicator dot */}
-                                  <div className={`absolute top-2 right-2 w-2 h-2 ${colors.dot} rounded-full`}></div>
-
-                                  <div className="flex items-center justify-between mb-1">
-                                    <p className="text-xs text-medical-neutral-600 font-medium pr-3">{lab.name}</p>
-                                    <span className={`text-xs font-medium ${lab.trend === 'up' ? 'text-medical-primary-600' : lab.trend === 'down' ? 'text-medical-primary-600' : 'text-medical-neutral-500'
-                                      }`}>
-                                      {lab.trend === 'up' ? '↑' : lab.trend === 'down' ? '↓' : '→'}
-                                    </span>
-                                  </div>
-                                  <p className="text-lg font-bold text-medical-neutral-900">{lab.current}</p>
-                                  <p className="text-xs text-medical-neutral-500">{lab.unit}</p>
-                                  <p className={`text-xs ${colors.text} font-medium mt-1`}>{labStatus.label}</p>
-                                </button>
-                              );
-                            } else {
-                              // Non-numeric values (color, appearance, etc.) - show as info cards
                               return (
                                 <div
                                   key={key}
-                                  className="bg-medical-primary-50 border border-medical-primary-200 rounded-lg p-3 text-left"
+                                  className="relative bg-white rounded-lg shadow-sm p-4 border border-medical-neutral-200 hover:shadow-md transition-all"
                                 >
-                                  <div className="flex items-center justify-between mb-1">
-                                    <p className="text-xs text-medical-primary-700 font-medium">{lab.name}</p>
+                                  {/* Status indicator dot */}
+                                  <div className={`absolute top-3 right-3 w-2.5 h-2.5 ${colors.dot} rounded-full`}></div>
+
+                                  <div className="flex items-start justify-between mb-2">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <p className="text-sm font-semibold text-medical-neutral-900">{lab.name}</p>
+                                        {labDescription && (
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              alert(`${lab.name}\n\n${labDescription}`);
+                                            }}
+                                            className="text-medical-primary-500 hover:text-medical-primary-700 transition-colors"
+                                            title="Learn more about this lab value"
+                                          >
+                                            <Info className="w-3.5 h-3.5" />
+                                          </button>
+                                        )}
+                                      </div>
+                                      <div className="flex items-baseline gap-2">
+                                        <p className="text-xl font-bold text-medical-neutral-900">{lab.current}</p>
+                                        <p className="text-xs text-medical-neutral-500">{lab.unit}</p>
+                                      </div>
+                                      <p className={`text-xs ${colors.text} font-medium mt-1`}>{labStatus.label}</p>
+                                      {lab.normalRange && (
+                                        <p className="text-xs text-medical-neutral-500 mt-1">Normal: {lab.normalRange}</p>
+                                      )}
+                                    </div>
+                                    <button
+                                      onClick={() => setSelectedLab(key)}
+                                      className="ml-2 p-1.5 text-medical-primary-600 hover:bg-medical-primary-50 rounded transition-colors"
+                                      title="View chart"
+                                    >
+                                      <TrendingUp className="w-4 h-4" />
+                                    </button>
                                   </div>
-                                  <p className="text-sm font-semibold text-medical-primary-900">{lab.current}</p>
+                                </div>
+                              );
+                            } else {
+                              return (
+                                <div
+                                  key={key}
+                                  className="bg-medical-primary-50 border border-medical-primary-200 rounded-lg p-4"
+                                >
+                                  <p className="text-sm font-semibold text-medical-primary-900 mb-1">{lab.name}</p>
+                                  <p className="text-base font-bold text-medical-primary-900">{lab.current}</p>
                                   <p className="text-xs text-medical-primary-600 mt-1">
                                     {new Date(lab.data[lab.data.length - 1]?.date || Date.now()).toLocaleDateString()}
                                   </p>
@@ -2765,69 +2875,77 @@ export default function CancerCareApp() {
                             'Others'
                           ];
 
-                          return categoryOrder.map(category => {
-                            const labsInCategory = categorizedLabs[category];
-                            if (labsInCategory.length === 0) return null;
+                          return (
+                            <div className="space-y-4 mt-6">
+                              {categoryOrder.map(category => {
+                                const labsInCategory = categorizedLabs[category];
+                                if (labsInCategory.length === 0) return null;
 
-                            // For Disease-Specific Markers, show top metrics at top
-                            if (category === 'Disease-Specific Markers') {
-                              const topMarkers = labsInCategory.slice(0, 6);
-                              const remainingMarkers = showAllLabs ? labsInCategory.slice(6) : [];
+                                const isExpanded = expandedCategories[category];
+                                const CategoryIcon = categoryIcons[category] || Activity;
+                                const description = categoryDescriptions[category];
 
-                              return (
-                                <div key={category} className="space-y-4">
-                                  {/* Disease-Specific Top Metrics Header */}
-                                  <div className="mt-6">
-                                    <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-3">Disease-Specific Markers</h3>
-                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-                                      {topMarkers.map(([key, lab]) => (
-                                        renderLabCard(key, lab)
-                                      ))}
-                                    </div>
-                                    {remainingMarkers.length > 0 && (
-                                      <div className="mt-4">
-                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-                                          {remainingMarkers.map(([key, lab]) => (
+                                return (
+                                  <div
+                                    key={category}
+                                    className="bg-white rounded-xl shadow-sm border border-medical-neutral-200 overflow-hidden transition-all hover:shadow-md"
+                                  >
+                                    {/* Category Header - Clickable to expand/collapse */}
+                                    <button
+                                      onClick={() => setExpandedCategories(prev => ({
+                                        ...prev,
+                                        [category]: !prev[category]
+                                      }))}
+                                      className="w-full p-5 flex items-center justify-between hover:bg-medical-neutral-50 transition-colors"
+                                    >
+                                      <div className="flex items-center gap-4 flex-1">
+                                        <div className="w-12 h-12 bg-medical-primary-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                          <CategoryIcon className="w-6 h-6 text-medical-primary-600" />
+                                        </div>
+                                        <div className="text-left flex-1 min-w-0">
+                                          <div className="flex items-center gap-2">
+                                            <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900">{category}</h3>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                alert(`${category}\n\n${description}`);
+                                              }}
+                                              className="text-medical-primary-500 hover:text-medical-primary-700 transition-colors flex-shrink-0"
+                                              title="Learn more about this category"
+                                            >
+                                              <Info className="w-4 h-4" />
+                                            </button>
+                                          </div>
+                                          <p className="text-xs sm:text-sm text-medical-neutral-600 mt-1">{description}</p>
+                                          <p className="text-xs text-medical-neutral-500 mt-1">{labsInCategory.length} value{labsInCategory.length !== 1 ? 's' : ''} tracked</p>
+                                        </div>
+                                      </div>
+                                      <div className="ml-4 flex-shrink-0">
+                                        {isExpanded ? (
+                                          <ChevronUp className="w-5 h-5 text-medical-neutral-500" />
+                                        ) : (
+                                          <ChevronDown className="w-5 h-5 text-medical-neutral-500" />
+                                        )}
+                                      </div>
+                                    </button>
+
+                                    {/* Expanded Content */}
+                                    {isExpanded && (
+                                      <div className="px-5 pb-5 pt-2 border-t border-medical-neutral-100">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                                          {labsInCategory.map(([key, lab]) => (
                                             renderLabCard(key, lab)
                                           ))}
                                         </div>
                                       </div>
                                     )}
                                   </div>
-                                </div>
-                              );
-                            }
-
-                            // For other categories, show with category header
-                            return (
-                              <div key={category} className="mt-6">
-                                <h3 className="text-sm sm:text-base font-semibold text-medical-neutral-700 mb-3">{category}</h3>
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-                                  {labsInCategory.map(([key, lab]) => (
-                                    renderLabCard(key, lab)
-                                  ))}
-                                </div>
-                              </div>
-                            );
-                          });
+                                );
+                              })}
+                            </div>
+                          );
                         })()}
 
-                        {/* Show More/Less Button - Only for Disease-Specific Markers */}
-                        {(() => {
-                          const categorizedLabs = categorizeLabs(allLabData);
-                          const diseaseMarkers = categorizedLabs['Disease-Specific Markers'] || [];
-                          if (diseaseMarkers.length > 6) {
-                            return (
-                              <button
-                                onClick={() => setShowAllLabs(!showAllLabs)}
-                                className="w-full py-2 bg-medical-neutral-100 border border-medical-neutral-300 rounded-lg text-medical-neutral-700 hover:bg-medical-neutral-200 transition font-medium text-sm mt-4"
-                              >
-                                {showAllLabs ? '− Show Less Disease Markers' : `+ Show All Disease Markers (${diseaseMarkers.length})`}
-                              </button>
-                            );
-                          }
-                          return null;
-                        })()}
 
                         <div className="space-y-2">
                           <button
@@ -5192,9 +5310,9 @@ export default function CancerCareApp() {
                     }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">Select a common lab marker...</option>
+                    <option value="">Select a lab marker by category...</option>
 
-                    <optgroup label="Tumor Markers">
+                    <optgroup label="Disease-Specific Markers - Tumor markers for monitoring cancer progression">
                       <option value={JSON.stringify({ name: 'CA-125', range: '<35', unit: 'U/mL' })}>CA-125 (Ovarian) - &lt;35 U/mL</option>
                       <option value={JSON.stringify({ name: 'CA 19-9', range: '<37', unit: 'U/mL' })}>CA 19-9 (Pancreatic) - &lt;37 U/mL</option>
                       <option value={JSON.stringify({ name: 'CA 15-3', range: '<30', unit: 'U/mL' })}>CA 15-3 (Breast) - &lt;30 U/mL</option>
@@ -5204,7 +5322,7 @@ export default function CancerCareApp() {
                       <option value={JSON.stringify({ name: 'HE4', range: '<70', unit: 'pmol/L' })}>HE4 (Ovarian) - &lt;70 pmol/L</option>
                     </optgroup>
 
-                    <optgroup label="Complete Blood Count">
+                    <optgroup label="Blood Counts - Complete blood count components">
                       <option value={JSON.stringify({ name: 'WBC', range: '4.5-11.0', unit: 'K/μL' })}>WBC (White Blood Cells) - 4.5-11.0 K/μL</option>
                       <option value={JSON.stringify({ name: 'RBC', range: '4.5-5.5', unit: 'M/μL' })}>RBC (Red Blood Cells) - 4.5-5.5 M/μL</option>
                       <option value={JSON.stringify({ name: 'Hemoglobin', range: '12.0-16.0', unit: 'g/dL' })}>Hemoglobin - 12.0-16.0 g/dL</option>
@@ -5215,13 +5333,13 @@ export default function CancerCareApp() {
                       <option value={JSON.stringify({ name: 'Lymphocytes', range: '20-40', unit: '%' })}>Lymphocytes - 20-40%</option>
                     </optgroup>
 
-                    <optgroup label="Kidney Function">
+                    <optgroup label="Kidney Function - Markers for kidney health and filtration">
                       <option value={JSON.stringify({ name: 'Creatinine', range: '0.6-1.2', unit: 'mg/dL' })}>Creatinine - 0.6-1.2 mg/dL</option>
                       <option value={JSON.stringify({ name: 'eGFR', range: '>60', unit: 'mL/min' })}>eGFR - &gt;60 mL/min</option>
                       <option value={JSON.stringify({ name: 'BUN', range: '7-20', unit: 'mg/dL' })}>BUN (Blood Urea Nitrogen) - 7-20 mg/dL</option>
                     </optgroup>
 
-                    <optgroup label="Liver Function">
+                    <optgroup label="Liver Function - Enzymes and proteins for liver health">
                       <option value={JSON.stringify({ name: 'ALT', range: '7-56', unit: 'U/L' })}>ALT - 7-56 U/L</option>
                       <option value={JSON.stringify({ name: 'AST', range: '10-40', unit: 'U/L' })}>AST - 10-40 U/L</option>
                       <option value={JSON.stringify({ name: 'ALP', range: '44-147', unit: 'U/L' })}>ALP (Alkaline Phosphatase) - 44-147 U/L</option>
@@ -5229,19 +5347,38 @@ export default function CancerCareApp() {
                       <option value={JSON.stringify({ name: 'Albumin', range: '3.5-5.5', unit: 'g/dL' })}>Albumin - 3.5-5.5 g/dL</option>
                     </optgroup>
 
-                    <optgroup label="Metabolic Panel">
-                      <option value={JSON.stringify({ name: 'Glucose', range: '70-100', unit: 'mg/dL' })}>Glucose (Fasting) - 70-100 mg/dL</option>
+                    <optgroup label="Electrolytes - Essential minerals for fluid balance">
                       <option value={JSON.stringify({ name: 'Sodium', range: '136-145', unit: 'mmol/L' })}>Sodium - 136-145 mmol/L</option>
                       <option value={JSON.stringify({ name: 'Potassium', range: '3.5-5.0', unit: 'mmol/L' })}>Potassium - 3.5-5.0 mmol/L</option>
                       <option value={JSON.stringify({ name: 'Calcium', range: '8.5-10.5', unit: 'mg/dL' })}>Calcium - 8.5-10.5 mg/dL</option>
                       <option value={JSON.stringify({ name: 'Magnesium', range: '1.7-2.2', unit: 'mg/dL' })}>Magnesium - 1.7-2.2 mg/dL</option>
+                      <option value={JSON.stringify({ name: 'Glucose', range: '70-100', unit: 'mg/dL' })}>Glucose (Fasting) - 70-100 mg/dL</option>
+                    </optgroup>
+
+                    <optgroup label="Thyroid Function - Hormones for thyroid health">
+                      <option value={JSON.stringify({ name: 'TSH', range: '0.4-4.0', unit: 'mIU/L' })}>TSH (Thyroid) - 0.4-4.0 mIU/L</option>
+                    </optgroup>
+
+                    <optgroup label="Cardiac Markers - Biomarkers for heart health">
+                      <option value={JSON.stringify({ name: 'Troponin', range: '<0.04', unit: 'ng/mL' })}>Troponin - &lt;0.04 ng/mL</option>
+                      <option value={JSON.stringify({ name: 'BNP', range: '<100', unit: 'pg/mL' })}>BNP - &lt;100 pg/mL</option>
+                    </optgroup>
+
+                    <optgroup label="Inflammation - Markers for inflammation and immune activity">
+                      <option value={JSON.stringify({ name: 'CRP', range: '<3', unit: 'mg/L' })}>CRP (C-Reactive Protein) - &lt;3 mg/L</option>
+                      <option value={JSON.stringify({ name: 'ESR', range: '0-20', unit: 'mm/hr' })}>ESR (Erythrocyte Sedimentation Rate) - 0-20 mm/hr</option>
+                      <option value={JSON.stringify({ name: 'Ferritin', range: '15-200', unit: 'ng/mL' })}>Ferritin - 15-200 ng/mL</option>
+                    </optgroup>
+
+                    <optgroup label="Coagulation - Blood clotting function tests">
+                      <option value={JSON.stringify({ name: 'PT', range: '11-13', unit: 'seconds' })}>PT (Prothrombin Time) - 11-13 seconds</option>
+                      <option value={JSON.stringify({ name: 'INR', range: '0.9-1.1', unit: '' })}>INR - 0.9-1.1</option>
+                      <option value={JSON.stringify({ name: 'D-dimer', range: '<0.5', unit: 'mg/L' })}>D-dimer - &lt;0.5 mg/L</option>
                     </optgroup>
 
                     <optgroup label="Other Important Markers">
                       <option value={JSON.stringify({ name: 'LDH', range: '140-280', unit: 'U/L' })}>LDH (Lactate Dehydrogenase) - 140-280 U/L</option>
-                      <option value={JSON.stringify({ name: 'CRP', range: '<3', unit: 'mg/L' })}>CRP (C-Reactive Protein) - &lt;3 mg/L</option>
                       <option value={JSON.stringify({ name: 'Vitamin D', range: '30-100', unit: 'ng/mL' })}>Vitamin D - 30-100 ng/mL</option>
-                      <option value={JSON.stringify({ name: 'TSH', range: '0.4-4.0', unit: 'mIU/L' })}>TSH (Thyroid) - 0.4-4.0 mIU/L</option>
                       <option value={JSON.stringify({ name: 'HbA1c', range: '<5.7', unit: '%' })}>HbA1c (Diabetes) - &lt;5.7%</option>
                     </optgroup>
                   </select>

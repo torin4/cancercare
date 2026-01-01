@@ -8,14 +8,17 @@ const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY || pro
  * - Identifies document type
  * - Extracts medical data
  * - Saves to appropriate Firestore collections
+ * @param {File} file - The document file
+ * @param {string} userId - User ID
+ * @param {Object} patientProfile - Patient demographics (age, gender, weight) for normal range adjustments
  */
-export async function processDocument(file, userId) {
+export async function processDocument(file, userId, patientProfile = null) {
   try {
     // Convert file to base64 for Gemini API
     const base64Data = await fileToBase64(file);
 
     // Step 1: Analyze document and extract data
-    const extractedData = await analyzeDocument(base64Data, file.type);
+    const extractedData = await analyzeDocument(base64Data, file.type, patientProfile);
 
     // Step 2: Save extracted data to Firestore
     const savedData = await saveExtractedData(extractedData, userId);
@@ -49,11 +52,53 @@ async function fileToBase64(file) {
 
 /**
  * Analyze document using Gemini AI
+ * @param {string} base64Data - Base64 encoded document
+ * @param {string} mimeType - MIME type of the document
+ * @param {Object} patientProfile - Patient demographics for normal range adjustments
  */
-async function analyzeDocument(base64Data, mimeType) {
+async function analyzeDocument(base64Data, mimeType, patientProfile = null) {
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
+  // Build patient demographics section if provided
+  let patientDemographicsSection = '';
+  if (patientProfile) {
+    const age = patientProfile.age || null;
+    const gender = patientProfile.gender || patientProfile.sex || null;
+    const weight = patientProfile.weight || null;
+    const height = patientProfile.height || null;
+    
+    if (age || gender || weight || height) {
+      patientDemographicsSection = `
+
+═══════════════════════════════════════════════════════════════════════════════
+PATIENT DEMOGRAPHICS: Use these to adjust normal ranges appropriately
+═══════════════════════════════════════════════════════════════════════════════
+
+${age ? `- Age: ${age} years` : ''}
+${gender ? `- Gender: ${gender}` : ''}
+${weight ? `- Weight: ${weight} kg` : ''}
+${height ? `- Height: ${height} cm` : ''}
+
+IMPORTANT FOR NORMAL RANGES:
+- If the document shows a normal range, use that exact range
+- If the document does NOT show a normal range, provide the appropriate normal range based on these patient demographics
+- Adjust normal ranges based on:
+  * Age (e.g., children vs adults, elderly patients have different ranges)
+  * Gender (e.g., hemoglobin: men 13.5-17.5 g/dL, women 12.0-15.5 g/dL)
+  * Body size when relevant (e.g., BMI-related calculations)
+- Use age-appropriate and gender-appropriate normal ranges when the document doesn't specify
+- Examples:
+  * Hemoglobin: Men 13.5-17.5 g/dL, Women 12.0-15.5 g/dL
+  * Creatinine: Varies by age and gender
+  * eGFR: Adjusted for age, gender, and race
+  * PSA: Age-specific ranges (higher normal ranges for older men)
+
+═══════════════════════════════════════════════════════════════════════════════`;
+    }
+  }
+
   const prompt = `You are a medical document processing AI. Analyze this medical document and extract all relevant information.
+${patientDemographicsSection}
 
 ═══════════════════════════════════════════════════════════════════════════════
 CRITICAL: DATE EXTRACTION IS MANDATORY - DO NOT SKIP THIS STEP
@@ -115,7 +160,7 @@ Return a JSON object with this EXACT structure:
         "value": 68,
         "unit": "U/mL",
         "date": "2024-12-14",  // MANDATORY: Extract the ACTUAL collection/test date. Search document header, look for "Collection Date", "Test Date", "採取日時", "検査日", or any date field. MUST be in YYYY-MM-DD format.
-        "normalRange": "0-35",  // If not shown, omit this field entirely
+        "normalRange": "0-35",  // CRITICAL: If document shows a range, use that. Otherwise, provide age/gender-appropriate normal range based on patient demographics.
         "status": "high|normal|low"
       }
     ],
