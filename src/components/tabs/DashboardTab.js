@@ -29,6 +29,17 @@ export default function DashboardTab({ onTabChange }) {
   const [showAddSymptomModal, setShowAddSymptomModal] = useState(false);
   const [showAddLabModal, setShowAddLabModal] = useState(false);
   const [showAddVitalModal, setShowAddVitalModal] = useState(false);
+  const [newVital, setNewVital] = useState({
+    vitalType: '',
+    value: '',
+    systolic: '',
+    diastolic: '',
+    dateTime: new Date().toISOString().slice(0, 16),
+    notes: '',
+    customLabel: '',
+    customUnit: '',
+    customNormalRange: ''
+  });
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
   const [documentOnboardingMethod, setDocumentOnboardingMethod] = useState('picker');
   const [isUploading, setIsUploading] = useState(false);
@@ -68,6 +79,39 @@ export default function DashboardTab({ onTabChange }) {
     };
     loadSavedTrials();
   }, [user]);
+
+  // Reset all modals when component unmounts (user navigates away)
+  useEffect(() => {
+    return () => {
+      // Cleanup: reset all modals and form states when navigating away
+      setShowAddSymptomModal(false);
+      setShowAddLabModal(false);
+      setShowAddVitalModal(false);
+      setShowDocumentOnboarding(false);
+      setSymptomForm({
+        name: '',
+        severity: '',
+        date: getTodayLocalDate(),
+        time: new Date().toTimeString().slice(0, 5),
+        notes: '',
+        customSymptomName: '',
+        tags: []
+      });
+      setNewVital({
+        vitalType: '',
+        value: '',
+        systolic: '',
+        diastolic: '',
+        dateTime: new Date().toISOString().slice(0, 16),
+        notes: '',
+        customLabel: '',
+        customUnit: '',
+        customNormalRange: ''
+      });
+      setPendingDocumentDate(null);
+      setPendingDocumentNote(null);
+    };
+  }, []);
 
   // Helper function to open document onboarding
   const openDocumentOnboarding = (docType = null, method = 'picker') => {
