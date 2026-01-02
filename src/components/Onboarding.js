@@ -145,8 +145,11 @@ const CANCER_TYPES = [
 ].sort();
 
 export default function Onboarding({ onComplete }) {
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0); // Start at step 0 for user role question
   const [formData, setFormData] = useState({
+    // Step 0 - User Role
+    isPatient: true, // true = patient, false = caregiver
+
     // Step 1 - Patient Information
     firstName: '',
     middleName: '',
@@ -156,6 +159,11 @@ export default function Onboarding({ onComplete }) {
     weight: '',
     country: '',
     gender: '',
+
+    // Caregiver Information (shown if isPatient is false)
+    caregiverName: '',
+    caregiverPhone: '',
+    caregiverEmail: '',
 
     // Step 2 - Diagnosis Information
     cancerType: '',
@@ -199,8 +207,14 @@ export default function Onboarding({ onComplete }) {
   const TREATMENT_STATUS_OPTIONS = ['First-line', 'Second-line', 'Third-line', 'Fourth-line or later', 'Maintenance', 'Adjuvant', 'Neoadjuvant', 'Palliative', 'Other (specify)'];
 
 
-  const handleNext = () => { if (step === 1 && isStepValid()) setStep(2); };
-  const handleBack = () => { if (step === 2) setStep(1); };
+  const handleNext = () => { 
+    if (step === 0 && isStepValid()) setStep(1);
+    else if (step === 1 && isStepValid()) setStep(2); 
+  };
+  const handleBack = () => { 
+    if (step === 2) setStep(1);
+    else if (step === 1) setStep(0);
+  };
 
   const handleComplete = () => {
     if (!isStepValid()) return;
@@ -225,12 +239,20 @@ export default function Onboarding({ onComplete }) {
   };
 
   const isStepValid = () => {
-    if (step === 1) return !!(formData.firstName && formData.lastName && formData.dateOfBirth && formData.height && formData.weight && formData.gender);
+    if (step === 0) return formData.isPatient !== undefined && formData.isPatient !== null;
+    if (step === 1) {
+      const patientInfoValid = !!(formData.firstName && formData.lastName && formData.dateOfBirth && formData.height && formData.weight && formData.gender);
+      // If caregiver mode, also require caregiver name
+      if (!formData.isPatient) {
+        return patientInfoValid && !!formData.caregiverName;
+      }
+      return patientInfoValid;
+    }
     if (step === 2) return !!(formData.cancerType && formData.stage && formData.diagnosisDate && formData.treatmentLine && formData.performanceStatus && formData.diseaseStatus);
     return false;
   };
 
-  const totalSteps = 2;
+  const totalSteps = 3;
   const progressPercentage = (step / totalSteps) * 100;
 
   return (
@@ -252,6 +274,73 @@ export default function Onboarding({ onComplete }) {
 
         {/* Form Content */}
         <div className="p-8 overflow-y-auto flex-1">
+
+          {/* Step 0: User Role */}
+          {step === 0 && (
+            <div className="space-y-6 animate-fade-scale">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-medical-primary-100 rounded-full flex items-center justify-center">
+                  <User className="w-6 h-6 text-medical-primary-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Who is using this app?</h2>
+                  <p className="text-sm text-gray-600">This helps us personalize your experience.</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <button
+                  onClick={() => updateField('isPatient', true)}
+                  className={`w-full p-6 rounded-xl border-2 transition-all text-left ${
+                    formData.isPatient === true
+                      ? 'border-medical-primary-500 bg-medical-primary-50'
+                      : 'border-gray-200 bg-white hover:border-medical-primary-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                      formData.isPatient === true
+                        ? 'border-medical-primary-500 bg-medical-primary-500'
+                        : 'border-gray-300'
+                    }`}>
+                      {formData.isPatient === true && (
+                        <div className="w-3 h-3 rounded-full bg-white" />
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">I am the patient</h3>
+                      <p className="text-sm text-gray-600 mt-1">I'm managing my own cancer care</p>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => updateField('isPatient', false)}
+                  className={`w-full p-6 rounded-xl border-2 transition-all text-left ${
+                    formData.isPatient === false
+                      ? 'border-medical-primary-500 bg-medical-primary-50'
+                      : 'border-gray-200 bg-white hover:border-medical-primary-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                      formData.isPatient === false
+                        ? 'border-medical-primary-500 bg-medical-primary-500'
+                        : 'border-gray-300'
+                    }`}>
+                      {formData.isPatient === false && (
+                        <div className="w-3 h-3 rounded-full bg-white" />
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">I am a caregiver</h3>
+                      <p className="text-sm text-gray-600 mt-1">I'm helping manage someone else's cancer care</p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Step 1: Patient Information */}
           {step === 1 && (
@@ -365,14 +454,62 @@ export default function Onboarding({ onComplete }) {
                     value={formData.gender} 
                     onChange={(e) => updateField('gender', e.target.value)} 
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all"
-                    aria-required="true"
                   >
                     <option value="">Select gender</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
+                    <option value="Prefer not to say">Prefer not to say</option>
                   </select>
                 </div>
+
+                {/* Caregiver Information - Only show if user selected caregiver mode */}
+                {!formData.isPatient && (
+                  <div className="border-t pt-6 mt-6">
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Your Information</h3>
+                      <p className="text-sm text-gray-600">Enter your contact information as the caregiver</p>
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <label htmlFor="caregiverName" className="block text-sm font-medium text-gray-700 mb-1.5">Your Name *</label>
+                        <input 
+                          id="caregiverName"
+                          type="text" 
+                          value={formData.caregiverName} 
+                          onChange={(e) => updateField('caregiverName', e.target.value)} 
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all" 
+                          placeholder="Enter your name"
+                          aria-required="true"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label htmlFor="caregiverPhone" className="block text-sm font-medium text-gray-700 mb-1.5">Your Phone</label>
+                          <input 
+                            id="caregiverPhone"
+                            type="tel" 
+                            value={formData.caregiverPhone} 
+                            onChange={(e) => updateField('caregiverPhone', e.target.value)} 
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all" 
+                            placeholder="e.g., (555) 123-4567"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="caregiverEmail" className="block text-sm font-medium text-gray-700 mb-1.5">Your Email</label>
+                          <input 
+                            id="caregiverEmail"
+                            type="email" 
+                            value={formData.caregiverEmail} 
+                            onChange={(e) => updateField('caregiverEmail', e.target.value)} 
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all" 
+                            placeholder="e.g., your@email.com"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -527,9 +664,11 @@ export default function Onboarding({ onComplete }) {
 
           {/* Navigation Buttons */}
           <div className="flex justify-between mt-8 pt-6 border-t">
-            <button onClick={handleBack} disabled={step === 1} className="px-6 py-2.5 text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">Back</button>
+            <button onClick={handleBack} disabled={step === 0} className="px-6 py-2.5 text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">Back</button>
 
-            {step === 1 ? (
+            {step === 0 ? (
+              <button onClick={handleNext} disabled={!isStepValid()} className="px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed">Next <ChevronRight className="w-4 h-4 inline-block ml-2" /></button>
+            ) : step === 1 ? (
               <button onClick={handleNext} disabled={!isStepValid()} className="px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed">Next <ChevronRight className="w-4 h-4 inline-block ml-2" /></button>
             ) : (
               <button onClick={handleComplete} disabled={!isStepValid()} className="px-6 py-2.5 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed">Complete Setup</button>

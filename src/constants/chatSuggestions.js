@@ -5,18 +5,18 @@ import { Thermometer, BarChart, Heart, Pill, Info, FileText, TrendingUp, AlertCi
 // "Add" actions use blue (medical-primary) to match the health screen
 // Questions/analysis use aqua blue (medical-secondary) for visual distinction
 export const chatSuggestions = [
-  { text: "Log a symptom", populateText: "I had [symptom] yesterday", icon: Thermometer, color: "bg-medical-primary-500/80" },
-  { text: "Add lab value", populateText: "My CA-125 was [value] on [date]", icon: BarChart, color: "bg-medical-primary-500/80" },
-  { text: "Add vital sign", populateText: "My blood pressure is [value] this morning", icon: Heart, color: "bg-medical-primary-500/80" },
-  { text: "Add medication", populateText: "I started taking [medication] [dosage]", icon: Pill, color: "bg-medical-primary-500/80" },
-  { text: "What does my CA-125 mean?", populateText: "What does my CA-125 of [value] mean?", icon: Info, color: "bg-medical-secondary-500/80" },
-  { text: "Explain my lab results", populateText: "Explain my latest lab results", icon: FileText, color: "bg-medical-secondary-500/80" },
-  { text: "How is my treatment progressing?", populateText: "How is my treatment progressing?", icon: TrendingUp, color: "bg-medical-secondary-500/80" },
+  { text: "Log a symptom", populateText: "[patient] had [symptom] yesterday", icon: Thermometer, color: "bg-medical-primary-500/80" },
+  { text: "Add lab value", populateText: "[Patient] CA-125 was [value] on [date]", icon: BarChart, color: "bg-medical-primary-500/80" },
+  { text: "Add vital sign", populateText: "[Patient] blood pressure is [value] this morning", icon: Heart, color: "bg-medical-primary-500/80" },
+  { text: "Add medication", populateText: "[patient] started taking [medication] [dosage]", icon: Pill, color: "bg-medical-primary-500/80" },
+  { text: "What does my CA-125 mean?", populateText: "What does [patient] CA-125 of [value] mean?", icon: Info, color: "bg-medical-secondary-500/80" },
+  { text: "Explain my lab results", populateText: "Explain [patient] latest lab results", icon: FileText, color: "bg-medical-secondary-500/80" },
+  { text: "How is my treatment progressing?", populateText: "How is [patient] treatment progressing?", icon: TrendingUp, color: "bg-medical-secondary-500/80" },
   { text: "What are common side effects?", populateText: "What are common side effects of [medication]?", icon: AlertCircle, color: "bg-medical-secondary-500/80" },
-  { text: "Explain my symptoms", populateText: "Explain my symptoms", icon: Activity, color: "bg-medical-secondary-500/80" },
-  { text: "What should I ask my doctor?", populateText: "What should I ask my doctor about [topic]?", icon: MessageSquare, color: "bg-medical-secondary-500/80" },
-  { text: "Analyze my health trends", populateText: "Show me trends in my [lab/vital]", icon: TrendingUp, color: "bg-medical-secondary-500/80" },
-  { text: "What do my vitals mean?", populateText: "What do my vitals mean?", icon: Heart, color: "bg-medical-secondary-500/80" },
+  { text: "Explain my symptoms", populateText: "Explain [patient] symptoms", icon: Activity, color: "bg-medical-secondary-500/80" },
+  { text: "What should I ask my doctor?", populateText: "What should [patient] ask [patient] doctor about [topic]?", icon: MessageSquare, color: "bg-medical-secondary-500/80" },
+  { text: "Analyze my health trends", populateText: "Show me trends in [patient] [lab/vital]", icon: TrendingUp, color: "bg-medical-secondary-500/80" },
+  { text: "What do my vitals mean?", populateText: "What do [patient] vitals mean?", icon: Heart, color: "bg-medical-secondary-500/80" },
 ];
 
 // Trial-specific suggestions (shown when discussing a trial)

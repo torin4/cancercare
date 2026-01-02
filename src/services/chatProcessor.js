@@ -339,7 +339,15 @@ When answering questions about the user's health data, you should:
     }
 
     // Build prompt for extraction
+    // Determine user role for personalized responses
+    const isPatient = patientProfile?.isPatient !== false; // Default to true if not set
+    const userRoleContext = isPatient 
+      ? 'You are speaking directly with the patient. Address them in first person (e.g., "your", "you").'
+      : 'You are speaking with a caregiver who is helping manage the patient\'s care. Address them as a caregiver (e.g., "the patient", "their", "they") and acknowledge their role in supporting the patient.';
+
     const prompt = `You are CancerCare's AI health assistant helping track medical data for a patient${patientProfile?.diagnosis ? ` with ${patientProfile.diagnosis}` : ''}.
+
+${userRoleContext}
 
 TASK: Analyze the user's message and extract any medical values they mentioned.${trialContext ? ' The user is asking about a specific clinical trial - provide detailed information about the trial, its drugs, phase, and eligibility.' : ''}${healthContext ? ' The user is asking about their health data - analyze their labs, vitals, and symptoms to provide insights and answer questions.' : ''}
 

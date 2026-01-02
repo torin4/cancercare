@@ -15,6 +15,7 @@ import AddVitalModal from '../modals/AddVitalModal';
 import AddVitalValueModal from '../modals/AddVitalValueModal';
 import AddLabValueModal from '../modals/AddLabValueModal';
 import DocumentUploadOnboarding from '../DocumentUploadOnboarding';
+import DeletionConfirmationModal from '../modals/DeletionConfirmationModal';
 
 export default function HealthTab({ onTabChange }) {
   const { user } = useAuth();
@@ -76,6 +77,7 @@ export default function HealthTab({ onTabChange }) {
   });
   const [labTooltip, setLabTooltip] = useState(null);
   const [openDeleteMenu, setOpenDeleteMenu] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Delete Permanently' });
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
   const [documentOnboardingMethod, setDocumentOnboardingMethod] = useState('picker');
 
@@ -217,31 +219,31 @@ export default function HealthTab({ onTabChange }) {
   };
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
       {/* Ask About Health Button */}
-      <div className="bg-medical-primary-50 rounded-lg p-4">
-        <div className="flex items-center justify-between">
+      <div className="bg-medical-primary-50 rounded-lg p-3 sm:p-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">Ask About Your Health Data</h3>
-            <p className="text-sm text-gray-600">Get insights about your labs, vitals, and symptoms</p>
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1">Ask About Your Health Data</h3>
+            <p className="text-xs sm:text-sm text-gray-600">Get insights about your labs, vitals, and symptoms</p>
           </div>
           <button
             onClick={handleAskAboutHealth}
-            className="bg-white text-medical-primary-600 px-6 py-2.5 rounded-lg hover:bg-medical-primary-100 transition font-medium flex items-center gap-2 shadow-sm border border-medical-primary-200"
+            className="bg-white text-medical-primary-600 px-4 sm:px-6 py-2.5 rounded-lg hover:bg-medical-primary-100 transition font-medium flex items-center gap-2 shadow-sm border border-medical-primary-200 min-h-[44px] touch-manipulation active:opacity-70"
           >
-            <MessageSquare className="w-5 h-5 text-medical-primary-600" />
-            Ask About Health
+            <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-medical-primary-600" />
+            Chat Now
           </button>
         </div>
       </div>
 
       {/* Health Section Tabs */}
-      <div className="flex gap-4 mb-6 border-b border-medical-neutral-200">
+      <div className="flex gap-2 sm:gap-4 mb-4 sm:mb-6 border-b border-medical-neutral-200">
         {['labs', 'vitals', 'symptoms', 'medications'].map(section => (
           <button
             key={section}
             onClick={() => setHealthSection(section)}
-            className={`pb-3 px-4 font-medium transition-all duration-200 flex items-center gap-2 ${
+            className={`pb-3 px-2 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70 whitespace-nowrap flex-1 sm:flex-none ${
               healthSection === section
                 ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
                 : 'text-medical-neutral-600 hover:text-medical-primary-600'
@@ -249,26 +251,26 @@ export default function HealthTab({ onTabChange }) {
           >
             {section === 'labs' && (
               <>
-                <BarChart className="w-4 h-4" />
-                Labs
+                <BarChart className="w-4 h-4 sm:w-4 sm:h-4" />
+                <span className="text-sm sm:text-base">Labs</span>
               </>
             )}
             {section === 'vitals' && (
               <>
-                <Heart className="w-4 h-4" />
-                Vitals
+                <Heart className="w-4 h-4 sm:w-4 sm:h-4" />
+                <span className="text-sm sm:text-base">Vitals</span>
               </>
             )}
             {section === 'symptoms' && (
               <>
-                <Thermometer className="w-4 h-4" />
-                Symptoms
+                <Thermometer className="w-4 h-4 sm:w-4 sm:h-4" />
+                <span className="text-sm sm:text-base">Symptoms</span>
               </>
             )}
             {section === 'medications' && (
               <>
-                <Pill className="w-4 h-4" />
-                Medications
+                <Pill className="w-4 h-4 sm:w-4 sm:h-4" />
+                <span className="text-sm sm:text-base">Medications</span>
               </>
             )}
           </button>
@@ -279,12 +281,12 @@ export default function HealthTab({ onTabChange }) {
                   <>
                     {/* Empty State - No Lab Data */}
                     {!hasRealLabData && Object.keys(labsData).length === 0 && (
-                      <div className="border-2 border-medical-primary-500 rounded-lg p-6 text-center bg-white">
+                      <div className="border-2 border-medical-primary-500 rounded-lg p-4 sm:p-6 text-center bg-white">
                         <div className="flex flex-col items-center gap-3">
-                          <BarChart className="w-12 h-12 text-medical-primary-400" />
+                          <BarChart className="w-10 h-10 sm:w-12 sm:h-12 text-medical-primary-400" />
                           <div>
-                            <h3 className="font-semibold text-medical-primary-900 mb-1">No Lab Data Yet</h3>
-                            <p className="text-sm text-medical-primary-700 mb-4">
+                            <h3 className="text-base sm:text-lg font-semibold text-medical-primary-900 mb-1">No Lab Data Yet</h3>
+                            <p className="text-xs sm:text-sm text-medical-primary-700 mb-4">
                               Start tracking your lab values by uploading a report or adding a metric manually
                             </p>
                             <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -314,13 +316,13 @@ export default function HealthTab({ onTabChange }) {
 
                         {/* Lab Trend Chart - only show if we have numeric labs */}
                         {Object.values(allLabData).some(lab => lab.isNumeric) && (
-                          <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200">
-                            <div className="flex items-center justify-between mb-4">
+                          <div className="bg-white rounded-xl p-3 sm:p-4 md:p-6 border border-gray-200">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
                               <h2 className="text-base sm:text-lg font-semibold text-gray-900">Lab Trends</h2>
                               <select
                                 value={selectedLab}
                                 onChange={(e) => setSelectedLab(e.target.value)}
-                                className="text-sm border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 focus:ring-2 focus:ring-green-500"
+                                className="text-sm border border-gray-300 rounded-lg px-2 sm:px-3 py-2 sm:py-1.5 focus:ring-2 focus:ring-green-500 min-h-[44px] w-full sm:w-auto touch-manipulation"
                               >
                                 {(() => {
                                   // Organize labs by category
@@ -446,7 +448,7 @@ export default function HealthTab({ onTabChange }) {
                               </div>
 
                               {/* Chart - Responsive with Y-axis and hover tooltips */}
-                              <div className="flex gap-3">
+                              <div className="flex gap-2 sm:gap-3">
                             {/* Y-axis labels */}
                             <div className="flex flex-col justify-between text-xs text-gray-600 font-medium py-2" style={{ paddingBottom: '1.5rem' }}>
                               {(() => {
@@ -794,59 +796,76 @@ export default function HealthTab({ onTabChange }) {
                                                             setShowAddLabValue(true);
                                                           }
                                                         }}
-                                                        className="text-blue-400 hover:text-blue-300 transition-colors p-1 rounded hover:bg-blue-900/20"
+                                                        className="text-blue-400 hover:text-blue-300 transition-colors p-2 rounded hover:bg-blue-900/20 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
                                                         title="Edit this reading"
                                                       >
                                                         <Edit2 className="w-3.5 h-3.5" />
                                                       </button>
                                                       <button
-                                                        onClick={async (e) => {
+                                                        onClick={(e) => {
                                                           e.stopPropagation();
-                                                          if (window.confirm(`Delete this ${currentLab.name} reading (${d.value} ${currentLab.unit} on ${d.date})?`)) {
-                                                            try {
-                                                              console.log('Deleting lab with ID:', d.id);
-                                                              
-                                                              // Optimistically update UI immediately
-                                                              const updatedLabsData = { ...labsData };
-                                                              if (updatedLabsData[selectedLab] && updatedLabsData[selectedLab].data) {
-                                                                const filteredData = updatedLabsData[selectedLab].data.filter(item => item.id !== d.id);
-                                                                // Get most recent value (first item after sorting by timestamp)
-                                                                const sortedData = [...filteredData].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-                                                                updatedLabsData[selectedLab] = {
-                                                                  ...updatedLabsData[selectedLab],
-                                                                  data: filteredData,
-                                                                  current: sortedData.length > 0 ? sortedData[0].value : '--'
-                                                                };
-                                                                setLabsData(updatedLabsData);
-                                                              }
-                                                              
-                                                              // Delete from Firestore in background
-                                                              // Verify user is authenticated before deletion
-                                                              if (!user || !user.uid) {
-                                                                throw new Error('User not authenticated');
-                                                              }
-                                                              // d.id is the value ID in the subcollection, not the lab document ID
-                                                              // Get the lab document ID from currentLab
-                                                              const currentLabDoc = allLabData[selectedLab];
-                                                              if (!currentLabDoc || !currentLabDoc.id) {
-                                                                throw new Error('Lab document ID not found');
-                                                              }
-                                                              await labService.deleteLabValue(currentLabDoc.id, d.id);
-                                                              
-                                                              // Reload to ensure sync (but UI already updated)
-                                                              // Use reloadHealthData to properly reload all data
-                                                              setTimeout(async () => {
-                                                                await reloadHealthData();
-                                                              }, 300);
-                                                            } catch (error) {
-                                                              console.error('Error deleting lab:', error);
-                                                              // Revert optimistic update on error
-                                                              reloadHealthData();
-                                                              alert('Failed to delete lab reading. Please try again.');
-                                                            }
+                                                          // Capture values in closure
+                                                          const labValueId = d.id;
+                                                          const labKey = selectedLab;
+                                                          const labDoc = allLabData[selectedLab];
+                                                          const labDocId = labDoc?.id;
+                                                          const labName = currentLab.name;
+                                                          const labUnit = currentLab.unit;
+                                                          const labValue = d.value;
+                                                          const labDate = d.date;
+                                                          
+                                                          if (!labDocId) {
+                                                            alert('Lab document ID not found. Please try again.');
+                                                            return;
                                                           }
+                                                          
+                                                          setDeleteConfirm({
+                                                            show: true,
+                                                            title: `Delete ${labName} Reading?`,
+                                                            message: `This will permanently delete this ${labName} reading (${labValue} ${labUnit} on ${labDate}).`,
+                                                            itemName: `${labName} reading`,
+                                                            confirmText: 'Yes, Delete',
+                                                            onConfirm: async () => {
+                                                              try {
+                                                                console.log('Deleting lab with ID:', labValueId);
+                                                                
+                                                                // Optimistically update UI immediately
+                                                                const updatedLabsData = { ...labsData };
+                                                                if (updatedLabsData[labKey] && updatedLabsData[labKey].data) {
+                                                                  const filteredData = updatedLabsData[labKey].data.filter(item => item.id !== labValueId);
+                                                                  // Get most recent value (first item after sorting by timestamp)
+                                                                  const sortedData = [...filteredData].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                                                                  updatedLabsData[labKey] = {
+                                                                    ...updatedLabsData[labKey],
+                                                                    data: filteredData,
+                                                                    current: sortedData.length > 0 ? sortedData[0].value : '--'
+                                                                  };
+                                                                  setLabsData(updatedLabsData);
+                                                                }
+                                                                
+                                                                // Delete from Firestore in background
+                                                                // Verify user is authenticated before deletion
+                                                                if (!user || !user.uid) {
+                                                                  throw new Error('User not authenticated');
+                                                                }
+                                                                
+                                                                await labService.deleteLabValue(labDocId, labValueId);
+                                                                
+                                                                // Reload to ensure sync (but UI already updated)
+                                                                // Use reloadHealthData to properly reload all data
+                                                                setTimeout(async () => {
+                                                                  await reloadHealthData();
+                                                                }, 300);
+                                                              } catch (error) {
+                                                                console.error('Error deleting lab:', error);
+                                                                // Revert optimistic update on error
+                                                                reloadHealthData();
+                                                                alert('Failed to delete lab reading. Please try again.');
+                                                              }
+                                                            }
+                                                          });
                                                         }}
-                                                        className="text-red-400 hover:text-red-300 transition-colors p-1 rounded hover:bg-red-900/20"
+                                                        className="text-red-400 hover:text-red-300 transition-colors p-2 rounded hover:bg-red-900/20 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
                                                         title="Delete this reading"
                                                       >
                                                         <Trash2 className="w-3.5 h-3.5" />
@@ -966,7 +985,7 @@ export default function HealthTab({ onTabChange }) {
                                             e.stopPropagation();
                                             setOpenDeleteMenu(openDeleteMenu === `lab:${key}` ? null : `lab:${key}`);
                                           }}
-                                          className="p-1.5 text-medical-neutral-500 hover:bg-medical-neutral-100 rounded transition-colors"
+                                          className="p-2 text-medical-neutral-500 hover:bg-medical-neutral-100 rounded transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
                                           title="More options"
                                         >
                                           <MoreVertical className="w-4 h-4" />
@@ -991,51 +1010,58 @@ export default function HealthTab({ onTabChange }) {
                                                     setShowAddLabValue(true);
                                                   }
                                                 }}
-                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 min-h-[44px] touch-manipulation active:opacity-70"
                                               >
                                                 <Plus className="w-4 h-4" />
                                                 Add Value
                                               </button>
                                               <button
-                                                onClick={async (e) => {
+                                                onClick={(e) => {
                                                   e.stopPropagation();
                                                   setOpenDeleteMenu(null);
                                                   const labType = key;
                                                   const count = lab.data?.length || 0;
-                                                  if (window.confirm(`Delete all ${displayName} data? This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'}. This action cannot be undone.`)) {
-                                                    try {
-                                                      console.log('Deleting all labs of type:', labType);
-                                                      
-                                                      // Optimistically update UI immediately
-                                                      const updatedLabsData = { ...labsData };
-                                                      delete updatedLabsData[labType];
-                                                      setLabsData(updatedLabsData);
-                                                      
-                                                      // If deleted lab was selected, select first available
-                                                      if (selectedLab === labType) {
-                                                        const firstAvailable = Object.keys(updatedLabsData).find(key => updatedLabsData[key].isNumeric);
-                                                        if (firstAvailable) {
-                                                          setSelectedLab(firstAvailable);
+                                                  setDeleteConfirm({
+                                                    show: true,
+                                                    title: `Delete All ${displayName} Data?`,
+                                                    message: `This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'} of ${displayName} data.`,
+                                                    itemName: `all ${displayName} data`,
+                                                    confirmText: 'Yes, Delete All',
+                                                    onConfirm: async () => {
+                                                      try {
+                                                        console.log('Deleting all labs of type:', labType);
+                                                        
+                                                        // Optimistically update UI immediately
+                                                        const updatedLabsData = { ...labsData };
+                                                        delete updatedLabsData[labType];
+                                                        setLabsData(updatedLabsData);
+                                                        
+                                                        // If deleted lab was selected, select first available
+                                                        if (selectedLab === labType) {
+                                                          const firstAvailable = Object.keys(updatedLabsData).find(key => updatedLabsData[key].isNumeric);
+                                                          if (firstAvailable) {
+                                                            setSelectedLab(firstAvailable);
+                                                          }
                                                         }
+                                                        
+                                                        // Delete from Firestore in background
+                                                        const deletedCount = await labService.deleteAllLabsByType(user.uid, labType);
+                                                        console.log('Deleted labs count:', deletedCount);
+                                                        
+                                                        // Reload to ensure sync (but UI already updated)
+                                                        setTimeout(async () => {
+                                                          await reloadHealthData();
+                                                        }, 300);
+                                                      } catch (error) {
+                                                        console.error('Error deleting labs:', error);
+                                                        // Revert optimistic update on error
+                                                        reloadHealthData();
+                                                        alert('Failed to delete lab data. Please try again.');
                                                       }
-                                                      
-                                                      // Delete from Firestore in background
-                                                      const deletedCount = await labService.deleteAllLabsByType(user.uid, labType);
-                                                      console.log('Deleted labs count:', deletedCount);
-                                                      
-                                                      // Reload to ensure sync (but UI already updated)
-                                                      setTimeout(async () => {
-                                                        await reloadHealthData();
-                                                      }, 300);
-                                                    } catch (error) {
-                                                      console.error('Error deleting labs:', error);
-                                                      // Revert optimistic update on error
-                                                      reloadHealthData();
-                                                      alert('Failed to delete lab data. Please try again.');
                                                     }
-                                                  }
+                                                  });
                                                 }}
-                                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                                                className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors min-h-[44px] touch-manipulation active:opacity-70"
                                               >
                                                 <Trash2 className="w-4 h-4" />
                                                 {(() => {
@@ -1084,7 +1110,7 @@ export default function HealthTab({ onTabChange }) {
                                             e.stopPropagation();
                                             setOpenDeleteMenu(openDeleteMenu === `lab:${key}` ? null : `lab:${key}`);
                                           }}
-                                          className="p-1.5 text-medical-neutral-500 hover:bg-medical-neutral-100 rounded transition-colors"
+                                          className="p-2 text-medical-neutral-500 hover:bg-medical-neutral-100 rounded transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
                                           title="More options"
                                         >
                                           <MoreVertical className="w-4 h-4" />
@@ -1108,51 +1134,58 @@ export default function HealthTab({ onTabChange }) {
                                                     setShowAddLabValue(true);
                                                   }
                                                 }}
-                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 min-h-[44px] touch-manipulation active:opacity-70"
                                               >
                                                 <Plus className="w-4 h-4" />
                                                 Add Value
                                               </button>
                                               <button
-                                                onClick={async (e) => {
+                                                onClick={(e) => {
                                                   e.stopPropagation();
                                                   setOpenDeleteMenu(null);
                                                   const labType = key;
                                                   const count = lab.data?.length || 0;
-                                                  if (window.confirm(`Delete all ${displayName} data? This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'}. This action cannot be undone.`)) {
-                                                    try {
-                                                      console.log('Deleting all labs of type:', labType);
-                                                      
-                                                      // Optimistically update UI immediately
-                                                      const updatedLabsData = { ...labsData };
-                                                      delete updatedLabsData[labType];
-                                                      setLabsData(updatedLabsData);
-                                                      
-                                                      // If deleted lab was selected, select first available
-                                                      if (selectedLab === labType) {
-                                                        const firstAvailable = Object.keys(updatedLabsData).find(key => updatedLabsData[key].isNumeric);
-                                                        if (firstAvailable) {
-                                                          setSelectedLab(firstAvailable);
+                                                  setDeleteConfirm({
+                                                    show: true,
+                                                    title: `Delete All ${displayName} Data?`,
+                                                    message: `This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'} of ${displayName} data.`,
+                                                    itemName: `all ${displayName} data`,
+                                                    confirmText: 'Yes, Delete All',
+                                                    onConfirm: async () => {
+                                                      try {
+                                                        console.log('Deleting all labs of type:', labType);
+                                                        
+                                                        // Optimistically update UI immediately
+                                                        const updatedLabsData = { ...labsData };
+                                                        delete updatedLabsData[labType];
+                                                        setLabsData(updatedLabsData);
+                                                        
+                                                        // If deleted lab was selected, select first available
+                                                        if (selectedLab === labType) {
+                                                          const firstAvailable = Object.keys(updatedLabsData).find(key => updatedLabsData[key].isNumeric);
+                                                          if (firstAvailable) {
+                                                            setSelectedLab(firstAvailable);
+                                                          }
                                                         }
+                                                        
+                                                        // Delete from Firestore in background
+                                                        const deletedCount = await labService.deleteAllLabsByType(user.uid, labType);
+                                                        console.log('Deleted labs count:', deletedCount);
+                                                        
+                                                        // Reload to ensure sync (but UI already updated)
+                                                        setTimeout(async () => {
+                                                          await reloadHealthData();
+                                                        }, 300);
+                                                      } catch (error) {
+                                                        console.error('Error deleting labs:', error);
+                                                        // Revert optimistic update on error
+                                                        reloadHealthData();
+                                                        alert('Failed to delete lab data. Please try again.');
                                                       }
-                                                      
-                                                      // Delete from Firestore in background
-                                                      const deletedCount = await labService.deleteAllLabsByType(user.uid, labType);
-                                                      console.log('Deleted labs count:', deletedCount);
-                                                      
-                                                      // Reload to ensure sync (but UI already updated)
-                                                      setTimeout(async () => {
-                                                        await reloadHealthData();
-                                                      }, 300);
-                                                    } catch (error) {
-                                                      console.error('Error deleting labs:', error);
-                                                      // Revert optimistic update on error
-                                                      reloadHealthData();
-                                                      alert('Failed to delete lab data. Please try again.');
                                                     }
-                                                  }
+                                                  });
                                                 }}
-                                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                                                className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors min-h-[44px] touch-manipulation active:opacity-70"
                                               >
                                                 <Trash2 className="w-4 h-4" />
                                                 {(() => {
@@ -1227,11 +1260,11 @@ export default function HealthTab({ onTabChange }) {
                                         ...prev,
                                         [category]: !prev[category]
                                       }))}
-                                      className="w-full p-5 flex items-center justify-between hover:bg-medical-neutral-50 transition-colors"
+                                      className="w-full p-3 sm:p-5 flex items-center justify-between hover:bg-medical-neutral-50 transition-colors min-h-[44px] touch-manipulation active:opacity-70"
                                     >
                                       <div className="flex items-center gap-4 flex-1">
-                                        <div className="w-12 h-12 bg-medical-primary-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                          <CategoryIcon className="w-6 h-6 text-medical-primary-600" />
+                                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-medical-primary-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                          <CategoryIcon className="w-5 h-5 sm:w-6 sm:h-6 text-medical-primary-600" />
                                         </div>
                                         <div className="text-left flex-1 min-w-0">
                                           <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900">{category}</h3>
@@ -1250,8 +1283,8 @@ export default function HealthTab({ onTabChange }) {
 
                                     {/* Expanded Content */}
                                     {isExpanded && (
-                                      <div className="px-5 pb-5 pt-2 border-t border-medical-neutral-100 overflow-visible">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4 overflow-visible">
+                                      <div className="px-3 sm:px-5 pb-3 sm:pb-5 pt-2 border-t border-medical-neutral-100 overflow-visible">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mt-4 overflow-visible">
                                           {labsInCategory.map(([key, lab]) => (
                                             renderLabCard(key, lab)
                                           ))}
@@ -1287,14 +1320,14 @@ export default function HealthTab({ onTabChange }) {
                                   setIsEditingVital(false);
                                   setShowAddVital(true);
                                 }}
-                                className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2"
+                                className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2 min-h-[44px] touch-manipulation active:opacity-70"
                               >
                                 <Edit2 className="w-4 h-4" />
                                 Manual Enter
                               </button>
                             <button
                               onClick={() => onTabChange('chat')}
-                                className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center justify-center gap-2"
+                                className="bg-medical-primary-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center justify-center gap-2 min-h-[44px] touch-manipulation active:opacity-90"
                             >
                                 <MessageSquare className="w-4 h-4" />
                                 Add via Chat
@@ -1310,15 +1343,15 @@ export default function HealthTab({ onTabChange }) {
                       <>
 
                         {/* Vital Trend Chart */}
-                        <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200">
-                          <div className="flex items-center justify-between mb-4">
+                        <div className="bg-white rounded-xl p-3 sm:p-4 md:p-6 border border-gray-200">
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
                             <h2 className="text-base sm:text-lg font-semibold text-gray-900">Vital Signs</h2>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
                               {Object.keys(allVitalsData).length > 0 ? (
                             <select
                               value={selectedVital}
                               onChange={(e) => setSelectedVital(e.target.value)}
-                              className="text-sm border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 focus:ring-2 focus:ring-green-500"
+                              className="text-sm border border-gray-300 rounded-lg px-2 sm:px-3 py-2 sm:py-1.5 focus:ring-2 focus:ring-green-500 min-h-[44px] w-full sm:w-auto touch-manipulation"
                             >
                                   {(() => {
                                     // Organize vitals by category
@@ -1508,7 +1541,7 @@ export default function HealthTab({ onTabChange }) {
                                 </div>
 
                                 {/* Chart - Responsive with Y-axis and hover tooltips */}
-                                <div className="flex gap-3">
+                                <div className="flex gap-2 sm:gap-3">
                                   {/* Y-axis labels */}
                                   <div className="flex flex-col justify-between text-xs text-gray-600 font-medium py-2" style={{ paddingBottom: '1.5rem' }}>
                                     {(() => {
@@ -1987,12 +2020,27 @@ export default function HealthTab({ onTabChange }) {
                                                                 if (currentVitalDoc && currentVitalDoc.id) {
                                                                   // Pre-fill with existing value data
                                                                   const valueData = currentVital.data.find(item => item.id === d.id);
-                                                                  // Use dateOriginal if available, otherwise try to parse formatted date
+                                                                  // Extract date from various possible formats
                                                                   let dateTimeValue = new Date().toISOString().slice(0, 16);
-                                                                  if (valueData?.dateOriginal) {
-                                                                    dateTimeValue = valueData.dateOriginal.toISOString().slice(0, 16);
-                                                                  } else if (valueData?.date) {
-                                                                    // Try to parse the formatted date string (e.g., "Dec 14")
+                                                                  
+                                                                  // Check for Firestore Timestamp (has toDate method)
+                                                                  if (valueData?.date && typeof valueData.date.toDate === 'function') {
+                                                                    dateTimeValue = valueData.date.toDate().toISOString().slice(0, 16);
+                                                                  } 
+                                                                  // Check for dateOriginal (Firestore Timestamp)
+                                                                  else if (valueData?.dateOriginal && typeof valueData.dateOriginal.toDate === 'function') {
+                                                                    dateTimeValue = valueData.dateOriginal.toDate().toISOString().slice(0, 16);
+                                                                  }
+                                                                  // Check for timestamp (number)
+                                                                  else if (valueData?.timestamp) {
+                                                                    dateTimeValue = new Date(valueData.timestamp).toISOString().slice(0, 16);
+                                                                  }
+                                                                  // Check for date as Date object
+                                                                  else if (valueData?.date instanceof Date) {
+                                                                    dateTimeValue = valueData.date.toISOString().slice(0, 16);
+                                                                  }
+                                                                  // Check for date as string (formatted or ISO)
+                                                                  else if (valueData?.date) {
                                                                     const parsed = new Date(valueData.date);
                                                                     if (!isNaN(parsed.getTime())) {
                                                                       dateTimeValue = parsed.toISOString().slice(0, 16);
@@ -2018,59 +2066,75 @@ export default function HealthTab({ onTabChange }) {
                                                                   setShowAddVitalValue(true);
                                                                 }
                                                               }}
-                                                              className="text-blue-400 hover:text-blue-300 transition-colors p-1 rounded hover:bg-blue-900/20 flex-shrink-0"
+                                                              className="text-blue-400 hover:text-blue-300 transition-colors p-2 rounded hover:bg-blue-900/20 flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
                                                               title="Edit this reading"
                                                             >
                                                               <Edit2 className="w-3.5 h-3.5" />
                                                             </button>
                                                             <button
-                                                              onClick={async (e) => {
+                                                              onClick={(e) => {
                                                                 e.stopPropagation();
+                                                                // Capture values in closure
+                                                                const vitalValueId = d.id;
+                                                                const vitalKey = selectedVital;
+                                                                const vitalDoc = allVitalsData[selectedVital];
+                                                                const vitalDocId = vitalDoc?.id;
                                                                 const displayName = getVitalDisplayName(currentVital.name || selectedVital);
                                                                 const valueDisplay = selectedVital === 'bp' || selectedVital === 'bloodpressure' 
                                                                   ? `${d.systolic || d.value}/${d.diastolic || ''}`
                                                                   : d.value;
-                                                                if (window.confirm(`Delete this ${displayName} reading (${valueDisplay} ${currentVital.unit} on ${d.date})?`)) {
-                                                                  try {
-                                                                    console.log('Deleting vital with ID:', d.id);
-                                                                    
+                                                                const vitalUnit = currentVital.unit;
+                                                                const vitalDate = d.date;
+                                                                
+                                                                if (!vitalDocId) {
+                                                                  alert('Vital document ID not found. Please try again.');
+                                                                  return;
+                                                                }
+                                                                
+                                                                setDeleteConfirm({
+                                                                  show: true,
+                                                                  title: `Delete ${displayName} Reading?`,
+                                                                  message: `This will permanently delete this ${displayName} reading (${valueDisplay} ${vitalUnit} on ${vitalDate}).`,
+                                                                  itemName: `${displayName} reading`,
+                                                                  confirmText: 'Yes, Delete',
+                                                                  onConfirm: async () => {
+                                                                    try {
+                                                                      console.log('Deleting vital with ID:', vitalValueId);
+                                                                      
                                                                       // Optimistically update UI immediately
                                                                       const updatedVitalsData = { ...vitalsData };
-                                                                      if (updatedVitalsData[selectedVital] && updatedVitalsData[selectedVital].data) {
-                                                                        const filteredData = updatedVitalsData[selectedVital].data.filter(item => item.id !== d.id);
+                                                                      if (updatedVitalsData[vitalKey] && updatedVitalsData[vitalKey].data) {
+                                                                        const filteredData = updatedVitalsData[vitalKey].data.filter(item => item.id !== vitalValueId);
                                                                         // Get most recent value (first item after sorting by timestamp)
                                                                         const sortedData = [...filteredData].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-                                                                        updatedVitalsData[selectedVital] = {
-                                                                          ...updatedVitalsData[selectedVital],
+                                                                        updatedVitalsData[vitalKey] = {
+                                                                          ...updatedVitalsData[vitalKey],
                                                                           data: filteredData,
                                                                           current: sortedData.length > 0 ? sortedData[0].value : '--'
                                                                         };
                                                                         setVitalsData(updatedVitalsData);
                                                                       }
-                                                                    
-                                                                    // Delete from Firestore in background
-                                                                    // d.id is the value ID in the subcollection, not the vital document ID
-                                                                    // Get the vital document ID from currentVitalDoc
-                                                                    const currentVitalDoc = allVitalsData[selectedVital];
-                                                                    if (!currentVitalDoc || !currentVitalDoc.id) {
-                                                                      throw new Error('Vital document ID not found');
+                                                                      
+                                                                      // Delete from Firestore in background
+                                                                      // Verify user is authenticated before deletion
+                                                                      if (!user || !user.uid) {
+                                                                        throw new Error('User not authenticated');
+                                                                      }
+                                                                      
+                                                                      await vitalService.deleteVitalValue(vitalDocId, vitalValueId);
+                                                                      
+                                                                      // Don't reload immediately - optimistic update already removed it
+                                                                      // Reloading too quickly can cause the value to reappear
+                                                                    } catch (error) {
+                                                                      console.error('Error deleting vital:', error);
+                                                                      // Revert optimistic update on error
+                                                                      reloadHealthData();
+                                                                      alert('Failed to delete vital reading. Please try again.');
                                                                     }
-                                                                    await vitalService.deleteVitalValue(currentVitalDoc.id, d.id);
-                                                                    
-                                                                    // Reload to ensure sync (but UI already updated)
-                                                                    // Use reloadHealthData to properly reload all data
-                                                                    setTimeout(async () => {
-                                                                      await reloadHealthData();
-                                                                    }, 300);
-                                                                  } catch (error) {
-                                                                    console.error('Error deleting vital:', error);
-                                                                    // Revert optimistic update on error
-                                                                    reloadHealthData();
-                                                                    alert('Failed to delete vital reading. Please try again.');
                                                                   }
-                                                                }
+                                                                });
                                                               }}
-                                                              className="text-red-400 hover:text-red-300 transition-colors p-1 rounded hover:bg-red-900/20 flex-shrink-0"
+                                                              className="text-red-400 hover:text-red-300 transition-colors p-2 rounded hover:bg-red-900/20 flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
                                                               title="Delete this reading"
                                                             >
                                                               <Trash2 className="w-3.5 h-3.5" />
@@ -2257,7 +2321,7 @@ export default function HealthTab({ onTabChange }) {
                                               Add Value
                                             </button>
                                             <button
-                                              onClick={async (e) => {
+                                              onClick={(e) => {
                                                 e.stopPropagation();
                                                 setOpenDeleteMenu(null);
                                                 const vitalType = key;
@@ -2265,46 +2329,61 @@ export default function HealthTab({ onTabChange }) {
                                                 const displayName = getVitalDisplayName(vital?.name || vitalType);
                                                 const count = vital?.data?.length || 0;
                                                 const hasValues = (vital?.data && Array.isArray(vital.data) && vital.data.length > 0 && vital.data.some(item => item.value != null && item.value !== undefined));
-                                                const confirmMessage = hasValues
-                                                  ? `Delete all ${displayName} data? This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'}. This action cannot be undone.`
-                                                  : `Delete ${displayName} metric? This will permanently remove the metric. This action cannot be undone.`;
-                                                if (window.confirm(confirmMessage)) {
-                                                  try {
-                                                    console.log('Deleting all vitals of type:', vitalType);
-                                                    
-                                                    // Optimistically update UI immediately
-                                                    const updatedVitalsData = { ...vitalsData };
-                                                    delete updatedVitalsData[vitalType];
-                                                    setVitalsData(updatedVitalsData);
-                                                    
-                                                    // If deleted vital was selected, select first available
-                                                    if (selectedVital === vitalType) {
-                                                      const firstAvailable = Object.keys(updatedVitalsData).find(key => 
-                                                        updatedVitalsData[key] && updatedVitalsData[key].data && updatedVitalsData[key].data.length > 0
-                                                      );
-                                                      if (firstAvailable) {
-                                                        setSelectedVital(firstAvailable);
-                                                      } else {
-                                                        // No vitals with data left, clear selection
-                                                        setSelectedVital(null);
+                                                const title = hasValues
+                                                  ? `Delete All ${displayName} Data?`
+                                                  : `Delete ${displayName} Metric?`;
+                                                const message = hasValues
+                                                  ? `This will permanently remove ${count} ${count === 1 ? 'entry' : 'entries'} of ${displayName} data.`
+                                                  : `This will permanently remove the ${displayName} metric.`;
+                                                setDeleteConfirm({
+                                                  show: true,
+                                                  title,
+                                                  message,
+                                                  itemName: hasValues ? `all ${displayName} data` : `${displayName} metric`,
+                                                  confirmText: 'Yes, Delete',
+                                                  onConfirm: async () => {
+                                                    try {
+                                                      // Get the vital document ID
+                                                      const vitalId = vital?.id;
+                                                      if (!vitalId) {
+                                                        alert('Error: Could not find vital document ID. Please try again.');
+                                                        return;
                                                       }
+                                                      
+                                                      console.log('Deleting vital with ID:', vitalId);
+                                                      
+                                                      // Optimistically update UI immediately
+                                                      const updatedVitalsData = { ...vitalsData };
+                                                      delete updatedVitalsData[vitalType];
+                                                      setVitalsData(updatedVitalsData);
+                                                      
+                                                      // If deleted vital was selected, select first available
+                                                      if (selectedVital === vitalType) {
+                                                        const firstAvailable = Object.keys(updatedVitalsData).find(key => 
+                                                          updatedVitalsData[key] && updatedVitalsData[key].data && updatedVitalsData[key].data.length > 0
+                                                        );
+                                                        if (firstAvailable) {
+                                                          setSelectedVital(firstAvailable);
+                                                        } else {
+                                                          // No vitals with data left, clear selection
+                                                          setSelectedVital(null);
+                                                        }
+                                                      }
+                                                      
+                                                      // Delete from Firestore using the document ID
+                                                      // This will also delete all subcollection values
+                                                      await vitalService.deleteVital(vitalId);
+                                                      
+                                                      // Don't reload immediately - optimistic update already removed it
+                                                      // Reloading too quickly can cause the vital to reappear
+                                                    } catch (error) {
+                                                      console.error('Error deleting vitals:', error);
+                                                      // Revert optimistic update on error
+                                                      reloadHealthData();
+                                                      alert('Failed to delete vital data. Please try again.');
                                                     }
-                                                    
-                                                    // Delete from Firestore in background
-                                                    const deletedCount = await vitalService.deleteAllVitalsByType(user.uid, vitalType);
-                                                    console.log('Deleted vitals count:', deletedCount);
-                                                    
-                                                    // Reload to ensure sync (but UI already updated)
-                                                    setTimeout(async () => {
-                                                      await reloadHealthData();
-                                                    }, 300);
-                                                  } catch (error) {
-                                                    console.error('Error deleting vitals:', error);
-                                                    // Revert optimistic update on error
-                                                    reloadHealthData();
-                                                    alert('Failed to delete vital data. Please try again.');
                                                   }
-                                                }
+                                                });
                                               }}
                                               className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
                                             >
@@ -2333,25 +2412,25 @@ export default function HealthTab({ onTabChange }) {
             {healthSection === 'symptoms' && (
               <>
                 {symptoms.length === 0 ? (
-                  <div className="border-2 border-medical-primary-500 rounded-lg p-6 text-center bg-white">
+                  <div className="border-2 border-medical-primary-500 rounded-lg p-4 sm:p-6 text-center bg-white">
                     <div className="flex flex-col items-center gap-3">
-                      <Thermometer className="w-12 h-12 text-medical-primary-400" />
+                      <Thermometer className="w-10 h-10 sm:w-12 sm:h-12 text-medical-primary-400" />
                       <div>
-                        <h3 className="font-semibold text-medical-primary-900 mb-1">No Symptoms Tracked Yet</h3>
-                        <p className="text-sm text-medical-primary-700 mb-4">
+                        <h3 className="text-base sm:text-lg font-semibold text-medical-primary-900 mb-1">No Symptoms Tracked Yet</h3>
+                        <p className="text-xs sm:text-sm text-medical-primary-700 mb-4">
                           Track symptoms to identify patterns and correlations with your health data
                         </p>
                         <div className="flex flex-col sm:flex-row gap-3 justify-center">
                           <button
                             onClick={() => setShowAddSymptomModal(true)}
-                            className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2"
+                            className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2 min-h-[44px] touch-manipulation active:opacity-70"
                           >
                             <Edit2 className="w-4 h-4" />
                             Manual Enter
                           </button>
                     <button
                       onClick={() => onTabChange('chat')}
-                            className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center justify-center gap-2"
+                            className="bg-medical-primary-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center justify-center gap-2 min-h-[44px] touch-manipulation active:opacity-90"
                     >
                             <MessageSquare className="w-4 h-4" />
                             Add via Chat
@@ -2377,21 +2456,21 @@ export default function HealthTab({ onTabChange }) {
                     )}
 
                     {/* Symptom Calendar */}
-                <div className="bg-white rounded-lg shadow p-4">
+                <div className="bg-white rounded-lg shadow p-3 sm:p-4">
                   {/* Date Pager */}
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between mb-4 gap-2">
                     <button
                       onClick={() => {
                         const prevMonth = new Date(symptomCalendarDate);
                         prevMonth.setMonth(prevMonth.getMonth() - 1);
                         setSymptomCalendarDate(prevMonth);
                       }}
-                      className="p-2 rounded-lg hover:bg-gray-100 transition"
+                      className="p-2 rounded-lg hover:bg-gray-100 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
                     >
                       <ChevronLeft className="w-5 h-5 text-gray-600" />
                     </button>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-gray-800">
+                    <div className="flex flex-col sm:flex-row items-center gap-2 flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm sm:text-base text-gray-800 text-center sm:text-left truncate">
                         {symptomCalendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                       </h3>
                       <button
@@ -2402,7 +2481,7 @@ export default function HealthTab({ onTabChange }) {
                           setSymptomCalendarDate(localToday);
                           setSelectedDate(localToday.getDate().toString());
                         }}
-                        className="px-3 py-1 text-sm text-medical-primary-600 hover:bg-medical-primary-50 rounded-lg transition"
+                        className="px-3 py-2 text-xs sm:text-sm text-medical-primary-600 hover:bg-medical-primary-50 rounded-lg transition min-h-[44px] touch-manipulation active:opacity-70 whitespace-nowrap"
                       >
                         Today
                       </button>
@@ -2413,7 +2492,7 @@ export default function HealthTab({ onTabChange }) {
                         nextMonth.setMonth(nextMonth.getMonth() + 1);
                         setSymptomCalendarDate(nextMonth);
                       }}
-                      className="p-2 rounded-lg hover:bg-gray-100 transition"
+                      className="p-2 rounded-lg hover:bg-gray-100 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
                     >
                       <ChevronRight className="w-5 h-5 text-gray-600" />
                     </button>
@@ -2582,17 +2661,24 @@ export default function HealthTab({ onTabChange }) {
                                       <div className="flex items-center gap-2 flex-shrink-0">
                                       <span className="text-xs text-gray-600">{symptom.time}</span>
                                         <button
-                                          onClick={async (e) => {
+                                          onClick={(e) => {
                                             e.stopPropagation();
-                                            if (window.confirm('Are you sure you want to delete this symptom entry?')) {
-                                              try {
-                                                await symptomService.deleteSymptom(symptom.id);
-                                                // Symptoms will automatically update via the subscription
-                                              } catch (error) {
-                                                console.error('Error deleting symptom:', error);
-                                                alert('Failed to delete symptom. Please try again.');
+                                            setDeleteConfirm({
+                                              show: true,
+                                              title: 'Delete Symptom Entry?',
+                                              message: `This will permanently delete this ${symptom.type} symptom entry.`,
+                                              itemName: 'symptom entry',
+                                              confirmText: 'Yes, Delete',
+                                              onConfirm: async () => {
+                                                try {
+                                                  await symptomService.deleteSymptom(symptom.id);
+                                                  // Symptoms will automatically update via the subscription
+                                                } catch (error) {
+                                                  console.error('Error deleting symptom:', error);
+                                                  alert('Failed to delete symptom. Please try again.');
+                                                }
                                               }
-                                            }
+                                            });
                                           }}
                                           className="text-red-500 hover:text-red-700 transition-colors p-1 rounded hover:bg-red-100"
                                           title="Delete symptom"
@@ -2644,9 +2730,9 @@ export default function HealthTab({ onTabChange }) {
                 </div>
 
                     {/* Legend */}
-                    <div className="bg-white rounded-lg shadow p-4">
-                      <h4 className="font-semibold text-gray-800 mb-3 text-sm">Symptom Types</h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+                      <h4 className="font-semibold text-gray-800 mb-3 text-xs sm:text-sm">Symptom Types</h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
                         {[
                           { type: 'Fatigue', color: 'bg-blue-500' },
                           { type: 'Pain', color: 'bg-red-500' },
@@ -2670,25 +2756,25 @@ export default function HealthTab({ onTabChange }) {
             {healthSection === 'medications' && (
               <>
                 {medications.length === 0 ? (
-                  <div className="border-2 border-medical-primary-500 rounded-lg p-6 text-center bg-white">
+                  <div className="border-2 border-medical-primary-500 rounded-lg p-4 sm:p-6 text-center bg-white">
                     <div className="flex flex-col items-center gap-3">
-                      <Pill className="w-12 h-12 text-medical-primary-400" />
+                      <Pill className="w-10 h-10 sm:w-12 sm:h-12 text-medical-primary-400" />
                       <div>
-                        <h3 className="font-semibold text-medical-primary-900 mb-1">No Medications Tracked Yet</h3>
-                        <p className="text-sm text-medical-primary-700 mb-4">
+                        <h3 className="text-base sm:text-lg font-semibold text-medical-primary-900 mb-1">No Medications Tracked Yet</h3>
+                        <p className="text-xs sm:text-sm text-medical-primary-700 mb-4">
                           Track your medications to monitor adherence and schedule doses
                         </p>
                         <div className="flex flex-col sm:flex-row gap-3 justify-center">
                           <button
                             onClick={() => setShowAddMedication(true)}
-                            className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2"
+                            className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2 min-h-[44px] touch-manipulation active:opacity-70"
                           >
                             <Edit2 className="w-4 h-4" />
                             Manual Enter
                           </button>
                           <button
                             onClick={() => onTabChange('chat')}
-                            className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center justify-center gap-2"
+                            className="bg-medical-primary-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center justify-center gap-2 min-h-[44px] touch-manipulation active:opacity-90"
                           >
                             <MessageSquare className="w-4 h-4" />
                             Add via Chat
@@ -2699,11 +2785,11 @@ export default function HealthTab({ onTabChange }) {
                   </div>
                 ) : (
               <>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
                   <div className="flex items-start gap-2">
-                    <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-sm font-semibold text-blue-900">Medication Adherence</p>
+                      <p className="text-xs sm:text-sm font-semibold text-blue-900">Medication Adherence</p>
                       <p className="text-xs text-blue-700 mt-1">
                         All medications taken on schedule. Next IV infusion scheduled for Jan 5.
                       </p>
@@ -2907,6 +2993,7 @@ export default function HealthTab({ onTabChange }) {
         setEditingVitalValueId={setEditingVitalValueId}
         setSelectedVitalForValue={setSelectedVitalForValue}
         reloadHealthData={reloadHealthData}
+        vitalsData={vitalsData}
       />
 
       <AddLabValueModal
@@ -2978,6 +3065,22 @@ export default function HealthTab({ onTabChange }) {
           </div>
         </>
       )}
+
+      <DeletionConfirmationModal
+        show={deleteConfirm.show}
+        onClose={() => setDeleteConfirm({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Delete Permanently' })}
+        onConfirm={async () => {
+          if (deleteConfirm.onConfirm) {
+            await deleteConfirm.onConfirm();
+          }
+          setDeleteConfirm({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Delete Permanently' });
+        }}
+        title={deleteConfirm.title}
+        message={deleteConfirm.message}
+        itemName={deleteConfirm.itemName}
+        confirmText={deleteConfirm.confirmText}
+        isDeleting={false}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, AlertCircle, Heart } from 'lucide-react';
 import { vitalService } from '../../firebase/services';
+import DateTimePicker from '../DateTimePicker';
 
 export default function AddVitalModal({ 
   show, 
@@ -217,7 +218,7 @@ export default function AddVitalModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 md:p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end md:items-center justify-center z-50 p-0 md:p-4">
       <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
         <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
           <h3 className="font-bold text-lg text-gray-800">{isEditingVital ? 'Edit Vital Value' : 'Log Vital Reading'}</h3>
@@ -254,12 +255,40 @@ export default function AddVitalModal({
               disabled={!!newVital.vitalType}
             >
               <option value="">Select vital sign...</option>
-              <option value="bp">Blood Pressure</option>
-              <option value="hr">Resting Heart Rate</option>
-              <option value="temp">Temperature</option>
-              <option value="weight">Weight</option>
-              <option value="o2sat">Oxygen Saturation</option>
-              <option value="rr">Respiratory Rate</option>
+              {(() => {
+                // Map of vital types to their display names and all possible normalized keys
+                const vitalOptions = [
+                  { value: 'bp', label: 'Blood Pressure', keys: ['bp', 'bloodpressure', 'blood_pressure'] },
+                  { value: 'hr', label: 'Resting Heart Rate', keys: ['hr', 'heartrate', 'heart_rate'] },
+                  { value: 'temp', label: 'Temperature', keys: ['temp', 'temperature'] },
+                  { value: 'weight', label: 'Weight', keys: ['weight'] },
+                  { value: 'o2sat', label: 'Oxygen Saturation', keys: ['o2sat', 'oxygen_saturation', 'oxygenSaturation'] },
+                  { value: 'rr', label: 'Respiratory Rate', keys: ['rr', 'respiratory_rate', 'respiratoryRate'] }
+                ];
+                
+                return vitalOptions.map(option => {
+                  // Check if this vital type already exists in allVitalsData
+                  // Check all possible key variations (normalized and non-normalized)
+                  const exists = allVitalsData && Object.keys(allVitalsData).some(existingKey => {
+                    // Check if any of the option's keys match the existing key (case-insensitive)
+                    return option.keys.some(key => 
+                      existingKey.toLowerCase() === key.toLowerCase() || 
+                      existingKey.toLowerCase().replace(/[_\s]/g, '') === key.toLowerCase().replace(/[_\s]/g, '')
+                    );
+                  });
+                  
+                  return (
+                    <option 
+                      key={option.value} 
+                      value={option.value}
+                      disabled={exists}
+                      style={exists ? { color: '#9ca3af', fontStyle: 'italic' } : {}}
+                    >
+                      {option.label}{exists ? ' (Already added)' : ''}
+                    </option>
+                  );
+                });
+              })()}
             </select>
           </div>
 
@@ -304,11 +333,11 @@ export default function AddVitalModal({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Date & Time</label>
-            <input
-              type="datetime-local"
+            <DateTimePicker
               value={newVital.dateTime || new Date().toISOString().slice(0, 16)}
               onChange={(e) => setNewVital({ ...newVital, dateTime: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              max={new Date().toISOString().slice(0, 16)}
+              placeholder="Select date and time"
             />
           </div>
 

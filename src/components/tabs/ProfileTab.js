@@ -262,9 +262,9 @@ export default function ProfileTab({ onTabChange }) {
   }
 
   return (
-    <div className="p-4 space-y-4 pb-24">
+    <div className="p-3 sm:p-4 space-y-3 sm:space-y-4 pb-24">
       {/* Patient Info */}
-      <div className="p-6 sm:p-8">
+      <div className="p-4 sm:p-6 md:p-8">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
           {/* Profile Picture */}
           <div className="relative flex-shrink-0">
@@ -277,9 +277,15 @@ export default function ProfileTab({ onTabChange }) {
             ) : (
               <div className="w-28 h-28 sm:w-32 sm:h-32 bg-gradient-to-br from-medical-primary-500 to-medical-secondary-500 rounded-full flex items-center justify-center text-white text-3xl sm:text-4xl font-bold border-4 border-white">
                 {(() => {
-                  const name = patientProfile.firstName || patientProfile.lastName 
-                    ? `${patientProfile.firstName || ''} ${patientProfile.middleName ? patientProfile.middleName + ' ' : ''}${patientProfile.lastName || ''}`.trim()
-                    : patientProfile.name || user?.displayName || 'Patient';
+                  // If caregiver mode, use caregiver name for initials
+                  let name;
+                  if (patientProfile?.isPatient === false && patientProfile?.caregiverName) {
+                    name = patientProfile.caregiverName;
+                  } else {
+                    name = patientProfile.firstName || patientProfile.lastName 
+                      ? `${patientProfile.firstName || ''} ${patientProfile.middleName ? patientProfile.middleName + ' ' : ''}${patientProfile.lastName || ''}`.trim()
+                      : patientProfile.name || user?.displayName || 'Patient';
+                  }
                   const parts = name.trim().split(/\s+/);
                   if (parts.length >= 2) {
                     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -303,10 +309,11 @@ export default function ProfileTab({ onTabChange }) {
                 };
                 input.click();
               }}
-              className="absolute bottom-0 right-0 w-10 h-10 bg-medical-primary-600 rounded-full flex items-center justify-center text-white shadow-lg hover:bg-medical-primary-700 transition transform hover:scale-110"
+              className="absolute bottom-0 right-0 w-11 h-11 sm:w-12 sm:h-12 bg-medical-primary-600 rounded-full flex items-center justify-center text-white shadow-lg hover:bg-medical-primary-700 active:bg-medical-primary-800 transition transform active:scale-95 touch-manipulation"
               title="Change profile picture"
+              aria-label="Change profile picture"
             >
-              <Camera className="w-5 h-5" />
+              <Camera className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
           </div>
 
@@ -314,7 +321,7 @@ export default function ProfileTab({ onTabChange }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-4 mb-3">
               <div>
-                <h2 className="font-bold text-2xl sm:text-3xl text-gray-900 mb-1">
+                <h2 className="font-bold text-xl sm:text-2xl md:text-3xl text-gray-900 mb-1">
                   {patientProfile.firstName || patientProfile.lastName 
                     ? `${patientProfile.firstName || ''} ${patientProfile.middleName ? patientProfile.middleName + ' ' : ''}${patientProfile.lastName || ''}`.trim()
                     : patientProfile.name || user?.displayName || 'Patient'}
@@ -327,14 +334,15 @@ export default function ProfileTab({ onTabChange }) {
               </div>
               <button
                 onClick={() => setShowEditInfo(true)}
-                className="text-blue-600 hover:text-blue-700"
+                className="p-2 -mr-2 text-blue-600 hover:text-blue-700 active:text-blue-800 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+                aria-label="Edit patient information"
               >
-                <Edit2 size={18} />
+                <Edit2 size={20} />
               </button>
             </div>
 
             {/* Key Information Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 mt-4">
               {patientProfile.age && (
                 <div className="flex items-center gap-2 text-sm">
                   <div className="w-8 h-8 bg-medical-primary-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -413,19 +421,20 @@ export default function ProfileTab({ onTabChange }) {
       </div>
 
       {/* Current Status - Full Width */}
-      <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border-2 border-medical-accent-200">
+      <div className="bg-white rounded-lg shadow-sm p-4 sm:p-5 md:p-6 border-2 border-medical-accent-200">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="bg-medical-accent-50 p-2.5 rounded-lg">
               <Activity className="w-6 h-6 text-medical-accent-600" />
             </div>
-            <h2 className="font-semibold text-gray-800 text-lg">Current Status</h2>
+            <h2 className="font-semibold text-gray-800 text-base sm:text-lg">Current Status</h2>
           </div>
           <button
             onClick={() => setShowUpdateStatus(true)}
-            className="text-medical-accent-600 hover:text-medical-accent-700"
+            className="p-2 -mr-2 text-medical-accent-600 hover:text-medical-accent-700 active:text-medical-accent-800 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="Update current status"
           >
-            <Edit2 size={18} />
+            <Edit2 size={20} />
           </button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -467,14 +476,14 @@ export default function ProfileTab({ onTabChange }) {
       </div>
 
       {/* Genomic Profile */}
-      <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border-2 border-purple-200">
+      <div className="bg-white rounded-lg shadow-sm p-4 sm:p-5 md:p-6 border-2 border-purple-200">
         {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 && (
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-2.5 rounded-lg">
                 <Dna className="w-6 h-6 text-purple-600" />
               </div>
-              <h2 className="font-semibold text-gray-800 text-lg">Genomic Profile</h2>
+              <h2 className="font-semibold text-gray-800 text-base sm:text-lg">Genomic Profile</h2>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -530,9 +539,10 @@ export default function ProfileTab({ onTabChange }) {
                   });
                   setShowEditGenomic(true);
                 }}
-                className="text-purple-600 hover:text-purple-700"
+                className="p-2 -mr-2 text-purple-600 hover:text-purple-700 active:text-purple-800 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+                aria-label="Edit genomic profile"
               >
-                <Edit2 size={18} />
+                <Edit2 size={20} />
               </button>
             </div>
           </div>
@@ -567,10 +577,10 @@ export default function ProfileTab({ onTabChange }) {
             <h3 className="text-lg font-semibold text-medical-neutral-900 mb-2">No genomic data yet</h3>
             <p className="text-sm text-medical-neutral-600 mb-6">Upload your genomic test report to match with targeted therapies and clinical trials</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button
-                onClick={() => openDocumentOnboarding('genomic')}
-                className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
-              >
+                <button
+                  onClick={() => openDocumentOnboarding('genomic')}
+                  className="px-6 py-3 min-h-[44px] bg-purple-600 text-white rounded-lg hover:bg-purple-700 active:bg-purple-800 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2 touch-manipulation"
+                >
                 <Upload className="w-4 h-4" />
                 Upload Genomic Report
               </button>
@@ -780,7 +790,7 @@ export default function ProfileTab({ onTabChange }) {
       <div className="flex flex-col sm:flex-row gap-4">
         {/* Medical Team */}
         <div className="flex-1 bg-white rounded-lg shadow-sm p-4 border-2 border-medical-primary-200">
-          {(patientProfile.oncologist || patientProfile.hospital || patientProfile.clinicalTrialCoordinator) && (
+          {(patientProfile.oncologist || patientProfile.hospital || patientProfile.clinicalTrialCoordinator || patientProfile.caregiverName) && (
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <div className="bg-medical-primary-50 p-2.5 rounded-lg">
@@ -790,13 +800,14 @@ export default function ProfileTab({ onTabChange }) {
               </div>
               <button
                 onClick={() => setShowEditMedicalTeam(true)}
-                className="text-medical-primary-600 hover:text-medical-primary-700"
+                className="p-2 -mr-2 text-medical-primary-600 hover:text-medical-primary-700 active:text-medical-primary-800 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+                aria-label="Edit medical team"
               >
-                <Edit2 size={18} />
+                <Edit2 size={20} />
               </button>
             </div>
           )}
-          {(patientProfile.oncologist || patientProfile.hospital || patientProfile.clinicalTrialCoordinator) ? (
+          {(patientProfile.oncologist || patientProfile.hospital || patientProfile.clinicalTrialCoordinator || patientProfile.caregiverName) ? (
             <div className="text-sm text-gray-700 space-y-2">
               {patientProfile.oncologist && (
                 <div>
@@ -815,6 +826,13 @@ export default function ProfileTab({ onTabChange }) {
                   {patientProfile.clinicalTrialCoordinatorEmail && <p className="text-xs text-gray-600 ml-4">Email: {patientProfile.clinicalTrialCoordinatorEmail}</p>}
                 </div>
               )}
+              {patientProfile.caregiverName && (
+                <div>
+                  <p><strong>Caregiver:</strong> {patientProfile.caregiverName}</p>
+                  {patientProfile.caregiverPhone && <p className="text-xs text-gray-600 ml-4">Phone: {patientProfile.caregiverPhone}</p>}
+                  {patientProfile.caregiverEmail && <p className="text-xs text-gray-600 ml-4">Email: {patientProfile.caregiverEmail}</p>}
+                </div>
+              )}
             </div>
           ) : (
             <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center">
@@ -826,7 +844,7 @@ export default function ProfileTab({ onTabChange }) {
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <button
                   onClick={() => setShowEditMedicalTeam(true)}
-                  className="px-6 py-3 bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                  className="px-6 py-3 min-h-[44px] bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 active:bg-medical-primary-700 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2 touch-manipulation"
                 >
                   <Plus className="w-4 h-4" />
                   Add Medical Team
@@ -856,9 +874,10 @@ export default function ProfileTab({ onTabChange }) {
                   setEmergencyContacts(filteredContacts);
                   setShowEditContacts(true); 
                 }}
-                className="text-amber-600 hover:text-amber-700"
+                className="p-2 -mr-2 text-amber-600 hover:text-amber-700 active:text-amber-800 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+                aria-label="Edit emergency contacts"
               >
-                <Edit2 size={18} />
+                <Edit2 size={20} />
               </button>
             </div>
           )}
@@ -901,7 +920,7 @@ export default function ProfileTab({ onTabChange }) {
                     setEmergencyContacts(filteredContacts);
                     setShowEditContacts(true); 
                   }}
-                  className="px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                  className="px-6 py-3 min-h-[44px] bg-amber-600 text-white rounded-lg hover:bg-amber-700 active:bg-amber-800 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2 touch-manipulation"
                 >
                   <Plus className="w-4 h-4" />
                   Add Emergency Contact
@@ -914,103 +933,187 @@ export default function ProfileTab({ onTabChange }) {
 
       {/* Settings Section */}
       {user && (
-        <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-gray-400 mt-6">
-          <div className="flex items-center gap-2 mb-4">
+        <div className="bg-white rounded-lg shadow-sm p-4 sm:p-5 md:p-6 border border-gray-400 mt-4 sm:mt-6">
+          <div className="flex items-center gap-2 mb-6">
             <Settings className="w-5 h-5 text-medical-neutral-600" />
             <h2 className="font-semibold text-medical-neutral-900">Settings</h2>
           </div>
 
-          {/* Account Info */}
-          <div className="mb-4 pb-4 border-b border-medical-neutral-200">
-            <p className="text-xs text-medical-neutral-500 mb-1">Account</p>
-            <p className="text-sm font-medium text-medical-neutral-900">{user.email}</p>
-            {user.providerData && user.providerData.length > 0 && (
-              <p className="text-xs text-medical-neutral-500 mt-1">
-                Sign-in: {user.providerData.map(p => p.providerId === 'password' ? 'Email/Password' : p.providerId === 'google.com' ? 'Google' : p.providerId).join(', ')}
-              </p>
-            )}
-          </div>
-
-          {/* Sign-in Options & Sign Out Row */}
-          <div className="mb-4 pb-4 border-b border-medical-neutral-200">
-            <p className="text-xs text-medical-neutral-500 mb-2">Account Actions</p>
-            <div className="flex flex-wrap gap-2">
-              {user.providerData && !user.providerData.some(p => p.providerId === 'google.com') && (
-                <button
-                  onClick={handleLinkGoogleAccount}
-                  disabled={isLinkingGoogle}
-                  className="flex items-center justify-center gap-2 px-4 py-2 bg-medical-primary-500 text-white rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLinkingGoogle ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Linking...
-                    </>
-                  ) : (
-                    <>
-                      <Link2 className="w-4 h-4" />
-                      Link Google
-                    </>
-                  )}
-                </button>
-              )}
-              {user.providerData && user.providerData.some(p => p.providerId === 'google.com') && user.providerData.some(p => p.providerId === 'password') && (
-                <button
-                  onClick={handleUnlinkGoogleAccount}
-                  disabled={isUnlinkingGoogle}
-                  className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-medical-neutral-300 text-medical-neutral-700 rounded-lg text-sm font-medium hover:bg-medical-neutral-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isUnlinkingGoogle ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Unlinking...
-                    </>
-                  ) : (
-                    <>
-                      <Unlink className="w-4 h-4" />
-                      Unlink Google
-                    </>
-                  )}
-                </button>
-              )}
-              <button
-                onClick={handleSignOut}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-medical-neutral-300 text-medical-neutral-700 rounded-lg text-sm font-medium hover:bg-medical-neutral-50 transition"
-              >
-                <LogOut className="w-4 h-4" />
-                Sign Out
-              </button>
+          <div className="space-y-6">
+            {/* Preferences Section */}
+            <div>
+              <h3 className="text-sm font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
+                <User className="w-4 h-4 text-medical-neutral-500" />
+                Preferences
+              </h3>
+              
+              {/* User Role Toggle */}
+              <div className="bg-medical-neutral-50 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-medical-neutral-900 mb-1">
+                      {patientProfile?.isPatient !== false ? 'I am the patient' : 'I am a caregiver'}
+                    </p>
+                    <p className="text-xs text-medical-neutral-500">
+                      {patientProfile?.isPatient !== false 
+                        ? 'Chatbot will address you directly as the patient'
+                        : 'Chatbot will address you as a caregiver helping the patient'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const newIsPatient = !(patientProfile?.isPatient !== false);
+                      const previousIsPatient = patientProfile?.isPatient !== false;
+                      
+                      // Update local state first for immediate UI feedback
+                      setPatientProfile(prev => {
+                        if (!prev) return prev; // Safety check
+                        return { ...prev, isPatient: newIsPatient };
+                      });
+                      
+                      try {
+                        // Then save to database using updated state
+                        const { patientService } = await import('../../firebase/services');
+                        const updatedProfile = patientProfile ? {
+                          ...patientProfile,
+                          isPatient: newIsPatient
+                        } : {
+                          isPatient: newIsPatient
+                        };
+                        
+                        await patientService.savePatient(user.uid, updatedProfile);
+                        
+                        // Refresh to ensure sync (but local state already updated)
+                        await refreshPatient();
+                      } catch (error) {
+                        console.error('Error updating user role:', error);
+                        // Revert on error
+                        setPatientProfile(prev => {
+                          if (!prev) return prev;
+                          return { ...prev, isPatient: previousIsPatient };
+                        });
+                      }
+                    }}
+                    className={`relative inline-flex h-7 w-12 sm:h-6 sm:w-11 items-center rounded-full transition-colors flex-shrink-0 ml-4 touch-manipulation ${
+                      patientProfile?.isPatient !== false ? 'bg-medical-primary-600' : 'bg-gray-300'
+                    }`}
+                    aria-label={patientProfile?.isPatient !== false ? 'Switch to caregiver mode' : 'Switch to patient mode'}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 sm:h-4 sm:w-4 transform rounded-full bg-white transition-transform shadow-sm ${
+                        patientProfile?.isPatient !== false ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
 
-          {/* Data Management Row */}
-          <div>
-            <p className="text-xs text-medical-neutral-500 mb-2">Data Management</p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => {
-                  setDeletionType('data');
-                  setShowDeletionConfirm(true);
-                }}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition"
-              >
-                <Trash2 className="w-4 h-4" />
-                Clear Health Data
-              </button>
-              <button
-                onClick={() => {
-                  setDeletionType('account');
-                  setShowDeletionConfirm(true);
-                }}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-red-300 text-red-700 rounded-lg text-sm font-medium hover:bg-red-50 transition"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete Account
-              </button>
+            {/* Account & Security Section */}
+            <div>
+              <h3 className="text-sm font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
+                <User className="w-4 h-4 text-medical-neutral-500" />
+                Account & Security
+              </h3>
+              
+              <div className="space-y-4">
+                {/* Account Info */}
+                <div className="bg-medical-neutral-50 rounded-lg p-4">
+                  <p className="text-xs text-medical-neutral-500 mb-1">Email</p>
+                  <p className="text-sm font-medium text-medical-neutral-900">{user.email}</p>
+                  {user.providerData && user.providerData.length > 0 && (
+                    <p className="text-xs text-medical-neutral-500 mt-2">
+                      Sign-in method: {user.providerData.map(p => p.providerId === 'password' ? 'Email/Password' : p.providerId === 'google.com' ? 'Google' : p.providerId).join(', ')}
+                    </p>
+                  )}
+                </div>
+
+                {/* Account Actions */}
+                <div className="flex flex-wrap gap-2">
+                  {user.providerData && !user.providerData.some(p => p.providerId === 'google.com') && (
+                    <button
+                      onClick={handleLinkGoogleAccount}
+                      disabled={isLinkingGoogle}
+                      className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-white border border-medical-neutral-300 text-medical-neutral-700 rounded-lg text-sm font-medium hover:bg-medical-neutral-50 active:bg-medical-neutral-100 transition disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+                    >
+                      {isLinkingGoogle ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Linking...
+                        </>
+                      ) : (
+                        <>
+                          <Link2 className="w-4 h-4" />
+                          Link Google Account
+                        </>
+                      )}
+                    </button>
+                  )}
+                  {user.providerData && user.providerData.some(p => p.providerId === 'google.com') && user.providerData.some(p => p.providerId === 'password') && (
+                    <button
+                      onClick={handleUnlinkGoogleAccount}
+                      disabled={isUnlinkingGoogle}
+                      className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-white border border-medical-neutral-300 text-medical-neutral-700 rounded-lg text-sm font-medium hover:bg-medical-neutral-50 active:bg-medical-neutral-100 transition disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+                    >
+                      {isUnlinkingGoogle ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Unlinking...
+                        </>
+                      ) : (
+                        <>
+                          <Unlink className="w-4 h-4" />
+                          Unlink Google
+                        </>
+                      )}
+                    </button>
+                  )}
+                  <button
+                    onClick={handleSignOut}
+                    className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-white border border-medical-neutral-300 text-medical-neutral-700 rounded-lg text-sm font-medium hover:bg-medical-neutral-50 active:bg-medical-neutral-100 transition touch-manipulation"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </button>
+                </div>
+              </div>
             </div>
-            <p className="text-xs text-medical-neutral-400 mt-2">
-              These actions cannot be undone.
-            </p>
+
+            {/* Data Management Section */}
+            <div className="pt-4 border-t border-medical-neutral-200">
+              <h3 className="text-sm font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
+                <Trash2 className="w-4 h-4 text-red-500" />
+                <span className="text-red-600">Data Management</span>
+              </h3>
+              
+              <div className="bg-red-50 border border-red-100 rounded-lg p-4 space-y-3">
+                <p className="text-xs text-red-700 font-medium">
+                  Warning: These actions cannot be undone.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => {
+                      setDeletionType('data');
+                      setShowDeletionConfirm(true);
+                    }}
+                    className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-white border border-red-300 text-red-700 rounded-lg text-sm font-medium hover:bg-red-100 active:bg-red-200 transition touch-manipulation"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Clear Health Data
+                  </button>
+                  <button
+                    onClick={() => {
+                      setDeletionType('account');
+                      setShowDeletionConfirm(true);
+                    }}
+                    className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 active:bg-red-800 transition touch-manipulation"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete Account
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1054,6 +1157,7 @@ export default function ProfileTab({ onTabChange }) {
         patientProfile={patientProfile}
         setPatientProfile={setPatientProfile}
         refreshPatient={refreshPatient}
+        emergencyContacts={emergencyContacts}
       />
 
       <UpdateStatusModal

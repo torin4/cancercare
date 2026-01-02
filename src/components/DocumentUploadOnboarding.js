@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Upload, Activity, Dna, FileText, X, CheckCircle, ChevronRight } from 'lucide-react';
+import DatePicker from './DatePicker';
 
 const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true }) => {
   const [selectedType, setSelectedType] = useState(null);
@@ -75,13 +76,18 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
     }
   };
 
-  const handleSkipDate = () => {
-    // Skip date and proceed to note input or upload
-    if (selectedType === 'blood-test') {
-      setShowDateInput(false);
-      setShowNoteInput(true);
+  const handleSkipOrContinue = () => {
+    // If no date entered, skip (proceed without date)
+    if (!documentDate || documentDate.trim() === '') {
+      if (selectedType === 'blood-test') {
+        setShowDateInput(false);
+        setShowNoteInput(true);
+      } else {
+        onUploadClick(selectedType, null, null);
+      }
     } else {
-      onUploadClick(selectedType, null, null);
+      // Date entered, continue to next step
+      handleContinue();
     }
   };
 
@@ -91,8 +97,8 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end md:items-center justify-center p-0 md:p-4 z-50">
+      <div className="bg-white w-full h-full md:h-auto md:rounded-xl md:max-w-4xl md:max-h-[90vh] overflow-y-auto animate-slide-up">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <div>
@@ -230,18 +236,12 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Document Date <span className="text-gray-500 text-xs">(optional)</span>
                     </label>
-                    <input
-                      type="date"
+                    <DatePicker
                       value={documentDate}
                       onChange={(e) => setDocumentDate(e.target.value)}
                       max={new Date().toISOString().split('T')[0]}
-                      className={`w-full border rounded-lg px-4 py-2.5 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 ${
-                        selectedType === 'genomic-profile'
-                          ? 'border-purple-300 focus:ring-purple-500'
-                          : selectedType === 'blood-test'
-                          ? 'border-gray-300 focus:ring-blue-500'
-                          : 'border-gray-300 focus:ring-green-500'
-                      }`}
+                      placeholder="Select document date"
+                      showClear={true}
                     />
                     <p className="text-xs text-gray-500 mt-1">
                       If you don't know the date, you can skip and we'll try to extract it from the document.
@@ -318,21 +318,17 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                 <ChevronRight className="w-4 h-4 rotate-180" />
                 Back
               </button>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleSkipDate}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-900 font-medium transition flex items-center gap-2"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                  {selectedType === 'blood-test' ? 'Skip' : 'Skip Date'}
-                </button>
-                <button
-                  onClick={handleContinue}
-                  className="px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 bg-medical-primary-500 text-white hover:bg-medical-primary-600"
-                >
-                  {selectedType === 'blood-test' ? 'Continue' : <><Upload className="w-5 h-5" />{isOnboarding ? 'Continue to Upload' : 'Upload'}</>}
-                </button>
-              </div>
+              <button
+                onClick={handleSkipOrContinue}
+                className="px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 bg-medical-primary-500 text-white hover:bg-medical-primary-600"
+              >
+                {!documentDate || documentDate.trim() === '' 
+                  ? 'Skip' 
+                  : selectedType === 'blood-test' 
+                    ? 'Continue' 
+                    : <><Upload className="w-5 h-5" />{isOnboarding ? 'Continue to Upload' : 'Upload'}</>
+                }
+              </button>
             </>
           ) : (
             <>

@@ -117,25 +117,25 @@ export default function DashboardTab({ onTabChange }) {
   return (
     <>
       {/* Quick Action Buttons */}
-      <div className="bg-white border-b border-medical-neutral-200 px-4 sm:px-6 py-4 sm:py-5">
+      <div className="bg-white border-b border-medical-neutral-200 px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-5">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-3 sm:mb-4 flex items-center gap-2">
             <Zap className="w-5 h-5 text-medical-primary-600" />
             Quick Actions
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4">
             <button
               onClick={() => {
                 setShowAddSymptomModal(true);
               }}
-              className="group relative flex flex-row items-center justify-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-3.5 flex-1 border-2 border-medical-primary-500 hover:bg-medical-primary-50 rounded-xl transition-all duration-200"
+              className="group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 md:px-5 py-2.5 sm:py-3 md:py-3.5 min-h-[44px] border-2 border-medical-primary-500 hover:bg-medical-primary-50 active:bg-medical-primary-100 rounded-xl transition-all duration-200 touch-manipulation"
             >
-              <div className="w-8 h-8 sm:w-9 sm:h-9 bg-medical-primary-50 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
-                <Activity className="w-4 h-4 sm:w-4 sm:h-4 text-medical-primary-600" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-medical-primary-50 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
+                <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-medical-primary-600" />
               </div>
-              <div className="flex flex-col items-start min-w-0">
-                <span className="text-xs sm:text-sm font-semibold text-medical-primary-600 whitespace-nowrap">Log Symptom</span>
-                <span className="text-xs text-medical-primary-500/80 hidden sm:block">Track how you're feeling</span>
+              <div className="flex flex-col items-center text-center">
+                <span className="text-[10px] sm:text-xs md:text-sm font-semibold text-medical-primary-600 leading-tight">Log Symptom</span>
+                <span className="text-[9px] sm:text-xs text-medical-primary-500/80 hidden md:block leading-tight">Track how you're feeling</span>
               </div>
             </button>
 
@@ -149,14 +149,14 @@ export default function DashboardTab({ onTabChange }) {
                   sessionStorage.setItem('showAddLab', 'true');
                 }, 300);
               }}
-              className="group relative flex flex-row items-center justify-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-3.5 flex-1 border-2 border-medical-accent-500 hover:bg-medical-accent-50 rounded-xl transition-all duration-200"
+              className="group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 md:px-5 py-2.5 sm:py-3 md:py-3.5 min-h-[44px] border-2 border-medical-accent-500 hover:bg-medical-accent-50 active:bg-medical-accent-100 rounded-xl transition-all duration-200 touch-manipulation"
             >
-              <div className="w-8 h-8 sm:w-9 sm:h-9 bg-medical-accent-50 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
-                <TrendingUp className="w-4 h-4 sm:w-4 sm:h-4 text-medical-accent-600" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-medical-accent-50 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
+                <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-medical-accent-600" />
               </div>
-              <div className="flex flex-col items-start min-w-0">
-                <span className="text-xs sm:text-sm font-semibold text-medical-accent-600 whitespace-nowrap">Add Lab Value</span>
-                <span className="text-xs text-medical-accent-500/80 hidden sm:block">Record test results</span>
+              <div className="flex flex-col items-center text-center">
+                <span className="text-[10px] sm:text-xs md:text-sm font-semibold text-medical-accent-600 leading-tight">Add Lab Value</span>
+                <span className="text-[9px] sm:text-xs text-medical-accent-500/80 hidden md:block leading-tight">Record test results</span>
               </div>
             </button>
 
@@ -164,21 +164,21 @@ export default function DashboardTab({ onTabChange }) {
               onClick={() => {
                 openDocumentOnboarding('general');
               }}
-              className="group relative flex flex-row items-center justify-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-3.5 flex-1 border-2 border-medical-secondary-500 hover:bg-medical-secondary-50 rounded-xl transition-all duration-200"
+              className="group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 md:px-5 py-2.5 sm:py-3 md:py-3.5 min-h-[44px] border-2 border-medical-secondary-500 hover:bg-medical-secondary-50 active:bg-medical-secondary-100 rounded-xl transition-all duration-200 touch-manipulation"
             >
-              <div className="w-8 h-8 sm:w-9 sm:h-9 bg-medical-secondary-50 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
-                <Upload className="w-4 h-4 sm:w-4 sm:h-4 text-medical-secondary-600" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-medical-secondary-50 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
+                <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-medical-secondary-600" />
               </div>
-              <div className="flex flex-col items-start min-w-0">
-                <span className="text-xs sm:text-sm font-semibold text-medical-secondary-600 whitespace-nowrap">Smart Scan</span>
-                <span className="text-xs text-medical-secondary-500/80 hidden sm:block">Upload & extract data</span>
+              <div className="flex flex-col items-center text-center">
+                <span className="text-[10px] sm:text-xs md:text-sm font-semibold text-medical-secondary-600 leading-tight">Smart Scan</span>
+                <span className="text-[9px] sm:text-xs text-medical-secondary-500/80 hidden md:block leading-tight">Upload & extract data</span>
               </div>
             </button>
           </div>
         </div>
       </div>
 
-      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
         {/* Dynamic CA-125 Alert */}
         {ca125Alert && (
           <div className={`bg-white rounded-lg sm:rounded-xl border-2 p-4 sm:p-5 shadow-sm ${
@@ -290,7 +290,7 @@ export default function DashboardTab({ onTabChange }) {
                   </div>
                   Key Metrics
                 </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
                   {fallbackItems.map((item) => {
                     const data = item.data;
                     let latestValue = (data.data && data.data.length > 0)
@@ -316,7 +316,7 @@ export default function DashboardTab({ onTabChange }) {
                     }
                     
                     return (
-                      <div key={`${item.type}-${item.key}`} className="text-center p-4 bg-white rounded-lg border border-medical-neutral-200 shadow-sm hover:shadow-md transition-shadow">
+                      <div key={`${item.type}-${item.key}`} className="text-center p-3 sm:p-4 bg-white rounded-lg border border-medical-neutral-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-center gap-1.5 mb-2">
                           <span className="text-xs font-medium text-medical-neutral-700">{displayName}</span>
                           <div className="flex items-center gap-1">
@@ -330,8 +330,9 @@ export default function DashboardTab({ onTabChange }) {
                                     description: description
                                   });
                                 }}
-                                className="text-medical-primary-500 hover:text-medical-primary-700 transition-colors"
+                                className="p-1.5 -m-1.5 text-medical-primary-500 hover:text-medical-primary-700 active:text-medical-primary-800 transition-colors touch-manipulation min-w-[32px] min-h-[32px] flex items-center justify-center"
                                 title="Learn more about this value"
+                                aria-label="Learn more about this value"
                               >
                                 <Info className="w-3.5 h-3.5" />
                               </button>
@@ -395,7 +396,7 @@ export default function DashboardTab({ onTabChange }) {
                   }
                   
                   return (
-                    <div key={`${item.type}-${item.key}`} className="text-center p-4 bg-white rounded-lg border border-medical-neutral-200 shadow-sm hover:shadow-md transition-shadow">
+                    <div key={`${item.type}-${item.key}`} className="text-center p-3 sm:p-4 bg-white rounded-lg border border-medical-neutral-200 shadow-sm hover:shadow-md transition-shadow">
                       <div className="flex items-center justify-center gap-1.5 mb-2">
                         <span className="text-xs font-medium text-medical-neutral-700">{displayName}</span>
                         <div className="flex items-center gap-1">
@@ -439,7 +440,7 @@ export default function DashboardTab({ onTabChange }) {
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
                 onClick={() => onTabChange('chat')}
-                className="px-6 py-3 bg-white border-2 border-medical-primary-500 text-medical-primary-600 rounded-lg hover:bg-medical-primary-50 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                className="px-6 py-3 min-h-[44px] bg-white border-2 border-medical-primary-500 text-medical-primary-600 rounded-lg hover:bg-medical-primary-50 active:bg-medical-primary-100 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2 touch-manipulation"
               >
                 <MessageSquare className="w-4 h-4" />
                 Chat with AI
@@ -452,7 +453,7 @@ export default function DashboardTab({ onTabChange }) {
                     onTabChange('files');
                   }
                 }}
-                className="px-6 py-3 bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                className="px-6 py-3 min-h-[44px] bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 active:bg-medical-primary-700 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2 touch-manipulation"
               >
                 <Upload className="w-4 h-4" />
                 Upload Labs
@@ -493,7 +494,7 @@ export default function DashboardTab({ onTabChange }) {
                 </div>
                 <button
                   onClick={() => onTabChange('profile')}
-                  className="text-medical-secondary-600 text-sm font-medium hover:text-medical-secondary-700 transition-colors"
+                  className="px-3 py-2 min-h-[44px] text-medical-secondary-600 text-sm font-medium hover:text-medical-secondary-700 active:text-medical-secondary-800 transition-colors touch-manipulation flex items-center justify-center"
                 >
                   View Full Profile →
                 </button>
@@ -514,7 +515,7 @@ export default function DashboardTab({ onTabChange }) {
                         onTabChange('files');
                       }
                     }}
-                    className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                    className="px-6 py-3 min-h-[44px] bg-purple-600 text-white rounded-lg hover:bg-purple-700 active:bg-purple-800 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2 touch-manipulation"
                   >
                     <Upload className="w-4 h-4" />
                     Upload Genomic Report
@@ -544,8 +545,16 @@ export default function DashboardTab({ onTabChange }) {
               {savedTrials.map((trial) => (
                 <div
                   key={trial.id}
-                  className="border border-medical-neutral-200 rounded-lg p-3 sm:p-4 hover:border-medical-accent-300 hover:shadow-sm transition-all cursor-pointer bg-medical-neutral-50/50"
+                  className="border border-medical-neutral-200 rounded-lg p-3 sm:p-4 hover:border-medical-accent-300 hover:shadow-sm active:bg-medical-neutral-100 transition-all cursor-pointer bg-medical-neutral-50/50 touch-manipulation min-h-[60px]"
                   onClick={() => onTabChange('trials')}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onTabChange('trials');
+                    }
+                  }}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
@@ -569,7 +578,7 @@ export default function DashboardTab({ onTabChange }) {
               ))}
               <button
                 onClick={() => onTabChange('trials')}
-                className="w-full text-center text-medical-accent-600 text-sm font-medium hover:text-medical-accent-700 transition-colors mt-3"
+                className="w-full py-3 min-h-[44px] text-center text-medical-accent-600 text-sm font-medium hover:text-medical-accent-700 active:text-medical-accent-800 transition-colors mt-3 touch-manipulation"
               >
                 View All Saved Trials →
               </button>
@@ -584,7 +593,7 @@ export default function DashboardTab({ onTabChange }) {
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <button
                   onClick={() => onTabChange('trials')}
-                  className="px-6 py-3 bg-medical-accent-500 text-white rounded-lg hover:bg-medical-accent-600 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                  className="px-6 py-3 min-h-[44px] bg-medical-accent-500 text-white rounded-lg hover:bg-medical-accent-600 active:bg-medical-accent-700 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2 touch-manipulation"
                 >
                   <Search className="w-4 h-4" />
                   Search Clinical Trials
@@ -623,7 +632,7 @@ export default function DashboardTab({ onTabChange }) {
                   e.stopPropagation();
                   setLabTooltip(null);
                 }}
-                className="text-medical-neutral-400 hover:text-medical-neutral-600 transition-colors flex-shrink-0"
+                className="p-2 -mr-2 text-medical-neutral-400 hover:text-medical-neutral-600 active:text-medical-neutral-700 transition-colors flex-shrink-0 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
                 aria-label="Close"
                 type="button"
               >

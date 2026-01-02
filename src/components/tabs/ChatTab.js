@@ -18,6 +18,76 @@ export default function ChatTab({ onTabChange }) {
   const { patientProfile, hasUploadedDocument } = usePatientContext();
   const { reloadHealthData } = useHealthContext();
 
+  // Get personalized suggestions based on user role
+  const personalizedSuggestions = React.useMemo(() => {
+    const isPatient = patientProfile?.isPatient !== false; // Default to patient
+    const patientName = patientProfile?.firstName || patientProfile?.name?.split(' ')[0] || 'the patient';
+
+    // Create personalized versions of suggestions
+    const personalizeText = (text) => {
+      if (!text) return text;
+
+      if (isPatient) {
+        // For patients, use "I" and "my"
+        return text
+          .replace(/\[patient\]/gi, 'I')
+          .replace(/\[Patient\]/gi, 'I')
+          .replace(/\bthe patient\b/gi, 'I')
+          .replace(/\bThe patient\b/gi, 'I')
+          .replace(/\btheir\b/gi, 'my')
+          .replace(/\bTheir\b/gi, 'My')
+          .replace(/\bthey\b/gi, 'I')
+          .replace(/\bThey\b/gi, 'I');
+      } else {
+        // For caregivers, use patient name or "the patient"
+        // Handle [patient] placeholder first
+        let personalized = text.replace(/\[patient\]/gi, patientName);
+        personalized = personalized.replace(/\[Patient\]/gi, patientName);
+
+        // Then replace first-person references
+        personalized = personalized.replace(/\bI had\b/gi, `${patientName} had`);
+        personalized = personalized.replace(/\bI started\b/gi, `${patientName} started`);
+        personalized = personalized.replace(/\bI'm\b/gi, `${patientName} is`);
+        personalized = personalized.replace(/\bI \b/gi, `${patientName} `);
+        personalized = personalized.replace(/\bmy \b/gi, `${patientName}'s `);
+        personalized = personalized.replace(/\bMy \b/gi, `${patientName}'s `);
+
+        return personalized;
+      }
+    };
+
+    // Personalize button labels for caregiver mode
+    const personalizeButtonLabel = (text) => {
+      if (!text) return text;
+
+      if (isPatient) {
+        // Patient mode - keep as is (first person)
+        return text;
+      } else {
+        // Caregiver mode - make third person
+        return text
+          .replace(/^Log a symptom$/i, `Log ${patientName}'s symptom`)
+          .replace(/^Add lab value$/i, `Add ${patientName}'s lab value`)
+          .replace(/^Add vital sign$/i, `Add ${patientName}'s vital sign`)
+          .replace(/^Add medication$/i, `Add ${patientName}'s medication`)
+          .replace(/What does my (.*) mean\?$/i, `What does ${patientName}'s $1 mean?`)
+          .replace(/Explain my (.*)/i, `Explain ${patientName}'s $1`)
+          .replace(/How is my (.*)/i, `How is ${patientName}'s $1`)
+          .replace(/What are common (.*)/i, 'What are common $1') // Keep generic
+          .replace(/Explain my symptoms/i, `Explain ${patientName}'s symptoms`)
+          .replace(/What should I ask (.*)/i, `What should ${patientName} ask $1`)
+          .replace(/Analyze my (.*)/i, `Analyze ${patientName}'s $1`)
+          .replace(/What do my (.*)/i, `What do ${patientName}'s $1`);
+      }
+    };
+
+    return chatSuggestions.map(suggestion => ({
+      ...suggestion,
+      populateText: personalizeText(suggestion.populateText || suggestion.text),
+      text: personalizeButtonLabel(suggestion.text) // Personalize button text too!
+    }));
+  }, [patientProfile?.isPatient, patientProfile?.firstName, patientProfile?.name]); // Use specific fields from patientProfile
+
   // Chat state
   const [messages, setMessages] = useState([]);
   const [chatHistoryLoaded, setChatHistoryLoaded] = useState(false);
@@ -27,6 +97,7 @@ export default function ChatTab({ onTabChange }) {
   const [currentHealthContext, setCurrentHealthContext] = useState(null);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
   const [profileImage, setProfileImage] = useState(null);
+  const [suggestionsKey, setSuggestionsKey] = useState(0); // Force re-render when role changes
 
   // Document upload state
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
@@ -191,10 +262,16 @@ export default function ChatTab({ onTabChange }) {
     }
   }, [user, patientProfile, reloadHealthData]);
 
+  // Force re-render of suggestions when role changes or suggestions update
+  useEffect(() => {
+    // Force re-render by updating key whenever suggestions change
+    setSuggestionsKey(prev => prev + 1);
+  }, [personalizedSuggestions]); // Depend on personalizedSuggestions directly
+
   // Cycle suggestions when entering chat
   useEffect(() => {
-    setSuggestionIndex(prev => (prev + 1) % Math.ceil(chatSuggestions.length / 4));
-  }, []);
+    setSuggestionIndex(prev => (prev + 1) % Math.ceil(personalizedSuggestions.length / 4));
+  }, [personalizedSuggestions]); // Re-calculate when role changes
 
   // Auto-scroll when messages change
   useEffect(() => {
@@ -573,7 +650,7 @@ export default function ChatTab({ onTabChange }) {
       <div className="flex flex-col h-full">
         {/* Clear Chat History Button */}
         {messages.length > 0 && (
-          <div className="px-4 pt-3 pb-2 flex justify-end">
+          <div className="px-3 sm:px-4 pt-2 sm:pt-3 pb-2 flex justify-end">
             <button
               onClick={async () => {
                 if (!user) return;
@@ -590,26 +667,26 @@ export default function ChatTab({ onTabChange }) {
                   }
                 }
               }}
-              className="text-medical-neutral-500 hover:text-medical-neutral-700 text-sm flex items-center gap-1.5 transition-colors"
+              className="text-medical-neutral-500 hover:text-medical-neutral-700 text-xs sm:text-sm flex items-center gap-1.5 transition-colors min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70"
               title="Clear chat history"
             >
-              <Trash2 className="w-4 h-4" />
-              Clear History
+              <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Clear History</span>
             </button>
           </div>
         )}
         <div 
           ref={messagesEndRef}
-          className="flex-1 overflow-y-auto p-4 space-y-3"
+          className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 sm:space-y-3"
         >
           {messages.map((msg, idx) => (
-            <div key={idx} className={`flex items-start gap-2 ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div key={idx} className={`flex items-start gap-2 sm:gap-3 ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
               {msg.type === 'ai' && (
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-medical-primary-500 to-medical-accent-500 flex items-center justify-center shadow-sm">
-                  <Bot className="w-5 h-5 text-white" />
+                <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-medical-primary-500 to-medical-accent-500 flex items-center justify-center shadow-sm">
+                  <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
               )}
-              <div className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 ${msg.type === 'user'
+              <div className={`max-w-[82%] sm:max-w-[70%] rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 ${msg.type === 'user'
                 ? 'bg-medical-primary-500 text-white'
                 : msg.isAnalysis
                   ? 'bg-medical-secondary-50 border border-medical-secondary-200 text-medical-neutral-800'
@@ -641,7 +718,7 @@ export default function ChatTab({ onTabChange }) {
                 )}
               </div>
               {msg.type === 'user' && (
-                <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden shadow-sm">
+                <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden shadow-sm">
                   {profileImage ? (
                     <img 
                       src={profileImage} 
@@ -651,9 +728,15 @@ export default function ChatTab({ onTabChange }) {
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-medical-primary-500 to-medical-secondary-500 flex items-center justify-center text-white text-xs font-bold">
                       {(() => {
-                        const name = patientProfile.firstName || patientProfile.lastName 
-                          ? `${patientProfile.firstName || ''} ${patientProfile.middleName ? patientProfile.middleName + ' ' : ''}${patientProfile.lastName || ''}`.trim()
-                          : patientProfile.name || user?.displayName || 'U';
+                        // If caregiver mode, use caregiver name for initials
+                        let name;
+                        if (patientProfile?.isPatient === false && patientProfile?.caregiverName) {
+                          name = patientProfile.caregiverName;
+                        } else {
+                          name = patientProfile.firstName || patientProfile.lastName 
+                            ? `${patientProfile.firstName || ''} ${patientProfile.middleName ? patientProfile.middleName + ' ' : ''}${patientProfile.lastName || ''}`.trim()
+                            : patientProfile.name || user?.displayName || 'U';
+                        }
                         const parts = name.trim().split(/\s+/);
                         if (parts.length >= 2) {
                           return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -670,10 +753,10 @@ export default function ChatTab({ onTabChange }) {
 
         {/* Trial Context Indicator */}
         {currentTrialContext && (
-          <div className="p-3 bg-medical-accent-50 border-b border-medical-accent-200 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-medical-accent-600 text-sm font-medium">Discussing:</span>
-              <span className="text-medical-accent-800 text-sm">{currentTrialContext.title || 'Trial'}</span>
+          <div className="p-2.5 sm:p-3 bg-medical-accent-50 border-b border-medical-accent-200 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+              <span className="text-medical-accent-600 text-xs sm:text-sm font-medium flex-shrink-0">Discussing:</span>
+              <span className="text-medical-accent-800 text-xs sm:text-sm truncate">{currentTrialContext.title || 'Trial'}</span>
             </div>
             <button
               onClick={() => {
@@ -683,7 +766,7 @@ export default function ChatTab({ onTabChange }) {
                   text: 'Trial context cleared. You can now ask general questions or ask about a different trial.'
                 }]);
               }}
-              className="text-medical-accent-600 hover:text-medical-accent-800 text-sm underline"
+              className="text-medical-accent-600 hover:text-medical-accent-800 text-xs sm:text-sm underline flex-shrink-0 min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70"
             >
               Clear
             </button>
@@ -692,10 +775,10 @@ export default function ChatTab({ onTabChange }) {
 
         {/* Health Context Indicator */}
         {currentHealthContext && (
-          <div className="p-3 bg-medical-primary-50 border-b border-medical-primary-200 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-medical-primary-600 text-sm font-medium">Discussing:</span>
-              <span className="text-medical-primary-800 text-sm">Your Health Data (Labs, Vitals, Symptoms)</span>
+          <div className="p-2.5 sm:p-3 bg-medical-primary-50 border-b border-medical-primary-200 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+              <span className="text-medical-primary-600 text-xs sm:text-sm font-medium flex-shrink-0">Discussing:</span>
+              <span className="text-medical-primary-800 text-xs sm:text-sm truncate">Your Health Data (Labs, Vitals, Symptoms)</span>
             </div>
             <button
               onClick={() => {
@@ -705,7 +788,7 @@ export default function ChatTab({ onTabChange }) {
                   text: 'Health context cleared. You can now ask general questions or ask about different health data.'
                 }]);
               }}
-              className="text-medical-primary-600 hover:text-medical-primary-800 text-sm underline"
+              className="text-medical-primary-600 hover:text-medical-primary-800 text-xs sm:text-sm underline flex-shrink-0 min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70"
             >
               Clear
             </button>
@@ -713,29 +796,40 @@ export default function ChatTab({ onTabChange }) {
         )}
 
         {/* Chat Suggestions */}
-        <div className="px-4 py-3 bg-medical-neutral-50 border-t border-medical-neutral-200">
-          <div className="flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}>
-            {(currentTrialContext ? trialSuggestions : chatSuggestions).map((suggestion, idx) => (
-              <button
-                key={idx}
-                onClick={() => {
-                  setInputText(suggestion.populateText || suggestion.text);
-                  // Focus on input after setting text
-                  setTimeout(() => {
-                    const input = document.querySelector('input[type="text"]');
-                    if (input) input.focus();
-                  }, 0);
-                }}
-                className={`${suggestion.color} text-white px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap hover:opacity-100 opacity-90 transition-opacity flex-shrink-0 flex items-center gap-2`}
-              >
-                {suggestion.icon && <suggestion.icon className="w-4 h-4" />}
-                {suggestion.text}
-              </button>
-            ))}
+        <div
+          className="px-3 sm:px-4 py-2.5 sm:py-3 bg-medical-neutral-50 border-t border-medical-neutral-200"
+        >
+          <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}>
+            {(currentTrialContext ? trialSuggestions : personalizedSuggestions).map((suggestion, idx) => {
+              // Store populateText in a const to ensure we capture the current value
+              const currentPopulateText = suggestion.populateText || suggestion.text;
+
+              // Create a unique key that includes a hash of the populateText to force re-render
+              const textHash = currentPopulateText.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+              const suggestionKey = `suggestion-${suggestionsKey}-${patientProfile?.isPatient}-${idx}-${textHash}`;
+
+              return (
+                <button
+                  key={suggestionKey}
+                  onClick={() => {
+                    setInputText(currentPopulateText);
+                    // Focus on input after setting text
+                    setTimeout(() => {
+                      const input = document.querySelector('input[type="text"]');
+                      if (input) input.focus();
+                    }, 0);
+                  }}
+                  className={`${suggestion.color} text-white px-3 py-2 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap hover:opacity-100 opacity-90 transition-opacity flex-shrink-0 flex items-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-100`}
+                >
+                  {suggestion.icon && <suggestion.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                  {suggestion.text}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <div className="p-4 bg-white border-t">
+        <div className="p-3 sm:p-4 bg-white border-t">
           <div className="flex gap-2">
             <input
               type="text"
@@ -749,19 +843,19 @@ export default function ChatTab({ onTabChange }) {
                     ? "Ask about your labs, vitals, or symptoms..." 
                     : "Ask about symptoms, treatments, or upload results..."
               }
-              className="flex-1 border border-medical-neutral-300 rounded-full px-4 py-2.5 text-sm sm:text-base focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all duration-200"
+              className="flex-1 border border-medical-neutral-300 rounded-full px-3 py-2.5 sm:px-4 sm:py-2.5 text-sm sm:text-base focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all duration-200 min-h-[44px]"
             />
             <div className="flex items-center gap-2">
               <button
                 onClick={() => openDocumentOnboarding(null, 'picker')}
                 title="Attach file or take photo"
-                className="bg-medical-neutral-100 text-medical-neutral-700 p-2 rounded-full hover:bg-medical-neutral-200 transition flex-shrink-0"
+                className="bg-medical-neutral-100 text-medical-neutral-700 p-2.5 sm:p-2 rounded-full hover:bg-medical-neutral-200 transition flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
               >
                 <Paperclip className="w-5 h-5" />
               </button>
               <button
                 onClick={handleSendMessage}
-                className="bg-medical-primary-500 text-white w-10 h-10 rounded-full hover:bg-medical-primary-600 transition flex-shrink-0 shadow-sm flex items-center justify-center"
+                className="bg-medical-primary-500 text-white w-11 h-11 sm:w-10 sm:h-10 rounded-full hover:bg-medical-primary-600 transition flex-shrink-0 shadow-sm flex items-center justify-center min-h-[44px] min-w-[44px] touch-manipulation active:opacity-90"
               >
                 <Send className="w-5 h-5" />
               </button>

@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Check } from 'lucide-react';
 import { patientService } from '../../firebase/services';
 import { CANCER_TYPES, CANCER_SUBTYPES, STAGE_OPTIONS, TREATMENT_STATUS_OPTIONS, PERFORMANCE_OPTIONS, DISEASE_STATUS_OPTIONS } from '../../constants/cancerTypes';
+import DatePicker from '../DatePicker';
 
 export default function UpdateStatusModal({
   show,
@@ -160,11 +161,11 @@ export default function UpdateStatusModal({
             {/* Diagnosis Date - matching onboarding */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Date of Diagnosis *</label>
-              <input
-                type="date"
+              <DatePicker
                 value={currentStatus.diagnosisDate || ''}
                 onChange={(e) => setCurrentStatus({...currentStatus, diagnosisDate: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                max={new Date().toISOString().split('T')[0]}
+                placeholder="Select diagnosis date"
               />
             </div>
 

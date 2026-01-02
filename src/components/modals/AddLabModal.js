@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { X, AlertCircle, Plus } from 'lucide-react';
 import { labService } from '../../firebase/services';
+import { getTodayLocalDate } from '../../utils/helpers';
+import DatePicker from '../DatePicker';
 
 const categoryDescriptions = {
   'Disease-Specific Markers': 'Tumor markers and cancer-specific biomarkers used to monitor disease progression and treatment response',
@@ -52,13 +54,15 @@ export default function AddLabModal({
   const [newLabData, setNewLabData] = useState({
     label: '',
     normalRange: '',
-    unit: ''
+    unit: '',
+    initialValue: '',
+    initialDate: getTodayLocalDate()
   });
 
   if (!show) return null;
 
   const handleCancel = () => {
-    setNewLabData({ label: '', normalRange: '', unit: '' });
+    setNewLabData({ label: '', normalRange: '', unit: '', initialValue: '', initialDate: getTodayLocalDate() });
     onClose();
   };
 
@@ -72,24 +76,41 @@ export default function AddLabModal({
       const normalizedName = normalizeLabName(newLabData.label, labKeyMap);
       const labType = normalizedName || newLabData.label.toLowerCase().replace(/[^a-z0-9]/g, '');
 
+      // Parse initial value if provided
+      const hasInitialValue = newLabData.initialValue && newLabData.initialValue.trim() !== '';
+      const initialValueNum = hasInitialValue ? parseFloat(newLabData.initialValue) : null;
+      const isValidValue = hasInitialValue && initialValueNum !== null && !isNaN(initialValueNum);
+
       // Save lab to Firestore
-      await labService.saveLab({
+      const labId = await labService.saveLab({
         patientId: user.uid,
         labType: labType,
         label: newLabData.label,
-        currentValue: null, // No initial value, just the metric
+        currentValue: isValidValue ? initialValueNum : null, // Set current value if provided and valid
         unit: newLabData.unit,
         normalRange: newLabData.normalRange,
         status: 'unknown',
         createdAt: new Date()
       });
 
+      // If initial value is provided and valid, add it as a lab value
+      if (isValidValue) {
+        const valueDate = newLabData.initialDate ? new Date(newLabData.initialDate) : new Date();
+        
+        // Add the initial value to the lab's values subcollection
+        await labService.addLabValue(labId, {
+          value: initialValueNum,
+          date: valueDate,
+          notes: ''
+        });
+      }
+
       // Reload health data to update UI
       if (reloadHealthData) {
         await reloadHealthData();
       }
 
-      setNewLabData({ label: '', normalRange: '', unit: '' });
+      setNewLabData({ label: '', normalRange: '', unit: '', initialValue: '', initialDate: getTodayLocalDate() });
       onClose();
     } catch (error) {
       console.error('Error adding lab:', error);
@@ -98,7 +119,7 @@ export default function AddLabModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 md:p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end md:items-center justify-center z-50 p-0 md:p-4">
       <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
         <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
           <h3 className="font-bold text-lg text-gray-800">Add Lab Metric to Track</h3>
@@ -133,11 +154,12 @@ export default function AddLabModal({
               onChange={(e) => {
                 if (e.target.value) {
                   const selected = JSON.parse(e.target.value);
-                  setNewLabData({
+                  setNewLabData(prev => ({
+                    ...prev,
                     label: selected.name,
                     normalRange: selected.range,
                     unit: selected.unit
-                  });
+                  }));
                 }
               }}
               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -275,11 +297,46 @@ export default function AddLabModal({
             </div>
           </div>
 
+          {/* Optional: Add Initial Value */}
+          {newLabData.label && newLabData.normalRange && newLabData.unit && (
+            <div className="border-t pt-4 mt-4">
+              <h4 className="font-semibold text-gray-800 text-sm mb-3">Add Initial Value (Optional)</h4>
+              <p className="text-xs text-gray-600 mb-3">You can add your first lab value now, or add it later from the Health tab.</p>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Value</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={newLabData.initialValue}
+                    onChange={(e) => setNewLabData({ ...newLabData, initialValue: e.target.value })}
+                    placeholder="e.g., 42"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                  <DatePicker
+                    value={newLabData.initialDate}
+                    onChange={(e) => setNewLabData({ ...newLabData, initialDate: e.target.value })}
+                    max={getTodayLocalDate()}
+                    placeholder="Select date"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {newLabData.label && newLabData.normalRange && newLabData.unit && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-3">
               <p className="text-xs font-medium text-green-900 mb-1">Preview:</p>
               <p className="text-sm text-green-800">
                 <strong>{newLabData.label}</strong> • Normal: {newLabData.normalRange} {newLabData.unit}
+                {newLabData.initialValue && (
+                  <span> • Initial Value: {newLabData.initialValue} {newLabData.unit}</span>
+                )}
               </p>
             </div>
           )}

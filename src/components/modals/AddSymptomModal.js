@@ -2,6 +2,7 @@ import React from 'react';
 import { X, AlertCircle, Activity } from 'lucide-react';
 import { getTodayLocalDate } from '../../utils/helpers';
 import { symptomService } from '../../firebase/services';
+import DatePicker from '../DatePicker';
 
 export default function AddSymptomModal({ 
   show, 
@@ -72,7 +73,7 @@ export default function AddSymptomModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 md:p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end md:items-center justify-center z-50 p-0 md:p-4">
       <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
         <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
           <h3 className="font-bold text-lg text-gray-800">Log Symptom</h3>
@@ -173,11 +174,11 @@ export default function AddSymptomModal({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                <input
-                  type="date"
+                <DatePicker
                   value={symptomForm.date}
                   onChange={(e) => setSymptomForm({...symptomForm, date: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  max={getTodayLocalDate()}
+                  placeholder="Select date"
                 />
               </div>
 

@@ -166,11 +166,23 @@ export const labService = {
   // Update lab value (value, date, notes)
   async updateLabValue(labId, valueId, valueData) {
     const docRef = doc(db, COLLECTIONS.LABS, labId, 'values', valueId);
-    await updateDoc(docRef, {
-      value: valueData.value,
-      date: valueData.date,
-      notes: valueData.notes || ''
-    });
+    // Check if document exists first
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      // Document exists, update it
+      await updateDoc(docRef, {
+        value: valueData.value,
+        date: valueData.date,
+        notes: valueData.notes || ''
+      });
+    } else {
+      // Document doesn't exist, create it
+      await setDoc(docRef, {
+        value: valueData.value,
+        date: valueData.date,
+        notes: valueData.notes || ''
+      });
+    }
   },
 
   // Delete individual lab document (one data point)
@@ -363,7 +375,16 @@ export const vitalService = {
     if (valueData.value !== undefined) updateData.value = valueData.value;
     if (valueData.systolic !== undefined) updateData.systolic = valueData.systolic;
     if (valueData.diastolic !== undefined) updateData.diastolic = valueData.diastolic;
-    await updateDoc(docRef, updateData);
+    
+    // Check if document exists first
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      // Document exists, update it
+      await updateDoc(docRef, updateData);
+    } else {
+      // Document doesn't exist, create it
+      await setDoc(docRef, updateData);
+    }
   },
 
   // Delete individual vital document (one data point)

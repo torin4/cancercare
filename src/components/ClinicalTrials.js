@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, AlertTriangle, XCircle, Star, Search as SearchIcon, MapPin, Globe, X, AlertCircle, MessageSquare, Bookmark, FlaskConical, FileText } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, Star, Search as SearchIcon, MapPin, Globe, X, AlertCircle, MessageSquare, Bookmark, FlaskConical, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { auth } from '../firebase/config';
 import { patientService, genomicProfileService, clinicalTrialsService, trialLocationService } from '../firebase/services';
@@ -69,6 +69,9 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
   const [localTrialLocation, setLocalTrialLocation] = useState(null);
 
   const [error, setError] = useState(null);
+  
+  // Track expanded conditions/interventions per trial
+  const [expandedSections, setExpandedSections] = useState(() => new Set());
 
   useEffect(() => {
     loadPatientData();
@@ -346,72 +349,145 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
   const getEligibilityBadge = (level) => {
     switch (level) {
       case 'highly_eligible':
-        return <span className="px-3 py-1 bg-medical-accent-100 text-medical-accent-700 rounded-full text-sm font-medium flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Highly Eligible</span>;
+        return <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-medical-accent-100 text-medical-accent-700 rounded-full text-xs sm:text-sm font-medium flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="whitespace-nowrap">Highly Eligible</span></span>;
       case 'potentially_eligible':
-        return <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-medium flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> Potentially Eligible</span>;
+        return <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs sm:text-sm font-medium flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="whitespace-nowrap">Potentially Eligible</span></span>;
       case 'unlikely_eligible':
-        return <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium flex items-center gap-1"><XCircle className="w-4 h-4" /> Unlikely Eligible</span>;
+        return <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-red-100 text-red-700 rounded-full text-xs sm:text-sm font-medium flex items-center gap-1"><XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="whitespace-nowrap">Unlikely Eligible</span></span>;
       default:
-        return <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">Unknown</span>;
+        return <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-gray-100 text-gray-700 rounded-full text-xs sm:text-sm font-medium">Unknown</span>;
     }
+  };
+
+  const toggleSection = (trialId, sectionType) => {
+    const key = `${trialId}-${sectionType}`;
+    setExpandedSections(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(key)) {
+        newSet.delete(key);
+      } else {
+        newSet.add(key);
+      }
+      return newSet;
+    });
+  };
+
+  const isSectionExpanded = (trialId, sectionType) => {
+    return expandedSections.has(`${trialId}-${sectionType}`);
+  };
+
+  const renderExpandableBadges = (items, trialId, sectionType, badgeColorClass) => {
+    if (!items || items.length === 0) return null;
+    
+    const expanded = isSectionExpanded(trialId, sectionType);
+    // Estimate if more than one row: typically 3-4 badges fit in one row on mobile, 5-6 on desktop
+    // Use a more conservative estimate to ensure we catch cases that wrap
+    const needsTruncation = items.length > 4;
+    
+    return (
+      <div className="mb-2 sm:mb-3">
+        <div className="flex items-center justify-between mb-1">
+          <span className="font-medium text-medical-neutral-700 text-xs sm:text-sm">
+            {sectionType === 'conditions' ? 'Conditions:' : 'Interventions:'}
+          </span>
+          {needsTruncation && (
+            <button
+              onClick={() => toggleSection(trialId, sectionType)}
+              className="flex items-center gap-1 text-xs text-medical-primary-600 hover:text-medical-primary-700 transition-colors min-h-[32px] min-w-[32px] sm:min-h-[44px] sm:min-w-[44px] touch-manipulation active:opacity-70 px-1"
+              aria-label={expanded ? 'Collapse' : 'Expand'}
+            >
+              {expanded ? (
+                <>
+                  <span className="hidden sm:inline">Show less</span>
+                  <ChevronUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                </>
+              ) : (
+                <>
+                  <span className="hidden sm:inline">Show more</span>
+                  <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                </>
+              )}
+            </button>
+          )}
+        </div>
+        <div className="relative">
+          <div 
+            className={`flex flex-wrap gap-1.5 sm:gap-2 mt-1 transition-all duration-200 ${
+              !expanded && needsTruncation 
+                ? 'max-h-[1.75rem] sm:max-h-[2rem] overflow-hidden' 
+                : ''
+            }`}
+          >
+            {items.map((item, idx) => (
+              <span key={idx} className={`px-2 py-0.5 sm:py-1 rounded text-xs break-words ${badgeColorClass}`}>
+                {item}
+              </span>
+            ))}
+          </div>
+          {!expanded && needsTruncation && (
+            <div className="absolute bottom-0 left-0 right-0 h-3 sm:h-4 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+          )}
+        </div>
+      </div>
+    );
   };
 
   const renderTrialCard = (trial, isSaved = false) => {
     return (
-      <div key={trial.id} className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-4 border border-medical-neutral-200 hover:shadow-md transition">
+      <div key={trial.id} className="bg-white rounded-lg shadow-sm p-3 sm:p-4 md:p-6 mb-3 sm:mb-4 border border-medical-neutral-200 hover:shadow-md transition">
         {/* Header */}
-        <div className="flex justify-between items-start mb-3">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-1">{trial.title || trial.titleJa}</h3>
+        <div className="flex justify-between items-start mb-2 sm:mb-3 gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start gap-2 sm:gap-3 flex-wrap">
+              <h3 className="text-sm sm:text-base md:text-lg font-semibold text-medical-neutral-900 mb-1 break-words">{trial.title || trial.titleJa}</h3>
               {trial.source && (
-                <span className="text-xs px-2 py-0.5 bg-medical-neutral-100 text-medical-neutral-700 rounded-full">{trial.source}</span>
+                <span className="text-xs px-2 py-0.5 bg-medical-neutral-100 text-medical-neutral-700 rounded-full flex-shrink-0">{trial.source}</span>
               )}
             </div>
             {trial.titleJa && trial.title !== trial.titleJa && (
-              <p className="text-sm text-medical-neutral-600 mb-2">{trial.titleJa}</p>
+              <p className="text-xs sm:text-sm text-medical-neutral-600 mb-2 break-words">{trial.titleJa}</p>
             )}
           </div>
-          <div className="flex items-center gap-2 ml-3">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             {isSaved && (
               <button
                 onClick={() => handleToggleFavorite(trial.id, trial.isFavorite)}
-                className="p-1.5 hover:bg-medical-neutral-100 rounded-lg transition"
+                className="p-1.5 sm:p-1.5 hover:bg-medical-neutral-100 rounded-lg transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
                 title={trial.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
               >
-                <Star className={`w-5 h-5 ${trial.isFavorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
+                <Star className={`w-4 h-4 sm:w-5 sm:h-5 ${trial.isFavorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
               </button>
             )}
             {!isSaved && !savedTrialIds.has(trial.id) ? (
               <button
                 onClick={() => handleSaveTrial(trial)}
-                className="p-1.5 hover:bg-medical-accent-50 rounded-lg transition relative group"
+                className="p-1.5 sm:p-1.5 hover:bg-medical-accent-50 rounded-lg transition relative group min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
                 title="Save Trial"
               >
-                <Bookmark className="w-5 h-5 text-medical-accent-600" />
-                <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-medical-neutral-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                <Bookmark className="w-4 h-4 sm:w-5 sm:h-5 text-medical-accent-600" />
+                <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-medical-neutral-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 hidden sm:block">
                   Save Trial
                 </span>
               </button>
             ) : !isSaved ? (
               <button
                 disabled
-                className="p-1.5 rounded-lg cursor-not-allowed relative group"
+                className="p-1.5 sm:p-1.5 rounded-lg cursor-not-allowed relative group min-h-[44px] min-w-[44px] flex items-center justify-center"
                 title="Trial saved"
               >
-                <Bookmark className="w-5 h-5 text-medical-accent-600 fill-medical-accent-600" />
-                <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-medical-neutral-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                <Bookmark className="w-4 h-4 sm:w-5 sm:h-5 text-medical-accent-600 fill-medical-accent-600" />
+                <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-medical-neutral-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 hidden sm:block">
                   Trial saved
                 </span>
               </button>
             ) : (
               <button
                 onClick={() => handleRemoveTrial(trial.id)}
-                className="p-1.5 hover:bg-red-50 rounded-lg transition relative group"
+                className="p-1.5 sm:p-1.5 hover:bg-red-50 rounded-lg transition relative group min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
                 title="Remove from saved"
               >
-                <Bookmark className="w-5 h-5 text-red-600 fill-red-600" />
-                <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-medical-neutral-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                <Bookmark className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 fill-red-600" />
+                <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-medical-neutral-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 hidden sm:block">
                   Remove from saved
                 </span>
               </button>
@@ -421,31 +497,31 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
 
         {/* Eligibility Badge */}
             {trial.matchResult && (
-          <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="mb-2 sm:mb-3 flex flex-wrap items-center gap-2">
             {getEligibilityBadge(trial.matchResult.eligibilityLevel)}
-            <span className="text-sm text-medical-neutral-600">
+            <span className="text-xs sm:text-sm text-medical-neutral-600">
               Match: {trial.matchResult.matchPercentage}%
             </span>
           </div>
         )}
 
         {/* Trial Details */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-4 mb-2 sm:mb-3 text-xs sm:text-sm">
           <div>
             <span className="font-medium text-medical-neutral-700">Phase:</span>
-            <span className="ml-2 text-medical-neutral-600">{trial.phase || 'Not specified'}</span>
+            <span className="ml-1 sm:ml-2 text-medical-neutral-600">{trial.phase || 'Not specified'}</span>
           </div>
           <div>
             <span className="font-medium text-medical-neutral-700">Status:</span>
-            <span className="ml-2 text-medical-neutral-600">{trial.status || 'Unknown'}</span>
+            <span className="ml-1 sm:ml-2 text-medical-neutral-600">{trial.status || 'Unknown'}</span>
           </div>
           <div>
             <span className="font-medium text-medical-neutral-700">Sponsor:</span>
-            <span className="ml-2 text-medical-neutral-600">{trial.sponsor || 'N/A'}</span>
+            <span className="ml-1 sm:ml-2 text-medical-neutral-600 break-words">{trial.sponsor || 'N/A'}</span>
           </div>
           <div>
             <span className="font-medium text-medical-neutral-700">Location:</span>
-            <span className="ml-2 text-medical-neutral-600">
+            <span className="ml-1 sm:ml-2 text-medical-neutral-600 break-words">
               {trial.locations && trial.locations.length > 0 ? (() => {
                 // Get unique countries from all locations
                 const countries = [...new Set(trial.locations.map(loc => {
@@ -468,38 +544,16 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
         </div>
 
         {/* Conditions */}
-        {trial.conditions && trial.conditions.length > 0 && (
-          <div className="mb-3">
-            <span className="font-medium text-medical-neutral-700 text-sm">Conditions:</span>
-            <div className="flex flex-wrap gap-2 mt-1">
-              {trial.conditions.map((condition, idx) => (
-                <span key={idx} className="px-2 py-1 bg-medical-primary-50 text-medical-primary-700 rounded text-xs">
-                  {condition}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+        {renderExpandableBadges(trial.conditions, trial.id, 'conditions', 'bg-medical-primary-50 text-medical-primary-700')}
 
         {/* Interventions */}
-        {trial.interventions && trial.interventions.length > 0 && (
-          <div className="mb-3">
-            <span className="font-medium text-medical-neutral-700 text-sm">Interventions:</span>
-            <div className="flex flex-wrap gap-2 mt-1">
-              {trial.interventions.map((intervention, idx) => (
-                <span key={idx} className="px-2 py-1 bg-purple-50 text-purple-700 rounded text-xs">
-                  {intervention}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+        {renderExpandableBadges(trial.interventions, trial.id, 'interventions', 'bg-purple-50 text-purple-700')}
 
         {/* Match Details */}
         {trial.matchResult && trial.matchResult.matchDetails && (
-          <div className="mb-3 p-3 bg-medical-accent-50 rounded-lg">
-            <p className="font-medium text-medical-accent-800 text-sm mb-2">Why this matches:</p>
-            <ul className="text-sm text-medical-accent-700 space-y-1">
+          <div className="mb-2 sm:mb-3 p-2.5 sm:p-3 bg-medical-accent-50 rounded-lg">
+            <p className="font-medium text-medical-accent-800 text-xs sm:text-sm mb-1.5 sm:mb-2">Why this matches:</p>
+            <ul className="text-xs sm:text-sm text-medical-accent-700 space-y-0.5 sm:space-y-1">
               {trial.matchResult.matchDetails.map((detail, idx) => (
                 <li key={idx}>• {detail.detail}</li>
               ))}
@@ -509,9 +563,9 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
 
         {/* Issues */}
         {trial.matchResult && trial.matchResult.issues && trial.matchResult.issues.length > 0 && (
-          <div className="mb-3 p-3 bg-yellow-50 rounded-lg">
-            <p className="font-medium text-yellow-800 text-sm mb-2">Considerations:</p>
-            <ul className="text-sm text-yellow-700 space-y-1">
+          <div className="mb-2 sm:mb-3 p-2.5 sm:p-3 bg-yellow-50 rounded-lg">
+            <p className="font-medium text-yellow-800 text-xs sm:text-sm mb-1.5 sm:mb-2">Considerations:</p>
+            <ul className="text-xs sm:text-sm text-yellow-700 space-y-0.5 sm:space-y-1">
               {trial.matchResult.issues.map((issue, idx) => (
                 <li key={idx}>• {issue.detail}</li>
               ))}
@@ -521,8 +575,8 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
 
         {/* Recommendation */}
         {trial.matchResult && trial.matchResult.recommendation && (
-          <div className="mb-4 p-3 bg-medical-neutral-50 rounded-lg border border-medical-neutral-200">
-            <p className="text-sm text-medical-neutral-700">{trial.matchResult.recommendation}</p>
+          <div className="mb-3 sm:mb-4 p-2.5 sm:p-3 bg-medical-neutral-50 rounded-lg border border-medical-neutral-200">
+            <p className="text-xs sm:text-sm text-medical-neutral-700">{trial.matchResult.recommendation}</p>
           </div>
         )}
 
@@ -546,30 +600,32 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                 }
               }
             }}
-            className="flex-1 border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2.5 rounded-lg hover:bg-medical-primary-50 transition text-sm font-medium flex items-center justify-center gap-2"
+            className="flex-1 border-2 border-medical-primary-500 text-medical-primary-600 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg hover:bg-medical-primary-50 transition text-xs sm:text-sm font-medium flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70"
           >
-            <FileText className="w-4 h-4" />
-            View Details
+            <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span>View Details</span>
           </button>
           {onTrialSelected && (
             <button
               onClick={() => {
                 onTrialSelected(trial);
               }}
-              className="flex-1 border-2 border-medical-accent-500 text-medical-accent-600 px-4 py-2.5 rounded-lg hover:bg-medical-accent-50 transition text-sm font-medium flex items-center justify-center gap-2"
+              className="flex-1 border-2 border-medical-accent-500 text-medical-accent-600 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg hover:bg-medical-accent-50 transition text-xs sm:text-sm font-medium flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70"
             >
-              <MessageSquare className="w-4 h-4" />
-              Ask About This Trial
+              <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Ask About This Trial</span>
+              <span className="sm:hidden">Ask About</span>
             </button>
           )}
           <a
             href={trial.url || (trial.id ? `https://clinicaltrials.gov/study/${trial.id}` : '#')}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 border-2 border-medical-neutral-500 text-medical-neutral-700 px-4 py-2.5 rounded-lg hover:bg-medical-neutral-50 transition text-sm font-medium text-center flex items-center justify-center gap-2"
+            className="flex-1 border-2 border-medical-neutral-500 text-medical-neutral-700 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg hover:bg-medical-neutral-50 transition text-xs sm:text-sm font-medium text-center flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70"
           >
-            <Globe className="w-4 h-4" />
-            View on ClinicalTrials.gov
+            <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">View on ClinicalTrials.gov</span>
+            <span className="sm:hidden">View on CT.gov</span>
           </a>
         </div>
       </div>
@@ -577,41 +633,41 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-4 sm:p-6">
+    <div className="max-w-6xl mx-auto p-3 sm:p-4 md:p-6">
       {/* Header */}
-      <div className="mb-6 flex items-center gap-3">
-        <div className="bg-medical-accent-50 p-2.5 rounded-lg">
-          <FlaskConical className="w-6 h-6 text-medical-accent-600" />
+      <div className="mb-4 sm:mb-6 flex items-center gap-2 sm:gap-3">
+        <div className="bg-medical-accent-50 p-2 sm:p-2.5 rounded-lg">
+          <FlaskConical className="w-5 h-5 sm:w-6 sm:h-6 text-medical-accent-600" />
         </div>
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-medical-neutral-900 mb-1">Clinical Trials</h1>
-          <p className="text-sm sm:text-base text-medical-neutral-600">Search and save clinical trials from ClinicalTrials.gov</p>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-medical-neutral-900 mb-0.5 sm:mb-1">Clinical Trials</h1>
+          <p className="text-xs sm:text-sm md:text-base text-medical-neutral-600">Search and save clinical trials from ClinicalTrials.gov</p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-4 mb-6 border-b border-medical-neutral-200">
+      <div className="flex gap-2 sm:gap-4 mb-4 sm:mb-6 border-b border-medical-neutral-200">
         <button
           onClick={() => setActiveTab('search')}
-          className={`pb-3 px-4 font-medium transition-all duration-200 flex items-center gap-2 ${
+          className={`pb-2 sm:pb-3 px-3 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base min-h-[44px] touch-manipulation active:opacity-70 ${
             activeTab === 'search'
               ? 'text-medical-accent-600 border-b-2 border-medical-accent-600'
               : 'text-medical-neutral-600 hover:text-medical-accent-600'
           }`}
         >
           <SearchIcon className="w-4 h-4" />
-          Search Trials
+          <span className="whitespace-nowrap">Search Trials</span>
         </button>
         <button
           onClick={() => setActiveTab('saved')}
-          className={`pb-3 px-4 font-medium transition-all duration-200 flex items-center gap-2 ${
+          className={`pb-2 sm:pb-3 px-3 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base min-h-[44px] touch-manipulation active:opacity-70 ${
             activeTab === 'saved'
               ? 'text-medical-accent-600 border-b-2 border-medical-accent-600'
               : 'text-medical-neutral-600 hover:text-medical-accent-600'
           }`}
         >
           <Bookmark className="w-4 h-4" />
-          Saved Trials ({savedTrials.length})
+          <span className="whitespace-nowrap">Saved <span className="hidden sm:inline">Trials</span> ({savedTrials.length})</span>
         </button>
       </div>
 
@@ -619,14 +675,14 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
       {activeTab === 'search' && (
         <div>
           {/* Search Info */}
-          <div className="border border-medical-accent-200 rounded-lg p-4 sm:p-5 mb-6">
-            <h3 className="font-medium text-medical-accent-900 mb-2">Search Criteria</h3>
-            <div className="text-sm text-medical-neutral-700 space-y-1">
+          <div className="border border-medical-accent-200 rounded-lg p-3 sm:p-4 md:p-5 mb-4 sm:mb-6">
+            <h3 className="font-medium text-medical-accent-900 mb-2 text-sm sm:text-base">Search Criteria</h3>
+            <div className="text-xs sm:text-sm text-medical-neutral-700 space-y-1">
               <p><strong>Diagnosis:</strong> {patientProfile?.diagnosis || 'Not set'}</p>
               <p><strong>Age:</strong> {patientProfile?.age || 'Not set'}</p>
               <p><strong>Gender:</strong> {patientProfile?.gender || 'Not set'}</p>
               {genomicProfile && (
-                <p className="flex items-center gap-1"><strong>Genomic Profile:</strong> <CheckCircle className="w-4 h-4 text-medical-accent-600" /> Available (will be used for matching)</p>
+                <p className="flex items-center gap-1 flex-wrap"><strong>Genomic Profile:</strong> <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-medical-accent-600 flex-shrink-0" /> <span className="text-xs sm:text-sm">Available (will be used for matching)</span></p>
               )}
               {trialLocation && (
                 <button
@@ -634,47 +690,47 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                     setLocalTrialLocation({ ...trialLocation });
                     setShowEditLocation(true);
                   }}
-                  className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity cursor-pointer"
+                  className="flex items-center gap-1.5 sm:gap-2 text-left hover:opacity-80 transition-opacity cursor-pointer min-h-[44px] touch-manipulation active:opacity-70 w-full"
                 >
-                  <strong>Search Location:</strong> {
+                  <strong className="text-xs sm:text-sm">Search Location:</strong> {
                     trialLocation.includeAllLocations 
                       ? (
-                        <span className="flex items-center gap-1 text-medical-accent-600">
-                          <Globe className="w-4 h-4" /> Global (All Countries)
+                        <span className="flex items-center gap-1 text-medical-accent-600 text-xs sm:text-sm">
+                          <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" /> <span className="truncate">Global (All Countries)</span>
                         </span>
                       )
                       : (
-                        <span className="flex items-center gap-1 text-medical-accent-600">
-                          <MapPin className="w-4 h-4" /> {trialLocation.country}
+                        <span className="flex items-center gap-1 text-medical-accent-600 text-xs sm:text-sm">
+                          <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" /> <span className="truncate">{trialLocation.country}</span>
                         </span>
                       )
                   }
-                  <span className="text-xs text-medical-accent-500 ml-1">(Click to change)</span>
+                  <span className="text-xs text-medical-accent-500 ml-1 flex-shrink-0">(Click to change)</span>
                 </button>
               )}
             </div>
           </div>
 
           {/* Search Button and Clear Button */}
-          <div className="flex gap-3 mb-6">
+          <div className="flex gap-2 sm:gap-3 mb-4 sm:mb-6">
             <button
               onClick={handleSearchTrials}
               disabled={searching || !patientProfile?.diagnosis}
-              className="flex-1 border-2 border-medical-accent-500 text-medical-accent-600 px-6 py-3.5 rounded-lg hover:bg-medical-accent-50 transition font-medium text-base sm:text-lg disabled:border-medical-neutral-400 disabled:text-medical-neutral-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 border-2 border-medical-accent-500 text-medical-accent-600 px-4 sm:px-6 py-2.5 sm:py-3.5 rounded-lg hover:bg-medical-accent-50 transition font-medium text-sm sm:text-base md:text-lg disabled:border-medical-neutral-400 disabled:text-medical-neutral-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-h-[44px] touch-manipulation active:opacity-70"
             >
               {searching ? (
-                <span className="flex items-center gap-2"><SearchIcon className="w-5 h-5" /> Searching sources...</span>
+                <span className="flex items-center gap-2"><SearchIcon className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">Searching sources...</span><span className="sm:hidden">Searching...</span></span>
               ) : (
-                <span className="flex items-center gap-2"><SearchIcon className="w-5 h-5" /> Search Clinical Trials</span>
+                <span className="flex items-center gap-2"><SearchIcon className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">Search Clinical Trials</span><span className="sm:hidden">Search</span></span>
               )}
             </button>
             {searchResults.length > 0 && (
               <button
                 onClick={handleClearSearch}
-                className="border-2 border-medical-neutral-500 text-medical-neutral-700 px-4 py-3.5 rounded-lg hover:bg-medical-neutral-50 transition font-medium text-base sm:text-lg flex items-center justify-center gap-2"
+                className="border-2 border-medical-neutral-500 text-medical-neutral-700 px-3 sm:px-4 py-2.5 sm:py-3.5 rounded-lg hover:bg-medical-neutral-50 transition font-medium text-sm sm:text-base md:text-lg flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] touch-manipulation active:opacity-70"
                 title="Clear search results"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">Clear</span>
               </button>
             )}
@@ -684,20 +740,20 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             <div>
               {searchSources && searchSources.length > 0 && (
                 <div className="mb-3 flex items-center gap-2 flex-wrap">
-                  <span className="text-sm text-medical-neutral-600">Sources used:</span>
+                  <span className="text-xs sm:text-sm text-medical-neutral-600">Sources used:</span>
                   {searchSources.map((s, idx) => (
                     <span key={idx} className="text-xs px-2 py-0.5 bg-medical-neutral-100 text-medical-neutral-700 rounded-full">{s}</span>
                   ))}
                 </div>
               )}
               {searchProgress && (
-                <div className="mb-2 text-sm text-medical-neutral-500">{searchProgress}</div>
+                <div className="mb-2 text-xs sm:text-sm text-medical-neutral-500">{searchProgress}</div>
               )}
 
-              <h2 className="text-lg sm:text-xl font-semibold text-medical-neutral-900 mb-4">
+              <h2 className="text-base sm:text-lg md:text-xl font-semibold text-medical-neutral-900 mb-3 sm:mb-4">
                 Found {searchResults.length} Matching Trials
                 {pagination && pagination.totalResults && (
-                  <span className="text-sm sm:text-base font-normal text-medical-neutral-600 ml-2">
+                  <span className="text-xs sm:text-sm md:text-base font-normal text-medical-neutral-600 ml-1 sm:ml-2">
                     (of {pagination.totalResults} total)
                   </span>
                 )}
@@ -707,25 +763,25 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                 
                 {/* Load More Button */}
                 {pagination && pagination.hasMore && (
-                  <div className="flex justify-center pt-6">
+                  <div className="flex justify-center pt-4 sm:pt-6">
                     <button
                       onClick={handleLoadMore}
                       disabled={loadingMore || searching}
-                      className="px-6 py-3 border-2 border-medical-accent-500 text-medical-accent-600 rounded-lg font-medium hover:bg-medical-accent-50 transition disabled:border-medical-neutral-400 disabled:text-medical-neutral-400 disabled:cursor-not-allowed flex items-center gap-2"
+                      className="px-4 sm:px-6 py-2.5 sm:py-3 border-2 border-medical-accent-500 text-medical-accent-600 rounded-lg font-medium hover:bg-medical-accent-50 transition disabled:border-medical-neutral-400 disabled:text-medical-neutral-400 disabled:cursor-not-allowed flex items-center gap-2 text-sm sm:text-base min-h-[44px] touch-manipulation active:opacity-70"
                     >
                       {loadingMore ? (
                         <>
-                          <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <svg className="animate-spin h-4 w-4 sm:h-5 sm:w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                           </svg>
-                          Loading...
+                          <span>Loading...</span>
                         </>
                       ) : (
                         <>
-                          Load More
+                          <span>Load More</span>
                           {pagination.totalResults && (
-                            <span className="text-sm opacity-75">
+                            <span className="text-xs sm:text-sm opacity-75">
                               ({searchResults.length} of {pagination.totalResults})
                             </span>
                           )}
@@ -740,10 +796,10 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
 
           {/* Error Display */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 sm:p-5 mb-6">
-              <p className="text-red-800 font-medium flex items-center gap-2 text-sm sm:text-base"><AlertTriangle className="w-5 h-5 flex-shrink-0" /> {error}</p>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 md:p-5 mb-4 sm:mb-6">
+              <p className="text-red-800 font-medium flex items-center gap-2 text-xs sm:text-sm md:text-base"><AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> {error}</p>
               {searchSources && searchSources.length > 0 && (
-                <p className="text-sm text-red-600 mt-2">
+                <p className="text-xs sm:text-sm text-red-600 mt-2">
                   Sources attempted: {searchSources.join(', ')}
                 </p>
               )}
@@ -751,9 +807,9 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
           )}
 
           {!searching && searchResults.length === 0 && !error && (
-            <div className="text-center text-medical-neutral-500 py-12">
-              <p className="text-base sm:text-lg">Click "Search Clinical Trials" to find matching trials</p>
-              <p className="text-sm mt-2">Results will appear here after searching</p>
+            <div className="text-center text-medical-neutral-500 py-8 sm:py-12">
+              <p className="text-sm sm:text-base md:text-lg">Click "Search Clinical Trials" to find matching trials</p>
+              <p className="text-xs sm:text-sm mt-2">Results will appear here after searching</p>
             </div>
           )}
         </div>
@@ -763,15 +819,15 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
       {activeTab === 'saved' && (
         <div>
             {loading ? (
-            <div className="text-center py-12">
-              <p className="text-medical-neutral-500">Loading saved trials...</p>
+            <div className="text-center py-8 sm:py-12">
+              <p className="text-medical-neutral-500 text-sm sm:text-base">Loading saved trials...</p>
             </div>
           ) : error ? (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-              <p className="text-yellow-800 font-medium flex items-center gap-2 mb-2">
-                <AlertTriangle className="w-5 h-5" /> Index Required
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+              <p className="text-yellow-800 font-medium flex items-center gap-2 mb-2 text-sm sm:text-base">
+                <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> Index Required
               </p>
-              <p className="text-sm text-yellow-700 mb-2">
+              <p className="text-xs sm:text-sm text-yellow-700 mb-2">
                 {error.includes('https://') 
                   ? 'A Firestore index is required. Click the link below to create it:'
                   : 'A Firestore index is required. Please create an index for matchedTrials (patientId + savedAt) in Firebase Console.'}
@@ -781,7 +837,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                   href={error.match(/https:\/\/[^\s]+/)?.[0]} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="text-medical-primary-600 hover:underline text-sm block mb-2"
+                  className="text-medical-primary-600 hover:underline text-xs sm:text-sm block mb-2 break-all"
                 >
                   Click here to create the required index →
                 </a>
@@ -792,15 +848,15 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             </div>
           ) : savedTrials.length > 0 ? (
             <div>
-              <h2 className="text-lg sm:text-xl font-semibold text-medical-neutral-900 mb-4">
+              <h2 className="text-base sm:text-lg md:text-xl font-semibold text-medical-neutral-900 mb-3 sm:mb-4">
                 Your Saved Trials ({savedTrials.length})
               </h2>
               {savedTrials.map(trial => renderTrialCard(trial, true))}
             </div>
           ) : (
-            <div className="text-center text-medical-neutral-500 py-12">
-              <p className="text-base sm:text-lg">No saved trials yet</p>
-              <p className="text-sm mt-2">Search for trials and save the ones you're interested in</p>
+            <div className="text-center text-medical-neutral-500 py-8 sm:py-12">
+              <p className="text-sm sm:text-base md:text-lg">No saved trials yet</p>
+              <p className="text-xs sm:text-sm mt-2">Search for trials and save the ones you're interested in</p>
             </div>
           )}
         </div>
@@ -811,13 +867,13 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
           <div className="bg-white w-full h-full sm:h-auto sm:max-w-3xl sm:rounded-xl sm:max-h-[85vh] flex flex-col animate-slide-up shadow-lg border border-medical-neutral-200">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-medical-neutral-200 flex-shrink-0">
-              <h2 className="text-xl sm:text-2xl font-bold text-medical-neutral-900 pr-4">
+            <div className="flex items-center justify-between p-3 sm:p-4 md:p-6 border-b border-medical-neutral-200 flex-shrink-0">
+              <h2 className="text-base sm:text-xl md:text-2xl font-bold text-medical-neutral-900 pr-2 sm:pr-4 break-words">
                 {selectedTrial.title || selectedTrial.titleJa || 'Trial Details'}
               </h2>
               <button
                 onClick={() => setSelectedTrial(null)}
-                className="p-2 hover:bg-medical-neutral-100 rounded-lg transition flex-shrink-0"
+                className="p-2 hover:bg-medical-neutral-100 rounded-lg transition flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
                 type="button"
               >
                 <X className="w-5 h-5 text-medical-neutral-600" />
@@ -825,17 +881,17 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
               {selectedTrial.titleJa && selectedTrial.title !== selectedTrial.titleJa && (
-                <div className="bg-medical-accent-50 border border-medical-accent-200 rounded-lg p-3">
-                  <p className="text-sm text-medical-accent-800">{selectedTrial.titleJa}</p>
+                <div className="bg-medical-accent-50 border border-medical-accent-200 rounded-lg p-2.5 sm:p-3">
+                  <p className="text-xs sm:text-sm text-medical-accent-800 break-words">{selectedTrial.titleJa}</p>
                 </div>
               )}
 
               {/* Summary */}
-              <div className="bg-white rounded-lg border border-medical-neutral-200 p-4">
-                <h3 className="font-semibold text-medical-neutral-900 mb-3 flex items-center gap-2">
-                  <SearchIcon className="w-5 h-5 text-medical-accent-600" />
+              <div className="bg-white rounded-lg border border-medical-neutral-200 p-3 sm:p-4">
+                <h3 className="font-semibold text-medical-neutral-900 mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base">
+                  <SearchIcon className="w-4 h-4 sm:w-5 sm:h-5 text-medical-accent-600 flex-shrink-0" />
                   Summary
                 </h3>
                 {loadingTrialDetails ? (
@@ -872,12 +928,12 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
 
               {/* Eligibility Criteria */}
               {selectedTrial.eligibility && (
-                <div className="bg-white rounded-lg border border-medical-neutral-200 p-4">
-                  <h3 className="font-semibold text-medical-neutral-900 mb-3 flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-medical-accent-600" />
+                <div className="bg-white rounded-lg border border-medical-neutral-200 p-3 sm:p-4">
+                  <h3 className="font-semibold text-medical-neutral-900 mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base">
+                    <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-medical-accent-600 flex-shrink-0" />
                     Eligibility Criteria
                   </h3>
-                  <div className="bg-medical-neutral-50 rounded-lg p-3 border border-medical-neutral-200">
+                  <div className="bg-medical-neutral-50 rounded-lg p-2.5 sm:p-3 border border-medical-neutral-200">
                     <div className="text-sm text-medical-neutral-700 leading-relaxed prose prose-sm max-w-none">
                       <ReactMarkdown
                         components={{
@@ -1006,27 +1062,29 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             </div>
 
             {/* Footer Actions */}
-            <div className="border-t border-medical-neutral-200 p-4 sm:p-6 flex flex-col sm:flex-row gap-3 flex-shrink-0">
+            <div className="border-t border-medical-neutral-200 p-3 sm:p-4 md:p-6 flex flex-col sm:flex-row gap-2 sm:gap-3 flex-shrink-0">
               {onTrialSelected && (
                 <button
                   onClick={() => {
                     onTrialSelected(selectedTrial);
                     setSelectedTrial(null);
                   }}
-                  className="flex-1 border-2 border-medical-accent-500 text-medical-accent-600 px-6 py-3 rounded-lg hover:bg-medical-accent-50 transition-all duration-200 font-semibold flex items-center justify-center gap-2"
+                  className="flex-1 border-2 border-medical-accent-500 text-medical-accent-600 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg hover:bg-medical-accent-50 transition-all duration-200 font-semibold flex items-center justify-center gap-1.5 sm:gap-2 text-sm sm:text-base min-h-[44px] touch-manipulation active:opacity-70"
                 >
-                  <MessageSquare className="w-5 h-5" />
-                  Ask About This Trial
+                  <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">Ask About This Trial</span>
+                  <span className="sm:hidden">Ask About</span>
                 </button>
               )}
               <a
                 href={selectedTrial.url || (selectedTrial.id ? `https://clinicaltrials.gov/study/${selectedTrial.id}` : '#')}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 border-2 border-medical-accent-500 text-medical-accent-600 px-6 py-3 rounded-lg hover:bg-medical-accent-50 transition-all duration-200 text-center font-semibold flex items-center justify-center gap-2"
+                className="flex-1 border-2 border-medical-neutral-500 text-medical-neutral-700 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg hover:bg-medical-neutral-50 transition-all duration-200 text-center font-semibold flex items-center justify-center gap-1.5 sm:gap-2 text-sm sm:text-base min-h-[44px] touch-manipulation active:opacity-70"
               >
-                <Globe className="w-5 h-5" />
-                View on ClinicalTrials.gov
+                <Globe className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline">View on ClinicalTrials.gov</span>
+                <span className="sm:hidden">View on CT.gov</span>
               </a>
             </div>
           </div>
@@ -1037,17 +1095,17 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
       {showEditLocation && localTrialLocation && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
           <div className="bg-white w-full h-full sm:h-auto sm:max-w-lg sm:rounded-xl sm:max-h-[85vh] flex flex-col animate-slide-up">
-            <div className="flex items-center justify-between p-4 border-b border-medical-neutral-200 flex-shrink-0">
-              <h3 className="text-lg font-semibold text-medical-neutral-900">Trial Search Location</h3>
+            <div className="flex items-center justify-between p-3 sm:p-4 border-b border-medical-neutral-200 flex-shrink-0">
+              <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900">Trial Search Location</h3>
               <button
                 onClick={() => setShowEditLocation(false)}
-                className="p-2 hover:bg-medical-neutral-100 rounded-lg transition"
+                className="p-2 hover:bg-medical-neutral-100 rounded-lg transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
               >
                 <X className="w-5 h-5 text-medical-neutral-600" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
               <div className="bg-medical-accent-50 border border-medical-accent-200 rounded-lg p-3">
                 <div className="flex items-start gap-2">
                   <AlertCircle className="w-5 h-5 text-medical-accent-600 mt-0.5 flex-shrink-0" />
@@ -1128,10 +1186,10 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
               </div>
             </div>
 
-            <div className="border-t border-medical-neutral-200 p-4 flex gap-3 flex-shrink-0">
+            <div className="border-t border-medical-neutral-200 p-3 sm:p-4 flex gap-2 sm:gap-3 flex-shrink-0">
               <button
                 onClick={() => setShowEditLocation(false)}
-                className="flex-1 border-2 border-medical-neutral-500 text-medical-neutral-700 py-2.5 rounded-lg font-medium hover:bg-medical-neutral-50 transition"
+                className="flex-1 border-2 border-medical-neutral-500 text-medical-neutral-700 py-2.5 rounded-lg font-medium hover:bg-medical-neutral-50 transition min-h-[44px] touch-manipulation active:opacity-70 text-sm sm:text-base"
               >
                 Cancel
               </button>
@@ -1151,7 +1209,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                     alert('Failed to save location settings. Please try again.');
                   }
                 }}
-                className="flex-1 border-2 border-medical-primary-500 text-medical-primary-600 py-2.5 rounded-lg font-medium hover:bg-medical-primary-50 transition"
+                className="flex-1 border-2 border-medical-primary-500 text-medical-primary-600 py-2.5 rounded-lg font-medium hover:bg-medical-primary-50 transition min-h-[44px] touch-manipulation active:opacity-70 text-sm sm:text-base"
               >
                 Save
               </button>

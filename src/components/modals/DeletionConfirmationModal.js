@@ -6,9 +6,36 @@ export default function DeletionConfirmationModal({
   onClose,
   deletionType,
   isDeleting,
-  onConfirm
+  onConfirm,
+  title,
+  message,
+  confirmText = 'Yes, Delete Permanently',
+  itemName
 }) {
   if (!show) return null;
+
+  // Default titles and messages based on deletionType
+  const getTitle = () => {
+    if (title) return title;
+    if (deletionType === 'data') return 'Clear Health Records?';
+    if (deletionType === 'account') return 'Delete Account Forever?';
+    if (itemName) return `Delete ${itemName}?`;
+    return 'Delete Item?';
+  };
+
+  const getMessage = () => {
+    if (message) return message;
+    if (deletionType === 'data') {
+      return 'This will erase all your labs, vitals, and documents. Your profile and login will remain.';
+    }
+    if (deletionType === 'account') {
+      return 'This will permanently delete your account and all health data from our servers.';
+    }
+    if (itemName) {
+      return `This will permanently delete ${itemName}. This action cannot be undone.`;
+    }
+    return 'This action cannot be undone.';
+  };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -18,13 +45,11 @@ export default function DeletionConfirmationModal({
         </div>
 
         <h3 className="text-lg font-bold text-gray-900 text-center mb-2">
-          {deletionType === 'data' ? 'Clear Health Records?' : 'Delete Account Forever?'}
+          {getTitle()}
         </h3>
 
         <p className="text-sm text-gray-600 text-center mb-6">
-          {deletionType === 'data'
-            ? 'This will erase all your labs, vitals, and documents. Your profile and login will remain.'
-            : 'This will permanently delete your account and all health data from our servers.'}
+          {getMessage()}
           <br />
           <span className="font-bold text-red-600 mt-2 block">This action is irreversible.</span>
         </p>
@@ -43,7 +68,7 @@ export default function DeletionConfirmationModal({
             ) : (
               <>
                 <Trash2 className="w-4 h-4" />
-                Yes, Delete Permanently
+                {confirmText}
               </>
             )}
           </button>

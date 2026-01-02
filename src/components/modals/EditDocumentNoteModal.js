@@ -102,9 +102,9 @@ export default function EditDocumentNoteModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-md w-full p-6">
-        <div className="flex items-center justify-between mb-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end md:items-center justify-center z-50 p-0 md:p-4">
+      <div className="bg-white w-full h-full md:h-auto md:rounded-xl md:max-w-md md:max-h-[90vh] overflow-hidden flex flex-col animate-slide-up">
+        <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-900">Edit Document Note</h3>
           <button
             onClick={handleClose}
@@ -114,30 +114,34 @@ export default function EditDocumentNoteModal({
             <X className="w-6 h-6" />
           </button>
         </div>
-        <p className="text-sm text-gray-600 mb-4">
-          This note will be updated for the document and all lab/vital values extracted from it.
-        </p>
-        <textarea
-          value={documentNoteEdit}
-          onChange={(e) => setDocumentNoteEdit(e.target.value)}
-          placeholder="e.g., Before starting treatment, After cycle 2, Post-surgery..."
-          rows={3}
-          className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500 resize-none mb-4"
-        />
-        <div className="flex items-center gap-3 justify-end">
-          <button
-            onClick={handleClose}
-            className="px-4 py-2 text-gray-600 hover:text-gray-900 font-medium transition"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            className="px-6 py-2 bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition font-medium flex items-center gap-2"
-          >
-            <Save className="w-4 h-4" />
-            Save Note
-          </button>
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+          <p className="text-sm text-gray-600 mb-4">
+            This note will be updated for the document and all lab/vital values extracted from it.
+          </p>
+          <textarea
+            value={documentNoteEdit}
+            onChange={(e) => setDocumentNoteEdit(e.target.value)}
+            placeholder="e.g., Before starting treatment, After cycle 2, Post-surgery..."
+            rows={3}
+            className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500 resize-none"
+          />
+        </div>
+        <div className="flex-shrink-0 border-t p-4 bg-white">
+          <div className="flex gap-3">
+            <button
+              onClick={handleClose}
+              className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              className="flex-1 bg-medical-primary-500 text-white py-2.5 rounded-lg font-medium hover:bg-medical-primary-600 transition flex items-center justify-center gap-2"
+            >
+              <Save className="w-4 h-4" />
+              Save Note
+            </button>
+          </div>
         </div>
       </div>
     </div>

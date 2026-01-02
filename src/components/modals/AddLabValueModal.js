@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Check } from 'lucide-react';
 import { labService } from '../../firebase/services';
 import { getTodayLocalDate } from '../../utils/helpers';
+import DatePicker from '../DatePicker';
 
 export default function AddLabValueModal({
   show,
@@ -103,7 +104,7 @@ export default function AddLabValueModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 md:p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end md:items-center justify-center z-50 p-0 md:p-4">
       <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
         <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
           <h3 className="font-bold text-lg text-gray-800">{isEditingLabValue ? 'Edit Metric Value' : `Add ${selectedLabForValue.name} Value`}</h3>
@@ -139,12 +140,11 @@ export default function AddLabValueModal({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Date <span className="text-red-600">*</span>
               </label>
-              <input
-                type="date"
+              <DatePicker
                 value={newLabValue.date}
                 onChange={(e) => setNewLabValue({ ...newLabValue, date: e.target.value })}
                 max={getTodayLocalDate()}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Select date"
               />
             </div>
 
