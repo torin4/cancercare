@@ -392,19 +392,25 @@ export default function FilesTab({ onTabChange }) {
         <DocumentUploadOnboarding
           isOnboarding={!hasUploadedDocument}
           onClose={() => setShowDocumentOnboarding(false)}
-          onUploadClick={(documentType, documentDate = null, documentNote = null) => {
+          onUploadClick={(documentType, documentDate = null, documentNote = null, file = null) => {
             setShowDocumentOnboarding(false);
             setPendingDocumentDate(documentDate);
             setPendingDocumentNote(documentNote);
-            // Check if mobile device
-            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
             
-            if (documentOnboardingMethod === 'camera') {
-              simulateCameraUpload(documentType);
-            } else if (isMobile) {
-              simulateCameraUpload(documentType);
+            // If file is provided (from component's file picker), upload it directly
+            if (file) {
+              handleRealFileUpload(file, documentType);
             } else {
-              simulateDocumentUpload(documentType);
+              // Otherwise, open file picker (fallback)
+              const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+              
+              if (documentOnboardingMethod === 'camera') {
+                simulateCameraUpload(documentType);
+              } else if (isMobile) {
+                simulateCameraUpload(documentType);
+              } else {
+                simulateDocumentUpload(documentType);
+              }
             }
           }}
         />
@@ -430,6 +436,7 @@ export default function FilesTab({ onTabChange }) {
       <UploadProgressOverlay
         show={isUploading}
         uploadProgress={uploadProgress}
+        documentScanAnimation={null}
       />
 
       <DeletionConfirmationModal

@@ -736,7 +736,7 @@ export default function ChatTab({ onTabChange }) {
                           name = patientProfile.caregiverName;
                         } else {
                           name = patientProfile.firstName || patientProfile.lastName 
-                            ? `${patientProfile.firstName || ''} ${patientProfile.middleName ? patientProfile.middleName + ' ' : ''}${patientProfile.lastName || ''}`.trim()
+                            ? `${patientProfile.firstName || ''} ${patientProfile.lastName || ''}`.trim()
                             : patientProfile.name || user?.displayName || 'U';
                         }
                         const parts = name.trim().split(/\s+/);
@@ -890,15 +890,11 @@ export default function ChatTab({ onTabChange }) {
       )}
 
       {/* Upload Progress Overlay */}
-      {isUploading && (
-        <UploadProgressOverlay
-          progress={uploadProgress}
-          onCancel={() => {
-            setIsUploading(false);
-            setUploadProgress('');
-          }}
-        />
-      )}
+      <UploadProgressOverlay
+        show={isUploading}
+        uploadProgress={uploadProgress}
+        documentScanAnimation={null}
+      />
     </>
   );
 }

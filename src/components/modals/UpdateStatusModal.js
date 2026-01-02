@@ -16,7 +16,8 @@ export default function UpdateStatusModal({
   updateStatusTreatmentCustom,
   setUpdateStatusTreatmentCustom,
   setPatientProfile,
-  setMessages
+  setMessages,
+  refreshPatient
 }) {
   const { showSuccess, showError } = useBanner();
   if (!show) return null;
@@ -61,6 +62,12 @@ export default function UpdateStatusModal({
         cancerType: finalSubtype || prev.cancerType,
         stage: currentStatus.stage || prev.stage
       }));
+      
+      // Refresh patient profile from Firestore to ensure persistence
+      if (refreshPatient) {
+        await refreshPatient();
+      }
+      
       showSuccess('Current status updated successfully!');
       if (setMessages) {
         setMessages(prev => [...prev, { type: 'ai', text: 'Current status updated successfully!' }]);

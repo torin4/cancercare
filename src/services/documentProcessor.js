@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { labService, vitalService, medicationService, genomicProfileService } from '../firebase/services';
+import { parseLocalDate } from '../utils/helpers';
 
 const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY || process.env.GEMINI_API_KEY);
 
@@ -464,17 +465,18 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
     if (extractedData.data?.labs) {
       for (const lab of extractedData.data.labs) {
         // Parse date - try multiple formats and fallback to user-provided date or today if missing
+        // Use parseLocalDate to avoid timezone issues (prevents dates from shifting by one day)
         let labDate = new Date();
         if (lab.date) {
-          // Try parsing the date string
-          const parsedDate = new Date(lab.date);
+          // Try parsing the date string as local date
+          const parsedDate = parseLocalDate(lab.date);
           if (!isNaN(parsedDate.getTime())) {
             labDate = parsedDate;
           } else {
             console.warn(`Could not parse lab date "${lab.date}" for ${lab.label}, using fallback date`);
             // Try user-provided date, otherwise use today
             if (documentDate) {
-              const userDate = new Date(documentDate);
+              const userDate = parseLocalDate(documentDate);
               if (!isNaN(userDate.getTime())) {
                 labDate = userDate;
               }
@@ -484,7 +486,7 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
           console.warn(`Lab ${lab.label} missing date field, using fallback date`);
           // Use user-provided date if available, otherwise use today
           if (documentDate) {
-            const userDate = new Date(documentDate);
+            const userDate = parseLocalDate(documentDate);
             if (!isNaN(userDate.getTime())) {
               labDate = userDate;
             }
@@ -525,16 +527,17 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
     if (extractedData.data?.vitals) {
       for (const vital of extractedData.data.vitals) {
         // Parse date - try multiple formats and fallback to user-provided date or today if missing
+        // Use parseLocalDate to avoid timezone issues (prevents dates from shifting by one day)
         let vitalDate = new Date();
         if (vital.date) {
-          const parsedDate = new Date(vital.date);
+          const parsedDate = parseLocalDate(vital.date);
           if (!isNaN(parsedDate.getTime())) {
             vitalDate = parsedDate;
           } else {
             console.warn(`Could not parse vital date "${vital.date}" for ${vital.label}, using fallback date`);
             // Try user-provided date, otherwise use today
             if (documentDate) {
-              const userDate = new Date(documentDate);
+              const userDate = parseLocalDate(documentDate);
               if (!isNaN(userDate.getTime())) {
                 vitalDate = userDate;
               }
@@ -544,7 +547,7 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
           console.warn(`Vital ${vital.label} missing date field, using fallback date`);
           // Use user-provided date if available, otherwise use today
           if (documentDate) {
-            const userDate = new Date(documentDate);
+            const userDate = parseLocalDate(documentDate);
             if (!isNaN(userDate.getTime())) {
               vitalDate = userDate;
             }

@@ -25,7 +25,7 @@ export default function AddVitalModal({
   const handleCancel = () => {
     setIsEditingVital(false);
     setEditingVitalValueId(null);
-    setNewVital({ vitalType: '', value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
+    setNewVital({ vitalType: '', value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '', customLabel: '', customUnit: '', customNormalRange: '' });
     onClose();
   };
 
@@ -35,7 +35,16 @@ export default function AddVitalModal({
       return;
     }
 
-    if (newVital.vitalType === 'bp') {
+    if (newVital.vitalType === 'custom') {
+      if (!newVital.customLabel || !newVital.customNormalRange || !newVital.customUnit) {
+        showError('Please fill in all custom vital details.');
+        return;
+      }
+      if (!newVital.value) {
+        showError('Please enter a reading.');
+        return;
+      }
+    } else if (newVital.vitalType === 'bp') {
       if (!newVital.systolic || !newVital.diastolic) {
         showError('Please enter both systolic and diastolic values for blood pressure.');
         return;
@@ -127,16 +136,23 @@ export default function AddVitalModal({
         }
       };
 
+      // Determine vital type, label, unit, and normal range
+      const isCustom = newVital.vitalType === 'custom';
+      const vitalType = isCustom ? newVital.customLabel.toLowerCase().replace(/[^a-z0-9]/g, '') : newVital.vitalType;
+      const vitalLabel = isCustom ? newVital.customLabel : vitalLabels[newVital.vitalType];
+      const vitalUnit = isCustom ? newVital.customUnit : vitalUnits[newVital.vitalType];
+      const vitalNormalRange = isCustom ? newVital.customNormalRange : getVitalNormalRange(newVital.vitalType);
+
       let vitalId;
 
       if (isEditingVital && editingVitalValueId) {
         // When editing, get the vitalId from the current vital document
-        const currentVitalDoc = allVitalsData?.[newVital.vitalType];
+        const currentVitalDoc = allVitalsData?.[vitalType];
         if (currentVitalDoc && currentVitalDoc.id) {
           vitalId = currentVitalDoc.id;
         } else {
           // Fallback: try to get existing vital
-          const existingVital = await vitalService.getVitalByType(user.uid, newVital.vitalType);
+          const existingVital = await vitalService.getVitalByType(user.uid, vitalType);
           if (existingVital) {
             vitalId = existingVital.id;
           } else {
@@ -146,28 +162,25 @@ export default function AddVitalModal({
         }
       } else {
         // When adding new value, check if vital already exists
-        let existingVital = await vitalService.getVitalByType(user.uid, newVital.vitalType);
+        let existingVital = await vitalService.getVitalByType(user.uid, vitalType);
         if (existingVital) {
           vitalId = existingVital.id;
           // Update normal range if it's missing
-          if (!existingVital.normalRange) {
-            const calculatedNormalRange = getVitalNormalRange(newVital.vitalType);
-            if (calculatedNormalRange) {
-              await vitalService.saveVital({
-                id: vitalId,
-                normalRange: calculatedNormalRange
-              });
-            }
+          if (!existingVital.normalRange && vitalNormalRange) {
+            await vitalService.saveVital({
+              id: vitalId,
+              normalRange: vitalNormalRange
+            });
           }
         } else {
           // Create new vital
           vitalId = await vitalService.saveVital({
             patientId: user.uid,
-            vitalType: newVital.vitalType,
-            label: vitalLabels[newVital.vitalType],
+            vitalType: vitalType,
+            label: vitalLabel,
             currentValue: newVital.vitalType === 'bp' ? `${newVital.systolic}/${newVital.diastolic}` : parseFloat(newVital.value),
-            unit: vitalUnits[newVital.vitalType],
-            normalRange: getVitalNormalRange(newVital.vitalType),
+            unit: vitalUnit,
+            normalRange: vitalNormalRange,
             createdAt: vitalDate
           });
         }
@@ -211,7 +224,7 @@ export default function AddVitalModal({
 
       setIsEditingVital(false);
       setEditingVitalValueId(null);
-      setNewVital({ vitalType: '', value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
+      setNewVital({ vitalType: '', value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '', customLabel: '', customUnit: '', customNormalRange: '' });
       showSuccess(isEditingVital ? 'Vital reading updated successfully!' : 'Vital reading added successfully!');
       onClose();
     } catch (error) {
@@ -251,11 +264,10 @@ export default function AddVitalModal({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Vital Sign <span className="text-red-600">*</span>
             </label>
-            <select 
+            <select
               value={newVital.vitalType || ''}
               onChange={(e) => setNewVital({ ...newVital, vitalType: e.target.value, value: '', systolic: '', diastolic: '' })}
               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={!!newVital.vitalType}
             >
               <option value="">Select vital sign...</option>
               {(() => {
@@ -274,15 +286,15 @@ export default function AddVitalModal({
                   // Check all possible key variations (normalized and non-normalized)
                   const exists = allVitalsData && Object.keys(allVitalsData).some(existingKey => {
                     // Check if any of the option's keys match the existing key (case-insensitive)
-                    return option.keys.some(key => 
-                      existingKey.toLowerCase() === key.toLowerCase() || 
+                    return option.keys.some(key =>
+                      existingKey.toLowerCase() === key.toLowerCase() ||
                       existingKey.toLowerCase().replace(/[_\s]/g, '') === key.toLowerCase().replace(/[_\s]/g, '')
                     );
                   });
-                  
+
                   return (
-                    <option 
-                      key={option.value} 
+                    <option
+                      key={option.value}
                       value={option.value}
                       disabled={exists}
                       style={exists ? { color: '#9ca3af', fontStyle: 'italic' } : {}}
@@ -292,33 +304,96 @@ export default function AddVitalModal({
                   );
                 });
               })()}
+
+              <optgroup label="Custom">
+                <option value="custom">Enter Custom Vital</option>
+              </optgroup>
             </select>
           </div>
 
-          {newVital.vitalType === 'bp' ? (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Reading <span className="text-red-600">*</span>
-              </label>
-              <div className="grid grid-cols-2 gap-2">
+          {newVital.vitalType === 'custom' ? (
+            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+              <h4 className="font-semibold text-gray-800 text-sm">Custom Vital Details</h4>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Vital Name *</label>
                 <input
-                  type="number"
-                  placeholder="Systolic"
-                  value={newVital.systolic || ''}
-                  onChange={(e) => setNewVital({ ...newVital, systolic: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <input
-                  type="number"
-                  placeholder="Diastolic"
-                  value={newVital.diastolic || ''}
-                  onChange={(e) => setNewVital({ ...newVital, diastolic: e.target.value })}
+                  type="text"
+                  value={newVital.customLabel || ''}
+                  onChange={(e) => setNewVital({ ...newVital, customLabel: e.target.value })}
+                  placeholder="e.g., Peak Flow, Steps"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              <p className="text-xs text-gray-500 mt-1">For blood pressure, enter both values</p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Normal Range *</label>
+                  <input
+                    type="text"
+                    value={newVital.customNormalRange || ''}
+                    onChange={(e) => setNewVital({ ...newVital, customNormalRange: e.target.value })}
+                    placeholder="e.g., >400, 60-100"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Unit *</label>
+                  <input
+                    type="text"
+                    value={newVital.customUnit || ''}
+                    onChange={(e) => setNewVital({ ...newVital, customUnit: e.target.value })}
+                    placeholder="e.g., L/min, steps"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
             </div>
-          ) : (
+          ) : null}
+
+          {newVital.vitalType && newVital.vitalType !== 'custom' && (
+            newVital.vitalType === 'bp' ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Reading <span className="text-red-600">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    placeholder="Systolic"
+                    value={newVital.systolic || ''}
+                    onChange={(e) => setNewVital({ ...newVital, systolic: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Diastolic"
+                    value={newVital.diastolic || ''}
+                    onChange={(e) => setNewVital({ ...newVital, diastolic: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">For blood pressure, enter both values</p>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Reading <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={newVital.value || ''}
+                  onChange={(e) => setNewVital({ ...newVital, value: e.target.value })}
+                  placeholder="Enter reading"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            )
+          )}
+
+          {newVital.vitalType === 'custom' && newVital.customLabel && newVital.customNormalRange && newVital.customUnit && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Reading <span className="text-red-600">*</span>

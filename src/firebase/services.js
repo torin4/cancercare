@@ -931,7 +931,7 @@ export const trialLocationService = {
 export const accountService = {
   /**
    * Clears all medical/personal health data but keeps basic profile info
-   * Preserves: patient profile, emergency contacts, trial location preferences
+   * Preserves: patient profile, current status, diagnosis, emergency contacts, trial location preferences
    */
   async clearHealthData(userId) {
     try {
@@ -974,18 +974,9 @@ export const accountService = {
         await deleteDoc(genomicRef);
       }
 
-      // 3. Clear currentStatus from patient profile (but preserve diagnosis and basic profile info)
-      // Note: diagnosis, diagnosisDate are kept persistent for trial matching
-      const patientRef = doc(db, COLLECTIONS.PATIENTS, userId);
-      const patientSnap = await getDoc(patientRef);
-      if (patientSnap.exists()) {
-        await updateDoc(patientRef, {
-          currentStatus: null,
-          cancerType: null,
-          stage: null,
-          stageOther: null
-        });
-      }
+      // 3. Preserve currentStatus and diagnosis info in patient profile
+      // Note: diagnosis, diagnosisDate, currentStatus are kept persistent for trial matching and user reference
+      // Only clear health data collections, not the patient's current status information
 
       console.log('Health data cleared successfully - patient profile preserved');
     } catch (error) {

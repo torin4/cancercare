@@ -10,6 +10,16 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
     return fullName.split(' ')[0];
   };
   
+  // Helper to get first and last name only (no middle name)
+  const getFirstAndLastName = (fullName) => {
+    if (!fullName) return '';
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length === 0) return '';
+    if (parts.length === 1) return parts[0];
+    // Return first and last name only
+    return `${parts[0]} ${parts[parts.length - 1]}`;
+  };
+  
   const handleMouseEnter = () => {
     setIsExpanded(true);
     if (onSidebarHover) onSidebarHover(true);
@@ -52,12 +62,14 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
               ) : (
                 <>
                   <h1 className="text-lg sm:text-xl font-bold text-white">
-                    {patientProfile?.name || patientProfile?.firstName || 'Patient'}
+                    {patientProfile?.firstName || patientProfile?.lastName 
+                      ? `${patientProfile.firstName || ''} ${patientProfile.lastName || ''}`.trim()
+                      : patientProfile?.name || 'Patient'}
                   </h1>
                   {patientProfile?.isPatient === false && patientProfile?.caregiverName && (
                     <p className="text-xs text-white/80 flex items-center gap-1">
                       <HeartHandshake className="w-3 h-3" />
-                      {getFirstName(patientProfile.caregiverName)}
+                      {getFirstAndLastName(patientProfile.caregiverName)}
                     </p>
                   )}
                 </>
@@ -97,12 +109,14 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
               {patientProfile && activeTab !== 'profile' && (
                 <div className="text-white/90">
                   <p className="text-sm font-medium whitespace-nowrap">
-                    {patientProfile?.name || patientProfile?.firstName || 'Patient'}
+                    {patientProfile?.firstName || patientProfile?.lastName 
+                      ? `${patientProfile.firstName || ''} ${patientProfile.lastName || ''}`.trim()
+                      : patientProfile?.name || 'Patient'}
                   </p>
                   {patientProfile?.isPatient === false && patientProfile?.caregiverName && (
                     <p className="text-xs text-white/80 flex items-center gap-1 mt-1 whitespace-nowrap">
                       <HeartHandshake className="w-3 h-3 flex-shrink-0" />
-                      {getFirstName(patientProfile.caregiverName)}
+                      {getFirstAndLastName(patientProfile.caregiverName)}
                     </p>
                   )}
                 </div>

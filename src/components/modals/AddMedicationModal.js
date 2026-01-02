@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, AlertCircle, Plus } from 'lucide-react';
 import { useBanner } from '../../contexts/BannerContext';
+import DatePicker from '../DatePicker';
 
 export default function AddMedicationModal({ show, onClose }) {
   const { showSuccess } = useBanner();

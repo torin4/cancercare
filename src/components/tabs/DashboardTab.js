@@ -3,17 +3,22 @@ import { Zap, Activity, TrendingUp, Upload, AlertCircle, ClipboardList, Info, Dn
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
+import { useBanner } from '../../contexts/BannerContext';
 import { getSavedTrials } from '../../services/clinicalTrials/clinicalTrialsService';
 import { parseMutation, getTodayLocalDate } from '../../utils/helpers';
 import { formatLabel } from '../../utils/formatters';
 import { normalizeLabName, getLabDisplayName, labValueDescriptions, normalizeVitalName, getVitalDisplayName, vitalDescriptions } from '../../utils/normalizationUtils';
+import { processDocument } from '../../services/documentProcessor';
+import { uploadDocument } from '../../firebase/storage';
 import AddSymptomModal from '../modals/AddSymptomModal';
 import DocumentUploadOnboarding from '../DocumentUploadOnboarding';
+import UploadProgressOverlay from '../UploadProgressOverlay';
 
 export default function DashboardTab({ onTabChange }) {
   const { user } = useAuth();
-  const { hasUploadedDocument } = usePatientContext();
+  const { hasUploadedDocument, patientProfile } = usePatientContext();
   const { labsData, vitalsData, hasRealLabData, hasRealVitalData, genomicProfile, reloadHealthData } = useHealthContext();
+  const { showSuccess, showError } = useBanner();
 
   // Tab-specific state
   const [savedTrials, setSavedTrials] = useState([]);
@@ -22,6 +27,10 @@ export default function DashboardTab({ onTabChange }) {
   const [showAddSymptomModal, setShowAddSymptomModal] = useState(false);
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
   const [documentOnboardingMethod, setDocumentOnboardingMethod] = useState('picker');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
+  const [pendingDocumentDate, setPendingDocumentDate] = useState(null);
+  const [pendingDocumentNote, setPendingDocumentNote] = useState(null);
   const [symptomForm, setSymptomForm] = useState({
     name: '',
     severity: '',
@@ -60,6 +69,105 @@ export default function DashboardTab({ onTabChange }) {
   const openDocumentOnboarding = (docType = null, method = 'picker') => {
     setDocumentOnboardingMethod(method || 'picker');
     setShowDocumentOnboarding(true);
+  };
+
+  // Document upload handlers
+  const handleRealFileUpload = async (file, docType) => {
+    if (!user) {
+      showError('Please log in to upload files');
+      return;
+    }
+
+    try {
+      // Show loading overlay
+      setIsUploading(true);
+      setUploadProgress('Reading document...');
+
+      // Get document date and note (user-provided or null)
+      const providedDate = pendingDocumentDate;
+      const providedNote = pendingDocumentNote;
+      // Clear pending date and note after use
+      setPendingDocumentDate(null);
+      setPendingDocumentNote(null);
+
+      // Step 1: Process document with AI to extract medical data
+      setUploadProgress('Analyzing document with AI...');
+      const processingResult = await processDocument(file, user.uid, patientProfile, providedDate, providedNote, null);
+      console.log('Document processing result:', processingResult);
+
+      // Step 2: Upload file to Firebase Storage
+      setUploadProgress('Uploading to secure storage...');
+      const uploadResult = await uploadDocument(file, user.uid, {
+        category: processingResult.documentType || docType,
+        documentType: processingResult.documentType || docType,
+        note: providedNote || null
+      });
+
+      console.log('File uploaded successfully:', uploadResult);
+
+      setUploadProgress('Saving extracted data...');
+
+      // Reload health data to show new values
+      setUploadProgress('Refreshing your health data...');
+      await reloadHealthData();
+
+      setIsUploading(false);
+      setUploadProgress('');
+      showSuccess('Document uploaded and processed successfully! All extracted data has been saved to your health records.');
+      
+      // Switch to Files tab to show the uploaded document
+      onTabChange('files');
+    } catch (error) {
+      console.error('Upload error:', error);
+      showError(`Failed to process document: ${error.message}. The file was not uploaded. Please try again or contact support if the issue persists.`);
+      setIsUploading(false);
+      setUploadProgress('');
+    }
+  };
+
+  const simulateDocumentUpload = (docType) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls';
+    input.style.display = 'none';
+
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        await handleRealFileUpload(file, docType);
+      }
+    };
+
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(() => {
+      if (document.body.contains(input)) {
+        document.body.removeChild(input);
+      }
+    }, 1000);
+  };
+
+  const simulateCameraUpload = (docType) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls,image/*';
+    input.capture = 'environment';
+    input.style.display = 'none';
+
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        await handleRealFileUpload(file, docType);
+      }
+    };
+
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(() => {
+      if (document.body.contains(input)) {
+        document.body.removeChild(input);
+      }
+    }, 1000);
   };
 
   // Helper function to parse date strings like "Oct 15"
@@ -669,14 +777,37 @@ export default function DashboardTab({ onTabChange }) {
         <DocumentUploadOnboarding
           isOnboarding={!hasUploadedDocument}
           onClose={() => setShowDocumentOnboarding(false)}
-          onUploadClick={(documentType, documentDate = null, documentNote = null) => {
+          onUploadClick={(documentType, documentDate = null, documentNote = null, file = null) => {
             setShowDocumentOnboarding(false);
-            // Note: Document upload is handled by FilesTab, so we'll switch to files tab
-            // The FilesTab will handle the actual upload
-            onTabChange('files');
+            // Store document date and note for use in upload
+            setPendingDocumentDate(documentDate);
+            setPendingDocumentNote(documentNote);
+            
+            // If file is provided (from component's file picker), upload it directly
+            if (file) {
+              handleRealFileUpload(file, documentType);
+            } else {
+              // Otherwise, open file picker (fallback)
+              const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+              
+              if (documentOnboardingMethod === 'camera') {
+                simulateCameraUpload(documentType);
+              } else if (isMobile) {
+                simulateCameraUpload(documentType);
+              } else {
+                simulateDocumentUpload(documentType);
+              }
+            }
           }}
         />
       )}
+
+      {/* Upload Progress Overlay */}
+      <UploadProgressOverlay
+        show={isUploading}
+        uploadProgress={uploadProgress}
+        documentScanAnimation={null}
+      />
     </>
   );
 }

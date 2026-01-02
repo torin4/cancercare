@@ -17,6 +17,9 @@ import AddVitalValueModal from '../modals/AddVitalValueModal';
 import AddLabValueModal from '../modals/AddLabValueModal';
 import DocumentUploadOnboarding from '../DocumentUploadOnboarding';
 import DeletionConfirmationModal from '../modals/DeletionConfirmationModal';
+import UploadProgressOverlay from '../UploadProgressOverlay';
+import { processDocument } from '../../services/documentProcessor';
+import { uploadDocument } from '../../firebase/storage';
 
 export default function HealthTab({ onTabChange }) {
   const { user } = useAuth();
@@ -28,6 +31,10 @@ export default function HealthTab({ onTabChange }) {
   const [healthSection, setHealthSection] = useState('labs');
   const [selectedLab, setSelectedLab] = useState('ca125');
   const [selectedDate, setSelectedDate] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
+  const [pendingDocumentDate, setPendingDocumentDate] = useState(null);
+  const [pendingDocumentNote, setPendingDocumentNote] = useState(null);
   const [symptomCalendarDate, setSymptomCalendarDate] = useState(new Date());
   const [showAddMedication, setShowAddMedication] = useState(false);
   const [selectedVital, setSelectedVital] = useState('bp');
@@ -117,6 +124,105 @@ export default function HealthTab({ onTabChange }) {
   const openDocumentOnboarding = (docType = null, method = 'picker') => {
     setDocumentOnboardingMethod(method || 'picker');
     setShowDocumentOnboarding(true);
+  };
+
+  // Document upload handlers
+  const handleRealFileUpload = async (file, docType) => {
+    if (!user) {
+      showError('Please log in to upload files');
+      return;
+    }
+
+    try {
+      // Show loading overlay
+      setIsUploading(true);
+      setUploadProgress('Reading document...');
+
+      // Get document date and note (user-provided or null)
+      const providedDate = pendingDocumentDate;
+      const providedNote = pendingDocumentNote;
+      // Clear pending date and note after use
+      setPendingDocumentDate(null);
+      setPendingDocumentNote(null);
+
+      // Step 1: Process document with AI to extract medical data
+      setUploadProgress('Analyzing document with AI...');
+      const processingResult = await processDocument(file, user.uid, patientProfile, providedDate, providedNote, null);
+      console.log('Document processing result:', processingResult);
+
+      // Step 2: Upload file to Firebase Storage
+      setUploadProgress('Uploading to secure storage...');
+      const uploadResult = await uploadDocument(file, user.uid, {
+        category: processingResult.documentType || docType,
+        documentType: processingResult.documentType || docType,
+        note: providedNote || null
+      });
+
+      console.log('File uploaded successfully:', uploadResult);
+
+      setUploadProgress('Saving extracted data...');
+
+      // Reload health data to show new values
+      setUploadProgress('Refreshing your health data...');
+      await reloadHealthData();
+
+      setIsUploading(false);
+      setUploadProgress('');
+      showSuccess('Document uploaded and processed successfully! All extracted data has been saved to your health records.');
+      
+      // Switch to Files tab to show the uploaded document
+      onTabChange('files');
+    } catch (error) {
+      console.error('Upload error:', error);
+      showError(`Failed to process document: ${error.message}. The file was not uploaded. Please try again or contact support if the issue persists.`);
+      setIsUploading(false);
+      setUploadProgress('');
+    }
+  };
+
+  const simulateDocumentUpload = (docType) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls';
+    input.style.display = 'none';
+
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        await handleRealFileUpload(file, docType);
+      }
+    };
+
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(() => {
+      if (document.body.contains(input)) {
+        document.body.removeChild(input);
+      }
+    }, 1000);
+  };
+
+  const simulateCameraUpload = (docType) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls,image/*';
+    input.capture = 'environment';
+    input.style.display = 'none';
+
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        await handleRealFileUpload(file, docType);
+      }
+    };
+
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(() => {
+      if (document.body.contains(input)) {
+        document.body.removeChild(input);
+      }
+    }, 1000);
   };
 
   // Real-time subscription for symptoms
@@ -240,12 +346,12 @@ export default function HealthTab({ onTabChange }) {
       </div>
 
       {/* Health Section Tabs */}
-      <div className="flex gap-2 sm:gap-4 mb-4 sm:mb-6 border-b border-medical-neutral-200">
+      <div className="flex gap-1 sm:gap-4 mb-4 sm:mb-6 border-b border-medical-neutral-200 overflow-x-auto">
         {['labs', 'vitals', 'symptoms', 'medications'].map(section => (
           <button
             key={section}
             onClick={() => setHealthSection(section)}
-            className={`pb-3 px-2 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70 whitespace-nowrap flex-1 sm:flex-none ${
+            className={`pb-3 px-2 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70 whitespace-nowrap flex-shrink-0 ${
               healthSection === section
                 ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
                 : 'text-medical-neutral-600 hover:text-medical-primary-600'
@@ -253,26 +359,29 @@ export default function HealthTab({ onTabChange }) {
           >
             {section === 'labs' && (
               <>
-                <BarChart className="w-4 h-4 sm:w-4 sm:h-4" />
-                <span className="text-sm sm:text-base">Labs</span>
+                <BarChart className="w-4 h-4" />
+                <span className="text-xs sm:text-base">Labs</span>
               </>
             )}
             {section === 'vitals' && (
               <>
-                <Heart className="w-4 h-4 sm:w-4 sm:h-4" />
-                <span className="text-sm sm:text-base">Vitals</span>
+                <Heart className="w-4 h-4" />
+                <span className="text-xs sm:text-base">Vitals</span>
               </>
             )}
             {section === 'symptoms' && (
               <>
-                <Thermometer className="w-4 h-4 sm:w-4 sm:h-4" />
-                <span className="text-sm sm:text-base">Symptoms</span>
+                <Thermometer className="w-4 h-4" />
+                <span className="text-xs sm:text-base">Symptoms</span>
               </>
             )}
             {section === 'medications' && (
               <>
-                <Pill className="w-4 h-4 sm:w-4 sm:h-4" />
-                <span className="text-sm sm:text-base">Medications</span>
+                <Pill className="w-4 h-4" />
+                <span className="text-xs sm:text-base">
+                  <span className="hidden sm:inline">Medications</span>
+                  <span className="sm:hidden">Meds</span>
+                </span>
               </>
             )}
           </button>
@@ -280,8 +389,8 @@ export default function HealthTab({ onTabChange }) {
       </div>
 
       {healthSection === 'labs' && (
-                  <>
-                    {/* Empty State - No Lab Data */}
+        <div className="space-y-4">
+          {/* Empty State - No Lab Data */}
                     {!hasRealLabData && Object.keys(labsData).length === 0 && (
                       <div className="border-2 border-medical-primary-500 rounded-lg p-4 sm:p-6 text-center bg-white">
                         <div className="flex flex-col items-center gap-3">
@@ -292,20 +401,20 @@ export default function HealthTab({ onTabChange }) {
                               Start tracking your lab values by uploading a report or adding a metric manually
                             </p>
                             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                            <button
+                              <button
                                 onClick={() => setShowAddLab(true)}
-                                className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2"
+                                className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2 min-h-[44px] touch-manipulation active:opacity-70"
                               >
-                                <Plus className="w-4 h-4" />
-                                Add Metric
+                                <Edit2 className="w-4 h-4" />
+                                Manual Enter
                               </button>
                               <button
                                 onClick={() => openDocumentOnboarding('lab-report')}
-                                className="bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center justify-center gap-2"
+                                className="bg-medical-primary-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center justify-center gap-2 min-h-[44px] touch-manipulation active:opacity-90"
                               >
                                 <Upload className="w-4 h-4" />
                                 Upload Lab Report
-                            </button>
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -1304,19 +1413,19 @@ export default function HealthTab({ onTabChange }) {
                         })()}
                       </>
                     )}
-                  </>
-            )}
+        </div>
+      )}
 
-            {healthSection === 'vitals' && (
-                  <>
+      {healthSection === 'vitals' && (
+        <div className="space-y-4">
                     {/* Empty State - No Vital Data */}
                     {!hasRealVitalData && Object.keys(vitalsData).length === 0 && (
-                      <div className="border-2 border-medical-primary-500 rounded-lg p-6 text-center bg-white">
+                      <div className="border-2 border-medical-primary-500 rounded-lg p-4 sm:p-6 text-center bg-white">
                         <div className="flex flex-col items-center gap-3">
-                          <Heart className="w-12 h-12 text-medical-primary-400" />
+                          <Heart className="w-10 h-10 sm:w-12 sm:h-12 text-medical-primary-400" />
                           <div>
-                            <h3 className="font-semibold text-medical-primary-900 mb-1">No Vital Signs Data Yet</h3>
-                            <p className="text-sm text-medical-primary-700 mb-4">
+                            <h3 className="text-base sm:text-lg font-semibold text-medical-primary-900 mb-1">No Vital Signs Data Yet</h3>
+                            <p className="text-xs sm:text-sm text-medical-primary-700 mb-4">
                               Track blood pressure, heart rate, weight, and more
                             </p>
                             <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -2179,21 +2288,21 @@ export default function HealthTab({ onTabChange }) {
                           })()}
                         </div>
 
-                        {/* Log Vital Reading Button */}
+                        {/* Add Vital Metric Button */}
                         <div className="flex justify-end mb-2">
                           <button
                             onClick={() => setShowAddVital(true)}
-                            className="flex items-center gap-2 text-green-600 hover:text-green-700 transition-colors"
+                            className="flex items-center gap-2 text-green-600 hover:text-green-700 transition-colors min-h-[44px] touch-manipulation active:opacity-70 px-2 py-1"
                           >
                             <Plus className="w-4 h-4" />
-                            <span className="text-sm font-medium">Add Vital Reading</span>
+                            <span className="text-sm font-medium">Add Vital Metric</span>
                           </button>
                         </div>
 
                         {/* Quick Vital Stats */}
                         <div className="bg-white rounded-lg shadow p-4">
                           <h3 className="font-semibold text-gray-800 mb-3">All Vitals (Latest)</h3>
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                             {Object.entries(allVitalsData).map(([key, vital]) => {
                               const displayName = getVitalDisplayName(vital.name || key);
                               // Get normal range for display
@@ -2284,7 +2393,7 @@ export default function HealthTab({ onTabChange }) {
                                           e.stopPropagation();
                                           setOpenDeleteMenu(openDeleteMenu === `vital:${key}` ? null : `vital:${key}`);
                                         }}
-                                        className="p-1.5 text-medical-neutral-500 hover:bg-medical-neutral-100 rounded transition-colors"
+                                        className="p-2 text-medical-neutral-500 hover:bg-medical-neutral-100 rounded transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
                                         title="More options"
                                       >
                                         <MoreVertical className="w-4 h-4" />
@@ -2414,11 +2523,11 @@ export default function HealthTab({ onTabChange }) {
                         </div>
                   </>
                 )}
-              </>
-            )}
+        </div>
+      )}
 
-            {healthSection === 'symptoms' && (
-              <>
+      {healthSection === 'symptoms' && (
+        <div className="space-y-4">
                 {symptoms.length === 0 ? (
                   <div className="border-2 border-medical-primary-500 rounded-lg p-4 sm:p-6 text-center bg-white">
                     <div className="flex flex-col items-center gap-3">
@@ -2450,11 +2559,11 @@ export default function HealthTab({ onTabChange }) {
                 ) : (
                   <>
                     {symptoms.length > 5 && (
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
                         <div className="flex items-start gap-2">
-                          <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                          <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                           <div>
-                            <p className="text-sm font-semibold text-blue-900">AI Pattern Detection</p>
+                            <p className="text-xs sm:text-sm font-semibold text-blue-900">AI Pattern Detection</p>
                             <p className="text-xs text-blue-700 mt-1">
                               Track more symptoms to enable pattern detection and correlations with your lab values.
                             </p>
@@ -2509,7 +2618,7 @@ export default function HealthTab({ onTabChange }) {
                     <div></div>
                     <button
                       onClick={() => setShowAddSymptomModal(true)}
-                      className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                      className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 min-h-[44px] touch-manipulation active:opacity-70"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -2758,11 +2867,11 @@ export default function HealthTab({ onTabChange }) {
                     </div>
                   </>
                 )}
-              </>
-            )}
+        </div>
+      )}
 
-            {healthSection === 'medications' && (
-              <>
+      {healthSection === 'medications' && (
+        <div className="space-y-4">
                 {medications.length === 0 ? (
                   <div className="border-2 border-medical-primary-500 rounded-lg p-4 sm:p-6 text-center bg-white">
                     <div className="flex flex-col items-center gap-3">
@@ -2806,8 +2915,8 @@ export default function HealthTab({ onTabChange }) {
                 </div>
 
                 {/* Active Medications */}
-                <div className="bg-white rounded-lg shadow p-4">
-                  <h3 className="font-semibold text-gray-800 mb-3">Active Medications</h3>
+                <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+                  <h3 className="text-sm sm:text-base font-semibold text-gray-800 mb-3">Active Medications</h3>
                   <div className="space-y-3">
                     {medications.filter(med => med.active).map(med => {
                       const colorClasses = {
@@ -2820,24 +2929,22 @@ export default function HealthTab({ onTabChange }) {
 
                       return (
                         <div key={med.id} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition">
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h4 className="font-semibold text-gray-900">{med.name}</h4>
-                                <span className={`text-xs px-2 py-0.5 rounded-full border ${colorClasses[med.color]}`}>
-                                  {med.purpose}
-                                </span>
-                              </div>
-                              <p className="text-sm text-gray-600">
-                                <span className="font-medium">{med.dosage}</span> • {med.frequency}
-                              </p>
+                          <div className="mb-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                              <h4 className="text-sm sm:text-base font-semibold text-gray-900">{med.name}</h4>
+                              <span className={`text-xs px-2 py-0.5 rounded-full border ${colorClasses[med.color]} w-fit`}>
+                                {med.purpose}
+                              </span>
                             </div>
+                            <p className="text-xs sm:text-sm text-gray-600">
+                              <span className="font-medium">{med.dosage}</span> • {med.frequency}
+                            </p>
                           </div>
 
-                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
-                            <div className="flex-1">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-2 pt-2 border-t border-gray-100">
+                            <div className="flex-1 min-w-0">
                               <p className="text-xs text-gray-500 mb-0.5">Next dose</p>
-                              <p className="text-sm font-medium text-gray-800">
+                              <p className="text-xs sm:text-sm font-medium text-gray-800">
                                 {new Date(med.nextDose).toLocaleString('en-US', {
                                   month: 'short',
                                   day: 'numeric',
@@ -2853,7 +2960,7 @@ export default function HealthTab({ onTabChange }) {
                                 const taken = isMedicationTaken(med.id, nextTime);
 
                                 return taken ? (
-                                  <div className="flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-lg">
+                                  <div className="flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-lg w-fit">
                                     <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
                                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                     </svg>
@@ -2862,7 +2969,7 @@ export default function HealthTab({ onTabChange }) {
                                 ) : (
                                   <button
                                     onClick={() => markMedicationTaken(med.id, nextTime)}
-                                    className="bg-green-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-green-700 transition font-medium"
+                                    className="bg-green-600 text-white text-xs px-3 py-2 rounded-lg hover:bg-green-700 transition font-medium min-h-[44px] w-full sm:w-auto touch-manipulation active:opacity-90"
                                   >
                                     Mark Taken
                                   </button>
@@ -2888,8 +2995,8 @@ export default function HealthTab({ onTabChange }) {
                 </div>
 
                 {/* Upcoming Doses */}
-                <div className="bg-white rounded-lg shadow p-4">
-                  <h3 className="font-semibold text-gray-800 mb-3">Today's Schedule</h3>
+                <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+                  <h3 className="text-sm sm:text-base font-semibold text-gray-800 mb-3">Today's Schedule</h3>
                   <div className="space-y-2">
                     {medications
                       .filter(med => med.active && med.schedule.includes(':'))
@@ -2907,19 +3014,19 @@ export default function HealthTab({ onTabChange }) {
                           <button
                             key={`schedule-${med.id}-${idx}`}
                             onClick={() => !taken && markMedicationTaken(med.id, med.specificTime)}
-                            className={`w-full flex items-center gap-3 p-2 border-2 rounded-lg transition ${taken
+                            className={`w-full flex items-center gap-2 sm:gap-3 p-3 border-2 rounded-lg transition min-h-[60px] touch-manipulation active:opacity-70 ${taken
                               ? 'border-green-300 bg-green-50 cursor-default'
                               : 'border-gray-200 hover:border-green-500 hover:bg-green-50'
                               }`}
                           >
-                            <div className="text-sm font-semibold text-gray-700 w-20">
+                            <div className="text-xs sm:text-sm font-semibold text-gray-700 w-16 sm:w-20 flex-shrink-0">
                               {med.specificTime}
                             </div>
-                            <div className="flex-1 text-left">
-                              <p className="text-sm font-medium text-gray-900">{med.name}</p>
+                            <div className="flex-1 text-left min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">{med.name}</p>
                               <p className="text-xs text-gray-600">{med.dosage}</p>
                             </div>
-                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${taken ? 'border-green-500 bg-green-500' : 'border-gray-300'
+                            <div className={`w-6 h-6 flex-shrink-0 rounded-full border-2 flex items-center justify-center ${taken ? 'border-green-500 bg-green-500' : 'border-gray-300'
                               }`}>
                               {taken && (
                                 <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -2935,14 +3042,14 @@ export default function HealthTab({ onTabChange }) {
 
                 <button
                   onClick={() => setShowAddMedication(true)}
-                  className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 transition"
+                  className="w-full py-2.5 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:border-blue-500 hover:text-blue-600 transition min-h-[44px] touch-manipulation active:opacity-70"
                 >
                   + Add Medication
                 </button>
                   </>
                 )}
-              </>
-            )}
+        </div>
+      )}
 
       {/* Modals */}
       <AddSymptomModal
@@ -2967,6 +3074,7 @@ export default function HealthTab({ onTabChange }) {
         newLabData={newLabData}
         setNewLabData={setNewLabData}
         reloadHealthData={reloadHealthData}
+        allLabsData={labsData}
       />
 
       <AddVitalModal
@@ -3029,9 +3137,27 @@ export default function HealthTab({ onTabChange }) {
         <DocumentUploadOnboarding
           isOnboarding={!hasUploadedDocument}
           onClose={() => setShowDocumentOnboarding(false)}
-          onUploadClick={(documentType, documentDate = null, documentNote = null) => {
+          onUploadClick={(documentType, documentDate = null, documentNote = null, file = null) => {
             setShowDocumentOnboarding(false);
-            onTabChange('files');
+            // Store document date and note for use in upload
+            setPendingDocumentDate(documentDate);
+            setPendingDocumentNote(documentNote);
+            
+            // If file is provided (from component's file picker), upload it directly
+            if (file) {
+              handleRealFileUpload(file, documentType);
+            } else {
+              // Otherwise, open file picker (fallback)
+              const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+              
+              if (documentOnboardingMethod === 'camera') {
+                simulateCameraUpload(documentType);
+              } else if (isMobile) {
+                simulateCameraUpload(documentType);
+              } else {
+                simulateDocumentUpload(documentType);
+              }
+            }
           }}
         />
       )}
@@ -3088,6 +3214,13 @@ export default function HealthTab({ onTabChange }) {
         itemName={deleteConfirm.itemName}
         confirmText={deleteConfirm.confirmText}
         isDeleting={false}
+      />
+
+      {/* Upload Progress Overlay */}
+      <UploadProgressOverlay
+        show={isUploading}
+        uploadProgress={uploadProgress}
+        documentScanAnimation={null}
       />
     </div>
   );

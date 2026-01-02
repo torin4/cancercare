@@ -191,6 +191,107 @@ export default function CancerCareApp() {
     console.log('showDocumentOnboarding changed:', showDocumentOnboarding);
   }, [showDocumentOnboarding]);
 
+  // Document upload handlers
+  const handleRealFileUpload = async (file, docType) => {
+    console.log('handleRealFileUpload called with file:', file?.name, 'docType:', docType);
+    if (!user) {
+      showError('Please log in to upload files');
+      return;
+    }
+
+    try {
+      // Show loading overlay
+      console.log('Setting isUploading to true');
+      setIsUploading(true);
+      setUploadProgress('Reading document...');
+
+      // Get document date and note (user-provided or null)
+      const providedDate = pendingDocumentDate;
+      const providedNote = pendingDocumentNote;
+      // Clear pending date and note after use
+      setPendingDocumentDate(null);
+      setPendingDocumentNote(null);
+
+      // Step 1: Process document with AI to extract medical data
+      setUploadProgress('Analyzing document with AI...');
+      const processingResult = await processDocument(file, user.uid, patientProfile, providedDate, providedNote, null);
+      console.log('Document processing result:', processingResult);
+
+      // Step 2: Upload file to Firebase Storage
+      setUploadProgress('Uploading to secure storage...');
+      const uploadResult = await uploadDocument(file, user.uid, {
+        category: processingResult.documentType || docType,
+        documentType: processingResult.documentType || docType,
+        note: providedNote || null
+      });
+
+      console.log('File uploaded successfully:', uploadResult);
+
+      setUploadProgress('Saving extracted data...');
+
+      // Reload health data to show new values
+      setUploadProgress('Refreshing your health data...');
+      await reloadHealthData();
+
+      setIsUploading(false);
+      setUploadProgress('');
+      showSuccess('Document uploaded and processed successfully! All extracted data has been saved to your health records.');
+      
+      // Switch to Files tab to show the uploaded document
+      setActiveTab('files');
+    } catch (error) {
+      console.error('Upload error:', error);
+      showError(`Failed to process document: ${error.message}. The file was not uploaded. Please try again or contact support if the issue persists.`);
+      setIsUploading(false);
+      setUploadProgress('');
+    }
+  };
+
+  const simulateDocumentUpload = (docType) => {
+    console.log('simulateDocumentUpload called, docType=', docType);
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls';
+
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        console.log('simulateDocumentUpload - file selected:', file.name, 'docType=', docType);
+        await handleRealFileUpload(file, docType);
+      }
+    };
+
+    console.log('simulateDocumentUpload invoking file picker');
+    input.click();
+  };
+
+  const simulateCameraUpload = (docType) => {
+    console.log('simulateCameraUpload called, docType=', docType);
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls,image/*';
+    input.capture = 'environment';
+    input.style.display = 'none'; // Hide the input element
+
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        console.log('simulateCameraUpload - file selected:', file.name, 'docType=', docType);
+        await handleRealFileUpload(file, docType);
+      }
+    };
+
+    // Append to body temporarily to ensure it works
+    document.body.appendChild(input);
+    input.click();
+    // Remove from DOM after a short delay
+    setTimeout(() => {
+      if (document.body.contains(input)) {
+        document.body.removeChild(input);
+      }
+    }, 1000);
+  };
+
   const isMedicationTaken = (medId, scheduledTime) => {
     const today = new Date().toDateString();
     return medicationLog.some(log => {
@@ -586,13 +687,20 @@ export default function CancerCareApp() {
           // Initialize currentStatus from patientProfile (loaded by PatientContext)
           if (patientProfile) {
             if (patientProfile.currentStatus) {
+              // Ensure all fields are included from saved currentStatus
               setCurrentStatus({
-                ...patientProfile.currentStatus,
+                diagnosis: patientProfile.currentStatus.diagnosis || patientProfile.diagnosis || '',
+                diagnosisDate: patientProfile.currentStatus.diagnosisDate || patientProfile.diagnosisDate || '',
                 subtype: patientProfile.currentStatus.subtype || patientProfile.cancerType || '',
-                stage: patientProfile.currentStatus.stage || patientProfile.stage || ''
+                stage: patientProfile.currentStatus.stage || patientProfile.stage || '',
+                treatmentLine: patientProfile.currentStatus.treatmentLine || '',
+                currentRegimen: patientProfile.currentStatus.currentRegimen || '',
+                performanceStatus: patientProfile.currentStatus.performanceStatus || '',
+                diseaseStatus: patientProfile.currentStatus.diseaseStatus || '',
+                baselineCa125: patientProfile.currentStatus.baselineCa125 || ''
               });
-            } else if (patientProfile.cancerType || patientProfile.stage) {
-              // If no currentStatus but we have cancerType/stage in profile, initialize currentStatus
+            } else if (patientProfile.cancerType || patientProfile.stage || patientProfile.diagnosis) {
+              // If no currentStatus but we have cancerType/stage/diagnosis in profile, initialize currentStatus
               setCurrentStatus({
                 diagnosis: patientProfile.diagnosis || '',
                 diagnosisDate: patientProfile.diagnosisDate || '',
@@ -1136,31 +1244,36 @@ export default function CancerCareApp() {
         setDocuments={setDocuments}
       />
 
+
       {/* Document Upload Onboarding (First Time) */}
       {
         showDocumentOnboarding && (
           <DocumentUploadOnboarding
             isOnboarding={!hasUploadedDocument}
             onClose={() => setShowDocumentOnboarding(false)}
-            onUploadClick={(documentType, documentDate = null, documentNote = null) => {
-              setShowDocumentOnboarding(false);
+            onUploadClick={(documentType, documentDate = null, documentNote = null, file = null) => {
+              console.log('onUploadClick called:', { documentType, documentDate, documentNote, file: file?.name });
               // Store document date and note for use in upload
               setPendingDocumentDate(documentDate);
               setPendingDocumentNote(documentNote);
-              // Check if mobile device
-              const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
               
-              // If mobile and method is camera, use camera upload
-              // Otherwise, if mobile, show camera option in file picker
-              // If not mobile, go straight to file picker
-              if (documentOnboardingMethod === 'camera') {
-                simulateCameraUpload(documentType);
-              } else if (isMobile) {
-                // On mobile, use camera upload which includes camera option
-                simulateCameraUpload(documentType);
+              // Close modal
+              setShowDocumentOnboarding(false);
+              
+              // If file is provided (from component's file picker), upload it directly
+              if (file) {
+                console.log('File provided, calling handleRealFileUpload');
+                handleRealFileUpload(file, documentType);
               } else {
-                // On desktop, use regular file picker
-                simulateDocumentUpload(documentType);
+                // Otherwise, open file picker (fallback)
+                const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                if (documentOnboardingMethod === 'camera') {
+                  simulateCameraUpload(documentType);
+                } else if (isMobile) {
+                  simulateCameraUpload(documentType);
+                } else {
+                  simulateDocumentUpload(documentType);
+                }
               }
             }}
           />
@@ -1198,6 +1311,7 @@ export default function CancerCareApp() {
         user={user}
         reloadHealthData={reloadHealthData}
         labKeyMap={labKeyMap}
+        allLabsData={labsData}
       />
 
       <AddVitalModal

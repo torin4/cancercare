@@ -585,51 +585,61 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
         )}
 
         {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-          <button
-            onClick={async () => {
-              setSelectedTrial(trial);
-              // If summary is missing, try to fetch it
-              if (!trial.summary && trial.id && trial.source === 'ClinicalTrials.gov') {
-                setLoadingTrialDetails(true);
-                try {
-                  const details = await getTrialDetails(trial.id);
-                  if (details.success && details.summary) {
-                    setSelectedTrial({ ...trial, summary: details.summary });
-                  }
-                } catch (error) {
-                  console.error('Error fetching trial details:', error);
-                } finally {
-                  setLoadingTrialDetails(false);
-                }
-              }
-            }}
-            className="flex-1 border-2 border-medical-primary-500 text-medical-primary-600 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg hover:bg-medical-primary-50 transition text-xs sm:text-sm font-medium flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70"
-          >
-            <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span>View Details</span>
-          </button>
-          {onTrialSelected && (
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2 sm:gap-3">
             <button
-              onClick={() => {
-                onTrialSelected(trial);
+              onClick={async () => {
+                setSelectedTrial(trial);
+                // If summary is missing, try to fetch it
+                if (!trial.summary && trial.id && trial.source === 'ClinicalTrials.gov') {
+                  setLoadingTrialDetails(true);
+                  try {
+                    const details = await getTrialDetails(trial.id);
+                    if (details.success && details.summary) {
+                      setSelectedTrial({ ...trial, summary: details.summary });
+                    }
+                  } catch (error) {
+                    console.error('Error fetching trial details:', error);
+                  } finally {
+                    setLoadingTrialDetails(false);
+                  }
+                }
               }}
-              className="flex-1 border-2 border-medical-accent-500 text-medical-accent-600 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg hover:bg-medical-accent-50 transition text-xs sm:text-sm font-medium flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70"
+              className="flex-1 border-2 border-medical-primary-500 text-medical-primary-600 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg hover:bg-medical-primary-50 transition text-xs sm:text-sm font-medium flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70"
             >
-              <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span className="hidden sm:inline">Ask About This Trial</span>
-              <span className="sm:hidden">Ask About</span>
+              <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span>View Details</span>
             </button>
-          )}
+            {onTrialSelected && (
+              <button
+                onClick={() => {
+                  onTrialSelected(trial);
+                }}
+                className="flex-1 border-2 border-medical-accent-500 text-medical-accent-600 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg hover:bg-medical-accent-50 transition text-xs sm:text-sm font-medium flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70"
+              >
+                <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Ask About This Trial</span>
+                <span className="sm:hidden">Ask About</span>
+              </button>
+            )}
+            <a
+              href={trial.url || (trial.id ? `https://clinicaltrials.gov/study/${trial.id}` : '#')}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden sm:flex flex-1 border-2 border-medical-neutral-500 text-medical-neutral-700 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg hover:bg-medical-neutral-50 transition text-xs sm:text-sm font-medium items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70"
+            >
+              <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span>View on ClinicalTrials.gov</span>
+            </a>
+          </div>
           <a
             href={trial.url || (trial.id ? `https://clinicaltrials.gov/study/${trial.id}` : '#')}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 border-2 border-medical-neutral-500 text-medical-neutral-700 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg hover:bg-medical-neutral-50 transition text-xs sm:text-sm font-medium text-center flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70"
+            className="sm:hidden w-full border-2 border-medical-neutral-500 text-medical-neutral-700 px-3 py-2 rounded-lg hover:bg-medical-neutral-50 transition text-xs font-medium text-center flex items-center justify-center gap-1.5 min-h-[44px] touch-manipulation active:opacity-70"
           >
-            <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="hidden sm:inline">View on ClinicalTrials.gov</span>
-            <span className="sm:hidden">View on CT.gov</span>
+            <Globe className="w-3.5 h-3.5" />
+            <span>View on CT.gov</span>
           </a>
         </div>
       </div>

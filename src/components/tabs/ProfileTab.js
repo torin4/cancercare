@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, User, Calendar, MapPin, TrendingUp, Activity, Edit2, Dna, Upload, AlertCircle, Users, Phone, Plus, Settings, Link2, Loader2, Unlink, LogOut, Trash2, Sliders, Shield } from 'lucide-react';
+import { Camera, User, Calendar, MapPin, TrendingUp, Activity, Edit2, Dna, Upload, AlertCircle, Users, Phone, Plus, Settings, Link2, Loader2, Unlink, LogOut, Trash2, Sliders, Shield, HeartHandshake } from 'lucide-react';
 import { signOut, linkWithPopup, unlink, GoogleAuthProvider, deleteUser } from 'firebase/auth';
 import { auth } from '../../firebase/config';
 import { useAuth } from '../../contexts/AuthContext';
@@ -25,6 +25,16 @@ export default function ProfileTab({ onTabChange }) {
   const { patientProfile, setPatientProfile, refreshPatient } = usePatientContext();
   const { genomicProfile, setGenomicProfile, reloadHealthData } = useHealthContext();
   const { showSuccess, showError } = useBanner();
+  
+  // Helper to get first and last name only (no middle name)
+  const getFirstAndLastName = (fullName) => {
+    if (!fullName) return '';
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length === 0) return '';
+    if (parts.length === 1) return parts[0];
+    // Return first and last name only
+    return `${parts[0]} ${parts[parts.length - 1]}`;
+  };
 
   // Tab-specific state
   const [profileImage, setProfileImage] = useState(null);
@@ -68,13 +78,21 @@ export default function ProfileTab({ onTabChange }) {
   // Initialize currentStatus from patientProfile
   useEffect(() => {
     if (patientProfile) {
+      console.log('PatientProfile updated:', patientProfile);
+      console.log('Current status from profile:', patientProfile.currentStatus);
       if (patientProfile.currentStatus) {
         setCurrentStatus({
-          ...patientProfile.currentStatus,
+          diagnosis: patientProfile.currentStatus.diagnosis || patientProfile.diagnosis || '',
+          diagnosisDate: patientProfile.currentStatus.diagnosisDate || patientProfile.diagnosisDate || '',
           subtype: patientProfile.currentStatus.subtype || patientProfile.cancerType || '',
-          stage: patientProfile.currentStatus.stage || patientProfile.stage || ''
+          stage: patientProfile.currentStatus.stage || patientProfile.stage || '',
+          treatmentLine: patientProfile.currentStatus.treatmentLine || '',
+          currentRegimen: patientProfile.currentStatus.currentRegimen || '',
+          performanceStatus: patientProfile.currentStatus.performanceStatus || '',
+          diseaseStatus: patientProfile.currentStatus.diseaseStatus || '',
+          baselineCa125: patientProfile.currentStatus.baselineCa125 || ''
         });
-      } else if (patientProfile.cancerType || patientProfile.stage) {
+      } else if (patientProfile.cancerType || patientProfile.stage || patientProfile.diagnosis) {
         setCurrentStatus({
           diagnosis: patientProfile.diagnosis || '',
           diagnosisDate: patientProfile.diagnosisDate || '',
@@ -285,7 +303,7 @@ export default function ProfileTab({ onTabChange }) {
                     name = patientProfile.caregiverName;
                   } else {
                     name = patientProfile.firstName || patientProfile.lastName 
-                      ? `${patientProfile.firstName || ''} ${patientProfile.middleName ? patientProfile.middleName + ' ' : ''}${patientProfile.lastName || ''}`.trim()
+                      ? `${patientProfile.firstName || ''} ${patientProfile.lastName || ''}`.trim()
                       : patientProfile.name || user?.displayName || 'Patient';
                   }
                   const parts = name.trim().split(/\s+/);
@@ -325,9 +343,15 @@ export default function ProfileTab({ onTabChange }) {
               <div>
                 <h2 className="font-bold text-xl sm:text-2xl md:text-3xl text-gray-900 mb-1">
                   {patientProfile.firstName || patientProfile.lastName 
-                    ? `${patientProfile.firstName || ''} ${patientProfile.middleName ? patientProfile.middleName + ' ' : ''}${patientProfile.lastName || ''}`.trim()
+                    ? `${patientProfile.firstName || ''} ${patientProfile.lastName || ''}`.trim()
                     : patientProfile.name || user?.displayName || 'Patient'}
                 </h2>
+                {patientProfile?.isPatient === false && patientProfile?.caregiverName && (
+                  <p className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+                    <HeartHandshake className="w-3 h-3" />
+                    {getFirstAndLastName(patientProfile.caregiverName)}
+                  </p>
+                )}
                 {patientProfile.gender && (
                   <span className="text-sm text-gray-600">
                     {patientProfile.gender}

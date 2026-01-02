@@ -8,6 +8,22 @@
   body {
     @apply font-sans antialiased;
   }
+
+  /* Prevent font size inflation on mobile for select elements */
+  select {
+    font-size: 16px;
+    /* Disable Android/Chrome font inflation */
+    max-height: 999999px;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Use responsive sizing on larger screens */
+  @media (min-width: 640px) {
+    select {
+      font-size: 0.875rem; /* text-sm */
+    }
+  }
 }
 
 @layer components {

@@ -6,8 +6,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
   const [selectedType, setSelectedType] = useState(null);
   const [documentDate, setDocumentDate] = useState('');
   const [documentNote, setDocumentNote] = useState('');
-  const [showDateInput, setShowDateInput] = useState(false);
-  const [showNoteInput, setShowNoteInput] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1); // 1 = document type, 2 = date, 3 = notes
 
   const documentTypes = [
     {
@@ -58,53 +57,101 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
     }
   ];
 
-  const handleContinue = () => {
-    if (selectedType && !showDateInput) {
-      // Show date input step
-      setShowDateInput(true);
-    } else if (selectedType && showDateInput && !showNoteInput) {
-      // Show note input step (only for lab/vital documents)
-      if (selectedType === 'blood-test') {
-        setShowNoteInput(true);
-      } else {
-        // For non-lab documents, proceed directly to upload
-        onUploadClick(selectedType, documentDate || null, documentNote || null);
-      }
-    } else if (selectedType && showDateInput && showNoteInput) {
-      // Proceed to upload with date and note
-      onUploadClick(selectedType, documentDate || null, documentNote || null);
+  const totalSteps = 3;
+  const progressPercentage = (currentStep / totalSteps) * 100;
+
+  const handleContinueFromStep1 = () => {
+    if (selectedType) {
+      setCurrentStep(2); // Go to date step
     }
   };
 
-  const handleSkipOrContinue = () => {
-    // If no date entered, skip (proceed without date)
-    if (!documentDate || documentDate.trim() === '') {
-      if (selectedType === 'blood-test') {
-        setShowDateInput(false);
-        setShowNoteInput(true);
-      } else {
-        onUploadClick(selectedType, null, null);
-      }
-    } else {
-      // Date entered, continue to next step
-      handleContinue();
-    }
+  const handleSkipDate = () => {
+    // Skip date and go to notes step
+    setCurrentStep(3);
+  };
+
+  const handleContinueWithDate = () => {
+    // Continue with date to notes step
+    setCurrentStep(3);
   };
 
   const handleSkipNote = () => {
-    // Skip note and proceed to upload
-    onUploadClick(selectedType, documentDate || null, null);
+    // Skip note and proceed to file picker - open file picker directly from user click
+    openFilePicker(selectedType, documentDate || null, null);
+  };
+
+  const handleContinueWithNote = () => {
+    // Continue with note and proceed to file picker - open file picker directly from user click
+    openFilePicker(selectedType, documentDate || null, documentNote || null);
+  };
+
+  const openFilePicker = (docType, date, note) => {
+    // Create file input and trigger it immediately (must be in user interaction context)
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls,image/*';
+    
+    // Check if mobile device and enable camera option
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+      input.capture = 'environment'; // Enable camera option on mobile
+    }
+    
+    input.style.position = 'fixed';
+    input.style.top = '-9999px';
+    input.style.left = '-9999px';
+    
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        // Pass the file directly to onUploadClick so it can handle the upload
+        onUploadClick(docType, date, note, file);
+      }
+      // Clean up
+      if (document.body.contains(input)) {
+        document.body.removeChild(input);
+      }
+    };
+    
+    // Append to body and click immediately (must be in user interaction context)
+    document.body.appendChild(input);
+    input.click();
+  };
+
+  const handleBack = () => {
+    if (currentStep === 3) {
+      setCurrentStep(2);
+    } else if (currentStep === 2) {
+      setCurrentStep(1);
+    }
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end md:items-center justify-center p-0 md:p-4 z-50">
       <div className="bg-white w-full h-full md:h-auto md:rounded-xl md:max-w-4xl md:max-h-[90vh] overflow-y-auto animate-slide-up">
+        {/* Progress Bar */}
+        <div className="px-6 pt-6 pb-4 bg-white border-b border-gray-200">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-gray-600">Step {currentStep} of {totalSteps}</span>
+            <span className="text-sm font-medium text-gray-600">{Math.round(progressPercentage)}%</span>
+          </div>
+          <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500 ease-out rounded-full"
+              style={{ width: `${progressPercentage}%` }}
+            />
+          </div>
+        </div>
+
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">{isOnboarding ? 'Upload Your First File' : 'File Upload'}</h2>
             <p className="text-sm text-gray-600 mt-1">
-              {isOnboarding ? 'Choose the type of file you\'d like to upload' : 'Select document type or capture a file to upload'}
+              {currentStep === 1 && (isOnboarding ? 'Choose the type of file you\'d like to upload' : 'Select document type')}
+              {currentStep === 2 && 'When was this document created or when were these tests performed?'}
+              {currentStep === 3 && 'Add any context about this document (optional)'}
             </p>
           </div>
           <button
@@ -122,7 +169,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
 
         {/* Content */}
         <div className="p-6 space-y-4">
-          {!showDateInput ? (
+          {currentStep === 1 && (
             // Document type selection
             documentTypes.map((type) => {
             const Icon = type.icon;
@@ -217,7 +264,9 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
               </div>
             );
           })
-          ) : showDateInput && !showNoteInput ? (
+          )}
+          
+          {currentStep === 2 && (
             // Date input step
             <div className="space-y-4">
               <div className={`rounded-lg p-4 border ${
@@ -250,17 +299,48 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                 </div>
               </div>
             </div>
-          ) : (
-            // Note input step (only for blood-test/lab documents)
+          )}
+          
+          {currentStep === 3 && (
+            // Note input step
             <div className="space-y-4">
-              <div className="rounded-lg p-4 border bg-blue-50 border-blue-200">
+              <div className={`rounded-lg p-4 border ${
+                selectedType === 'genomic-profile'
+                  ? 'bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200'
+                  : selectedType === 'blood-test'
+                  ? 'bg-blue-50 border-blue-200'
+                  : 'bg-green-50 border-green-200'
+              }`}>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Add Context Note</h3>
                 <p className="text-sm text-gray-700 mb-4">
-                  Add any context about this lab report that might be helpful for understanding the values (e.g., "Before starting treatment", "After cycle 2", "Post-surgery"). This note will be attached to all lab and vital values extracted from this document.
+                  {selectedType === 'blood-test' 
+                    ? 'Add any context about this lab report that might be helpful for understanding the values (e.g., "Before starting treatment", "After cycle 2", "Post-surgery"). This note will be attached to all lab and vital values extracted from this document.'
+                    : selectedType === 'genomic-profile'
+                    ? 'Add any context about this genomic test that might be helpful (e.g., "Baseline before treatment", "After progression", "Post-biopsy"). This note will help the AI provide more contextualized insights when analyzing your genomic data.'
+                    : 'Add any context about this document that might be helpful (e.g., "Before treatment", "Follow-up visit", "Emergency department"). This note will help the AI provide more contextualized insights when analyzing your medical records.'
+                  }
                 </p>
-                <div className="bg-blue-100 border border-blue-300 rounded-lg p-3 mb-4">
-                  <p className="text-xs text-blue-800 font-medium mb-1">How this helps the AI:</p>
-                  <p className="text-xs text-blue-700">
+                <div className={`rounded-lg p-3 mb-4 border ${
+                  selectedType === 'genomic-profile'
+                    ? 'bg-purple-100 border-purple-300'
+                    : selectedType === 'blood-test'
+                    ? 'bg-blue-100 border-blue-300'
+                    : 'bg-green-100 border-green-300'
+                }`}>
+                  <p className={`text-xs font-medium mb-1 ${
+                    selectedType === 'genomic-profile'
+                      ? 'text-purple-800'
+                      : selectedType === 'blood-test'
+                      ? 'text-blue-800'
+                      : 'text-green-800'
+                  }`}>How this helps the AI:</p>
+                  <p className={`text-xs ${
+                    selectedType === 'genomic-profile'
+                      ? 'text-purple-700'
+                      : selectedType === 'blood-test'
+                      ? 'text-blue-700'
+                      : 'text-green-700'
+                  }`}>
                     When you ask questions about your health data, the AI will see this context note and use it to provide more relevant and contextualized insights. For example, if you note "After cycle 2", the AI will understand that values were taken after a specific treatment cycle when analyzing trends or explaining results.
                   </p>
                 </div>
@@ -288,7 +368,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
 
         {/* Footer */}
         <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex items-center justify-between">
-          {!showDateInput && !showNoteInput ? (
+          {currentStep === 1 && (
             <>
               <button
                 onClick={onClose}
@@ -297,7 +377,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                 Cancel
               </button>
               <button
-                onClick={handleContinue}
+                onClick={handleContinueFromStep1}
                 disabled={!selectedType}
                 className={`px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 ${
                   selectedType
@@ -309,52 +389,43 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                 <ChevronRight className="w-5 h-5" />
               </button>
             </>
-          ) : showDateInput && !showNoteInput ? (
+          )}
+          
+          {currentStep === 2 && (
             <>
               <button
-                onClick={() => setShowDateInput(false)}
+                onClick={handleBack}
                 className="text-gray-600 hover:text-gray-900 font-medium transition flex items-center gap-2"
               >
                 <ChevronRight className="w-4 h-4 rotate-180" />
                 Back
               </button>
               <button
-                onClick={handleSkipOrContinue}
+                onClick={documentDate && documentDate.trim() !== '' ? handleContinueWithDate : handleSkipDate}
                 className="px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 bg-medical-primary-500 text-white hover:bg-medical-primary-600"
               >
-                {!documentDate || documentDate.trim() === '' 
-                  ? 'Skip' 
-                  : selectedType === 'blood-test' 
-                    ? 'Continue' 
-                    : <><Upload className="w-5 h-5" />{isOnboarding ? 'Continue to Upload' : 'Upload'}</>
-                }
+                {documentDate && documentDate.trim() !== '' ? 'Continue' : 'Skip without date'}
+                <ChevronRight className="w-5 h-5" />
               </button>
             </>
-          ) : (
+          )}
+          
+          {currentStep === 3 && (
             <>
               <button
-                onClick={() => setShowNoteInput(false)}
+                onClick={handleBack}
                 className="text-gray-600 hover:text-gray-900 font-medium transition flex items-center gap-2"
               >
                 <ChevronRight className="w-4 h-4 rotate-180" />
                 Back
               </button>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleSkipNote}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-900 font-medium transition flex items-center gap-2"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                  Skip Note
-                </button>
-                <button
-                  onClick={handleContinue}
-                  className="px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 bg-medical-primary-500 text-white hover:bg-medical-primary-600"
-                >
-                  <Upload className="w-5 h-5" />
-                  {isOnboarding ? 'Continue to Upload' : 'Upload'}
-                </button>
-              </div>
+              <button
+                onClick={documentNote && documentNote.trim() !== '' ? handleContinueWithNote : handleSkipNote}
+                className="px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 bg-medical-primary-500 text-white hover:bg-medical-primary-600"
+              >
+                {documentNote && documentNote.trim() !== '' ? 'Continue to upload' : 'Skip with no notes'}
+                <ChevronRight className="w-5 h-5" />
+              </button>
             </>
           )}
         </div>
