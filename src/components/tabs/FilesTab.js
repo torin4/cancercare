@@ -3,6 +3,7 @@ import { Upload, FolderOpen, X, Edit2, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
+import { useBanner } from '../../contexts/BannerContext';
 import { documentService } from '../../firebase/services';
 import { uploadDocument, deleteDocument } from '../../firebase/storage';
 import { processDocument, generateExtractionSummary } from '../../services/documentProcessor';
@@ -16,6 +17,7 @@ export default function FilesTab({ onTabChange }) {
   const { user } = useAuth();
   const { patientProfile } = usePatientContext();
   const { reloadHealthData } = useHealthContext();
+  const { showSuccess, showError } = useBanner();
 
   // Tab-specific state
   const [documents, setDocuments] = useState([]);
@@ -92,7 +94,7 @@ export default function FilesTab({ onTabChange }) {
 
   const handleRealFileUpload = async (file, docType) => {
     if (!user) {
-      alert('Please log in to upload files');
+      showError('Please log in to upload files');
       return;
     }
 
@@ -149,10 +151,10 @@ export default function FilesTab({ onTabChange }) {
 
       setIsUploading(false);
       setUploadProgress('');
-      alert('Document uploaded and processed successfully! All extracted data has been saved to your health records.');
+      showSuccess('Document uploaded and processed successfully! All extracted data has been saved to your health records.');
     } catch (error) {
       console.error('Upload error:', error);
-      alert(`Failed to process document: ${error.message}\n\nThe file was not uploaded. Please try again or contact support if the issue persists.`);
+      showError(`Failed to process document: ${error.message}. The file was not uploaded. Please try again or contact support if the issue persists.`);
       setIsUploading(false);
       setUploadProgress('');
     }
@@ -274,7 +276,7 @@ export default function FilesTab({ onTabChange }) {
                       setHasUploadedDocument(updatedDocs.length > 0);
                     } catch (error) {
                       console.error('Error deleting document:', error);
-                      alert('Failed to delete document. Please try again.');
+                      showError('Failed to delete document. Please try again.');
                     }
                   }
                 });
@@ -334,10 +336,10 @@ export default function FilesTab({ onTabChange }) {
                               
                               setIsUploading(false);
                               setUploadProgress('');
-                              alert('Document rescanned successfully! New values have been extracted.');
+                              showSuccess('Document rescanned successfully! New values have been extracted.');
                             } catch (error) {
                               console.error('Error rescanning document:', error);
-                              alert('Error rescanning document. Please try again.');
+                              showError('Error rescanning document. Please try again.');
                               setIsUploading(false);
                               setUploadProgress('');
                             }

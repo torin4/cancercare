@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, AlertCircle, Heart } from 'lucide-react';
 import { vitalService } from '../../firebase/services';
+import { useBanner } from '../../contexts/BannerContext';
 import DateTimePicker from '../DateTimePicker';
 
 export default function AddVitalModal({ 
@@ -18,6 +19,7 @@ export default function AddVitalModal({
   reloadHealthData,
   getWeightNormalRange
 }) {
+  const { showSuccess, showError } = useBanner();
   if (!show) return null;
 
   const handleCancel = () => {
@@ -29,18 +31,18 @@ export default function AddVitalModal({
 
   const handleSave = async () => {
     if (!newVital.vitalType || !user) {
-      alert('Please select a vital sign.');
+      showError('Please select a vital sign.');
       return;
     }
 
     if (newVital.vitalType === 'bp') {
       if (!newVital.systolic || !newVital.diastolic) {
-        alert('Please enter both systolic and diastolic values for blood pressure.');
+        showError('Please enter both systolic and diastolic values for blood pressure.');
         return;
       }
     } else {
       if (!newVital.value) {
-        alert('Please enter a reading.');
+        showError('Please enter a reading.');
         return;
       }
     }
@@ -48,7 +50,7 @@ export default function AddVitalModal({
     try {
       const vitalDate = new Date(newVital.dateTime || new Date());
       if (isNaN(vitalDate.getTime())) {
-        alert('Please enter a valid date and time.');
+        showError('Please enter a valid date and time.');
         return;
       }
 
@@ -138,7 +140,7 @@ export default function AddVitalModal({
           if (existingVital) {
             vitalId = existingVital.id;
           } else {
-            alert('Error: Could not find vital document to update.');
+            showError('Error: Could not find vital document to update.');
             return;
           }
         }
@@ -210,10 +212,11 @@ export default function AddVitalModal({
       setIsEditingVital(false);
       setEditingVitalValueId(null);
       setNewVital({ vitalType: '', value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
+      showSuccess(isEditingVital ? 'Vital reading updated successfully!' : 'Vital reading added successfully!');
       onClose();
     } catch (error) {
       console.error('Error adding vital:', error);
-      alert('Failed to add vital reading. Please try again.');
+      showError('Failed to add vital reading. Please try again.');
     }
   };
 

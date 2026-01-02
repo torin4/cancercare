@@ -1,7 +1,9 @@
 import React from 'react';
 import { X, AlertCircle, Plus } from 'lucide-react';
+import { useBanner } from '../../contexts/BannerContext';
 
 export default function AddMedicationModal({ show, onClose }) {
+  const { showSuccess } = useBanner();
   if (!show) return null;
 
   return (
@@ -162,8 +164,8 @@ export default function AddMedicationModal({ show, onClose }) {
             </button>
             <button
               onClick={() => {
+                showSuccess('Medication added successfully!');
                 onClose();
-                alert('Medication added successfully!');
               }}
               className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
             >

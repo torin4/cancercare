@@ -48,6 +48,7 @@ import { transformLabsData, transformVitalsData } from './utils/dataTransformUti
 import { useAuth } from './contexts/AuthContext';
 import { usePatientContext } from './contexts/PatientContext';
 import { useHealthContext } from './contexts/HealthContext';
+import { useBanner } from './contexts/BannerContext';
 import './styles/animations.css';
 
 
@@ -56,6 +57,7 @@ export default function CancerCareApp() {
   const { user, authLoading, setUser } = useAuth();
   const { patientProfile, setPatientProfile, refreshPatient, needsOnboarding, setNeedsOnboarding } = usePatientContext();
   const { labsData, setLabsData, vitalsData, setVitalsData, genomicProfile, setGenomicProfile, hasRealLabData, hasRealVitalData, reloadHealthData } = useHealthContext();
+  const { showSuccess, showError } = useBanner();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showQuickLog, setShowQuickLog] = useState(false);
   const [showAddSymptomModal, setShowAddSymptomModal] = useState(false);
@@ -543,7 +545,7 @@ export default function CancerCareApp() {
       setNeedsOnboarding(false);
     } catch (error) {
       console.error('Error saving onboarding data:', error);
-      alert('Failed to save profile. Please try again.');
+      showError('Failed to save profile. Please try again.');
     }
   };
 
@@ -1039,12 +1041,12 @@ export default function CancerCareApp() {
                     <button
                       onClick={async () => {
                         if (!quickLogSymptomForm.name || !quickLogSymptomForm.severity) {
-                          alert('Please fill in all required fields (Symptom Type and Severity)');
+                          showError('Please fill in all required fields (Symptom Type and Severity)');
                           return;
                         }
                         
                         if (!user) {
-                          alert('Please log in to save symptoms');
+                          showError('Please log in to save symptoms');
                           return;
                         }
 
@@ -1080,7 +1082,7 @@ export default function CancerCareApp() {
                           setActiveTab('chat');
                         } catch (error) {
                           console.error('Error saving symptom:', error);
-                          alert('Failed to save symptom. Please try again.');
+                          showError('Failed to save symptom. Please try again.');
                         }
                       }}
                       className="w-full mt-4 bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"

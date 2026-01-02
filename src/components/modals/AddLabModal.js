@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, AlertCircle, Plus } from 'lucide-react';
 import { labService } from '../../firebase/services';
 import { getTodayLocalDate } from '../../utils/helpers';
+import { useBanner } from '../../contexts/BannerContext';
 import DatePicker from '../DatePicker';
 
 const categoryDescriptions = {
@@ -51,6 +52,7 @@ export default function AddLabModal({
   reloadHealthData,
   labKeyMap 
 }) {
+  const { showSuccess, showError } = useBanner();
   const [newLabData, setNewLabData] = useState({
     label: '',
     normalRange: '',
@@ -111,10 +113,11 @@ export default function AddLabModal({
       }
 
       setNewLabData({ label: '', normalRange: '', unit: '', initialValue: '', initialDate: getTodayLocalDate() });
+      showSuccess('Lab metric added successfully!');
       onClose();
     } catch (error) {
       console.error('Error adding lab:', error);
-      alert('Failed to add lab metric. Please try again.');
+      showError('Failed to add lab metric. Please try again.');
     }
   };
 

@@ -5,6 +5,7 @@ import { auth } from '../../firebase/config';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
+import { useBanner } from '../../contexts/BannerContext';
 import { emergencyContactService, accountService, documentService } from '../../firebase/services';
 import { deleteUserDirectory } from '../../firebase/storage';
 import { formatLabel, formatSignificance, significanceExplanation } from '../../utils/formatters';
@@ -23,6 +24,7 @@ export default function ProfileTab({ onTabChange }) {
   const { user, setUser } = useAuth();
   const { patientProfile, setPatientProfile, refreshPatient } = usePatientContext();
   const { genomicProfile, setGenomicProfile, reloadHealthData } = useHealthContext();
+  const { showSuccess, showError } = useBanner();
 
   // Tab-specific state
   const [profileImage, setProfileImage] = useState(null);
@@ -132,7 +134,7 @@ export default function ProfileTab({ onTabChange }) {
       setUser(null);
     } catch (error) {
       console.error('Sign out error:', error);
-      alert('Failed to sign out: ' + error.message);
+      showError('Failed to sign out: ' + error.message);
     }
   };
 
@@ -143,15 +145,15 @@ export default function ProfileTab({ onTabChange }) {
     try {
       const provider = new GoogleAuthProvider();
       await linkWithPopup(user, provider);
-      alert('Google account linked successfully! You can now sign in with either email/password or Google.');
+      showSuccess('Google account linked successfully! You can now sign in with either email/password or Google.');
     } catch (error) {
       console.error('Account linking error:', error);
       if (error.code === 'auth/credential-already-in-use') {
-        alert('This Google account is already linked to another account. Please use a different Google account.');
+        showError('This Google account is already linked to another account. Please use a different Google account.');
       } else if (error.code === 'auth/provider-already-linked') {
-        alert('Google account is already linked to this account.');
+        showError('Google account is already linked to this account.');
       } else if (error.code !== 'auth/popup-closed-by-user') {
-        alert('Failed to link Google account: ' + error.message);
+        showError('Failed to link Google account: ' + error.message);
       }
     } finally {
       setIsLinkingGoogle(false);
@@ -163,7 +165,7 @@ export default function ProfileTab({ onTabChange }) {
     
     const hasEmailPassword = user.providerData?.some(p => p.providerId === 'password');
     if (!hasEmailPassword) {
-      alert('Cannot unlink Google account. You must have at least one sign-in method. Please add an email/password account first.');
+      showError('Cannot unlink Google account. You must have at least one sign-in method. Please add an email/password account first.');
       return;
     }
 
@@ -174,15 +176,15 @@ export default function ProfileTab({ onTabChange }) {
     setIsUnlinkingGoogle(true);
     try {
       await unlink(user, 'google.com');
-      alert('Google account unlinked successfully.');
+      showSuccess('Google account unlinked successfully.');
     } catch (error) {
       console.error('Account unlinking error:', error);
       if (error.code === 'auth/no-such-provider') {
-        alert('Google account is not linked to this account.');
+        showError('Google account is not linked to this account.');
       } else if (error.code === 'auth/cannot-unlink-provider') {
-        alert('Cannot unlink this provider. You must have at least one sign-in method.');
+        showError('Cannot unlink this provider. You must have at least one sign-in method.');
       } else {
-        alert('Failed to unlink Google account: ' + error.message);
+        showError('Failed to unlink Google account: ' + error.message);
       }
     } finally {
       setIsUnlinkingGoogle(false);
@@ -199,12 +201,12 @@ export default function ProfileTab({ onTabChange }) {
         await accountService.clearHealthData(user.uid);
         await deleteUserDirectory(user.uid);
         await reloadHealthData();
-        alert('Your health data has been successfully cleared.');
+        showSuccess('Your health data has been successfully cleared.');
         setShowDeletionConfirm(false);
       } else if (type === 'account') {
         const currentUser = auth.currentUser;
         if (!currentUser) {
-          alert('No user found. Please log in and try again.');
+          showError('No user found. Please log in and try again.');
           setIsDeleting(false);
           return;
         }
@@ -229,11 +231,11 @@ export default function ProfileTab({ onTabChange }) {
             subtype: ''
           });
           setShowDeletionConfirm(false);
-          alert('Your account and all associated data have been permanently deleted.');
+          showSuccess('Your account and all associated data have been permanently deleted.');
         } catch (authError) {
           console.error('Account deletion error:', authError);
           if (authError.code === 'auth/requires-recent-login') {
-            alert('For security, account deletion requires a recent login. Please log out and log back in, then try again.');
+            showError('For security, account deletion requires a recent login. Please log out and log back in, then try again.');
             setIsDeleting(false);
             setShowDeletionConfirm(false);
             return;
@@ -251,7 +253,7 @@ export default function ProfileTab({ onTabChange }) {
       }
     } catch (error) {
       console.error('Error during deletion:', error);
-      alert('An error occurred during deletion. Please try again.');
+      showError('An error occurred during deletion. Please try again.');
     } finally {
       setIsDeleting(false);
     }
@@ -1196,7 +1198,7 @@ export default function ProfileTab({ onTabChange }) {
             setPendingDocumentNote(documentNote);
             // Note: Actual upload logic would need to be handled here or passed via callback
             // For now, this is a placeholder - the full upload flow is in App.js
-            alert('Document upload functionality needs to be connected');
+            showError('Document upload functionality needs to be connected');
           }}
         />
       )}

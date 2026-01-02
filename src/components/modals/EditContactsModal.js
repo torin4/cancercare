@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, AlertCircle, Check, User, Trash2, Plus } from 'lucide-react';
 import { emergencyContactService } from '../../firebase/services';
+import { useBanner } from '../../contexts/BannerContext';
 
 export default function EditContactsModal({ 
   show, 
@@ -11,6 +12,7 @@ export default function EditContactsModal({
   setEmergencyContacts,
   user 
 }) {
+  const { showSuccess, showError } = useBanner();
   if (!show) return null;
 
   const handleSave = async () => {
@@ -21,7 +23,7 @@ export default function EditContactsModal({
       );
       
       if (validContacts.length === 0) {
-        alert('Please add at least one contact with a name or phone number.');
+        showError('Please add at least one contact with a name or phone number.');
         return;
       }
 
@@ -54,11 +56,11 @@ export default function EditContactsModal({
         (c.name && c.name.trim()) || (c.phone && c.phone.trim())
       );
       setEmergencyContacts(filteredContacts);
+      showSuccess('Emergency contacts updated!');
       onClose();
-      alert('Emergency contacts updated!');
     } catch (err) {
       console.error('Failed to save emergency contacts', err);
-      alert('Failed to save emergency contacts.');
+      showError('Failed to save emergency contacts.');
     }
   };
 

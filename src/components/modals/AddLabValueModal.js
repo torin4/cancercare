@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Check } from 'lucide-react';
 import { labService } from '../../firebase/services';
 import { getTodayLocalDate } from '../../utils/helpers';
+import { useBanner } from '../../contexts/BannerContext';
 import DatePicker from '../DatePicker';
 
 export default function AddLabValueModal({
@@ -19,6 +20,7 @@ export default function AddLabValueModal({
   reloadHealthData,
   setSelectedLab
 }) {
+  const { showSuccess, showError } = useBanner();
   useEffect(() => {
     if (show && selectedLabForValue && isEditingLabValue && editingLabValueId) {
       // Find the specific lab value to pre-fill the form
@@ -52,14 +54,14 @@ export default function AddLabValueModal({
 
   const handleSave = async () => {
     if (!newLabValue.value || !newLabValue.date || !selectedLabForValue || !user) {
-      alert('Please fill in all required fields.');
+      showError('Please fill in all required fields.');
       return;
     }
 
     try {
       const valueDate = new Date(newLabValue.date);
       if (isNaN(valueDate.getTime())) {
-        alert('Please enter a valid date.');
+        showError('Please enter a valid date.');
         return;
       }
 
@@ -96,10 +98,11 @@ export default function AddLabValueModal({
         setSelectedLab(selectedLabForValue.key);
       }
 
+      showSuccess(isEditingLabValue ? 'Lab value updated successfully!' : 'Lab value added successfully!');
       handleClose();
     } catch (error) {
       console.error('Error saving lab value:', error);
-      alert('Failed to save lab value. Please try again.');
+      showError('Failed to save lab value. Please try again.');
     }
   };
 

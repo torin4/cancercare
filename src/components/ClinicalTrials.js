@@ -3,6 +3,7 @@ import { CheckCircle, AlertTriangle, XCircle, Star, Search as SearchIcon, MapPin
 import ReactMarkdown from 'react-markdown';
 import { auth } from '../firebase/config';
 import { patientService, genomicProfileService, clinicalTrialsService, trialLocationService } from '../firebase/services';
+import { useBanner } from '../contexts/BannerContext';
 import { getTrialDetails } from '../services/clinicalTrials/trialSearchService';
 
 // Comprehensive list of countries for dropdowns
@@ -26,6 +27,7 @@ const COUNTRIES = [
 ].sort();
 
 const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
+  const { showSuccess, showError } = useBanner();
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [activeTab, setActiveTab] = useState('search'); // 'search' or 'saved'
@@ -306,9 +308,10 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
 
       // Reload saved trials to update count (silently if not on saved tab)
       loadSavedTrials(activeTab === 'saved');
+      showSuccess('Trial saved successfully!');
     } catch (error) {
       console.error('Error saving trial:', error);
-      alert('Failed to save trial');
+      showError('Failed to save trial');
     }
   };
 
@@ -331,9 +334,10 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
       
       // Reload saved trials to update count (silently if not on saved tab)
       loadSavedTrials(activeTab === 'saved');
+      showSuccess('Trial removed successfully!');
     } catch (error) {
       console.error('Error removing trial:', error);
-      alert('Failed to remove trial');
+      showError('Failed to remove trial');
     }
   };
 
@@ -1204,9 +1208,10 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                     setShowEditLocation(false);
                     // Reload patient data to get updated location
                     loadPatientData();
+                    showSuccess('Location settings saved successfully!');
                   } catch (error) {
                     console.error('Error saving trial location:', error);
-                    alert('Failed to save location settings. Please try again.');
+                    showError('Failed to save location settings. Please try again.');
                   }
                 }}
                 className="flex-1 border-2 border-medical-primary-500 text-medical-primary-600 py-2.5 rounded-lg font-medium hover:bg-medical-primary-50 transition min-h-[44px] touch-manipulation active:opacity-70 text-sm sm:text-base"

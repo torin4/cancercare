@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Check } from 'lucide-react';
 import { patientService } from '../../firebase/services';
+import { useBanner } from '../../contexts/BannerContext';
 import DatePicker from '../DatePicker';
 
 export default function EditPatientInfoModal({
@@ -11,6 +12,7 @@ export default function EditPatientInfoModal({
   setPatientProfile,
   setMessages
 }) {
+  const { showSuccess, showError } = useBanner();
   if (!show) return null;
 
   const handleSave = async () => {
@@ -48,6 +50,7 @@ export default function EditPatientInfoModal({
         height: patientProfile.height,
         country: patientProfile.country || prev.country
       }));
+      showSuccess('Patient information updated successfully!');
       onClose();
       if (setMessages) {
         setMessages(prev => [...prev, {
@@ -57,7 +60,7 @@ export default function EditPatientInfoModal({
       }
     } catch (error) {
       console.error('Error saving patient info:', error);
-      alert('Failed to save patient information. Please try again.');
+      showError('Failed to save patient information. Please try again.');
     }
   };
 

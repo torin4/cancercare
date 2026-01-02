@@ -5,6 +5,7 @@ import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { PatientProvider } from './contexts/PatientContext';
 import { HealthProvider } from './contexts/HealthContext';
+import { BannerProvider } from './contexts/BannerContext';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
@@ -12,7 +13,9 @@ root.render(
     <AuthProvider>
       <PatientProvider>
         <HealthProvider>
-          <App />
+          <BannerProvider>
+            <App />
+          </BannerProvider>
         </HealthProvider>
       </PatientProvider>
     </AuthProvider>

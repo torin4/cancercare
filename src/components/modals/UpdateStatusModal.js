@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Check } from 'lucide-react';
 import { patientService } from '../../firebase/services';
+import { useBanner } from '../../contexts/BannerContext';
 import { CANCER_TYPES, CANCER_SUBTYPES, STAGE_OPTIONS, TREATMENT_STATUS_OPTIONS, PERFORMANCE_OPTIONS, DISEASE_STATUS_OPTIONS } from '../../constants/cancerTypes';
 import DatePicker from '../DatePicker';
 
@@ -17,6 +18,7 @@ export default function UpdateStatusModal({
   setPatientProfile,
   setMessages
 }) {
+  const { showSuccess, showError } = useBanner();
   if (!show) return null;
 
   const handleSave = async () => {
@@ -59,13 +61,14 @@ export default function UpdateStatusModal({
         cancerType: finalSubtype || prev.cancerType,
         stage: currentStatus.stage || prev.stage
       }));
+      showSuccess('Current status updated successfully!');
       if (setMessages) {
         setMessages(prev => [...prev, { type: 'ai', text: 'Current status updated successfully!' }]);
       }
       onClose();
     } catch (err) {
       console.error('Failed to save current status', err);
-      alert('Failed to save current status.');
+      showError('Failed to save current status.');
     }
   };
 

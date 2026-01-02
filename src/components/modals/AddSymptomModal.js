@@ -2,6 +2,7 @@ import React from 'react';
 import { X, AlertCircle, Activity } from 'lucide-react';
 import { getTodayLocalDate } from '../../utils/helpers';
 import { symptomService } from '../../firebase/services';
+import { useBanner } from '../../contexts/BannerContext';
 import DatePicker from '../DatePicker';
 
 export default function AddSymptomModal({ 
@@ -11,6 +12,7 @@ export default function AddSymptomModal({
   setSymptomForm, 
   user 
 }) {
+  const { showSuccess, showError } = useBanner();
   if (!show) return null;
 
   const handleSave = async () => {
@@ -20,12 +22,12 @@ export default function AddSymptomModal({
       : symptomForm.name;
     
     if (!symptomForm.name || !symptomForm.severity || (symptomForm.name === 'Other' && !symptomForm.customSymptomName)) {
-      alert('Please fill in all required fields (Symptom Type and Severity)');
+      showError('Please fill in all required fields (Symptom Type and Severity)');
       return;
     }
     
     if (!user) {
-      alert('Please log in to save symptoms');
+      showError('Please log in to save symptoms');
       return;
     }
 
@@ -52,12 +54,13 @@ export default function AddSymptomModal({
         customSymptomName: '',
         tags: []
       });
+      showSuccess('Symptom logged successfully!');
       onClose();
       
       // Symptoms will automatically update via the subscription
     } catch (error) {
       console.error('Error saving symptom:', error);
-      alert('Failed to save symptom. Please try again.');
+      showError('Failed to save symptom. Please try again.');
     }
   };
 

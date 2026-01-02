@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, AlertCircle, Check } from 'lucide-react';
 import { patientService } from '../../firebase/services';
+import { useBanner } from '../../contexts/BannerContext';
 
 export default function EditMedicalTeamModal({ 
   show, 
@@ -11,6 +12,7 @@ export default function EditMedicalTeamModal({
   setMessages,
   emergencyContacts = []
 }) {
+  const { showSuccess, showError } = useBanner();
   if (!show) return null;
 
   const [caregiverSource, setCaregiverSource] = useState(
@@ -61,6 +63,7 @@ export default function EditMedicalTeamModal({
         caregiverPhone: caregiverPhone,
         caregiverEmail: caregiverEmail
       }));
+      showSuccess('Medical team information updated successfully!');
       onClose();
       if (setMessages) {
         setMessages(prev => [...prev, {
@@ -70,7 +73,7 @@ export default function EditMedicalTeamModal({
       }
     } catch (error) {
       console.error('Error saving medical team:', error);
-      alert('Failed to save medical team information. Please try again.');
+      showError('Failed to save medical team information. Please try again.');
     }
   };
 

@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
+import { useBanner } from '../../contexts/BannerContext';
 import { messageService, labService, vitalService, symptomService } from '../../firebase/services';
 import { getSavedTrials } from '../../services/clinicalTrials/clinicalTrialsService';
 import { processChatMessage, generateChatExtractionSummary } from '../../services/chatProcessor';
@@ -17,6 +18,7 @@ export default function ChatTab({ onTabChange }) {
   const { user } = useAuth();
   const { patientProfile, hasUploadedDocument } = usePatientContext();
   const { reloadHealthData } = useHealthContext();
+  const { showSuccess, showError } = useBanner();
 
   // Get personalized suggestions based on user role
   const personalizedSuggestions = React.useMemo(() => {
@@ -506,7 +508,7 @@ export default function ChatTab({ onTabChange }) {
   const handleRealFileUpload = async (file, docType) => {
     console.log('handleRealFileUpload called', file?.name, docType);
     if (!user) {
-      alert('Please log in to upload files');
+      showError('Please log in to upload files');
       return;
     }
 
@@ -663,7 +665,7 @@ export default function ChatTab({ onTabChange }) {
                     setChatHistoryLoaded(false);
                   } catch (error) {
                     console.error('Error clearing chat history:', error);
-                    alert('Error clearing chat history. Please try again.');
+                    showError('Error clearing chat history. Please try again.');
                   }
                 }
               }}

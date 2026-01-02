@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, AlertCircle, Check, Plus, Trash2 } from 'lucide-react';
 import { genomicProfileService } from '../../firebase/services';
+import { useBanner } from '../../contexts/BannerContext';
 import DatePicker from '../DatePicker';
 
 export default function EditGenomicModal({ 
@@ -12,6 +13,7 @@ export default function EditGenomicModal({
   setGenomicProfile,
   setMessages 
 }) {
+  const { showSuccess, showError } = useBanner();
   if (!show || !editingGenomicProfile) return null;
 
   const handleSave = async () => {
@@ -44,11 +46,12 @@ export default function EditGenomicModal({
       const updated = await genomicProfileService.getGenomicProfile(user.uid);
       setGenomicProfile(updated);
       
+      showSuccess('Genomic profile updated successfully!');
       onClose();
       setMessages(prev => [...prev, { type: 'ai', text: 'Genomic profile updated successfully!' }]);
     } catch (err) {
       console.error('Failed to save genomic profile', err);
-      alert('Failed to save genomic profile. Please try again.');
+      showError('Failed to save genomic profile. Please try again.');
     }
   };
 

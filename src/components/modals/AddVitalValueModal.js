@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { X, Heart } from 'lucide-react';
 import { vitalService } from '../../firebase/services';
+import { useBanner } from '../../contexts/BannerContext';
 import DateTimePicker from '../DateTimePicker';
 
 export default function AddVitalValueModal({ 
@@ -18,6 +19,7 @@ export default function AddVitalValueModal({
   reloadHealthData,
   vitalsData
 }) {
+  const { showSuccess, showError } = useBanner();
   useEffect(() => {
     if (show && selectedVitalForValue && isEditingVitalValue && editingVitalValueId && vitalsData) {
       // Find the specific vital value to pre-fill the form
@@ -105,31 +107,31 @@ export default function AddVitalValueModal({
 
   const handleSave = async () => {
     if (!selectedVitalForValue || !user) {
-      alert('Please fill in all required fields.');
+      showError('Please fill in all required fields.');
       return;
     }
 
     if (isBloodPressure()) {
       if (!newVitalValue.systolic || !newVitalValue.diastolic) {
-        alert('Please enter both systolic and diastolic values for blood pressure.');
+        showError('Please enter both systolic and diastolic values for blood pressure.');
         return;
       }
     } else {
       if (!newVitalValue.value) {
-        alert('Please enter a value.');
+        showError('Please enter a value.');
         return;
       }
     }
 
     if (!newVitalValue.dateTime) {
-      alert('Please enter a date and time.');
+      showError('Please enter a date and time.');
       return;
     }
 
     try {
       const vitalDate = new Date(newVitalValue.dateTime);
       if (isNaN(vitalDate.getTime())) {
-        alert('Please enter a valid date and time.');
+        showError('Please enter a valid date and time.');
         return;
       }
 
@@ -173,10 +175,11 @@ export default function AddVitalValueModal({
       setEditingVitalValueId(null);
       setNewVitalValue({ value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
       setSelectedVitalForValue(null);
+      showSuccess(isEditingVitalValue ? 'Vital reading updated successfully!' : 'Vital reading added successfully!');
       onClose();
     } catch (error) {
       console.error('Error adding vital value:', error);
-      alert('Failed to add vital reading. Please try again.');
+      showError('Failed to add vital reading. Please try again.');
     }
   };
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import { documentService, labService, vitalService } from '../../firebase/services';
+import { useBanner } from '../../contexts/BannerContext';
 
 export default function EditDocumentNoteModal({
   show,
@@ -15,6 +16,7 @@ export default function EditDocumentNoteModal({
   reloadHealthData,
   setDocuments
 }) {
+  const { showSuccess, showError } = useBanner();
   useEffect(() => {
     if (show && editingDocumentNote) {
       setDocumentNoteEdit(editingDocumentNote.note || '');
@@ -86,10 +88,10 @@ export default function EditDocumentNoteModal({
       setUploadProgress('');
       setEditingDocumentNote(null);
       setDocumentNoteEdit('');
-      alert('Note updated successfully! All related lab/vital values have been updated.');
+      showSuccess('Note updated successfully! All related lab/vital values have been updated.');
     } catch (error) {
       console.error('Error updating note:', error);
-      alert('Error updating note. Please try again.');
+      showError('Error updating note. Please try again.');
       setIsUploading(false);
       setUploadProgress('');
     }

@@ -2,6 +2,7 @@ import React from 'react';
 import { X, AlertCircle, Check } from 'lucide-react';
 import { COUNTRIES } from '../../constants/countries';
 import { trialLocationService } from '../../firebase/services';
+import { useBanner } from '../../contexts/BannerContext';
 
 export default function EditLocationModal({
   show,
@@ -11,11 +12,13 @@ export default function EditLocationModal({
   setTrialLocation,
   setMessages
 }) {
+  const { showSuccess, showError } = useBanner();
   if (!show) return null;
 
   const handleSave = async () => {
     try {
       await trialLocationService.saveTrialLocation(user.uid, trialLocation);
+      showSuccess('Trial search location updated successfully!');
       onClose();
       if (setMessages) {
         setMessages(prev => [...prev, {
@@ -25,7 +28,7 @@ export default function EditLocationModal({
       }
     } catch (error) {
       console.error('Error saving trial location:', error);
-      alert('Failed to save location settings. Please try again.');
+      showError('Failed to save location settings. Please try again.');
     }
   };
 

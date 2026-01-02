@@ -3,6 +3,7 @@ import { MessageSquare, BarChart, Heart, Thermometer, Pill, Plus, Upload, Edit2,
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
+import { useBanner } from '../../contexts/BannerContext';
 import { labService, vitalService, symptomService, medicationService } from '../../firebase/services';
 import { getLabStatus, getVitalStatus, getWeightNormalRange } from '../../utils/healthUtils';
 import { normalizeLabName, getLabDisplayName, labValueDescriptions, normalizeVitalName, getVitalDisplayName, vitalDescriptions, categorizeLabs } from '../../utils/normalizationUtils';
@@ -21,6 +22,7 @@ export default function HealthTab({ onTabChange }) {
   const { user } = useAuth();
   const { hasUploadedDocument, patientProfile } = usePatientContext();
   const { labsData, setLabsData, vitalsData, setVitalsData, hasRealLabData, hasRealVitalData, reloadHealthData } = useHealthContext();
+  const { showSuccess, showError } = useBanner();
 
   // Tab-specific state
   const [healthSection, setHealthSection] = useState('labs');
@@ -214,7 +216,7 @@ export default function HealthTab({ onTabChange }) {
       onTabChange('chat');
     } catch (error) {
       console.error('Error loading health data:', error);
-      alert('Error loading health data. Please try again.');
+      showError('Error loading health data. Please try again.');
     }
   };
 
@@ -721,7 +723,7 @@ export default function HealthTab({ onTabChange }) {
                                         return (
                                           <div
                                             key={i}
-                                            className="absolute group cursor-pointer"
+                                            className="absolute group"
                                             style={{
                                               left: `${x}%`,
                                               bottom: `${y}%`,
@@ -757,8 +759,12 @@ export default function HealthTab({ onTabChange }) {
                                             />
 
                                             {/* Tooltip with edit and delete buttons */}
-                                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4 opacity-0 group-hover:opacity-100 transition-opacity z-30">
-                                              <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl">
+                                            <div className={`absolute opacity-0 group-hover:opacity-100 transition-opacity z-30 ${
+                                              y > 70 ? 'bottom-full mb-4' : 'top-full mt-4'
+                                            } ${
+                                              x < 10 ? 'left-0' : x > 90 ? 'right-0' : 'left-1/2 transform -translate-x-1/2'
+                                            }`}>
+                                              <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl whitespace-nowrap">
                                                 <div className="flex items-center justify-between gap-3">
                                                   <div>
                                                 <div className="font-bold text-sm">{d.value} {currentLab.unit}</div>
@@ -815,7 +821,7 @@ export default function HealthTab({ onTabChange }) {
                                                           const labDate = d.date;
                                                           
                                                           if (!labDocId) {
-                                                            alert('Lab document ID not found. Please try again.');
+                                                            showError('Lab document ID not found. Please try again.');
                                                             return;
                                                           }
                                                           
@@ -851,6 +857,9 @@ export default function HealthTab({ onTabChange }) {
                                                                 
                                                                 await labService.deleteLabValue(labDocId, labValueId);
                                                                 
+                                                                // Show success banner
+                                                                showSuccess(`${labName} reading deleted successfully`);
+                                                                
                                                                 // Reload to ensure sync (but UI already updated)
                                                                 // Use reloadHealthData to properly reload all data
                                                                 setTimeout(async () => {
@@ -860,7 +869,7 @@ export default function HealthTab({ onTabChange }) {
                                                                 console.error('Error deleting lab:', error);
                                                                 // Revert optimistic update on error
                                                                 reloadHealthData();
-                                                                alert('Failed to delete lab reading. Please try again.');
+                                                                showError('Failed to delete lab reading. Please try again.');
                                                               }
                                                             }
                                                           });
@@ -872,10 +881,6 @@ export default function HealthTab({ onTabChange }) {
                                                       </button>
                                                     </div>
                                                   )}
-                                                </div>
-                                                {/* Arrow */}
-                                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-px">
-                                                  <div className="border-4 border-transparent border-t-gray-900"></div>
                                                 </div>
                                               </div>
                                             </div>
@@ -1056,7 +1061,7 @@ export default function HealthTab({ onTabChange }) {
                                                         console.error('Error deleting labs:', error);
                                                         // Revert optimistic update on error
                                                         reloadHealthData();
-                                                        alert('Failed to delete lab data. Please try again.');
+                                                        showError('Failed to delete lab data. Please try again.');
                                                       }
                                                     }
                                                   });
@@ -1180,7 +1185,7 @@ export default function HealthTab({ onTabChange }) {
                                                         console.error('Error deleting labs:', error);
                                                         // Revert optimistic update on error
                                                         reloadHealthData();
-                                                        alert('Failed to delete lab data. Please try again.');
+                                                        showError('Failed to delete lab data. Please try again.');
                                                       }
                                                     }
                                                   });
@@ -1967,7 +1972,7 @@ export default function HealthTab({ onTabChange }) {
                                               return (
                                                 <div
                                                   key={i}
-                                                  className="absolute group cursor-pointer"
+                                                  className="absolute group"
                                                   style={{
                                                     left: `${x}%`,
                                                     bottom: `${y}%`,
@@ -2003,8 +2008,12 @@ export default function HealthTab({ onTabChange }) {
                                                   />
 
                                                   {/* Tooltip with edit and delete buttons */}
-                                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4 opacity-0 group-hover:opacity-100 transition-opacity z-30">
-                                                    <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl">
+                                                  <div className={`absolute opacity-0 group-hover:opacity-100 transition-opacity z-30 ${
+                                                    y > 70 ? 'bottom-full mb-4' : 'top-full mt-4'
+                                                  } ${
+                                                    x < 10 ? 'left-0' : x > 90 ? 'right-0' : 'left-1/2 transform -translate-x-1/2'
+                                                  }`}>
+                                                    <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl whitespace-nowrap">
                                                       <div className="flex items-center justify-between gap-3">
                                                         <div>
                                                       <div className="font-bold text-sm">
@@ -2087,7 +2096,7 @@ export default function HealthTab({ onTabChange }) {
                                                                 const vitalDate = d.date;
                                                                 
                                                                 if (!vitalDocId) {
-                                                                  alert('Vital document ID not found. Please try again.');
+                                                                  showError('Vital document ID not found. Please try again.');
                                                                   return;
                                                                 }
                                                                 
@@ -2123,13 +2132,16 @@ export default function HealthTab({ onTabChange }) {
                                                                       
                                                                       await vitalService.deleteVitalValue(vitalDocId, vitalValueId);
                                                                       
+                                                                      // Show success banner
+                                                                      showSuccess(`${displayName} reading deleted successfully`);
+                                                                      
                                                                       // Don't reload immediately - optimistic update already removed it
                                                                       // Reloading too quickly can cause the value to reappear
                                                                     } catch (error) {
                                                                       console.error('Error deleting vital:', error);
                                                                       // Revert optimistic update on error
                                                                       reloadHealthData();
-                                                                      alert('Failed to delete vital reading. Please try again.');
+                                                                      showError('Failed to delete vital reading. Please try again.');
                                                                     }
                                                                   }
                                                                 });
@@ -2141,10 +2153,6 @@ export default function HealthTab({ onTabChange }) {
                                                             </button>
                                                           </div>
                                                         )}
-                                                      </div>
-                                                      {/* Arrow */}
-                                                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
-                                                        <div className="border-4 border-transparent border-t-gray-900"></div>
                                                       </div>
                                                     </div>
                                                   </div>
@@ -2346,7 +2354,7 @@ export default function HealthTab({ onTabChange }) {
                                                       // Get the vital document ID
                                                       const vitalId = vital?.id;
                                                       if (!vitalId) {
-                                                        alert('Error: Could not find vital document ID. Please try again.');
+                                                        showError('Error: Could not find vital document ID. Please try again.');
                                                         return;
                                                       }
                                                       
@@ -2380,7 +2388,7 @@ export default function HealthTab({ onTabChange }) {
                                                       console.error('Error deleting vitals:', error);
                                                       // Revert optimistic update on error
                                                       reloadHealthData();
-                                                      alert('Failed to delete vital data. Please try again.');
+                                                      showError('Failed to delete vital data. Please try again.');
                                                     }
                                                   }
                                                 });
@@ -2675,7 +2683,7 @@ export default function HealthTab({ onTabChange }) {
                                                   // Symptoms will automatically update via the subscription
                                                 } catch (error) {
                                                   console.error('Error deleting symptom:', error);
-                                                  alert('Failed to delete symptom. Please try again.');
+                                                  showError('Failed to delete symptom. Please try again.');
                                                 }
                                               }
                                             });
