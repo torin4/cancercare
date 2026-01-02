@@ -59,6 +59,7 @@ export default function CancerCareApp() {
   const { labsData, setLabsData, vitalsData, setVitalsData, genomicProfile, setGenomicProfile, hasRealLabData, hasRealVitalData, reloadHealthData } = useHealthContext();
   const { showSuccess, showError } = useBanner();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [showQuickLog, setShowQuickLog] = useState(false);
   const [showAddSymptomModal, setShowAddSymptomModal] = useState(false);
   const [healthSection, setHealthSection] = useState('labs'); // 'labs', 'vitals', 'symptoms', 'medications'
@@ -757,10 +758,17 @@ export default function CancerCareApp() {
   return (
     <div className="flex flex-col h-screen bg-medical-neutral-50">
 
-      <Navigation activeTab={activeTab} setActiveTab={setActiveTab} patientProfile={patientProfile} />
+      <Navigation 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        patientProfile={patientProfile}
+        onSidebarHover={setSidebarExpanded}
+      />
 
       {/* Main Content - Scrollable */}
-      <div className="flex-1 overflow-y-auto pb-20">
+      <div className={`flex-1 overflow-y-auto pb-20 md:pb-0 transition-all duration-300 ${
+        sidebarExpanded ? 'md:ml-64' : 'md:ml-20'
+      }`}>
         {activeTab === 'dashboard' && (
           <DashboardTab onTabChange={setActiveTab} />
         )}
