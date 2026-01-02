@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, User, Calendar, MapPin, TrendingUp, Activity, Edit2, Dna, Upload, AlertCircle, Users, Phone, Plus, Settings, Link2, Loader2, Unlink, LogOut, Trash2 } from 'lucide-react';
+import { Camera, User, Calendar, MapPin, TrendingUp, Activity, Edit2, Dna, Upload, AlertCircle, Users, Phone, Plus, Settings, Link2, Loader2, Unlink, LogOut, Trash2, Sliders, Shield } from 'lucide-react';
 import { signOut, linkWithPopup, unlink, GoogleAuthProvider, deleteUser } from 'firebase/auth';
 import { auth } from '../../firebase/config';
 import { useAuth } from '../../contexts/AuthContext';
@@ -945,7 +945,7 @@ export default function ProfileTab({ onTabChange }) {
             {/* Preferences Section */}
             <div>
               <h3 className="text-sm font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
-                <User className="w-4 h-4 text-medical-neutral-500" />
+                <Sliders className="w-4 h-4 text-medical-neutral-500" />
                 Preferences
               </h3>
               
@@ -1014,7 +1014,7 @@ export default function ProfileTab({ onTabChange }) {
             {/* Account & Security Section */}
             <div>
               <h3 className="text-sm font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
-                <User className="w-4 h-4 text-medical-neutral-500" />
+                <Shield className="w-4 h-4 text-medical-neutral-500" />
                 Account & Security
               </h3>
               

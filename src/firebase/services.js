@@ -974,14 +974,13 @@ export const accountService = {
         await deleteDoc(genomicRef);
       }
 
-      // 3. Clear currentStatus and diagnosis-related fields from patient profile (but preserve basic profile info)
+      // 3. Clear currentStatus from patient profile (but preserve diagnosis and basic profile info)
+      // Note: diagnosis, diagnosisDate are kept persistent for trial matching
       const patientRef = doc(db, COLLECTIONS.PATIENTS, userId);
       const patientSnap = await getDoc(patientRef);
       if (patientSnap.exists()) {
         await updateDoc(patientRef, {
           currentStatus: null,
-          diagnosis: null,
-          diagnosisDate: null,
           cancerType: null,
           stage: null,
           stageOther: null
