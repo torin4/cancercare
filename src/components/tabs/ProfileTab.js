@@ -218,6 +218,8 @@ export default function ProfileTab({ onTabChange }) {
       if (type === 'data') {
         await accountService.clearHealthData(user.uid);
         await deleteUserDirectory(user.uid);
+        // Explicitly clear genomic profile from UI state
+        setGenomicProfile(null);
         await reloadHealthData();
         showSuccess('Your health data has been successfully cleared.');
         setShowDeletionConfirm(false);

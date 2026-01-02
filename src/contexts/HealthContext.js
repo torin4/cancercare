@@ -40,13 +40,9 @@ export const HealthProvider = ({ children }) => {
       );
       setHasRealVitalData(hasData);
 
-      // Reload genomic profile
+      // Reload genomic profile - explicitly set to null if not found
       const genomic = await genomicProfileService.getGenomicProfile(user.uid);
-      if (genomic) {
-        setGenomicProfile(genomic);
-      } else {
-        setGenomicProfile(null);
-      }
+      setGenomicProfile(genomic || null);
     } catch (error) {
       console.error('Error reloading health data:', error);
     } finally {
@@ -81,13 +77,9 @@ export const HealthProvider = ({ children }) => {
         );
         setHasRealVitalData(hasData);
 
-        // Reload genomic profile
+        // Reload genomic profile - explicitly set to null if not found
         const genomic = await genomicProfileService.getGenomicProfile(user.uid);
-        if (genomic) {
-          setGenomicProfile(genomic);
-        } else {
-          setGenomicProfile(null);
-        }
+        setGenomicProfile(genomic || null);
       } catch (error) {
         console.error('Error loading health data:', error);
       } finally {

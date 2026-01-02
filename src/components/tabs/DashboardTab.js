@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Activity, TrendingUp, Upload, AlertCircle, ClipboardList, Info, Dna, Bookmark, Star, ChevronRight, Search, MessageSquare, X } from 'lucide-react';
+import { Zap, Activity, TrendingUp, Upload, AlertCircle, ClipboardList, Info, Dna, Bookmark, Star, ChevronRight, Search, MessageSquare, X, Heart } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
@@ -7,10 +7,12 @@ import { useBanner } from '../../contexts/BannerContext';
 import { getSavedTrials } from '../../services/clinicalTrials/clinicalTrialsService';
 import { parseMutation, getTodayLocalDate } from '../../utils/helpers';
 import { formatLabel } from '../../utils/formatters';
-import { normalizeLabName, getLabDisplayName, labValueDescriptions, normalizeVitalName, getVitalDisplayName, vitalDescriptions } from '../../utils/normalizationUtils';
+import { normalizeLabName, getLabDisplayName, labValueDescriptions, normalizeVitalName, getVitalDisplayName, vitalDescriptions, labKeyMap } from '../../utils/normalizationUtils';
 import { processDocument } from '../../services/documentProcessor';
 import { uploadDocument } from '../../firebase/storage';
 import AddSymptomModal from '../modals/AddSymptomModal';
+import AddLabModal from '../modals/AddLabModal';
+import AddVitalModal from '../modals/AddVitalModal';
 import DocumentUploadOnboarding from '../DocumentUploadOnboarding';
 import UploadProgressOverlay from '../UploadProgressOverlay';
 
@@ -25,6 +27,8 @@ export default function DashboardTab({ onTabChange }) {
   const [loadingSavedTrials, setLoadingSavedTrials] = useState(false);
   const [labTooltip, setLabTooltip] = useState(null);
   const [showAddSymptomModal, setShowAddSymptomModal] = useState(false);
+  const [showAddLabModal, setShowAddLabModal] = useState(false);
+  const [showAddVitalModal, setShowAddVitalModal] = useState(false);
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
   const [documentOnboardingMethod, setDocumentOnboardingMethod] = useState('picker');
   const [isUploading, setIsUploading] = useState(false);
@@ -236,52 +240,47 @@ export default function DashboardTab({ onTabChange }) {
               onClick={() => {
                 setShowAddSymptomModal(true);
               }}
-              className="group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 md:px-5 py-2.5 sm:py-3 md:py-3.5 min-h-[44px] border-2 border-medical-primary-500 hover:bg-medical-primary-50 active:bg-medical-primary-100 rounded-xl transition-all duration-200 touch-manipulation"
+              className="group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 md:px-5 py-2.5 sm:py-3 md:py-3.5 min-h-[44px] border-2 border-purple-500 bg-purple-50 hover:bg-purple-100 active:bg-purple-200 rounded-xl transition-all duration-200 touch-manipulation"
             >
-              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-medical-primary-50 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
-                <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-medical-primary-600" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-purple-50 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
+                <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
               </div>
               <div className="flex flex-col items-center text-center">
-                <span className="text-[10px] sm:text-xs md:text-sm font-semibold text-medical-primary-600 leading-tight">Log Symptom</span>
-                <span className="text-[9px] sm:text-xs text-medical-primary-500/80 hidden md:block leading-tight">Track how you're feeling</span>
+                <span className="text-[10px] sm:text-xs md:text-sm font-semibold text-purple-600 leading-tight">Log Symptom</span>
+                <span className="text-[9px] sm:text-xs text-purple-500/80 hidden md:block leading-tight">Track how you're feeling</span>
               </div>
             </button>
 
             <button
               onClick={() => {
-                onTabChange('health');
-                // Note: Health tab will need to handle showing add lab modal
-                // We'll use a small delay to ensure tab switch happens first
-                setTimeout(() => {
-                  // Store flag in sessionStorage for HealthTab to check
-                  sessionStorage.setItem('showAddLab', 'true');
-                }, 300);
+                setShowAddLabModal(true);
               }}
-              className="group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 md:px-5 py-2.5 sm:py-3 md:py-3.5 min-h-[44px] border-2 border-medical-accent-500 hover:bg-medical-accent-50 active:bg-medical-accent-100 rounded-xl transition-all duration-200 touch-manipulation"
+              className="group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 md:px-5 py-2.5 sm:py-3 md:py-3.5 min-h-[44px] border-2 border-medical-accent-500 bg-medical-accent-50 hover:bg-medical-accent-100 active:bg-medical-accent-200 rounded-xl transition-all duration-200 touch-manipulation"
             >
               <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-medical-accent-50 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
-                <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-medical-accent-600" />
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-medical-accent-600" />
               </div>
               <div className="flex flex-col items-center text-center">
-                <span className="text-[10px] sm:text-xs md:text-sm font-semibold text-medical-accent-600 leading-tight">Add Lab Value</span>
+                <span className="text-[10px] sm:text-xs md:text-sm font-semibold text-medical-accent-600 leading-tight">Add Lab Metric</span>
                 <span className="text-[9px] sm:text-xs text-medical-accent-500/80 hidden md:block leading-tight">Record test results</span>
               </div>
             </button>
 
             <button
               onClick={() => {
-                openDocumentOnboarding('general');
+                setShowAddVitalModal(true);
               }}
-              className="group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 md:px-5 py-2.5 sm:py-3 md:py-3.5 min-h-[44px] border-2 border-medical-secondary-500 hover:bg-medical-secondary-50 active:bg-medical-secondary-100 rounded-xl transition-all duration-200 touch-manipulation"
+              className="group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 md:px-5 py-2.5 sm:py-3 md:py-3.5 min-h-[44px] border-2 border-medical-primary-500 bg-medical-primary-50 hover:bg-medical-primary-100 active:bg-medical-primary-200 rounded-xl transition-all duration-200 touch-manipulation"
             >
-              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-medical-secondary-50 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
-                <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-medical-secondary-600" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-medical-primary-50 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
+                <Heart className="w-4 h-4 sm:w-5 sm:h-5 text-medical-primary-600" />
               </div>
               <div className="flex flex-col items-center text-center">
-                <span className="text-[10px] sm:text-xs md:text-sm font-semibold text-medical-secondary-600 leading-tight">Smart Scan</span>
-                <span className="text-[9px] sm:text-xs text-medical-secondary-500/80 hidden md:block leading-tight">Upload & extract data</span>
+                <span className="text-[10px] sm:text-xs md:text-sm font-semibold text-medical-primary-600 leading-tight">Add Vital Metric</span>
+                <span className="text-[9px] sm:text-xs text-medical-primary-500/80 hidden md:block leading-tight">Record vital signs</span>
               </div>
             </button>
+
           </div>
         </div>
       </div>
@@ -808,6 +807,42 @@ export default function DashboardTab({ onTabChange }) {
         uploadProgress={uploadProgress}
         documentScanAnimation={null}
       />
+
+      {/* Add Lab Modal */}
+      <AddLabModal
+        show={showAddLabModal}
+        onClose={() => setShowAddLabModal(false)}
+        user={user}
+        reloadHealthData={reloadHealthData}
+        labKeyMap={labKeyMap}
+        allLabsData={labsData}
+      />
+
+      {/* Add Vital Modal */}
+      {showAddVitalModal && (
+        <AddVitalModal
+          show={showAddVitalModal}
+          onClose={() => setShowAddVitalModal(false)}
+          user={user}
+          patientProfile={patientProfile}
+          isEditingVital={false}
+          editingVitalValueId={null}
+          newVital={newVital}
+          setNewVital={setNewVital}
+          setIsEditingVital={() => {}}
+          setEditingVitalValueId={() => {}}
+          allVitalsData={vitalsData}
+          reloadHealthData={reloadHealthData}
+          getWeightNormalRange={(height) => {
+            // Simple weight range calculation
+            if (!height) return '';
+            const heightInMeters = height / 100;
+            const minWeight = 18.5 * heightInMeters * heightInMeters;
+            const maxWeight = 24.9 * heightInMeters * heightInMeters;
+            return `${Math.round(minWeight)}-${Math.round(maxWeight)} kg`;
+          }}
+        />
+      )}
     </>
   );
 }
