@@ -742,13 +742,37 @@ function normalizeGenomicProfile(profile = {}) {
   const rawMutations = Array.isArray(p.mutations) ? p.mutations : (p.variants || p.mut || []);
   const mutations = rawMutations.map((m) => {
     const mutation = typeof m === 'string' ? { variant: m } : { ...m };
-    const raw = (mutation.variant || '') + ' ' + (mutation.type || '') + ' ' + (mutation.note || '');
+    // Check multiple fields for DNA/protein notation: variant, alteration, dna, dnaChange
+    const raw = (mutation.variant || '') + ' ' + (mutation.alteration || '') + ' ' + (mutation.type || '') + ' ' + (mutation.note || '');
     const dnaMatch = raw.match(/c\.[^\s,;)]*/i);
     const proteinMatch = raw.match(/p\.[^\s,;)]*/i);
     const copyMatch = raw.match(/(?:copy number|copy|cn|copies)[:=\s]*([0-9.]+)/i);
 
-    const dna = mutation.dna || mutation.dnaChange || (dnaMatch ? dnaMatch[0] : null);
-    const protein = mutation.protein || mutation.aminoAcidChange || (proteinMatch ? proteinMatch[0] : null);
+    // Check alteration field first if it contains DNA notation
+    let dna = mutation.dna || mutation.dnaChange;
+    if (!dna && mutation.alteration) {
+      const altDnaMatch = mutation.alteration.match(/c\.[^\s,;)]*/i);
+      if (altDnaMatch) {
+        dna = altDnaMatch[0];
+      } else if (mutation.alteration.match(/^c\./i)) {
+        // If alteration starts with c., use it as DNA
+        dna = mutation.alteration;
+      }
+    }
+    if (!dna && dnaMatch) {
+      dna = dnaMatch[0];
+    }
+    
+    let protein = mutation.protein || mutation.aminoAcidChange;
+    if (!protein && mutation.alteration) {
+      const altProteinMatch = mutation.alteration.match(/p\.[^\s,;)]*/i);
+      if (altProteinMatch) {
+        protein = altProteinMatch[0];
+      }
+    }
+    if (!protein && proteinMatch) {
+      protein = proteinMatch[0];
+    }
     const copyNumber = mutation.copyNumber || mutation.cn || (copyMatch ? parseFloat(copyMatch[1]) : (mutation.copy ? parseFloat(mutation.copy) : undefined));
     const gene = mutation.gene || mutation.symbol || mutation.name || (mutation.variant ? (mutation.variant.split(/[\s:]/)[0] || null) : null);
     const significance = mutation.significance || mutation.clinicalSignificance || mutation.annotation;
@@ -762,7 +786,23 @@ function normalizeGenomicProfile(profile = {}) {
       copyNumber: typeof copyNumber === 'number' ? copyNumber : null,
       type: mutation.type || null,
       significance: significance || null,
-      source: mutation.source || null
+      source: mutation.source || null,
+      // Preserve variant allele frequency and other AI-extracted fields
+      // Check multiple possible field names: variantAlleleFrequency, vaf, frequency, VAF
+      variantAlleleFrequency: (() => {
+        const vaf = mutation.variantAlleleFrequency || mutation.vaf || mutation.VAF || mutation.frequency;
+        if (vaf === undefined || vaf === null) return null;
+        if (typeof vaf === 'number') return isNaN(vaf) ? null : vaf;
+        const parsed = parseFloat(vaf);
+        if (!isNaN(parsed)) {
+          return parsed;
+        }
+        return null;
+      })(),
+      alteration: mutation.alteration || null,
+      mutationType: mutation.mutationType || null,
+      therapyImplication: mutation.therapyImplication || null,
+      fdaApprovedTherapy: mutation.fdaApprovedTherapy || null
     };
     return out;
   });

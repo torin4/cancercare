@@ -284,14 +284,14 @@ export default function DashboardTab({ onTabChange }) {
               onClick={() => {
                 setShowAddSymptomModal(true);
               }}
-              className="group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 md:px-5 py-2.5 sm:py-3 md:py-3.5 min-h-[44px] border-2 border-purple-500 bg-purple-50 hover:bg-purple-100 active:bg-purple-200 rounded-xl transition-all duration-200 touch-manipulation"
+              className="group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 md:px-5 py-2.5 sm:py-3 md:py-3.5 min-h-[44px] border-2 border-medical-secondary-500 bg-medical-secondary-50 hover:bg-medical-secondary-100 active:bg-medical-secondary-200 rounded-xl transition-all duration-200 touch-manipulation"
             >
-              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-purple-50 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
-                <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-medical-secondary-50 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
+                <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-medical-secondary-600" />
               </div>
               <div className="flex flex-col items-center text-center">
-                <span className="text-[10px] sm:text-xs md:text-sm font-semibold text-purple-600 leading-tight">Log Symptom</span>
-                <span className="text-[9px] sm:text-xs text-purple-500/80 hidden md:block leading-tight">Track how you're feeling</span>
+                <span className="text-[10px] sm:text-xs md:text-sm font-semibold text-medical-secondary-600 leading-tight">Log Symptom</span>
+                <span className="text-[9px] sm:text-xs text-medical-secondary-500/80 hidden md:block leading-tight">Track how you're feeling</span>
               </div>
             </button>
 
@@ -616,36 +616,41 @@ export default function DashboardTab({ onTabChange }) {
         {/* Two Column Layout on larger screens */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* Genomic Profile Card */}
-          <div className="w-full bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-purple-200 shadow-sm lg:col-span-2">
+          <div className="w-full bg-white rounded-lg shadow-sm p-4 sm:p-5 md:p-6 border-2 border-purple-200 lg:col-span-2">
             {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 && (
-              <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
-                <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-2 rounded-lg">
-                  <Dna className="w-5 h-5 text-purple-600" />
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-2.5 rounded-lg">
+                    <Dna className="w-6 h-6 text-purple-600" />
+                  </div>
+                  <h2 className="font-semibold text-gray-800 text-base sm:text-lg">Genomic Profile</h2>
                 </div>
-                Genomic Profile
-              </h3>
+              </div>
             )}
             {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 ? (
               <>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {genomicProfile.mutations.slice(0, 5).map((mutation, idx) => {
-                    const { dna, protein, kind } = parseMutation(mutation);
-                    return (
-                      <span key={idx} className="px-3 py-1.5 bg-medical-secondary-100 text-medical-secondary-800 rounded-lg text-xs font-medium">
-                        <span className="font-semibold mr-1">{mutation.gene}</span>
-                        <span>{formatLabel(dna || protein || kind || mutation.type)}</span>
+                <div className="bg-white rounded-lg p-3 mb-3">
+                  <div className="flex flex-wrap gap-2">
+                    {genomicProfile.mutations.slice(0, 5).map((mutation, idx) => (
+                      <span key={idx} className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                        {mutation.gene} {formatLabel(mutation.variant || mutation.type)}
                       </span>
-                    );
-                  })}
-                  {genomicProfile.tmb && (
-                    <span className="px-3 py-1.5 bg-medical-primary-100 text-medical-primary-800 rounded-lg text-xs font-medium">
-                      TMB: {genomicProfile.tmb}
-                    </span>
-                  )}
+                    ))}
+                    {genomicProfile.tmb && (
+                      <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                        TMB: {genomicProfile.tmb}
+                      </span>
+                    )}
+                    {genomicProfile.msi && (
+                      <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                        MSI: {genomicProfile.msi}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <button
                   onClick={() => onTabChange('profile')}
-                  className="px-3 py-2 min-h-[44px] text-medical-secondary-600 text-sm font-medium hover:text-medical-secondary-700 active:text-medical-secondary-800 transition-colors touch-manipulation flex items-center justify-center"
+                  className="px-3 py-2 min-h-[44px] text-purple-600 text-sm font-medium hover:text-purple-700 active:text-purple-800 transition-colors touch-manipulation flex items-center justify-center"
                 >
                   View Full Profile →
                 </button>

@@ -1,10 +1,36 @@
 // Helper: extract DNA and protein change from mutation strings
 export const parseMutation = (mutation) => {
-  const raw = (mutation.variant || '') + ' ' + (mutation.type || '');
+  // Check multiple fields for DNA/protein notation: variant, alteration, dna, dnaChange
+  const raw = (mutation.variant || '') + ' ' + (mutation.alteration || '') + ' ' + (mutation.type || '') + ' ' + (mutation.note || '');
   const dnaMatch = raw.match(/c\.[^\s,;)]*/i);
   const proteinMatch = raw.match(/p\.[^\s,;)]*/i);
-  const dna = mutation.dna || mutation.dnaChange || (dnaMatch ? dnaMatch[0] : null);
-  const protein = mutation.protein || mutation.aminoAcidChange || (proteinMatch ? proteinMatch[0] : null);
+  
+  // Check alteration field first if it contains DNA notation
+  let dna = mutation.dna || mutation.dnaChange;
+  if (!dna && mutation.alteration) {
+    const altDnaMatch = mutation.alteration.match(/c\.[^\s,;)]*/i);
+    if (altDnaMatch) {
+      dna = altDnaMatch[0];
+    } else if (mutation.alteration.match(/^c\./i)) {
+      // If alteration starts with c., use it as DNA
+      dna = mutation.alteration;
+    }
+  }
+  if (!dna && dnaMatch) {
+    dna = dnaMatch[0];
+  }
+  
+  let protein = mutation.protein || mutation.aminoAcidChange;
+  if (!protein && mutation.alteration) {
+    const altProteinMatch = mutation.alteration.match(/p\.[^\s,;)]*/i);
+    if (altProteinMatch) {
+      protein = altProteinMatch[0];
+    }
+  }
+  if (!protein && proteinMatch) {
+    protein = proteinMatch[0];
+  }
+  
   const kind = mutation.type || (mutation.germline ? 'Germline' : mutation.somatic ? 'Somatic' : null);
   return { dna, protein, kind };
 };

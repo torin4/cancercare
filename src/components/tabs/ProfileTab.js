@@ -630,6 +630,10 @@ export default function ProfileTab({ onTabChange }) {
               <div className="space-y-2">
                 {genomicProfile.mutations.map((mutation, idx) => {
                   const { dna, protein, kind } = parseMutation(mutation);
+                  
+                  // Get VAF from multiple possible sources
+                  const vaf = mutation.variantAlleleFrequency ?? mutation.vaf ?? mutation.VAF ?? mutation.frequency ?? null;
+                  
                   return (
                     <div key={idx} className="flex items-start justify-between p-2 bg-purple-50 border border-purple-200 rounded">
                       <div className="flex-1">
@@ -640,13 +644,25 @@ export default function ProfileTab({ onTabChange }) {
                           </span>
                         </div>
                         {dna && (
-                          <p className="text-xs text-gray-700 mt-1"><span className="font-medium">DNA:</span> {dna}</p>
+                          <p className="text-xs text-gray-700 mt-1">
+                            <span className="font-medium">DNA:</span> {dna}
+                            {vaf !== null && vaf !== undefined && (
+                              <span className="ml-2 text-gray-600">({typeof vaf === 'number' ? vaf.toFixed(1) : vaf}% VAF)</span>
+                            )}
+                          </p>
                         )}
                         {protein && (
-                          <p className="text-xs text-gray-700 mt-1"><span className="font-medium">Protein:</span> {protein}</p>
+                          <p className="text-xs text-gray-700 mt-1">
+                            <span className="font-medium">Protein:</span> {protein}
+                          </p>
                         )}
                         {!dna && !protein && mutation.variant && (
-                          <p className="text-xs text-gray-700 mt-1">{mutation.variant}</p>
+                          <p className="text-xs text-gray-700 mt-1">
+                            {mutation.variant}
+                            {vaf !== null && vaf !== undefined && (
+                              <span className="ml-2 text-gray-600">({typeof vaf === 'number' ? vaf.toFixed(1) : vaf}% VAF)</span>
+                            )}
+                          </p>
                         )}
                         {mutation.significance && (
                           <div className="mt-1">
@@ -796,20 +812,70 @@ export default function ProfileTab({ onTabChange }) {
             )}
 
             {/* Treatment Implications */}
-            <div className="bg-purple-100 border border-purple-300 rounded-lg p-3">
-              <div className="flex items-start gap-2">
-                <svg className="w-4 h-4 text-purple-700 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div>
-                  <p className="text-xs font-semibold text-purple-900">Treatment Implications</p>
-                  <p className="text-xs text-purple-800 mt-1">
-                    BRCA1 mutation indicates high sensitivity to PARP inhibitors (Olaparib, Niraparib).
-                    HRD-positive status supports platinum-based chemotherapy.
-                  </p>
+            {(() => {
+              const implications = [];
+              
+              // Check for BRCA mutations
+              const hasBRCA = genomicProfile.mutations?.some(m => 
+                (m.gene || '').toUpperCase() === 'BRCA1' || (m.gene || '').toUpperCase() === 'BRCA2'
+              );
+              if (hasBRCA) {
+                implications.push('BRCA mutation indicates high sensitivity to PARP inhibitors (Olaparib, Niraparib, Rucaparib).');
+              }
+              
+              // Check for HRD-positive
+              const hrdScore = genomicProfile.hrdScore || (typeof genomicProfile.hrd === 'number' ? genomicProfile.hrd : null);
+              if (hrdScore && hrdScore >= 42) {
+                implications.push('HRD-positive status supports platinum-based chemotherapy and PARP inhibitors.');
+              }
+              
+              // Check for MSI-H
+              if (genomicProfile.msi && (genomicProfile.msi.includes('MSI-H') || genomicProfile.msi.includes('MSI-High'))) {
+                implications.push('MSI-High status indicates potential benefit from immunotherapy (Pembrolizumab, Nivolumab).');
+              }
+              
+              // Check for TMB-High
+              const tmbValue = genomicProfile.tmbValue || (typeof genomicProfile.tmb === 'string' && genomicProfile.tmb.match(/[0-9.]+/) ? parseFloat(genomicProfile.tmb.match(/[0-9.]+/)[0]) : null);
+              if (tmbValue && tmbValue >= 10) {
+                implications.push('TMB-High (≥10 mut/Mb) indicates potential benefit from immunotherapy.');
+              }
+              
+              // Check for PIK3CA mutations
+              const hasPIK3CA = genomicProfile.mutations?.some(m => 
+                (m.gene || '').toUpperCase() === 'PIK3CA'
+              );
+              if (hasPIK3CA) {
+                implications.push('PIK3CA mutation may indicate benefit from PI3K inhibitors (Alpelisib for breast cancer).');
+              }
+              
+              // Check for FDA approved therapies from extracted data
+              if (genomicProfile.fdaApprovedTherapies && Array.isArray(genomicProfile.fdaApprovedTherapies) && genomicProfile.fdaApprovedTherapies.length > 0) {
+                implications.push(`FDA-approved therapies available: ${genomicProfile.fdaApprovedTherapies.join(', ')}.`);
+              }
+              
+              // If no specific implications, don't show the card
+              if (implications.length === 0) {
+                return null;
+              }
+              
+              return (
+                <div className="bg-purple-100 border border-purple-300 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-purple-700 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="text-xs font-semibold text-purple-900">Treatment Implications</p>
+                      <div className="text-xs text-purple-800 mt-1 space-y-1">
+                        {implications.map((implication, idx) => (
+                          <p key={idx}>{implication}</p>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              );
+            })()}
           </div>
         )}
       </div>

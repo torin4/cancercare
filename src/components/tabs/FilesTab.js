@@ -5,12 +5,13 @@ import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
 import { useBanner } from '../../contexts/BannerContext';
 import { documentService } from '../../firebase/services';
-import { uploadDocument, deleteDocument } from '../../firebase/storage';
+import { uploadDocument, deleteDocument, downloadFileAsBlob } from '../../firebase/storage';
 import { processDocument, generateExtractionSummary } from '../../services/documentProcessor';
 import DocumentUploadOnboarding from '../DocumentUploadOnboarding';
 import EditDocumentNoteModal from '../modals/EditDocumentNoteModal';
 import UploadProgressOverlay from '../UploadProgressOverlay';
 import DeletionConfirmationModal from '../modals/DeletionConfirmationModal';
+import ConfirmationModal from '../modals/ConfirmationModal';
 
 export default function FilesTab({ onTabChange }) {
   // Use contexts for shared state
@@ -37,6 +38,14 @@ export default function FilesTab({ onTabChange }) {
     onConfirm: null,
     itemName: '',
     confirmText: 'Yes, Delete Permanently'
+  });
+  const [rescanConfirm, setRescanConfirm] = useState({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+    itemName: '',
+    confirmText: 'Yes, Rescan Document'
   });
 
   // Load documents from Firestore when user logs in
@@ -312,56 +321,74 @@ export default function FilesTab({ onTabChange }) {
                         <span className="sm:hidden">View</span>
                       </a>
                     )}
-                    {(doc.documentType === 'Lab' || doc.type === 'Lab' || doc.documentType === 'Vitals' || doc.type === 'Vitals' || doc.documentType === 'blood-test') && (
-                      <>
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (!window.confirm('Rescan this document? This will re-extract all lab/vital values. Existing values will be preserved.')) return;
-                            try {
-                              setIsUploading(true);
-                              setUploadProgress('Downloading document...');
-                              // Download file from storage
-                              const response = await fetch(doc.fileUrl);
-                              const blob = await response.blob();
-                              const file = new File([blob], doc.fileName || doc.name || 'document.pdf', { type: blob.type });
+                    {/* Reload button - show for all processable document types */}
+                    {(doc.documentType === 'Lab' || doc.type === 'Lab' || doc.documentType === 'Vitals' || doc.type === 'Vitals' || doc.documentType === 'Genomic' || doc.type === 'Genomic' || doc.documentType === 'blood-test') && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const docType = doc.documentType || doc.type || 'document';
+                          const fileName = doc.fileName || doc.name || 'document';
+                          setRescanConfirm({
+                            show: true,
+                            title: `Rescan ${docType} Document?`,
+                            message: `This will re-extract all data from "${fileName}". Existing values will be preserved.`,
+                            itemName: `"${fileName}"`,
+                            confirmText: 'Yes, Rescan Document',
+                            onConfirm: async () => {
+                              // Close modal immediately
+                              setRescanConfirm({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Rescan Document' });
                               
-                              setUploadProgress('Re-processing document...');
-                              // Re-process with existing note and documentId
-                              const docDate = doc.date ? (typeof doc.date === 'string' ? doc.date : new Date(doc.date).toISOString().split('T')[0]) : null;
-                              const processingResult = await processDocument(file, user.uid, patientProfile, docDate, doc.note || null, doc.id);
-                              
-                              // Reload health data
-                              await reloadHealthData();
-                              
-                              setIsUploading(false);
-                              setUploadProgress('');
-                              showSuccess('Document rescanned successfully! New values have been extracted.');
-                            } catch (error) {
-                              console.error('Error rescanning document:', error);
-                              showError('Error rescanning document. Please try again.');
-                              setIsUploading(false);
-                              setUploadProgress('');
+                              // Start processing (this will show UploadProgressOverlay)
+                              try {
+                                setIsUploading(true);
+                                setUploadProgress('Downloading document...');
+                                // Download file from storage using Firebase SDK (avoids CORS issues)
+                                if (!doc.storagePath) {
+                                  throw new Error('Storage path not found for this document');
+                                }
+                                // Use existing fileUrl if available, otherwise get a fresh one
+                                const blob = await downloadFileAsBlob(doc.storagePath, doc.fileUrl);
+                                const file = new File([blob], doc.fileName || doc.name || 'document.pdf', { type: doc.fileType || blob.type || 'application/pdf' });
+                                
+                                setUploadProgress('Re-processing document...');
+                                // Re-process with existing note and documentId
+                                const docDate = doc.date ? (typeof doc.date === 'string' ? doc.date : new Date(doc.date).toISOString().split('T')[0]) : null;
+                                const processingResult = await processDocument(file, user.uid, patientProfile, docDate, doc.note || null, doc.id);
+                                
+                                setUploadProgress('Refreshing your health data...');
+                                // Reload health data
+                                await reloadHealthData();
+                                
+                                setIsUploading(false);
+                                setUploadProgress('');
+                                showSuccess('Document rescanned successfully! New values have been extracted.');
+                              } catch (error) {
+                                console.error('Error rescanning document:', error);
+                                showError(`Error rescanning document: ${error.message}. Please try again.`);
+                                setIsUploading(false);
+                                setUploadProgress('');
+                              }
                             }
-                          }}
-                          className="p-1.5 sm:p-1.5 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
-                          title="Rescan document"
-                        >
-                          <RefreshCw className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingDocumentNote(doc);
-                            setDocumentNoteEdit(doc.note || '');
-                          }}
-                          className="p-1.5 sm:p-1.5 rounded-full text-gray-500 hover:bg-green-100 hover:text-green-600 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
-                          title="Edit note"
-                        >
-                          <Edit2 className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
-                        </button>
-                      </>
+                          });
+                        }}
+                        className="p-1.5 sm:p-1.5 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
+                        title="Rescan document"
+                      >
+                        <RefreshCw className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+                      </button>
                     )}
+                    {/* Edit note button - show for all documents */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingDocumentNote(doc);
+                        setDocumentNoteEdit(doc.note || '');
+                      }}
+                      className="p-1.5 sm:p-1.5 rounded-full text-gray-500 hover:bg-green-100 hover:text-green-600 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
+                      title="Edit note"
+                    >
+                      <Edit2 className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+                    </button>
                     <button
                       onClick={handleDelete}
                       className="p-1.5 sm:p-1.5 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-600 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
@@ -453,6 +480,24 @@ export default function FilesTab({ onTabChange }) {
         itemName={deleteConfirm.itemName}
         confirmText={deleteConfirm.confirmText}
         isDeleting={false}
+      />
+
+      <ConfirmationModal
+        show={rescanConfirm.show}
+        onClose={() => setRescanConfirm({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Rescan Document' })}
+        onConfirm={async () => {
+          if (rescanConfirm.onConfirm) {
+            await rescanConfirm.onConfirm();
+          }
+        }}
+        title={rescanConfirm.title}
+        message={rescanConfirm.message}
+        confirmText={rescanConfirm.confirmText}
+        isProcessing={isUploading}
+        icon={RefreshCw}
+        iconColor="text-blue-600"
+        iconBgColor="bg-blue-100"
+        confirmButtonColor="bg-blue-600 hover:bg-blue-700"
       />
     </div>
   );

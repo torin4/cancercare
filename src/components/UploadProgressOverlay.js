@@ -4,31 +4,38 @@ import Lottie from 'lottie-react';
 export default function UploadProgressOverlay({ show, uploadProgress, documentScanAnimation }) {
   if (!show) return null;
 
+  // Calculate progress percentage based on current step
+  const getProgressPercentage = () => {
+    if (uploadProgress.includes('Reading') || uploadProgress.includes('Downloading')) return 20;
+    if (uploadProgress.includes('Analyzing') || uploadProgress.includes('Re-processing')) return 50;
+    if (uploadProgress.includes('Uploading')) return 70;
+    if (uploadProgress.includes('Saving')) return 85;
+    if (uploadProgress.includes('Refreshing')) return 95;
+    return 10;
+  };
+
+  const progressPercentage = getProgressPercentage();
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 animate-fade-scale">
         <div className="text-center">
-          {/* Lottie Animation */}
-          {documentScanAnimation ? (
-            <div className="inline-flex items-center justify-center mb-6">
-              <Lottie 
-                animationData={documentScanAnimation}
-                loop={true}
-                style={{ width: 200, height: 200 }}
+          {/* Progress Bar */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xl font-bold text-gray-900">Processing Document</h3>
+              <span className="text-sm font-medium text-gray-600">{progressPercentage}%</span>
+            </div>
+            <div className="w-full bg-gray-200 h-3 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500 ease-out rounded-full"
+                style={{ width: `${progressPercentage}%` }}
               />
             </div>
-          ) : (
-            <div className="inline-flex items-center justify-center w-20 h-20 mb-6">
-              <div className="relative">
-                <div className="w-20 h-20 border-4 border-blue-200 rounded-full"></div>
-                <div className="w-20 h-20 border-4 border-blue-600 rounded-full absolute top-0 left-0 animate-spin border-t-transparent"></div>
-              </div>
-            </div>
-          )}
+          </div>
 
           {/* Progress text */}
-          <h3 className="text-xl font-bold text-gray-900 mb-2">Processing Document</h3>
-          <p className="text-gray-600 mb-6">{uploadProgress}</p>
+          <p className="text-gray-600 mb-6 text-lg">{uploadProgress}</p>
 
           {/* Progress steps */}
           <div className="space-y-2 text-left bg-gray-50 rounded-lg p-4">

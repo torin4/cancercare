@@ -40,6 +40,41 @@ app.get('/api/jrct-proxy/*', async (req, res) => {
   }
 });
 
+// Handle Firebase Storage file download proxy (bypasses CORS)
+app.get('/api/storage-proxy', async (req, res) => {
+  try {
+    const fileUrl = req.query.url;
+    if (!fileUrl) {
+      return res.status(400).json({ error: 'Missing file URL parameter' });
+    }
+
+    console.log('storage-proxy: Downloading file from', fileUrl);
+    
+    const response = await axios.get(fileUrl, {
+      responseType: 'arraybuffer',
+      timeout: 30000,
+      headers: {
+        'User-Agent': req.headers['user-agent'] || 'CancerCareProxy/1.0'
+      }
+    });
+
+    // Get content type from response or default to application/octet-stream
+    const contentType = response.headers['content-type'] || 'application/octet-stream';
+    
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', response.data.length);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.send(Buffer.from(response.data));
+  } catch (error) {
+    console.error('storage-proxy error:', error.message || error);
+    if (error.response) {
+      res.status(error.response.status).json({ error: error.message, details: error.response.data });
+      return;
+    }
+    res.status(502).json({ error: 'Storage proxy error', message: error.message });
+  }
+});
+
 // Handle trials-proxy endpoint
 app.all('/api/trials-proxy', async (req, res) => {
   // Convert Express request to serverless function format
@@ -101,7 +136,8 @@ app.get('/', (req, res) => {
     message: 'Proxy server is running',
     endpoints: {
       jrct: '/api/jrct-proxy/*',
-      trials: '/api/trials-proxy'
+      trials: '/api/trials-proxy',
+      storage: '/api/storage-proxy?url=<fileUrl>'
     }
   });
 });
@@ -110,4 +146,5 @@ app.listen(PORT, () => {
   console.log(`Proxy server listening on http://localhost:${PORT}`);
   console.log(`  - JRCT proxy: http://localhost:${PORT}/api/jrct-proxy/*`);
   console.log(`  - Trials proxy: http://localhost:${PORT}/api/trials-proxy`);
+  console.log(`  - Storage proxy: http://localhost:${PORT}/api/storage-proxy?url=<fileUrl>`);
 });

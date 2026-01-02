@@ -133,6 +133,24 @@ The user did not provide a document date. You MUST extract the date from the doc
   }
 
   const prompt = `You are a medical document processing AI. Analyze this medical document and extract all relevant information.
+
+═══════════════════════════════════════════════════════════════════════════════
+LANGUAGE SUPPORT: This document may be in Japanese, English, or other languages
+═══════════════════════════════════════════════════════════════════════════════
+
+- The document may be written in Japanese, English, or mixed languages
+- You MUST read and understand Japanese medical documents
+- Extract ALL data regardless of the document's language
+- Translate Japanese medical terms to English for the JSON output
+- For Japanese genomic reports, look for:
+  * "DNA変化" or "DNA change" → extract the DNA notation (e.g., "c.3403-1G>C")
+  * "変異アレル頻度" or "VAF" or "variant allele frequency" → extract the percentage number
+  * "遺伝子" or "gene" → extract gene names
+  * "タンパク質変化" or "protein change" → extract protein notation
+- Extract variant allele frequency (VAF) percentages even if shown in Japanese format
+- Japanese dates: "令和6年12月25日" or "2024年12月25日" → convert to "2024-12-25"
+- Japanese lab labels: "CA-125" may appear as "CA125" or "CA 125" - normalize to "ca125"
+
 ${patientDemographicsSection}
 ${dateInstruction}
 
@@ -234,12 +252,14 @@ Return a JSON object with this EXACT structure:
 
       // ALL Genomic Alterations (extract every mutation with full details)
       // For Tempus: separate somatic from germline - use mutationType field
+      // For Japanese documents: "DNA変化" column contains the DNA notation, VAF may be in a separate column
       "mutations": [
         {
           "gene": "BRCA1",
           "alteration": "c.5266dupC (p.Gln1756Profs*74)",
+          "dna": "c.5266dupC",  // Extract from "DNA変化" column
           "significance": "pathogenic|likely_pathogenic|VUS|benign",
-          "variantAlleleFrequency": 48.5,
+          "variantAlleleFrequency": 48.5,  // CRITICAL: Extract from VAF column or number next to mutation
           "mutationType": "somatic|germline",
           "therapyImplication": "PARP inhibitors",
           "fdaApprovedTherapy": "Olaparib, Rucaparib, Niraparib",
@@ -350,7 +370,17 @@ GENERAL EXTRACTION:
 - Extract EVERY mutation listed, not just significant ones
 - Use official HUGO gene names (BRCA1 not brca1, TP53 not p53, CCNE1 not ccne1)
 - Include exact alteration notation (c.5266dupC, p.Arg273His, E545K, etc.)
-- Capture Variant Allele Frequency (VAF) percentages
+- CRITICAL: Capture Variant Allele Frequency (VAF) percentages - this is MANDATORY
+  * Look for VAF in these locations:
+    1. A separate column titled "VAF", "変異アレル頻度", "Variant Allele Frequency", or similar
+    2. Numbers in the same row as the mutation (even if in a different column)
+    3. Numbers next to "DNA変化" column entries
+    4. Percentage values (e.g., "48.5%", "48.5", "0.485") associated with each mutation
+  * Extract the percentage number (e.g., if you see "48.5%" or "48.5" or "変異アレル頻度: 48.5%", extract 48.5)
+  * For Japanese documents with "DNA変化" column: The VAF is likely in a separate column in the same row
+  * Match VAF values to mutations by row position - each mutation row should have a corresponding VAF value
+  * Always include variantAlleleFrequency field in mutations array - DO NOT omit this field
+  * If VAF is shown as a decimal (0.485), convert to percentage (48.5)
 - Note ALL FDA-approved therapies mentioned
 - Flag genes/biomarkers that make patient eligible for trials
 - Capture test name, lab, dates, specimen type, tumor purity
@@ -586,6 +616,7 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
     // Save Genomic Profile
     if (extractedData.data?.genomic) {
       const genomicData = extractedData.data.genomic;
+
 
       // Build genomic profile object, only including defined fields
       const genomicProfile = {

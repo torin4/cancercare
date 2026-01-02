@@ -3,7 +3,8 @@ import {
   uploadBytes,
   getDownloadURL,
   deleteObject,
-  listAll
+  listAll,
+  getBytes
 } from 'firebase/storage';
 import { storage } from './config';
 import { documentService } from './services';
@@ -104,6 +105,51 @@ export const getFileUrl = async (storagePath) => {
   } catch (error) {
     console.error('Error getting file URL:', error);
     throw error;
+  }
+};
+
+/**
+ * Download a file as a Blob (avoids CORS issues)
+ * Uses server-side proxy to bypass CORS restrictions
+ *
+ * @param {string} storagePath - The path to the file in Storage
+ * @param {string} existingUrl - Optional existing download URL to use if available
+ * @returns {Promise<Blob>} - File as Blob
+ */
+export const downloadFileAsBlob = async (storagePath, existingUrl = null) => {
+  // Get download URL (use existing or get fresh one)
+  let downloadUrl = existingUrl;
+  if (!downloadUrl) {
+    const storageRef = ref(storage, storagePath);
+    downloadUrl = await getDownloadURL(storageRef);
+  }
+  
+  // Use server-side proxy to bypass CORS
+  const proxyBaseUrl = process.env.REACT_APP_PROXY_URL || 'http://localhost:4000';
+  const proxyUrl = `${proxyBaseUrl}/api/storage-proxy?url=${encodeURIComponent(downloadUrl)}`;
+  
+  console.log('Downloading file via proxy:', proxyUrl);
+  
+  try {
+    const response = await fetch(proxyUrl, {
+      method: 'GET',
+      mode: 'cors',
+      credentials: 'omit'
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Proxy response error:', response.status, errorText);
+      throw new Error(`Proxy server returned error ${response.status}: ${response.statusText}. Make sure the proxy server is running on ${proxyBaseUrl}`);
+    }
+    
+    return await response.blob();
+  } catch (error) {
+    console.error('Error downloading file via proxy:', error);
+    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+      throw new Error(`Cannot connect to proxy server at ${proxyBaseUrl}. Please ensure the proxy server is running. Error: ${error.message}`);
+    }
+    throw new Error(`Failed to download file: ${error.message}`);
   }
 };
 /**
