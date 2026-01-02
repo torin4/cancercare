@@ -84,7 +84,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
       >
         {/* Sidebar Header */}
         <div className="bg-medical-primary-600 px-4 py-5" style={{ minHeight: '100px' }}>
-          <div className="flex items-start gap-3">
+          <div className={`flex items-center gap-3 ${activeTab === 'profile' ? 'justify-center' : ''}`}>
             {/* Icon - Always in same position */}
             <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center shadow-sm flex-shrink-0">
               <Activity className="w-6 h-6 text-white" />
@@ -93,31 +93,17 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
             <div className={`flex-1 min-w-0 transition-all duration-300 overflow-hidden ${
               isExpanded ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0'
             }`}>
-              <h1 className="text-xl font-bold text-white mb-2 whitespace-nowrap">CancerCare</h1>
-              {patientProfile && (
+              <h1 className="text-xl font-bold text-white whitespace-nowrap">CancerCare</h1>
+              {patientProfile && activeTab !== 'profile' && (
                 <div className="text-white/90">
-                  {activeTab === 'profile' ? (
-                    <>
-                      {(patientProfile?.diagnosis || patientProfile?.stage) && (
-                        <p className="text-sm whitespace-nowrap">
-                          {patientProfile.diagnosis}
-                          {patientProfile.diagnosis && patientProfile.stage && ' • '}
-                          {patientProfile.stage}
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm font-medium whitespace-nowrap">
-                        {patientProfile?.name || patientProfile?.firstName || 'Patient'}
-                      </p>
-                      {patientProfile?.isPatient === false && patientProfile?.caregiverName && (
-                        <p className="text-xs text-white/80 flex items-center gap-1 mt-1 whitespace-nowrap">
-                          <HeartHandshake className="w-3 h-3 flex-shrink-0" />
-                          {getFirstName(patientProfile.caregiverName)}
-                        </p>
-                      )}
-                    </>
+                  <p className="text-sm font-medium whitespace-nowrap">
+                    {patientProfile?.name || patientProfile?.firstName || 'Patient'}
+                  </p>
+                  {patientProfile?.isPatient === false && patientProfile?.caregiverName && (
+                    <p className="text-xs text-white/80 flex items-center gap-1 mt-1 whitespace-nowrap">
+                      <HeartHandshake className="w-3 h-3 flex-shrink-0" />
+                      {getFirstName(patientProfile.caregiverName)}
+                    </p>
                   )}
                 </div>
               )}
