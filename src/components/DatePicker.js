@@ -6,11 +6,20 @@ export default function DatePicker({ value, onChange, max, min, className = '', 
   const [viewDate, setViewDate] = useState(value ? new Date(value) : new Date());
   const [selectedDate, setSelectedDate] = useState(value ? new Date(value) : null);
   const [position, setPosition] = useState({ top: 'auto', bottom: 'auto', left: 'auto', right: 'auto' });
+  const [inputValue, setInputValue] = useState(value ? (() => {
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return '';
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  })() : '');
+  const [inputFocused, setInputFocused] = useState(false);
   const pickerRef = useRef(null);
   const dropdownRef = useRef(null);
   const buttonRef = useRef(null);
 
-  // Calculate position when picker opens
+  // Calculate position when picker opens (for fixed positioning)
   useEffect(() => {
     if (isOpen && buttonRef.current && dropdownRef.current) {
       const buttonRect = buttonRef.current.getBoundingClientRect();
@@ -24,54 +33,33 @@ export default function DatePicker({ value, onChange, max, min, className = '', 
       const spaceBelow = viewportHeight - buttonRect.bottom;
       const spaceAbove = buttonRect.top;
       
-      // Check if there's enough space on the right
-      const spaceRight = viewportWidth - buttonRect.left;
-      const spaceLeft = buttonRect.right;
-      
-      let top = 'auto';
-      let bottom = 'auto';
-      let left = '0';
-      let right = 'auto';
+      // Calculate fixed position relative to viewport
+      let top = buttonRect.bottom + 4; // 4px gap below button
+      let left = buttonRect.left;
       
       // Position vertically: prefer below, but use above if not enough space
-      if (spaceBelow >= dropdownHeight || spaceBelow > spaceAbove) {
-        // Position below
-        top = '100%';
-        bottom = 'auto';
-      } else {
-        // Position above
-        bottom = '100%';
-        top = 'auto';
+      if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
+        // Position above button
+        top = buttonRect.top - dropdownHeight - 4; // 4px gap above
       }
       
-      // Position horizontally: center on mobile, align left on desktop
-      if (viewportWidth < 640) {
-        // Mobile: full width with padding
-        left = '0';
-        right = '0';
-      } else {
-        // Desktop: align to button left
-        if (spaceRight >= dropdownWidth) {
-          left = '0';
-          right = 'auto';
-        } else if (spaceLeft >= dropdownWidth) {
-          right = '0';
-          left = 'auto';
-        } else {
-          // Center if neither side has enough space
-          left = '50%';
-          right = 'auto';
-        }
+      // Ensure dropdown doesn't go off screen horizontally
+      if (left + dropdownWidth > viewportWidth) {
+        left = viewportWidth - dropdownWidth - 8; // 8px margin from right edge
+      }
+      if (left < 8) {
+        left = 8; // 8px margin from left edge
       }
       
-      setPosition({ top, bottom, left, right });
+      // Ensure dropdown doesn't go off screen vertically
+      if (top + dropdownHeight > viewportHeight) {
+        top = viewportHeight - dropdownHeight - 8; // 8px margin from bottom
+      }
+      if (top < 8) {
+        top = 8; // 8px margin from top
+      }
       
-      // Scroll into view if needed
-      setTimeout(() => {
-        if (dropdown) {
-          dropdown.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-      }, 0);
+      setPosition({ top: `${top}px`, left: `${left}px` });
     }
   }, [isOpen]);
 
@@ -142,6 +130,7 @@ export default function DatePicker({ value, onChange, max, min, className = '', 
     
     setSelectedDate(newDate);
     const dateStr = formatInputValue(newDate);
+    setInputValue(dateStr);
     onChange({ target: { value: dateStr } });
     setIsOpen(false);
   };
@@ -159,6 +148,7 @@ export default function DatePicker({ value, onChange, max, min, className = '', 
     const todayStr = formatInputValue(today);
     setSelectedDate(today);
     setViewDate(today);
+    setInputValue(todayStr);
     onChange({ target: { value: todayStr } });
     setIsOpen(false);
   };
@@ -201,28 +191,111 @@ export default function DatePicker({ value, onChange, max, min, className = '', 
 
   const handleClear = (e) => {
     e.stopPropagation();
+    setInputValue('');
     onChange({ target: { value: '' } });
+  };
+
+  // Update input value when value prop changes
+  useEffect(() => {
+    if (value) {
+      setInputValue(formatInputValue(value));
+    } else {
+      setInputValue('');
+    }
+  }, [value]);
+
+  const handleInputChange = (e) => {
+    let newValue = e.target.value.replace(/[^\d-]/g, ''); // Only allow digits and dashes
+    
+    // Auto-format: YYYY-MM-DD
+    // Remove existing dashes and re-add them at correct positions
+    const digitsOnly = newValue.replace(/-/g, '');
+    if (digitsOnly.length <= 4) {
+      newValue = digitsOnly;
+    } else if (digitsOnly.length <= 6) {
+      newValue = `${digitsOnly.slice(0, 4)}-${digitsOnly.slice(4)}`;
+    } else {
+      newValue = `${digitsOnly.slice(0, 4)}-${digitsOnly.slice(4, 6)}-${digitsOnly.slice(6, 8)}`;
+    }
+    
+    setInputValue(newValue);
+    
+    // Try to parse the date when complete (10 characters: YYYY-MM-DD)
+    if (newValue.length === 10) {
+      const date = new Date(newValue);
+      if (!isNaN(date.getTime())) {
+        // Check min/max constraints
+        if (min && date < new Date(min)) {
+          // Date is before min, but still update input
+          return;
+        }
+        if (max && date > new Date(max)) {
+          // Date is after max, but still update input
+          return;
+        }
+        
+        setSelectedDate(date);
+        setViewDate(date);
+        onChange({ target: { value: newValue } });
+      }
+    } else if (newValue.length === 0) {
+      // Allow clearing
+      onChange({ target: { value: '' } });
+    }
+  };
+
+  const handleInputBlur = () => {
+    setInputFocused(false);
+    // Validate and format on blur
+    if (inputValue && inputValue.length !== 10) {
+      // Try to parse common formats
+      const parsed = new Date(inputValue);
+      if (!isNaN(parsed.getTime())) {
+        const formatted = formatInputValue(parsed);
+        setInputValue(formatted);
+        if (min && parsed < new Date(min)) return;
+        if (max && parsed > new Date(max)) return;
+        setSelectedDate(parsed);
+        setViewDate(parsed);
+        onChange({ target: { value: formatted } });
+      } else {
+        // Invalid date, revert to current value
+        setInputValue(value ? formatInputValue(value) : '');
+      }
+    }
+  };
+
+  const handleInputFocus = () => {
+    setInputFocused(true);
   };
 
   return (
     <div ref={pickerRef} className={`relative flex items-center gap-2 ${className}`}>
       <div className="relative flex-1">
-        <button
-          ref={buttonRef}
-          type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          className={`w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-gray-400 transition-colors ${
-            !value ? 'text-gray-500' : 'text-gray-900'
-          }`}
-        >
-          <span className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-gray-400" />
-            <span>{value ? formatDate(value) : placeholder}</span>
-          </span>
-          <ChevronRight 
-            className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} 
+        <div className="relative">
+          <input
+            type="text"
+            ref={buttonRef}
+            value={inputValue}
+            onChange={handleInputChange}
+            onFocus={handleInputFocus}
+            onBlur={handleInputBlur}
+            placeholder={placeholder || 'YYYY-MM-DD'}
+            maxLength={10}
+            pattern="\d{4}-\d{2}-\d{2}"
+            className={`w-full border border-gray-300 rounded-lg px-3 py-2.5 pr-10 text-sm bg-white text-left focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-gray-400 transition-colors ${
+              !value ? 'text-gray-500' : 'text-gray-900'
+            }`}
           />
-        </button>
+          <button
+            type="button"
+            onClick={() => setIsOpen(!isOpen)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-gray-100 rounded-lg transition-colors touch-manipulation"
+            aria-label="Open calendar"
+          >
+            <Calendar className="w-4 h-4 text-gray-400" />
+          </button>
+        </div>
       </div>
       {showClear && value && (
         <button
@@ -240,7 +313,7 @@ export default function DatePicker({ value, onChange, max, min, className = '', 
           {/* Mobile overlay backdrop */}
           {typeof window !== 'undefined' && window.innerWidth < 640 && (
             <div 
-              className="fixed inset-0 bg-black/20 z-[99]"
+              className="fixed inset-0 bg-black/20 z-[9998]"
               onClick={() => setIsOpen(false)}
             />
           )}
@@ -248,23 +321,18 @@ export default function DatePicker({ value, onChange, max, min, className = '', 
             ref={dropdownRef}
             className={`${
               typeof window !== 'undefined' && window.innerWidth < 640 
-                ? 'fixed left-4 right-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto z-[100]' 
-                : 'absolute z-[100]'
-            } bg-white border border-gray-200 rounded-lg shadow-xl p-4 animate-fade-scale ${
+                ? 'fixed left-4 right-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto z-[9999]' 
+                : 'fixed z-[9999]'
+            } bg-white border border-gray-200 rounded-lg shadow-2xl p-4 animate-fade-scale ${
               typeof window !== 'undefined' && window.innerWidth < 640 
                 ? 'w-full' 
                 : 'w-72'
             }`}
             style={
-              typeof window !== 'undefined' && window.innerWidth >= 640
+              typeof window !== 'undefined' && window.innerWidth >= 640 && position.top && position.left
                 ? {
-                    top: position.top !== 'auto' ? position.top : undefined,
-                    bottom: position.bottom !== 'auto' ? position.bottom : undefined,
-                    left: position.left !== 'auto' ? position.left : undefined,
-                    right: position.right !== 'auto' ? position.right : undefined,
-                    transform: position.left === '50%' ? 'translateX(-50%)' : undefined,
-                    marginTop: position.top === '100%' ? '0.25rem' : undefined,
-                    marginBottom: position.bottom === '100%' ? '0.25rem' : undefined,
+                    top: position.top,
+                    left: position.left,
                   }
                 : {}
             }

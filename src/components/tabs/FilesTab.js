@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, FolderOpen, X, Edit2, RefreshCw } from 'lucide-react';
+import { Upload, FolderOpen, X, Edit2, RefreshCw, Info } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
@@ -47,6 +47,7 @@ export default function FilesTab({ onTabChange }) {
     itemName: '',
     confirmText: 'Yes, Rescan Document'
   });
+  const [showDocumentMetadata, setShowDocumentMetadata] = useState(null);
 
   // Load documents from Firestore when user logs in
   useEffect(() => {
@@ -129,7 +130,8 @@ export default function FilesTab({ onTabChange }) {
       const uploadResult = await uploadDocument(file, user.uid, {
         category: processingResult.documentType || docType,
         documentType: processingResult.documentType || docType,
-        note: providedNote || null
+        note: providedNote || null,
+        dataPointCount: processingResult.dataPointCount || 0
       });
 
       console.log('File uploaded successfully:', uploadResult);
@@ -148,7 +150,10 @@ export default function FilesTab({ onTabChange }) {
         fileUrl: uploadResult.fileUrl,
         storagePath: uploadResult.storagePath,
         icon: (processingResult.documentType || docType).toLowerCase(),
-        note: providedNote || null
+        note: providedNote || null,
+        dataPointCount: processingResult.dataPointCount || 0,
+        fileSize: file.size,
+        fileType: file.type
       };
 
       setDocuments([newDoc, ...documents]);
@@ -160,7 +165,25 @@ export default function FilesTab({ onTabChange }) {
 
       setIsUploading(false);
       setUploadProgress('');
-      showSuccess('Document uploaded and processed successfully! All extracted data has been saved to your health records.');
+      const dataPointText = processingResult.dataPointCount > 0 
+        ? ` ${processingResult.dataPointCount} data point${processingResult.dataPointCount !== 1 ? 's' : ''} extracted.`
+        : '';
+      showSuccess(`Document uploaded and processed successfully!${dataPointText} All extracted data has been saved to your health records.`);
+      
+      // Navigate to relevant tab based on document type
+      const detectedDocType = (processingResult.documentType || docType || '').toLowerCase();
+      if (detectedDocType === 'lab' || detectedDocType === 'labs') {
+        onTabChange('health');
+      } else if (detectedDocType === 'vital' || detectedDocType === 'vitals') {
+        onTabChange('health');
+      } else if (detectedDocType === 'genomic' || detectedDocType === 'genome') {
+        onTabChange('profile');
+      } else if (detectedDocType === 'symptom' || detectedDocType === 'symptoms') {
+        onTabChange('health');
+      } else if (detectedDocType === 'medication' || detectedDocType === 'medications') {
+        onTabChange('health');
+      }
+      // Otherwise stay on files tab
     } catch (error) {
       console.error('Upload error:', error);
       showError(`Failed to process document: ${error.message}. The file was not uploaded. Please try again or contact support if the issue persists.`);
@@ -309,6 +332,17 @@ export default function FilesTab({ onTabChange }) {
                     </p>
                   </div>
                   <div className="flex-shrink-0 flex items-center gap-1 sm:gap-2">
+                    {/* Info button - show metadata */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowDocumentMetadata(doc);
+                      }}
+                      className="p-1.5 sm:p-1.5 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
+                      title="View metadata"
+                    >
+                      <Info className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+                    </button>
                     {doc.fileUrl && (
                       <a
                         href={doc.fileUrl}
@@ -359,9 +393,38 @@ export default function FilesTab({ onTabChange }) {
                                 // Reload health data
                                 await reloadHealthData();
                                 
+                                // Update document metadata with new data point count
+                                if (processingResult.dataPointCount !== undefined) {
+                                  await documentService.saveDocument({
+                                    id: doc.id,
+                                    dataPointCount: processingResult.dataPointCount
+                                  });
+                                  // Reload documents to get updated metadata
+                                  const updatedDocs = await documentService.getDocuments(user.uid);
+                                  setDocuments(updatedDocs);
+                                }
+                                
                                 setIsUploading(false);
                                 setUploadProgress('');
-                                showSuccess('Document rescanned successfully! New values have been extracted.');
+                                const dataPointText = processingResult.dataPointCount > 0 
+                                  ? ` ${processingResult.dataPointCount} data point${processingResult.dataPointCount !== 1 ? 's' : ''} extracted.`
+                                  : '';
+                                showSuccess(`Document rescanned successfully!${dataPointText} New values have been extracted.`);
+                                
+                                // Navigate to relevant tab based on document type
+                                const detectedDocType = (processingResult.documentType || doc.documentType || doc.type || '').toLowerCase();
+                                if (detectedDocType === 'lab' || detectedDocType === 'labs') {
+                                  onTabChange('health');
+                                } else if (detectedDocType === 'vital' || detectedDocType === 'vitals') {
+                                  onTabChange('health');
+                                } else if (detectedDocType === 'genomic' || detectedDocType === 'genome') {
+                                  onTabChange('profile');
+                                } else if (detectedDocType === 'symptom' || detectedDocType === 'symptoms') {
+                                  onTabChange('health');
+                                } else if (detectedDocType === 'medication' || detectedDocType === 'medications') {
+                                  onTabChange('health');
+                                }
+                                // Otherwise stay on files tab
                               } catch (error) {
                                 console.error('Error rescanning document:', error);
                                 showError(`Error rescanning document: ${error.message}. Please try again.`);
@@ -499,6 +562,89 @@ export default function FilesTab({ onTabChange }) {
         iconBgColor="bg-blue-100"
         confirmButtonColor="bg-blue-600 hover:bg-blue-700"
       />
+
+      {/* Document Metadata Modal */}
+      {showDocumentMetadata && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-fade-scale">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Document Metadata</h3>
+              <button
+                onClick={() => setShowDocumentMetadata(null)}
+                className="p-1.5 rounded-full hover:bg-gray-100 transition"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase mb-1">File Name</p>
+                <p className="text-sm text-gray-900">{showDocumentMetadata.fileName || showDocumentMetadata.name || 'Unknown'}</p>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Document Type</p>
+                <p className="text-sm text-gray-900">{showDocumentMetadata.documentType || showDocumentMetadata.type || 'Unknown'}</p>
+              </div>
+
+              {showDocumentMetadata.dataPointCount !== undefined && showDocumentMetadata.dataPointCount !== null && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Extracted Data Points</p>
+                  <p className="text-sm text-gray-900 font-semibold">{showDocumentMetadata.dataPointCount} data point{showDocumentMetadata.dataPointCount !== 1 ? 's' : ''}</p>
+                </div>
+              )}
+
+              {showDocumentMetadata.fileSize && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-1">File Size</p>
+                  <p className="text-sm text-gray-900">
+                    {showDocumentMetadata.fileSize < 1024 
+                      ? `${showDocumentMetadata.fileSize} bytes`
+                      : showDocumentMetadata.fileSize < 1024 * 1024
+                      ? `${(showDocumentMetadata.fileSize / 1024).toFixed(2)} KB`
+                      : `${(showDocumentMetadata.fileSize / (1024 * 1024)).toFixed(2)} MB`}
+                  </p>
+                </div>
+              )}
+
+              {showDocumentMetadata.fileType && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-1">File Type</p>
+                  <p className="text-sm text-gray-900">{showDocumentMetadata.fileType}</p>
+                </div>
+              )}
+
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Upload Date</p>
+                <p className="text-sm text-gray-900">
+                  {new Date(showDocumentMetadata.date).toLocaleDateString('en-US', { 
+                    month: 'long', 
+                    day: 'numeric', 
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+              </div>
+
+              {showDocumentMetadata.note && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Note</p>
+                  <p className="text-sm text-gray-900 italic">{showDocumentMetadata.note}</p>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setShowDocumentMetadata(null)}
+              className="mt-6 w-full py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

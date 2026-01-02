@@ -21,14 +21,21 @@ import UploadProgressOverlay from '../UploadProgressOverlay';
 import { processDocument } from '../../services/documentProcessor';
 import { uploadDocument } from '../../firebase/storage';
 
-export default function HealthTab({ onTabChange }) {
+export default function HealthTab({ onTabChange, initialSection = null }) {
   const { user } = useAuth();
   const { hasUploadedDocument, patientProfile } = usePatientContext();
   const { labsData, setLabsData, vitalsData, setVitalsData, hasRealLabData, hasRealVitalData, reloadHealthData } = useHealthContext();
   const { showSuccess, showError } = useBanner();
 
   // Tab-specific state
-  const [healthSection, setHealthSection] = useState('labs');
+  const [healthSection, setHealthSection] = useState(initialSection || 'labs');
+  
+  // Update section when initialSection prop changes (e.g., after document upload)
+  useEffect(() => {
+    if (initialSection && ['labs', 'vitals', 'symptoms', 'medications'].includes(initialSection)) {
+      setHealthSection(initialSection);
+    }
+  }, [initialSection]);
   const [selectedLab, setSelectedLab] = useState('ca125');
   const [selectedDate, setSelectedDate] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -155,7 +162,8 @@ export default function HealthTab({ onTabChange }) {
       const uploadResult = await uploadDocument(file, user.uid, {
         category: processingResult.documentType || docType,
         documentType: processingResult.documentType || docType,
-        note: providedNote || null
+        note: providedNote || null,
+        dataPointCount: processingResult.dataPointCount || 0
       });
 
       console.log('File uploaded successfully:', uploadResult);
@@ -168,10 +176,31 @@ export default function HealthTab({ onTabChange }) {
 
       setIsUploading(false);
       setUploadProgress('');
-      showSuccess('Document uploaded and processed successfully! All extracted data has been saved to your health records.');
+      const dataPointText = processingResult.dataPointCount > 0 
+        ? ` ${processingResult.dataPointCount} data point${processingResult.dataPointCount !== 1 ? 's' : ''} extracted.`
+        : '';
+      showSuccess(`Document uploaded and processed successfully!${dataPointText} All extracted data has been saved to your health records.`);
       
-      // Switch to Files tab to show the uploaded document
-      onTabChange('files');
+      // Navigate to relevant section/tab based on document type
+      const detectedDocType = (processingResult.documentType || docType || '').toLowerCase();
+      if (detectedDocType === 'lab' || detectedDocType === 'labs') {
+        setHealthSection('labs');
+        // Stay on health tab, just switch section
+      } else if (detectedDocType === 'vital' || detectedDocType === 'vitals') {
+        setHealthSection('vitals');
+        // Stay on health tab, just switch section
+      } else if (detectedDocType === 'genomic' || detectedDocType === 'genome') {
+        onTabChange('profile');
+      } else if (detectedDocType === 'symptom' || detectedDocType === 'symptoms') {
+        setHealthSection('symptoms');
+        // Stay on health tab, just switch section
+      } else if (detectedDocType === 'medication' || detectedDocType === 'medications') {
+        setHealthSection('medications');
+        // Stay on health tab, just switch section
+      } else {
+        // Default: go to files tab
+        onTabChange('files');
+      }
     } catch (error) {
       console.error('Upload error:', error);
       showError(`Failed to process document: ${error.message}. The file was not uploaded. Please try again or contact support if the issue persists.`);
@@ -969,14 +998,12 @@ export default function HealthTab({ onTabChange }) {
                                                                 // Show success banner
                                                                 showSuccess(`${labName} reading deleted successfully`);
                                                                 
-                                                                // Reload to ensure sync (but UI already updated)
-                                                                // Use reloadHealthData to properly reload all data
-                                                                setTimeout(async () => {
-                                                                  await reloadHealthData();
-                                                                }, 300);
+                                                                // Don't reload immediately - optimistic update already removed it from UI
+                                                                // Reloading too quickly can cause the value to reappear if Firestore hasn't fully propagated the deletion
+                                                                // The optimistic update is sufficient - data will sync on next natural reload
                                                               } catch (error) {
                                                                 console.error('Error deleting lab:', error);
-                                                                // Revert optimistic update on error
+                                                                // Revert optimistic update on error only
                                                                 reloadHealthData();
                                                                 showError('Failed to delete lab reading. Please try again.');
                                                               }
@@ -1057,7 +1084,14 @@ export default function HealthTab({ onTabChange }) {
                                   <div className="flex items-start justify-between mb-2">
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2 mb-1">
-                                        <p className="text-sm font-semibold text-medical-neutral-900">{displayName}</p>
+                                        <p className="text-sm font-semibold text-medical-neutral-900">
+                                          {displayName}
+                                          {lab.data && lab.data.length > 0 && (
+                                            <span className="text-xs font-normal text-medical-neutral-500 ml-1">
+                                              ({lab.data.length})
+                                            </span>
+                                          )}
+                                        </p>
                                         {labDescription && (
                                           <button
                                             onClick={(e) => {
@@ -1336,6 +1370,54 @@ export default function HealthTab({ onTabChange }) {
                             'Others'
                           ];
 
+                          // Count total lab metrics that are actually displayed (after categorization and deduplication)
+                          // This matches the number of cards shown
+                          const totalLabCount = Object.values(categorizedLabs).reduce((sum, labs) => sum + labs.length, 0);
+                          
+                          // Debug: Always log counts to help identify orphaned data
+                          const allLabCount = Object.keys(allLabData).length;
+                          console.log(`[HealthTab] Lab counts - Total in allLabData: ${allLabCount}, Displayed after categorization: ${totalLabCount}`);
+                          
+                          if (allLabCount !== totalLabCount) {
+                            console.warn(`[HealthTab] Lab count discrepancy detected: ${allLabCount} total labs in allLabData, ${totalLabCount} displayed after categorization`);
+                            const labsWithoutData = Object.entries(allLabData).filter(([key, lab]) => 
+                              !lab.data || !Array.isArray(lab.data) || lab.data.length === 0
+                            );
+                            if (labsWithoutData.length > 0) {
+                              console.log('[HealthTab] Labs without data:', labsWithoutData.map(([key, lab]) => ({ key, name: lab.name, hasData: !!(lab.data && Array.isArray(lab.data) && lab.data.length > 0) })));
+                            }
+                            // Find labs that were deduplicated or filtered out
+                            const allLabKeys = new Set(Object.keys(allLabData));
+                            const displayedLabKeys = new Set();
+                            Object.values(categorizedLabs).forEach(labs => {
+                              labs.forEach(([key]) => displayedLabKeys.add(key));
+                            });
+                            const orphanedKeys = Array.from(allLabKeys).filter(key => !displayedLabKeys.has(key));
+                            if (orphanedKeys.length > 0) {
+                              console.warn('[HealthTab] Orphaned lab keys (not displayed):', orphanedKeys);
+                              console.warn('[HealthTab] Orphaned labs details:', orphanedKeys.map(key => ({ 
+                                key, 
+                                name: allLabData[key]?.name,
+                                hasData: !!(allLabData[key]?.data && Array.isArray(allLabData[key].data) && allLabData[key].data.length > 0),
+                                dataLength: allLabData[key]?.data?.length || 0
+                              })));
+                            } else {
+                              console.log('[HealthTab] No orphaned keys found - discrepancy may be due to deduplication in categorizeLabs');
+                            }
+                          } else {
+                            console.log('[HealthTab] Lab counts match - no orphaned data detected');
+                          }
+                          
+                          // If there's a discrepancy, log cleanup instructions and offer to clean up
+                          if (allLabCount !== totalLabCount) {
+                            console.warn(`[HealthTab] Discrepancy detected: ${allLabCount} total labs vs ${totalLabCount} displayed`);
+                            console.log('[HealthTab] This may be due to:');
+                            console.log('  1. Orphaned lab documents (no values) from previous uploads');
+                            console.log('  2. Duplicate lab documents with different labType names');
+                            console.log('  3. Labs filtered out during categorization/deduplication');
+                            console.log('[HealthTab] To clean up orphaned labs (labs with no values), the cleanup function is available');
+                          }
+
                           return (
                             <div className="space-y-4 mt-6">
                               {/* Upload Lab Report and Add Lab Metric Buttons */}
@@ -1355,6 +1437,12 @@ export default function HealthTab({ onTabChange }) {
                                   <span className="text-sm font-medium">Add Lab Metric</span>
                           </button>
                               </div>
+                              {/* Total metrics count - aligned left above first card */}
+                              {totalLabCount > 0 && (
+                                <p className="text-sm text-medical-neutral-600 mb-2 text-left">
+                                  {totalLabCount} metric{totalLabCount !== 1 ? 's' : ''} tracked
+                                </p>
+                              )}
                               {categoryOrder.map(category => {
                                 const labsInCategory = categorizedLabs[category];
                                 if (labsInCategory.length === 0) return null;
@@ -1419,7 +1507,7 @@ export default function HealthTab({ onTabChange }) {
       {healthSection === 'vitals' && (
         <div className="space-y-4">
                     {/* Empty State - No Vital Data */}
-                    {!hasRealVitalData && Object.keys(vitalsData).length === 0 && (
+                    {Object.keys(allVitalsData).length === 0 && (
                       <div className="border-2 border-medical-primary-500 rounded-lg p-4 sm:p-6 text-center bg-white">
                         <div className="flex flex-col items-center gap-3">
                           <Heart className="w-10 h-10 sm:w-12 sm:h-12 text-medical-primary-400" />
@@ -1453,7 +1541,7 @@ export default function HealthTab({ onTabChange }) {
                     )}
 
                     {/* Show data if available */}
-                    {(hasRealVitalData || Object.keys(vitalsData).length > 0) && (
+                    {Object.keys(allVitalsData).length > 0 && (
                       <>
 
                         {/* Vital Trend Chart */}
@@ -2299,6 +2387,13 @@ export default function HealthTab({ onTabChange }) {
                           </button>
                         </div>
 
+                        {/* Total metrics count - aligned left above first card */}
+                        {Object.keys(allVitalsData).length > 0 && (
+                          <p className="text-sm text-medical-neutral-600 mb-2 text-left">
+                            {Object.keys(allVitalsData).length} metric{Object.keys(allVitalsData).length !== 1 ? 's' : ''} tracked
+                          </p>
+                        )}
+
                         {/* Quick Vital Stats */}
                         <div className="bg-white rounded-lg shadow p-4">
                           <h3 className="font-semibold text-gray-800 mb-3">All Vitals (Latest)</h3>
@@ -2361,7 +2456,14 @@ export default function HealthTab({ onTabChange }) {
                                   <div className="flex items-start justify-between mb-2">
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2 mb-1">
-                                        <p className="text-sm font-semibold text-medical-neutral-900">{displayName}</p>
+                                        <p className="text-sm font-semibold text-medical-neutral-900">
+                                          {displayName}
+                                          {vital.data && vital.data.length > 0 && (
+                                            <span className="text-xs font-normal text-medical-neutral-500 ml-1">
+                                              ({vital.data.length})
+                                            </span>
+                                          )}
+                                        </p>
                                       </div>
                                       <div className="flex items-baseline gap-2">
                                         <p className="text-xl font-bold text-medical-neutral-900">{vital.current}</p>
@@ -2491,7 +2593,14 @@ export default function HealthTab({ onTabChange }) {
                                                       // This will also delete all subcollection values
                                                       await vitalService.deleteVital(vitalId);
                                                       
-                                                      // Don't reload immediately - optimistic update already removed it
+                                                      // If all vitals are deleted, reload to update hasRealVitalData flag
+                                                      if (Object.keys(updatedVitalsData).length === 0) {
+                                                        // Small delay to ensure Firestore deletion completes
+                                                        setTimeout(async () => {
+                                                          await reloadHealthData();
+                                                        }, 300);
+                                                      }
+                                                      // Otherwise, don't reload immediately - optimistic update already removed it
                                                       // Reloading too quickly can cause the vital to reappear
                                                     } catch (error) {
                                                       console.error('Error deleting vitals:', error);

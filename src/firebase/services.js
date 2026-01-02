@@ -266,6 +266,33 @@ export const labService = {
     });
     await Promise.all(deletePromises);
     return querySnapshot.docs.length;
+  },
+
+  // Clean up orphaned lab documents (labs with no values)
+  async cleanupOrphanedLabs(patientId) {
+    const allLabs = await this.getLabs(patientId);
+    const orphanedLabs = [];
+    
+    for (const lab of allLabs) {
+      const values = await this.getLabValues(lab.id);
+      if (!values || values.length === 0) {
+        orphanedLabs.push(lab);
+      }
+    }
+    
+    console.log(`[cleanupOrphanedLabs] Found ${orphanedLabs.length} orphaned labs (no values)`);
+    
+    // Delete orphaned labs
+    for (const lab of orphanedLabs) {
+      try {
+        await this.deleteLab(lab.id);
+        console.log(`[cleanupOrphanedLabs] Deleted orphaned lab: ${lab.labType} (${lab.id})`);
+      } catch (error) {
+        console.warn(`[cleanupOrphanedLabs] Error deleting orphaned lab ${lab.id}:`, error);
+      }
+    }
+    
+    return orphanedLabs.length;
   }
 };
 

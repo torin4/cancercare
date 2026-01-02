@@ -40,7 +40,7 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
       fileSize: file.size,
       fileType: file.type,
       date: new Date(),
-      ...metadata // category, notes, documentType, etc.
+      ...metadata // category, notes, documentType, dataPointCount, etc.
     };
 
     const docId = await documentService.saveDocument(documentData);
@@ -111,6 +111,7 @@ export const getFileUrl = async (storagePath) => {
 /**
  * Download a file as a Blob (avoids CORS issues)
  * Uses server-side proxy to bypass CORS restrictions
+ * Note: Firebase Storage has CORS restrictions in browsers, so proxy is required
  *
  * @param {string} storagePath - The path to the file in Storage
  * @param {string} existingUrl - Optional existing download URL to use if available
@@ -124,9 +125,13 @@ export const downloadFileAsBlob = async (storagePath, existingUrl = null) => {
     downloadUrl = await getDownloadURL(storageRef);
   }
   
-  // Use server-side proxy to bypass CORS
-  const proxyBaseUrl = process.env.REACT_APP_PROXY_URL || 'http://localhost:4000';
-  const proxyUrl = `${proxyBaseUrl}/api/storage-proxy?url=${encodeURIComponent(downloadUrl)}`;
+  // Use server-side proxy to bypass CORS (required for browser downloads)
+  // In production on Vercel, this uses the /api/storage-proxy serverless function
+  // For local development, use the proxy server or set REACT_APP_PROXY_URL
+  const proxyBaseUrl = process.env.REACT_APP_PROXY_URL || '';
+  const proxyUrl = proxyBaseUrl 
+    ? `${proxyBaseUrl}/api/storage-proxy?url=${encodeURIComponent(downloadUrl)}`
+    : `/api/storage-proxy?url=${encodeURIComponent(downloadUrl)}`;
   
   console.log('Downloading file via proxy:', proxyUrl);
   
@@ -140,14 +145,20 @@ export const downloadFileAsBlob = async (storagePath, existingUrl = null) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Proxy response error:', response.status, errorText);
-      throw new Error(`Proxy server returned error ${response.status}: ${response.statusText}. Make sure the proxy server is running on ${proxyBaseUrl}`);
+      const proxyInfo = proxyBaseUrl 
+        ? `Make sure the proxy server is running on ${proxyBaseUrl}`
+        : 'Make sure the proxy server is running (npm run start:proxy) or the Vercel serverless function is available';
+      throw new Error(`Proxy server returned error ${response.status}: ${response.statusText}. ${proxyInfo}`);
     }
     
     return await response.blob();
   } catch (error) {
     console.error('Error downloading file via proxy:', error);
-    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-      throw new Error(`Cannot connect to proxy server at ${proxyBaseUrl}. Please ensure the proxy server is running. Error: ${error.message}`);
+    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('CORS')) {
+      const proxyInfo = proxyBaseUrl
+        ? `Cannot connect to proxy server at ${proxyBaseUrl}. Please ensure the proxy server is running.`
+        : 'Cannot connect to proxy. For localhost: run "npm run start:proxy". For production: ensure Vercel serverless functions are deployed.';
+      throw new Error(`${proxyInfo} Error: ${error.message}`);
     }
     throw new Error(`Failed to download file: ${error.message}`);
   }

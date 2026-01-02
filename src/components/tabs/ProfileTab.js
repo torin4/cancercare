@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, User, Calendar, MapPin, TrendingUp, Activity, Edit2, Dna, Upload, AlertCircle, Users, Phone, Plus, Settings, Link2, Loader2, Unlink, LogOut, Trash2, Sliders, Shield, HeartHandshake } from 'lucide-react';
+import { Camera, User, Calendar, MapPin, TrendingUp, Activity, Edit2, Dna, Upload, AlertCircle, Users, Phone, Plus, Settings, Link2, Loader2, Unlink, LogOut, Trash2, Sliders, Shield, HeartHandshake, Copy } from 'lucide-react';
 import { signOut, linkWithPopup, unlink, GoogleAuthProvider, deleteUser } from 'firebase/auth';
 import { auth } from '../../firebase/config';
 import { useAuth } from '../../contexts/AuthContext';
@@ -577,14 +577,22 @@ export default function ProfileTab({ onTabChange }) {
         )}
 
         {/* Summary View - Always Visible */}
-        {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 ? (
+        {genomicProfile && ((genomicProfile.mutations && genomicProfile.mutations.length > 0) || (genomicProfile.cnvs && genomicProfile.cnvs.length > 0)) ? (
           <div className="bg-white rounded-lg p-3 mb-3">
             <div className="flex flex-wrap gap-2">
-              {genomicProfile.mutations.slice(0, 5).map((mutation, idx) => (
+              {genomicProfile.mutations && genomicProfile.mutations.slice(0, 5).map((mutation, idx) => (
                 <span key={idx} className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
                   {mutation.gene} {formatLabel(mutation.variant || mutation.type)}
                 </span>
               ))}
+              {genomicProfile.cnvs && genomicProfile.cnvs.slice(0, 3).map((cnv, idx) => {
+                const cnvType = cnv.type === 'amplification' || cnv.type === 'gain' || (cnv.copyNumber && cnv.copyNumber > 2) ? 'Amp' : 'Del';
+                return (
+                  <span key={`cnv-${idx}`} className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">
+                    {cnv.gene} {cnvType}
+                  </span>
+                );
+              })}
               {genomicProfile.tmb && (
                 <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
                   TMB: {genomicProfile.tmb}
@@ -683,9 +691,7 @@ export default function ProfileTab({ onTabChange }) {
             {genomicProfile.cnvs && genomicProfile.cnvs.length > 0 && (
               <div className="bg-white rounded-lg p-4">
                 <h3 className="font-semibold text-gray-800 mb-3 text-sm flex items-center gap-2">
-                  <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
+                  <Copy className="w-4 h-4 text-orange-600" />
                   Copy Number Variants (CNVs)
                 </h3>
                 <div className="space-y-2">

@@ -59,6 +59,7 @@ export default function CancerCareApp() {
   const { labsData, setLabsData, vitalsData, setVitalsData, genomicProfile, setGenomicProfile, hasRealLabData, hasRealVitalData, reloadHealthData } = useHealthContext();
   const { showSuccess, showError } = useBanner();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [pendingHealthSection, setPendingHealthSection] = useState(null);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [showQuickLog, setShowQuickLog] = useState(false);
   const [showAddSymptomModal, setShowAddSymptomModal] = useState(false);
@@ -191,6 +192,25 @@ export default function CancerCareApp() {
     console.log('showDocumentOnboarding changed:', showDocumentOnboarding);
   }, [showDocumentOnboarding]);
 
+  // Helper function to determine target tab and section based on document type
+  const getTargetTabAndSection = (documentType) => {
+    const docType = (documentType || '').toLowerCase();
+    
+    if (docType === 'lab' || docType === 'labs') {
+      return { tab: 'health', section: 'labs' };
+    } else if (docType === 'vital' || docType === 'vitals') {
+      return { tab: 'health', section: 'vitals' };
+    } else if (docType === 'genomic' || docType === 'genome') {
+      return { tab: 'profile', section: null };
+    } else if (docType === 'symptom' || docType === 'symptoms') {
+      return { tab: 'health', section: 'symptoms' };
+    } else if (docType === 'medication' || docType === 'medications') {
+      return { tab: 'health', section: 'medications' };
+    }
+    // Default: stay on files tab or go to files
+    return { tab: 'files', section: null };
+  };
+
   // Document upload handlers
   const handleRealFileUpload = async (file, docType) => {
     console.log('handleRealFileUpload called with file:', file?.name, 'docType:', docType);
@@ -222,7 +242,8 @@ export default function CancerCareApp() {
       const uploadResult = await uploadDocument(file, user.uid, {
         category: processingResult.documentType || docType,
         documentType: processingResult.documentType || docType,
-        note: providedNote || null
+        note: providedNote || null,
+        dataPointCount: processingResult.dataPointCount || 0
       });
 
       console.log('File uploaded successfully:', uploadResult);
@@ -235,10 +256,19 @@ export default function CancerCareApp() {
 
       setIsUploading(false);
       setUploadProgress('');
-      showSuccess('Document uploaded and processed successfully! All extracted data has been saved to your health records.');
+      const dataPointText = processingResult.dataPointCount > 0 
+        ? ` ${processingResult.dataPointCount} data point${processingResult.dataPointCount !== 1 ? 's' : ''} extracted.`
+        : '';
+      showSuccess(`Document uploaded and processed successfully!${dataPointText} All extracted data has been saved to your health records.`);
       
-      // Switch to Files tab to show the uploaded document
-      setActiveTab('files');
+      // Navigate to relevant tab based on document type
+      const { tab, section } = getTargetTabAndSection(processingResult.documentType || docType);
+      if (section && tab === 'health') {
+        setPendingHealthSection(section);
+      } else {
+        setPendingHealthSection(null);
+      }
+      setActiveTab(tab);
     } catch (error) {
       console.error('Upload error:', error);
       showError(`Failed to process document: ${error.message}. The file was not uploaded. Please try again or contact support if the issue persists.`);
@@ -886,7 +916,7 @@ export default function CancerCareApp() {
         )}
 
         {activeTab === 'health' && (
-          <HealthTab onTabChange={setActiveTab} />
+          <HealthTab onTabChange={setActiveTab} initialSection={pendingHealthSection} />
         )}
 
         {activeTab === 'trials' && (

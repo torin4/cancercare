@@ -559,6 +559,11 @@ export const categorizeLabs = (labs) => {
     'monocytes_abs': 'blood_counts', 'monocytes_pct': 'blood_counts',
     'eosinophils_abs': 'blood_counts', 'eosinophils_pct': 'blood_counts',
     'basophils_abs': 'blood_counts', 'basophils_pct': 'blood_counts',
+    'neutrophil_count': 'blood_counts', 'neutrophil_percent': 'blood_counts',
+    'lymphocyte_count': 'blood_counts', 'lymphocyte_percent': 'blood_counts',
+    'monocyte_count': 'blood_counts', 'monocyte_percent': 'blood_counts',
+    'eosinophil_count': 'blood_counts', 'eosinophil_percent': 'blood_counts',
+    'basophil_count': 'blood_counts', 'basophil_percent': 'blood_counts',
     'mcv': 'blood_counts', 'mch': 'blood_counts', 'mchc': 'blood_counts',
     'rdw': 'blood_counts', 'rdw_cv': 'blood_counts',
     'mpv': 'blood_counts', 'nrbc': 'blood_counts', 'nrbc_pct': 'blood_counts',
@@ -586,6 +591,7 @@ export const categorizeLabs = (labs) => {
     'pt': 'coagulation', 'inr': 'coagulation', 'aptt': 'coagulation',
     'ddimer': 'coagulation', 'fdp': 'coagulation', 'fibrinogen': 'coagulation',
     'antithrombin_iii': 'coagulation', 'protein_c': 'coagulation', 'protein_s': 'coagulation',
+    'prothrombin_time_activity': 'coagulation', 'pt_activity': 'coagulation',
     
     // Other
     'glucose': 'other', 'hba1c': 'other', 'iga': 'other', 'igg': 'other', 'igm': 'other', 'vitamin_d': 'other',
@@ -640,15 +646,18 @@ export const categorizeLabs = (labs) => {
     categorizedKeys.add(key);
   });
 
-  // Remove duplicates within each category (same lab name)
+  // Remove duplicates within each category (same lab type/key, not name)
+  // We deduplicate by key (labType) because the same lab type should only appear once
+  // Different lab types with the same name should both be shown
   Object.keys(categories).forEach(category => {
-    const seen = new Map();
+    const seen = new Set();
     categories[category] = categories[category].filter(([key, lab]) => {
-    const labNameKey = (lab.name || key).toLowerCase();
-    if (seen.has(labNameKey)) {
-      return false; // Duplicate
+    const labKey = key.toLowerCase();
+    if (seen.has(labKey)) {
+      console.warn(`[categorizeLabs] Removing duplicate lab type in ${category}: ${key} (name: ${lab.name})`);
+      return false; // Duplicate lab type
     }
-    seen.set(labNameKey, true);
+    seen.add(labKey);
     return true;
     });
   });

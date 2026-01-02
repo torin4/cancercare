@@ -148,7 +148,8 @@ export default function DashboardTab({ onTabChange }) {
       const uploadResult = await uploadDocument(file, user.uid, {
         category: processingResult.documentType || docType,
         documentType: processingResult.documentType || docType,
-        note: providedNote || null
+        note: providedNote || null,
+        dataPointCount: processingResult.dataPointCount || 0
       });
 
       console.log('File uploaded successfully:', uploadResult);
@@ -161,10 +162,27 @@ export default function DashboardTab({ onTabChange }) {
 
       setIsUploading(false);
       setUploadProgress('');
-      showSuccess('Document uploaded and processed successfully! All extracted data has been saved to your health records.');
+      const dataPointText = processingResult.dataPointCount > 0 
+        ? ` ${processingResult.dataPointCount} data point${processingResult.dataPointCount !== 1 ? 's' : ''} extracted.`
+        : '';
+      showSuccess(`Document uploaded and processed successfully!${dataPointText} All extracted data has been saved to your health records.`);
       
-      // Switch to Files tab to show the uploaded document
-      onTabChange('files');
+      // Navigate to relevant tab based on document type
+      const detectedDocType = (processingResult.documentType || docType || '').toLowerCase();
+      if (detectedDocType === 'lab' || detectedDocType === 'labs') {
+        onTabChange('health');
+      } else if (detectedDocType === 'vital' || detectedDocType === 'vitals') {
+        onTabChange('health');
+      } else if (detectedDocType === 'genomic' || detectedDocType === 'genome') {
+        onTabChange('profile');
+      } else if (detectedDocType === 'symptom' || detectedDocType === 'symptoms') {
+        onTabChange('health');
+      } else if (detectedDocType === 'medication' || detectedDocType === 'medications') {
+        onTabChange('health');
+      } else {
+        // Default: go to files tab
+        onTabChange('files');
+      }
     } catch (error) {
       console.error('Upload error:', error);
       showError(`Failed to process document: ${error.message}. The file was not uploaded. Please try again or contact support if the issue persists.`);
@@ -392,7 +410,7 @@ export default function DashboardTab({ onTabChange }) {
               if (idxB !== -1) return 1;
               return 0;
             })
-            .slice(0, 5); // Top 5 labs
+            .slice(0, 4); // Top 4 labs
 
           // Get most important vitals (weight, blood pressure, temperature, heart rate)
           const importantVitalKeys = Object.keys(vitalsData)
@@ -401,12 +419,12 @@ export default function DashboardTab({ onTabChange }) {
               return vital && ((vital.data && vital.data.length > 0) || vital.current);
             })
             .filter(key => ['weight', 'bp', 'bloodpressure', 'temperature', 'temp', 'heartrate', 'hr', 'pulse'].includes(key.toLowerCase()))
-            .slice(0, 3); // Top 3 vitals
+            .slice(0, 4); // Top 4 vitals
 
           const allImportantItems = [
             ...importantLabKeys.map(key => ({ type: 'lab', key, data: labsData[key] })),
             ...importantVitalKeys.map(key => ({ type: 'vital', key, data: vitalsData[key] }))
-          ].slice(0, 5); // Max 5 items in the row
+          ].slice(0, 4); // Max 4 items in the row
 
           // If no important items found, try to show any available data
           if (allImportantItems.length === 0) {
@@ -627,15 +645,23 @@ export default function DashboardTab({ onTabChange }) {
                 </div>
               </div>
             )}
-            {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 ? (
+            {genomicProfile && ((genomicProfile.mutations && genomicProfile.mutations.length > 0) || (genomicProfile.cnvs && genomicProfile.cnvs.length > 0)) ? (
               <>
                 <div className="bg-white rounded-lg p-3 mb-3">
                   <div className="flex flex-wrap gap-2">
-                    {genomicProfile.mutations.slice(0, 5).map((mutation, idx) => (
+                    {genomicProfile.mutations && genomicProfile.mutations.slice(0, 5).map((mutation, idx) => (
                       <span key={idx} className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
                         {mutation.gene} {formatLabel(mutation.variant || mutation.type)}
                       </span>
                     ))}
+                    {genomicProfile.cnvs && genomicProfile.cnvs.slice(0, 3).map((cnv, idx) => {
+                      const cnvType = cnv.type === 'amplification' || cnv.type === 'gain' || (cnv.copyNumber && cnv.copyNumber > 2) ? 'Amp' : 'Del';
+                      return (
+                        <span key={`cnv-${idx}`} className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">
+                          {cnv.gene} {cnvType}
+                        </span>
+                      );
+                    })}
                     {genomicProfile.tmb && (
                       <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
                         TMB: {genomicProfile.tmb}

@@ -41,16 +41,25 @@ export const transformLabsData = async (labs) => {
           }))
           .sort((a, b) => a.timestamp - b.timestamp);
 
-        // Add all values to data array
+        // Add all values to data array, avoiding duplicates by ID and timestamp+value
+        const existingIds = new Set(grouped[labType].data.map(d => d.id));
+        const existingValueKeys = new Set(grouped[labType].data.map(d => `${d.timestamp}_${d.value}`));
         sortedValues.forEach(v => {
-          grouped[labType].data.push({
-            id: v.id,
-            date: v.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            dateOriginal: v.date, // Store original Date object for editing
-            value: v.value,
-            timestamp: v.timestamp,
-            notes: v.notes || '' // Store notes for editing
-          });
+          const valueKey = `${v.timestamp}_${v.value}`;
+          // Only add if we haven't seen this ID or timestamp+value combination before
+          // This prevents duplicates from multiple lab documents or reprocessing issues
+          if (!existingIds.has(v.id) && !existingValueKeys.has(valueKey)) {
+            grouped[labType].data.push({
+              id: v.id,
+              date: v.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+              dateOriginal: v.date, // Store original Date object for editing
+              value: v.value,
+              timestamp: v.timestamp,
+              notes: v.notes || '' // Store notes for editing
+            });
+            existingIds.add(v.id);
+            existingValueKeys.add(valueKey);
+          }
         });
 
         // Calculate trend based on values
@@ -155,18 +164,27 @@ export const transformVitalsData = async (vitals) => {
           }))
           .sort((a, b) => a.timestamp - b.timestamp);
 
-        // Add all values to data array
+        // Add all values to data array, avoiding duplicates by ID and timestamp+value
+        const existingIds = new Set(grouped[canonicalKey].data.map(d => d.id));
+        const existingValueKeys = new Set(grouped[canonicalKey].data.map(d => `${d.timestamp}_${d.value}_${d.systolic || ''}_${d.diastolic || ''}`));
         sortedValues.forEach(v => {
-          grouped[canonicalKey].data.push({
-            id: v.id,
-            date: v.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            dateOriginal: v.date, // Store original Date object for editing
-            value: v.value,
-            systolic: v.systolic,
-            diastolic: v.diastolic,
-            timestamp: v.timestamp,
-            notes: v.notes || ''
-          });
+          const valueKey = `${v.timestamp}_${v.value}_${v.systolic || ''}_${v.diastolic || ''}`;
+          // Only add if we haven't seen this ID or timestamp+value combination before
+          // This prevents duplicates from multiple vital documents or reprocessing issues
+          if (!existingIds.has(v.id) && !existingValueKeys.has(valueKey)) {
+            grouped[canonicalKey].data.push({
+              id: v.id,
+              date: v.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+              dateOriginal: v.date, // Store original Date object for editing
+              value: v.value,
+              systolic: v.systolic,
+              diastolic: v.diastolic,
+              timestamp: v.timestamp,
+              notes: v.notes || ''
+            });
+            existingIds.add(v.id);
+            existingValueKeys.add(valueKey);
+          }
         });
 
         // Update current value to most recent

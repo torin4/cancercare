@@ -25,11 +25,15 @@ export async function processDocument(file, userId, patientProfile = null, docum
     // Step 2: Save extracted data to Firestore
     const savedData = await saveExtractedData(extractedData, userId, documentDate, documentNote, documentId);
 
+    // Count total data points extracted (metric + value = 1 data point)
+    const dataPointCount = countDataPoints(savedData);
+
     return {
       success: true,
       documentType: extractedData.documentType,
       extractedData: savedData,
-      summary: extractedData.summary
+      summary: extractedData.summary,
+      dataPointCount
     };
   } catch (error) {
     console.error('Error processing document:', error);
@@ -491,6 +495,46 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
   };
 
   try {
+    // If reprocessing (documentId provided), delete ALL existing values from this document first
+    // This prevents duplicates when reprocessing the same document
+    if (documentId) {
+      console.log(`Reprocessing document ${documentId} - deleting existing values...`);
+      
+      // Delete all lab values with this documentId
+      const allLabs = await labService.getLabs(userId);
+      for (const labDoc of allLabs) {
+        const values = await labService.getLabValues(labDoc.id);
+        for (const value of values) {
+          if (value.documentId === documentId) {
+            try {
+              await labService.deleteLabValue(labDoc.id, value.id);
+              console.log(`Deleted lab value ${value.id} from document ${documentId}`);
+            } catch (error) {
+              console.warn(`Error deleting lab value ${value.id}:`, error);
+            }
+          }
+        }
+      }
+      
+      // Delete all vital values with this documentId
+      const allVitals = await vitalService.getVitals(userId);
+      for (const vitalDoc of allVitals) {
+        const values = await vitalService.getVitalValues(vitalDoc.id);
+        for (const value of values) {
+          if (value.documentId === documentId) {
+            try {
+              await vitalService.deleteVitalValue(vitalDoc.id, value.id);
+              console.log(`Deleted vital value ${value.id} from document ${documentId}`);
+            } catch (error) {
+              console.warn(`Error deleting vital value ${value.id}:`, error);
+            }
+          }
+        }
+      }
+      
+      console.log(`Finished deleting existing values from document ${documentId}`);
+    }
+
     // Save Lab Results
     if (extractedData.data?.labs) {
       for (const lab of extractedData.data.labs) {
@@ -539,14 +583,21 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
           labData.normalRange = lab.normalRange;
         }
 
-        const labId = await labService.saveLab(labData);
-
-        // Also save as a lab value entry
+        // Get or create lab document
+        let labId;
+        const existingLab = await labService.getLabByType(userId, lab.labType || 'other');
+        if (existingLab) {
+          labId = existingLab.id;
+        } else {
+          labId = await labService.saveLab(labData);
+        }
+        
+        // Create new lab value (existing values with this documentId were already deleted above if reprocessing)
         await labService.addLabValue(labId, {
           value: lab.value,
           date: labDate,
           notes: documentNote ? `Extracted from document. Context: ${documentNote}` : `Extracted from document`,
-          documentId: documentId || null // Link to source document
+          documentId: documentId || null
         });
 
         savedData.labs.push({ labId, ...lab });
@@ -599,14 +650,21 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
           vitalData.normalRange = vital.normalRange;
         }
 
-        const vitalId = await vitalService.saveVital(vitalData);
-
-        // Also save as a vital value entry
+        // Get or create vital document
+        let vitalId;
+        const existingVital = await vitalService.getVitalByType(userId, vital.vitalType || 'other');
+        if (existingVital) {
+          vitalId = existingVital.id;
+        } else {
+          vitalId = await vitalService.saveVital(vitalData);
+        }
+        
+        // Create new vital value (existing values with this documentId were already deleted above if reprocessing)
         await vitalService.addVitalValue(vitalId, {
           value: vital.value,
           date: vitalDate,
           notes: documentNote ? `Extracted from document. Context: ${documentNote}` : `Extracted from document`,
-          documentId: documentId || null // Link to source document
+          documentId: documentId || null
         });
 
         savedData.vitals.push({ vitalId, ...vital });
@@ -737,7 +795,11 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
 
       await genomicProfileService.saveGenomicProfile(userId, sanitizedGenomicProfile);
 
-      savedData.genomic = genomicData;
+      // Include both raw genomicData and normalized cnvs field for counting
+      savedData.genomic = {
+        ...genomicData,
+        cnvs: genomicProfile.cnvs || genomicData.copyNumberVariants || []
+      };
     }
 
     // Save Medications
@@ -843,4 +905,71 @@ export function generateExtractionSummary(extractedData, savedData) {
   }
 
   return parts.join('\n');
+}
+
+/**
+ * Count total data points extracted from a document
+ * A data point = metric and value(s) (e.g., one lab value, one vital, one mutation)
+ * @param {Object} savedData - Saved data from document processing
+ * @returns {number} - Total number of data points
+ */
+function countDataPoints(savedData) {
+  let count = 0;
+
+  // Count labs (each lab = 1 data point)
+  if (savedData.labs && Array.isArray(savedData.labs)) {
+    count += savedData.labs.length;
+  }
+
+  // Count vitals (each vital = 1 data point)
+  if (savedData.vitals && Array.isArray(savedData.vitals)) {
+    count += savedData.vitals.length;
+  }
+
+  // Count medications (each medication = 1 data point)
+  if (savedData.medications && Array.isArray(savedData.medications)) {
+    count += savedData.medications.length;
+  }
+
+  // Count genomic data points
+  if (savedData.genomic) {
+    // Each mutation = 1 data point
+    if (savedData.genomic.mutations && Array.isArray(savedData.genomic.mutations)) {
+      count += savedData.genomic.mutations.length;
+    }
+
+    // Each CNV = 1 data point
+    if (savedData.genomic.cnvs && Array.isArray(savedData.genomic.cnvs)) {
+      count += savedData.genomic.cnvs.length;
+    } else if (savedData.genomic.copyNumberVariants && Array.isArray(savedData.genomic.copyNumberVariants)) {
+      // Fallback to check copyNumberVariants (raw field name from AI extraction)
+      count += savedData.genomic.copyNumberVariants.length;
+    }
+
+    // Each fusion = 1 data point
+    if (savedData.genomic.fusions && Array.isArray(savedData.genomic.fusions)) {
+      count += savedData.genomic.fusions.length;
+    }
+
+    // Each biomarker = 1 data point (TMB, MSI, HRD, PD-L1)
+    if (savedData.genomic.biomarkers) {
+      if (savedData.genomic.biomarkers.tumorMutationalBurden) count += 1;
+      if (savedData.genomic.biomarkers.microsatelliteInstability) count += 1;
+      if (savedData.genomic.biomarkers.hrdScore) count += 1;
+      if (savedData.genomic.biomarkers.pdl1Expression) count += 1;
+    } else {
+      // Check legacy fields
+      if (savedData.genomic.tmb || savedData.genomic.tmbValue) count += 1;
+      if (savedData.genomic.msi) count += 1;
+      if (savedData.genomic.hrdScore !== undefined && savedData.genomic.hrdScore !== null) count += 1;
+      if (savedData.genomic.pdl1 !== undefined && savedData.genomic.pdl1 !== null) count += 1;
+    }
+
+    // Each germline finding = 1 data point
+    if (savedData.genomic.germlineFindings && Array.isArray(savedData.genomic.germlineFindings)) {
+      count += savedData.genomic.germlineFindings.length;
+    }
+  }
+
+  return count;
 }
