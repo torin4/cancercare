@@ -27,6 +27,17 @@ export const HealthProvider = ({ children }) => {
 
     try {
       setLoading(true);
+      
+      // Clean up orphaned labs before loading (wait for completion to ensure cleanup happens)
+      try {
+        const orphanedCount = await labService.cleanupOrphanedLabs(user.uid);
+        if (orphanedCount > 0) {
+          console.log(`[HealthContext] Cleaned up ${orphanedCount} orphaned labs during reload`);
+        }
+      } catch (error) {
+        console.warn('Error cleaning up orphaned labs:', error);
+      }
+      
       const labs = await labService.getLabs(user.uid);
       const transformedLabs = await transformLabsData(labs);
       setLabsData(transformedLabs);
@@ -64,6 +75,17 @@ export const HealthProvider = ({ children }) => {
     const loadData = async () => {
       try {
         setLoading(true);
+        
+        // Clean up orphaned labs before loading (wait for completion to ensure cleanup happens)
+        try {
+          const orphanedCount = await labService.cleanupOrphanedLabs(user.uid);
+          if (orphanedCount > 0) {
+            console.log(`[HealthContext] Cleaned up ${orphanedCount} orphaned labs during initial load`);
+          }
+        } catch (error) {
+          console.warn('Error cleaning up orphaned labs:', error);
+        }
+        
         const labs = await labService.getLabs(user.uid);
         const transformedLabs = await transformLabsData(labs);
         setLabsData(transformedLabs);

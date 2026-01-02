@@ -68,8 +68,10 @@ vercel
 3. **Add your API key**
    - Go to your project dashboard on vercel.com
    - Click "Settings" → "Environment Variables"
-   - Add: `GEMINI_API_KEY` = your key
-   - Redeploy: `vercel --prod`
+   - Add: `REACT_APP_GEMINI_API_KEY` = your key (for client-side document processing)
+   - Add: `GEMINI_API_KEY` = your key (for serverless functions)
+   - Make sure to select all environments (Production, Preview, Development)
+   - Redeploy: `vercel --prod` or trigger a new deployment from the dashboard
 
 ### Option 2: Deploy via GitHub
 

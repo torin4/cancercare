@@ -500,19 +500,28 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
     if (documentId) {
       console.log(`Reprocessing document ${documentId} - deleting existing values...`);
       
+      // Track labs that might become orphaned after deletion
+      const labsToCheck = new Set();
+      
       // Delete all lab values with this documentId
       const allLabs = await labService.getLabs(userId);
       for (const labDoc of allLabs) {
         const values = await labService.getLabValues(labDoc.id);
+        let deletedCount = 0;
         for (const value of values) {
           if (value.documentId === documentId) {
             try {
               await labService.deleteLabValue(labDoc.id, value.id);
               console.log(`Deleted lab value ${value.id} from document ${documentId}`);
+              deletedCount++;
             } catch (error) {
               console.warn(`Error deleting lab value ${value.id}:`, error);
             }
           }
+        }
+        // If we deleted values, check if the lab is now empty
+        if (deletedCount > 0) {
+          labsToCheck.add(labDoc.id);
         }
       }
       
@@ -530,6 +539,30 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
             }
           }
         }
+      }
+      
+      // Clean up any labs that became orphaned (no values left)
+      for (const labId of labsToCheck) {
+        try {
+          const remainingValues = await labService.getLabValues(labId);
+          if (!remainingValues || remainingValues.length === 0) {
+            console.log(`Lab ${labId} is now orphaned (no values), deleting...`);
+            await labService.deleteLab(labId);
+            console.log(`Deleted orphaned lab ${labId}`);
+          }
+        } catch (error) {
+          console.warn(`Error checking/deleting orphaned lab ${labId}:`, error);
+        }
+      }
+      
+      // Also run full cleanup to catch any other orphaned labs
+      try {
+        const orphanedCount = await labService.cleanupOrphanedLabs(userId);
+        if (orphanedCount > 0) {
+          console.log(`Cleaned up ${orphanedCount} orphaned labs after reprocessing`);
+        }
+      } catch (error) {
+        console.warn('Error running orphaned labs cleanup:', error);
       }
       
       console.log(`Finished deleting existing values from document ${documentId}`);

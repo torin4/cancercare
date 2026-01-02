@@ -270,12 +270,22 @@ export const labService = {
 
   // Clean up orphaned lab documents (labs with no values)
   async cleanupOrphanedLabs(patientId) {
+    console.log(`[cleanupOrphanedLabs] Starting cleanup for patient ${patientId}`);
     const allLabs = await this.getLabs(patientId);
+    console.log(`[cleanupOrphanedLabs] Found ${allLabs.length} total labs to check`);
     const orphanedLabs = [];
     
+    // Check each lab for values
     for (const lab of allLabs) {
-      const values = await this.getLabValues(lab.id);
-      if (!values || values.length === 0) {
+      try {
+        const values = await this.getLabValues(lab.id);
+        if (!values || values.length === 0) {
+          orphanedLabs.push(lab);
+          console.log(`[cleanupOrphanedLabs] Lab ${lab.id} (${lab.labType}) has no values - marked for deletion`);
+        }
+      } catch (error) {
+        console.warn(`[cleanupOrphanedLabs] Error checking lab ${lab.id}:`, error);
+        // If we can't check values, assume it's orphaned and try to delete
         orphanedLabs.push(lab);
       }
     }
@@ -283,16 +293,19 @@ export const labService = {
     console.log(`[cleanupOrphanedLabs] Found ${orphanedLabs.length} orphaned labs (no values)`);
     
     // Delete orphaned labs
+    let deletedCount = 0;
     for (const lab of orphanedLabs) {
       try {
         await this.deleteLab(lab.id);
-        console.log(`[cleanupOrphanedLabs] Deleted orphaned lab: ${lab.labType} (${lab.id})`);
+        deletedCount++;
+        console.log(`[cleanupOrphanedLabs] ✓ Deleted orphaned lab: ${lab.labType} (${lab.id})`);
       } catch (error) {
-        console.warn(`[cleanupOrphanedLabs] Error deleting orphaned lab ${lab.id}:`, error);
+        console.warn(`[cleanupOrphanedLabs] ✗ Error deleting orphaned lab ${lab.id}:`, error);
       }
     }
     
-    return orphanedLabs.length;
+    console.log(`[cleanupOrphanedLabs] Cleanup complete: ${deletedCount}/${orphanedLabs.length} labs deleted`);
+    return deletedCount;
   }
 };
 

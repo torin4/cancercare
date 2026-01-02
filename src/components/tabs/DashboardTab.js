@@ -459,7 +459,7 @@ export default function DashboardTab({ onTabChange }) {
                   </div>
                   Key Metrics
                 </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                   {fallbackItems.map((item) => {
                     const data = item.data;
                     let latestValue = (data.data && data.data.length > 0)
@@ -485,7 +485,7 @@ export default function DashboardTab({ onTabChange }) {
                     }
                     
                     return (
-                      <div key={`${item.type}-${item.key}`} className="text-center p-3 sm:p-4 bg-white rounded-lg border border-medical-neutral-200 shadow-sm hover:shadow-md transition-shadow">
+                      <div key={`${item.type}-${item.key}`} className="text-center p-3 sm:p-4 bg-white rounded-lg border border-medical-neutral-200 shadow-sm hover:shadow-md transition-shadow flex-1">
                         <div className="flex items-center justify-center gap-1.5 mb-2">
                           <span className="text-xs font-medium text-medical-neutral-700">{displayName}</span>
                           <div className="flex items-center gap-1">
@@ -530,7 +530,7 @@ export default function DashboardTab({ onTabChange }) {
                 </div>
                 Key Metrics
               </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {allImportantItems.map((item) => {
                   const data = item.data;
                   // Get latest value - labs and vitals both have data array or current

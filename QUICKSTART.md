@@ -24,10 +24,11 @@ Choose option 2 (Deploy to Vercel)
 
 1. After deployment, go to vercel.com
 2. Click your project → Settings → Environment Variables
-3. Add:
-   - Name: `GEMINI_API_KEY`
-   - Value: [paste your key from Step 1]
-4. Run: `vercel --prod`
+3. Add both environment variables:
+   - Name: `REACT_APP_GEMINI_API_KEY`, Value: [paste your key from Step 1]
+   - Name: `GEMINI_API_KEY`, Value: [paste your key from Step 1]
+   - Make sure to select all environments (Production, Preview, Development)
+4. Redeploy: Click "Redeploy" in the Deployments tab, or run `vercel --prod`
 
 ## Done!
 

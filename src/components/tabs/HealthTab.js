@@ -995,6 +995,18 @@ export default function HealthTab({ onTabChange, initialSection = null }) {
                                                                 
                                                                 await labService.deleteLabValue(labDocId, labValueId);
                                                                 
+                                                                // Check if lab is now orphaned (no values left) and clean it up
+                                                                try {
+                                                                  const remainingValues = await labService.getLabValues(labDocId);
+                                                                  if (!remainingValues || remainingValues.length === 0) {
+                                                                    console.log(`Lab ${labDocId} is now orphaned (no values), deleting...`);
+                                                                    await labService.deleteLab(labDocId);
+                                                                    console.log(`Deleted orphaned lab ${labDocId}`);
+                                                                  }
+                                                                } catch (cleanupError) {
+                                                                  console.warn(`Error checking/deleting orphaned lab ${labDocId}:`, cleanupError);
+                                                                }
+                                                                
                                                                 // Show success banner
                                                                 showSuccess(`${labName} reading deleted successfully`);
                                                                 
