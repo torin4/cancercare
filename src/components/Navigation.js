@@ -4,6 +4,12 @@ import { Activity, User, Home, MessageSquare, ClipboardList, FlaskConical, Folde
 export default function Navigation({ activeTab, setActiveTab, patientProfile, onSidebarHover }) {
   const [isExpanded, setIsExpanded] = useState(false);
   
+  // Helper to get first name from full name
+  const getFirstName = (fullName) => {
+    if (!fullName) return '';
+    return fullName.split(' ')[0];
+  };
+  
   const handleMouseEnter = () => {
     setIsExpanded(true);
     if (onSidebarHover) onSidebarHover(true);
@@ -51,7 +57,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
                   {patientProfile?.isPatient === false && patientProfile?.caregiverName && (
                     <p className="text-xs text-white/80 flex items-center gap-1">
                       <HeartHandshake className="w-3 h-3" />
-                      {patientProfile.caregiverName}
+                      {getFirstName(patientProfile.caregiverName)}
                     </p>
                   )}
                 </>
@@ -69,7 +75,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
 
       {/* Side Menu - Desktop Only - Collapsible */}
       <div 
-        className={`hidden md:flex fixed left-0 top-0 bottom-0 bg-white border-r border-medical-neutral-200 shadow-lg z-20 flex-col transition-all duration-300 ${
+        className={`hidden md:flex fixed left-0 top-0 bottom-0 bg-medical-primary-600 border-r border-medical-neutral-300 shadow-lg z-20 flex-col transition-all duration-300 ${
           isExpanded ? 'w-64' : 'w-20'
         }`}
         style={{ overflow: 'visible' }}
@@ -77,7 +83,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
         onMouseLeave={handleMouseLeave}
       >
         {/* Sidebar Header */}
-        <div className="bg-medical-primary-600 border-b-2 border-medical-neutral-300 px-4 py-5" style={{ minHeight: '100px' }}>
+        <div className="bg-medical-primary-600 px-4 py-5" style={{ minHeight: '100px' }}>
           <div className="flex items-start gap-3">
             {/* Icon - Always in same position */}
             <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center shadow-sm flex-shrink-0">
@@ -108,7 +114,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
                       {patientProfile?.isPatient === false && patientProfile?.caregiverName && (
                         <p className="text-xs text-white/80 flex items-center gap-1 mt-1 whitespace-nowrap">
                           <HeartHandshake className="w-3 h-3 flex-shrink-0" />
-                          {patientProfile.caregiverName}
+                          {getFirstName(patientProfile.caregiverName)}
                         </p>
                       )}
                     </>
@@ -120,7 +126,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
         </div>
 
         {/* Navigation Items */}
-        <nav className="flex-1 overflow-y-auto py-4">
+        <nav className="flex-1 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -128,15 +134,17 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 transition-all duration-200 group ${
+                className={`w-full flex items-center py-3 transition-all duration-200 group ${
                   isActive
-                    ? 'text-medical-primary-600 bg-medical-primary-50 border-r-4 border-medical-primary-600'
-                    : 'text-medical-neutral-600 hover:text-medical-primary-600 hover:bg-medical-neutral-50'
+                    ? 'text-white bg-white/20 border-r-4 border-white'
+                    : 'text-white/80 hover:text-white hover:bg-white/10'
                 }`}
                 title={!isExpanded ? item.label : ''}
               >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                <span className={`font-medium whitespace-nowrap transition-all duration-300 overflow-hidden ${
+                <div className="flex-shrink-0 w-20 flex justify-center">
+                  <Icon className="w-5 h-5" />
+                </div>
+                <span className={`font-medium whitespace-nowrap transition-all duration-300 overflow-hidden gap-3 ${
                   isExpanded ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0'
                 }`}>
                   {item.label}
@@ -147,21 +155,23 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
         </nav>
 
         {/* Profile Button at Bottom */}
-        <div className="border-t border-medical-neutral-200 p-4">
+        <div>
           <button
             onClick={() => setActiveTab('profile')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${
+            className={`w-full flex items-center py-3 rounded-lg transition-all duration-200 group ${
               activeTab === 'profile'
-                ? 'text-medical-primary-600 bg-medical-primary-50'
-                : 'text-medical-neutral-600 hover:text-medical-primary-600 hover:bg-medical-neutral-50'
+                ? 'text-white bg-white/20'
+                : 'text-white/80 hover:text-white hover:bg-white/10'
             }`}
             title={!isExpanded ? 'Profile' : ''}
           >
-            <User className="w-5 h-5 flex-shrink-0" />
-            <span className={`font-medium whitespace-nowrap transition-all duration-300 overflow-hidden ${
+            <div className="flex-shrink-0 w-20 flex justify-center">
+              <User className="w-5 h-5" />
+            </div>
+            <span className={`font-medium whitespace-nowrap transition-all duration-300 overflow-hidden gap-3 ${
               isExpanded ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0'
             }`}>
-              Profile
+              Profile & Settings
             </span>
           </button>
         </div>
