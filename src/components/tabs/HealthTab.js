@@ -15,6 +15,7 @@ import AddLabModal from '../modals/AddLabModal';
 import AddVitalModal from '../modals/AddVitalModal';
 import AddVitalValueModal from '../modals/AddVitalValueModal';
 import AddLabValueModal from '../modals/AddLabValueModal';
+import EditLabModal from '../modals/EditLabModal';
 import DocumentUploadOnboarding from '../DocumentUploadOnboarding';
 import DeletionConfirmationModal from '../modals/DeletionConfirmationModal';
 import UploadProgressOverlay from '../UploadProgressOverlay';
@@ -1261,6 +1262,18 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                               >
                                                 <Plus className="w-4 h-4" />
                                                 Add Value
+                                              </button>
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setOpenDeleteMenu(null);
+                                                  setEditingLab(lab);
+                                                  setEditingLabKey(key);
+                                                }}
+                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 min-h-[44px] touch-manipulation active:opacity-70"
+                                              >
+                                                <Edit2 className="w-4 h-4" />
+                                                Edit Metric
                                               </button>
                                               <button
                                                 onClick={(e) => {
@@ -3766,6 +3779,67 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
           </div>
         </>
       )}
+
+      <EditLabModal
+        show={editingLab !== null}
+        onClose={() => {
+          setEditingLab(null);
+          setEditingLabKey(null);
+        }}
+        lab={editingLab}
+        labKey={editingLabKey}
+        user={user}
+        onSave={async () => {
+          await reloadHealthData();
+          showSuccess('Metric updated successfully');
+        }}
+        onDeleteValue={async (labId, valueId, labKey) => {
+          try {
+            console.log(`[HealthTab] DELETING lab value from edit modal:`, {
+              labDocId: labId,
+              labValueId: valueId,
+              labName: editingLab?.name,
+              labType: labKey
+            });
+            
+            // Optimistically update UI immediately
+            const updatedLabsData = { ...labsData };
+            if (updatedLabsData[labKey] && updatedLabsData[labKey].data) {
+              const filteredData = updatedLabsData[labKey].data.filter(item => item.id !== valueId);
+              const sortedData = [...filteredData].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+              updatedLabsData[labKey] = {
+                ...updatedLabsData[labKey],
+                data: filteredData,
+                current: sortedData.length > 0 ? sortedData[0].value : '--'
+              };
+              setLabsData(updatedLabsData);
+            }
+            
+            // Delete from Firestore
+            await labService.deleteLabValue(labId, valueId);
+            
+            // Check if lab is now orphaned
+            try {
+              const remainingValues = await labService.getLabValues(labId);
+              if (!remainingValues || remainingValues.length === 0) {
+                await labService.deleteLab(labId);
+              }
+            } catch (error) {
+              console.warn('Error checking for orphaned lab:', error);
+            }
+            
+            // Reload to ensure sync
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await reloadHealthData();
+            showSuccess('Value deleted successfully');
+          } catch (error) {
+            console.error('Error deleting value:', error);
+            reloadHealthData();
+            showError('Failed to delete value. Please try again.');
+            throw error;
+          }
+        }}
+      />
 
       <DeletionConfirmationModal
         show={deleteConfirm.show}
