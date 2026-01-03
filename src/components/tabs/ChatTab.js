@@ -94,6 +94,7 @@ export default function ChatTab({ onTabChange }) {
   const [messages, setMessages] = useState([]);
   const [chatHistoryLoaded, setChatHistoryLoaded] = useState(false);
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const [inputText, setInputText] = useState('');
   const [currentTrialContext, setCurrentTrialContext] = useState(null);
   const [currentHealthContext, setCurrentHealthContext] = useState(null);
@@ -212,7 +213,7 @@ export default function ChatTab({ onTabChange }) {
           
           // Auto-scroll to bottom to show the summary
           setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            scrollToBottom();
           }, 100);
         }
       } catch (error) {
@@ -316,14 +317,34 @@ export default function ChatTab({ onTabChange }) {
     setSuggestionIndex(prev => (prev + 1) % Math.ceil(personalizedSuggestions.length / 4));
   }, [personalizedSuggestions]); // Re-calculate when role changes
 
-  // Auto-scroll when messages change
+  // Auto-scroll to bottom when messages change (including content updates)
+  const scrollToBottom = React.useCallback(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, []);
+
+  // Auto-scroll when messages change (length or content)
   useEffect(() => {
     if (messages.length > 0) {
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      // Use a small delay to ensure DOM is updated
+      const timeoutId = setTimeout(() => {
+        scrollToBottom();
       }, 100);
+      return () => clearTimeout(timeoutId);
     }
-  }, [messages.length]);
+  }, [messages, scrollToBottom]);
+
+  // Auto-scroll when navigating to chat tab (component becomes visible)
+  useEffect(() => {
+    // Scroll to bottom when component mounts or when messages are loaded
+    if (chatHistoryLoaded && messages.length > 0) {
+      const timeoutId = setTimeout(() => {
+        scrollToBottom();
+      }, 200);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [chatHistoryLoaded, scrollToBottom]);
 
   // Cleanup old messages (older than 90 days) - run once per day
   useEffect(() => {
@@ -496,7 +517,7 @@ export default function ChatTab({ onTabChange }) {
       
       // Auto-scroll to bottom after AI response
       setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        scrollToBottom();
       }, 100);
 
       // Save AI message to Firestore (async, don't wait)
@@ -525,7 +546,7 @@ export default function ChatTab({ onTabChange }) {
       
       // Auto-scroll to bottom after error message
       setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        scrollToBottom();
       }, 100);
       
       // Save error message to Firestore (async, don't wait)
@@ -735,7 +756,7 @@ export default function ChatTab({ onTabChange }) {
           </div>
         )}
         <div 
-          ref={messagesEndRef}
+          ref={messagesContainerRef}
           className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 sm:space-y-3"
         >
           {messages.map((msg, idx) => (
@@ -918,6 +939,8 @@ export default function ChatTab({ onTabChange }) {
               )}
             </div>
           ))}
+          {/* Scroll target - invisible element at the end of messages */}
+          <div ref={messagesEndRef} className="h-1" />
         </div>
 
         {/* Trial Context Indicator */}
