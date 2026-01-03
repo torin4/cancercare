@@ -22,13 +22,61 @@ export default function EditLabModal({
     if (show && lab) {
       setLabName(lab.name || '');
       setLabUnit(lab.unit || '');
-      // Sort values by date (newest first)
-      const sortedValues = [...(lab.data || [])].sort((a, b) => {
-        const dateA = a.timestamp || (a.dateOriginal ? a.dateOriginal.getTime() : 0);
-        const dateB = b.timestamp || (b.dateOriginal ? b.dateOriginal.getTime() : 0);
-        return dateB - dateA;
-      });
-      setValues(sortedValues);
+      setLoading(true);
+      // Load fresh values from Firestore
+      const loadValues = async () => {
+        try {
+          if (lab.id) {
+            const freshValues = await labService.getLabValues(lab.id);
+            // Transform to match the format expected by the UI
+            const transformedValues = (freshValues || []).map(v => {
+              let date;
+              if (v.date?.toDate) {
+                const firestoreDate = v.date.toDate();
+                date = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
+              } else if (v.date) {
+                date = v.date instanceof Date ? v.date : new Date(v.date);
+              } else {
+                date = new Date();
+              }
+              
+              return {
+                id: v.id,
+                value: v.value,
+                date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                dateOriginal: date,
+                timestamp: date.getTime(),
+                notes: v.notes || ''
+              };
+            });
+            
+            // Sort by date (newest first)
+            const sortedValues = transformedValues.sort((a, b) => b.timestamp - a.timestamp);
+            setValues(sortedValues);
+          } else {
+            // Fallback to lab.data if no ID
+            const sortedValues = [...(lab.data || [])].sort((a, b) => {
+              const dateA = a.timestamp || (a.dateOriginal ? a.dateOriginal.getTime() : 0);
+              const dateB = b.timestamp || (b.dateOriginal ? b.dateOriginal.getTime() : 0);
+              return dateB - dateA;
+            });
+            setValues(sortedValues);
+          }
+        } catch (error) {
+          console.error('Error loading values:', error);
+          // Fallback to lab.data
+          const sortedValues = [...(lab.data || [])].sort((a, b) => {
+            const dateA = a.timestamp || (a.dateOriginal ? a.dateOriginal.getTime() : 0);
+            const dateB = b.timestamp || (b.dateOriginal ? b.dateOriginal.getTime() : 0);
+            return dateB - dateA;
+          });
+          setValues(sortedValues);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      loadValues();
     }
   }, [show, lab]);
 
