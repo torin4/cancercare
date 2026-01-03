@@ -9,40 +9,48 @@ export default function UploadProgressOverlay({ show, uploadProgress, documentSc
 
   // Calculate progress percentage based on current step with more granular steps
   useEffect(() => {
+    if (!show) return; // Don't run if not showing
+    
     let percentage = 0;
     
-    if (uploadProgress.includes('Reading') || uploadProgress.includes('Downloading')) {
+    const progress = uploadProgress || '';
+    const status = aiStatus || '';
+    
+    if (progress.includes('Reading') || progress.includes('Downloading')) {
       percentage = 15;
-    } else if (uploadProgress.includes('Analyzing') || uploadProgress.includes('Re-processing')) {
+    } else if (progress.includes('Analyzing') || progress.includes('Re-processing')) {
       // During AI analysis, progress from 20% to 60% based on AI status
-      if (aiStatus) {
-        if (aiStatus.includes('Identifying document type')) percentage = 25;
-        else if (aiStatus.includes('Extracting dates')) percentage = 30;
-        else if (aiStatus.includes('Extracting labs')) percentage = 40;
-        else if (aiStatus.includes('Extracting vitals')) percentage = 45;
-        else if (aiStatus.includes('Extracting genomic')) percentage = 50;
-        else if (aiStatus.includes('Validating data')) percentage = 55;
+      if (status) {
+        if (status.includes('Identifying document type')) percentage = 25;
+        else if (status.includes('Extracting dates')) percentage = 30;
+        else if (status.includes('Extracting labs')) percentage = 40;
+        else if (status.includes('Extracting vitals')) percentage = 45;
+        else if (status.includes('Extracting genomic')) percentage = 50;
+        else if (status.includes('Validating data')) percentage = 55;
         else percentage = 35; // General analyzing
       } else {
         percentage = 20; // Starting analysis
       }
-    } else if (uploadProgress.includes('Uploading')) {
+    } else if (progress.includes('Uploading')) {
       percentage = 70;
-    } else if (uploadProgress.includes('Linking')) {
+    } else if (progress.includes('Linking')) {
       percentage = 80;
-    } else if (uploadProgress.includes('Saving')) {
+    } else if (progress.includes('Saving')) {
       percentage = 85;
-    } else if (uploadProgress.includes('Refreshing')) {
+    } else if (progress.includes('Refreshing')) {
       percentage = 95;
     } else {
       percentage = 10;
     }
     
-    setProgressPercentage(percentage);
-  }, [uploadProgress, aiStatus]);
+    // Only update if percentage actually changed to prevent infinite loops
+    setProgressPercentage(prev => prev !== percentage ? percentage : prev);
+  }, [show, uploadProgress, aiStatus]);
 
   // Smooth progress animation
   useEffect(() => {
+    if (!show) return; // Don't run if not showing
+    
     const interval = setInterval(() => {
       setSmoothProgress(prev => {
         if (prev < progressPercentage) {
@@ -54,7 +62,7 @@ export default function UploadProgressOverlay({ show, uploadProgress, documentSc
     }, 50);
 
     return () => clearInterval(interval);
-  }, [progressPercentage]);
+  }, [show, progressPercentage]);
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
