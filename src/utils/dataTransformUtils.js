@@ -25,6 +25,16 @@ export const transformLabsData = async (labs) => {
     labsByType[normalizedLabType].push(lab);
   }
 
+  // Load ALL lab values in parallel FIRST (much faster than sequential)
+  const allLabValuePromises = labs.map(lab => 
+    labService.getLabValues(lab.id).then(values => ({ labId: lab.id, values: values || [] }))
+  );
+  const allLabValues = await Promise.all(allLabValuePromises);
+  const labValuesMap = {};
+  allLabValues.forEach(({ labId, values }) => {
+    labValuesMap[labId] = values;
+  });
+
   // Process each unique labType (merge values from all lab documents with same type)
   for (const [labType, labDocuments] of Object.entries(labsByType)) {
     // Use the first lab document as the primary one (most recent or first found)
@@ -54,11 +64,11 @@ export const transformLabsData = async (labs) => {
     }));
     let totalSkippedCount = 0;
 
-    // Process all lab documents with this type to merge their values
+    // Process all lab documents with this type to merge their values (values already loaded)
     for (const lab of labDocuments) {
-      // Load lab values from subcollection
+      // Get lab values from pre-loaded map
       try {
-        const values = await labService.getLabValues(lab.id);
+        const values = labValuesMap[lab.id] || [];
         if (values && values.length > 0) {
           // Sort by date (oldest first) for trend calculation
           // Round timestamps to day level (midnight) to handle timezone issues and ensure same-day values are treated as duplicates
@@ -263,7 +273,17 @@ export const transformLabsData = async (labs) => {
 export const transformVitalsData = async (vitals) => {
   const grouped = {};
 
-  // Process each vital and load its values
+  // Load ALL vital values in parallel FIRST (much faster than sequential)
+  const allVitalValuePromises = vitals.map(vital => 
+    vitalService.getVitalValues(vital.id).then(values => ({ vitalId: vital.id, values: values || [] }))
+  );
+  const allVitalValues = await Promise.all(allVitalValuePromises);
+  const vitalValuesMap = {};
+  allVitalValues.forEach(({ vitalId, values }) => {
+    vitalValuesMap[vitalId] = values;
+  });
+
+  // Process each vital and load its values (values already loaded)
   for (const vital of vitals) {
     const vitalType = vital.vitalType || 'unknown';
 
@@ -284,9 +304,9 @@ export const transformVitalsData = async (vitals) => {
       };
     }
 
-    // Load vital values from subcollection
+    // Get vital values from pre-loaded map
     try {
-      const values = await vitalService.getVitalValues(vital.id);
+      const values = vitalValuesMap[vital.id] || [];
       if (values && values.length > 0) {
         // Sort by date (oldest first) for trend calculation
         // Round timestamps to day level (midnight) to handle timezone issues and ensure same-day values are treated as duplicates
