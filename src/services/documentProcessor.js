@@ -738,7 +738,8 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
 
         // Only include normalRange if it's defined
         if (lab.normalRange !== undefined && lab.normalRange !== null) {
-          labData.normalRange = lab.normalRange;
+          // Adjust normal range for unit mismatches (e.g., CRP: mg/L vs mg/dL)
+          labData.normalRange = adjustNormalRangeForUnit(lab.normalRange, lab.unit, lab.labType);
         }
 
         // Get or create lab document
