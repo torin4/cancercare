@@ -735,33 +735,22 @@ export const vitalService = {
       throw new Error('User not authenticated. Please sign in and try again.');
     }
 
-    // Verify the vital exists and user owns it
-    const vitalRef = doc(db, COLLECTIONS.VITALS, vitalId);
-    const vitalDoc = await getDoc(vitalRef);
-    
-    if (!vitalDoc.exists()) {
-      throw new Error('Vital document not found');
-    }
-
-    const vitalData = vitalDoc.data();
-    if (!vitalData.patientId) {
-      throw new Error('Vital document missing patientId');
-    }
-
-    // Verify the current user owns this vital
-    if (vitalData.patientId !== currentUser.uid) {
-      console.error('Permission denied: Vital ownership mismatch', {
-        vitalId,
-        vitalPatientId: vitalData.patientId,
-        currentUserId: currentUser.uid
-      });
-      throw new Error(`Permission denied: You don't have permission to delete this value. Vital belongs to user ${vitalData.patientId}, but you are ${currentUser.uid}`);
-    }
-
     // Check if valueId is actually the vital document ID (fallback value with no subcollection)
     // This happens when transform functions use vital.id as the data point ID
     if (valueId === vitalId) {
       console.log(`[deleteVitalValue] valueId matches vitalId - this is a fallback value. Clearing currentValue instead.`);
+      const vitalRef = doc(db, COLLECTIONS.VITALS, vitalId);
+      const vitalDoc = await getDoc(vitalRef);
+      
+      if (!vitalDoc.exists()) {
+        throw new Error('Vital document not found');
+      }
+
+      const vitalData = vitalDoc.data();
+      if (vitalData.patientId !== currentUser.uid) {
+        throw new Error(`Permission denied: You don't have permission to delete this value.`);
+      }
+      
       // This is a fallback value (vital document used as data point), just clear currentValue
       await updateDoc(vitalRef, {
         currentValue: null,
@@ -770,69 +759,121 @@ export const vitalService = {
       console.log(`[deleteVitalValue] ✓ Cleared currentValue for vital ${vitalId} (fallback value deleted)`);
       return;
     }
-    
-    // Verify the path is correct before deletion
-    const valueRef = doc(db, COLLECTIONS.VITALS, vitalId, 'values', valueId);
-    const expectedPath = `${COLLECTIONS.VITALS}/${vitalId}/values/${valueId}`;
-    
-    if (valueRef.path !== expectedPath) {
-      console.error(`[deleteVitalValue] SECURITY WARNING: Value path mismatch!`, {
-        actualPath: valueRef.path,
-        expectedPath,
-        vitalId,
-        valueId
-      });
-      throw new Error(`Cannot delete value: path verification failed. This value may belong to a different vital document.`);
-    }
 
-    // Verify the value exists before deleting
-    const valueDoc = await getDoc(valueRef);
+    // First, try to find the value in the provided vitalId
+    let valueRef = doc(db, COLLECTIONS.VITALS, vitalId, 'values', valueId);
+    let valueDoc = await getDoc(valueRef);
+    let actualVitalId = vitalId;
     
+    // If value not found in provided vitalId, search through all vitals with same type
+    // This handles the case where multiple vital documents have the same vitalType
     if (!valueDoc.exists()) {
-      console.warn(`[deleteVitalValue] Value ${valueId} not found in vital ${vitalId} - may have already been deleted`);
-      // Check if this might be a vital document ID being used as a value ID
-      if (valueId === vitalId) {
-        console.log(`[deleteVitalValue] valueId matches vitalId - clearing currentValue instead`);
-        await updateDoc(vitalRef, {
-          currentValue: null,
-          updatedAt: serverTimestamp()
-        });
-        return;
+      console.log(`[deleteVitalValue] Value ${valueId} not found in vital ${vitalId}, searching through all vitals...`);
+      
+      // Get the vital document to find its vitalType
+      const vitalRef = doc(db, COLLECTIONS.VITALS, vitalId);
+      const vitalDoc = await getDoc(vitalRef);
+      
+      if (!vitalDoc.exists()) {
+        throw new Error('Vital document not found');
       }
-      return; // Don't throw - value may have already been deleted
+
+      const vitalData = vitalDoc.data();
+      if (vitalData.patientId !== currentUser.uid) {
+        throw new Error(`Permission denied: You don't have permission to delete this value.`);
+      }
+      
+      const vitalType = vitalData.vitalType;
+      
+      // Find all vitals with the same type for this user
+      const q = query(
+        collection(db, COLLECTIONS.VITALS),
+        where('patientId', '==', currentUser.uid),
+        where('vitalType', '==', vitalType)
+      );
+      const allVitalsSnapshot = await getDocs(q);
+      
+      // Search through all vitals with same type to find which one contains this value
+      for (const vitalDocSnap of allVitalsSnapshot.docs) {
+        const testVitalId = vitalDocSnap.id;
+        const testValueRef = doc(db, COLLECTIONS.VITALS, testVitalId, 'values', valueId);
+        const testValueDoc = await getDoc(testValueRef);
+        
+        if (testValueDoc.exists()) {
+          console.log(`[deleteVitalValue] Found value ${valueId} in vital ${testVitalId} (not the provided vital ${vitalId})`);
+          actualVitalId = testVitalId;
+          valueRef = testValueRef;
+          valueDoc = testValueDoc;
+          break;
+        }
+      }
+      
+      // If still not found, it may have already been deleted
+      if (!valueDoc.exists()) {
+        console.warn(`[deleteVitalValue] Value ${valueId} not found in any vital with type ${vitalType} - may have already been deleted`);
+        return; // Don't throw - value may have already been deleted
+      }
+    } else {
+      // Value found in provided vitalId, verify ownership
+      const vitalRef = doc(db, COLLECTIONS.VITALS, vitalId);
+      const vitalDoc = await getDoc(vitalRef);
+      
+      if (!vitalDoc.exists()) {
+        throw new Error('Vital document not found');
+      }
+
+      const vitalData = vitalDoc.data();
+      if (!vitalData.patientId) {
+        throw new Error('Vital document missing patientId');
+      }
+
+      // Verify the current user owns this vital
+      if (vitalData.patientId !== currentUser.uid) {
+        console.error('Permission denied: Vital ownership mismatch', {
+          vitalId,
+          vitalPatientId: vitalData.patientId,
+          currentUserId: currentUser.uid
+        });
+        throw new Error(`Permission denied: You don't have permission to delete this value. Vital belongs to user ${vitalData.patientId}, but you are ${currentUser.uid}`);
+      }
     }
     
     // Log before deletion
     const valueData = valueDoc.data();
+    const actualVitalRef = doc(db, COLLECTIONS.VITALS, actualVitalId);
+    const actualVitalDoc = await getDoc(actualVitalRef);
+    const actualVitalData = actualVitalDoc.data();
+    
     console.log(`[deleteVitalValue] DELETING value:`, {
-      vitalId,
+      providedVitalId: vitalId,
+      actualVitalId: actualVitalId,
       valueId,
       value: valueData.value,
       date: valueData.date,
-      vitalCurrentValue: vitalData.currentValue
+      vitalCurrentValue: actualVitalData.currentValue
     });
     
     await deleteDoc(valueRef);
-    console.log(`[deleteVitalValue] ✓ Deleted value ${valueId} from vital ${vitalId}`);
+    console.log(`[deleteVitalValue] ✓ Deleted value ${valueId} from vital ${actualVitalId}`);
     
     // Check if this was the last value - if so, clear currentValue to prevent it from reappearing
-    const remainingValues = await getDocs(query(collection(db, COLLECTIONS.VITALS, vitalId, 'values')));
-    console.log(`[deleteVitalValue] Remaining values count: ${remainingValues.size} for vital ${vitalId}`);
+    const remainingValues = await getDocs(query(collection(db, COLLECTIONS.VITALS, actualVitalId, 'values')));
+    console.log(`[deleteVitalValue] Remaining values count: ${remainingValues.size} for vital ${actualVitalId}`);
     
     if (remainingValues.empty) {
       // Clear currentValue so transform functions don't use it as a fallback
-      console.log(`[deleteVitalValue] Clearing currentValue for vital ${vitalId} (no values remaining)`);
-      await updateDoc(vitalRef, {
+      console.log(`[deleteVitalValue] Clearing currentValue for vital ${actualVitalId} (no values remaining)`);
+      await updateDoc(actualVitalRef, {
         currentValue: null,
         updatedAt: serverTimestamp()
       });
       
       // Verify it was cleared
-      const updatedVitalDoc = await getDoc(vitalRef);
+      const updatedVitalDoc = await getDoc(actualVitalRef);
       const updatedVitalData = updatedVitalDoc.data();
-      console.log(`[deleteVitalValue] ✓ Cleared currentValue for vital ${vitalId}. New currentValue:`, updatedVitalData.currentValue);
+      console.log(`[deleteVitalValue] ✓ Cleared currentValue for vital ${actualVitalId}. New currentValue:`, updatedVitalData.currentValue);
     } else {
-      console.log(`[deleteVitalValue] Vital ${vitalId} still has ${remainingValues.size} value(s), keeping currentValue`);
+      console.log(`[deleteVitalValue] Vital ${actualVitalId} still has ${remainingValues.size} value(s), keeping currentValue`);
     }
   },
 
