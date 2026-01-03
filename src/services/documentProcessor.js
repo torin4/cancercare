@@ -594,6 +594,82 @@ GENERAL RULES:
 }
 
 /**
+ * Adjust normal range based on unit to handle unit mismatches
+ * For example, CRP normal ranges are often in mg/L but values may be in mg/dL
+ * @param {string} normalRange - The normal range string (e.g., "0-3", "<3")
+ * @param {string} unit - The unit of the value (e.g., "mg/dL", "mg/L")
+ * @param {string} labType - The lab type (e.g., "crp")
+ * @returns {string} - Adjusted normal range
+ */
+function adjustNormalRangeForUnit(normalRange, unit, labType) {
+  if (!normalRange || !unit || !labType) {
+    return normalRange;
+  }
+  
+  const normalizedLabType = (labType || '').toLowerCase().replace(/[\s\-_]/g, '');
+  const normalizedUnit = (unit || '').toLowerCase();
+  
+  // CRP unit conversion: mg/L vs mg/dL (1 mg/dL = 10 mg/L)
+  if (normalizedLabType === 'crp') {
+    // If unit is mg/dL but normal range looks like it's in mg/L (e.g., "0-3", "<3")
+    if (normalizedUnit.includes('mg/dl') || normalizedUnit.includes('mg/dl')) {
+      // Check if the normal range values are typical for mg/L (0-3, <3, 0-10, etc.)
+      const rangeMatch = normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+      if (rangeMatch) {
+        const min = parseFloat(rangeMatch[1]);
+        const max = parseFloat(rangeMatch[2]);
+        // If max is <= 10, it's likely in mg/L and needs conversion to mg/dL
+        if (max <= 10) {
+          const adjustedMin = (min / 10).toFixed(1);
+          const adjustedMax = (max / 10).toFixed(1);
+          return `${adjustedMin}-${adjustedMax}`;
+        }
+      }
+      
+      // Handle "< X" format (e.g., "<3" in mg/L should be "<0.3" in mg/dL)
+      const lessThanMatch = normalRange.match(/<\s*(\d+\.?\d*)/);
+      if (lessThanMatch) {
+        const threshold = parseFloat(lessThanMatch[1]);
+        // If threshold is <= 10, it's likely in mg/L and needs conversion
+        if (threshold <= 10) {
+          const adjustedThreshold = (threshold / 10).toFixed(1);
+          return `<${adjustedThreshold}`;
+        }
+      }
+    }
+    
+    // If unit is mg/L but normal range looks like it's in mg/dL (e.g., "0-0.3", "<0.3")
+    if (normalizedUnit.includes('mg/l')) {
+      // Check if the normal range values are typical for mg/dL (0-0.3, <0.3, etc.)
+      const rangeMatch = normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+      if (rangeMatch) {
+        const min = parseFloat(rangeMatch[1]);
+        const max = parseFloat(rangeMatch[2]);
+        // If max is < 1, it's likely in mg/dL and needs conversion to mg/L
+        if (max < 1) {
+          const adjustedMin = (min * 10).toFixed(1);
+          const adjustedMax = (max * 10).toFixed(1);
+          return `${adjustedMin}-${adjustedMax}`;
+        }
+      }
+      
+      // Handle "< X" format (e.g., "<0.3" in mg/dL should be "<3" in mg/L)
+      const lessThanMatch = normalRange.match(/<\s*(\d+\.?\d*)/);
+      if (lessThanMatch) {
+        const threshold = parseFloat(lessThanMatch[1]);
+        // If threshold is < 1, it's likely in mg/dL and needs conversion
+        if (threshold < 1) {
+          const adjustedThreshold = (threshold * 10).toFixed(1);
+          return `<${adjustedThreshold}`;
+        }
+      }
+    }
+  }
+  
+  return normalRange;
+}
+
+/**
  * Save extracted data to Firestore collections
  * @param {Object} extractedData - Extracted data from AI
  * @param {string} userId - User ID
