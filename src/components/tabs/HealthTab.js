@@ -2562,6 +2562,23 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                                       
                                                                       await vitalService.deleteVitalValue(vitalDocId, vitalValueId);
                                                                       
+                                                                      // Wait a moment for Firestore to process the deletion
+                                                                      await new Promise(resolve => setTimeout(resolve, 1000));
+                                                                      
+                                                                      // Verify deletion succeeded by checking if value still exists
+                                                                      try {
+                                                                        const remainingValues = await vitalService.getVitalValues(vitalDocId);
+                                                                        const valueStillExists = remainingValues.some(v => v.id === vitalValueId);
+                                                                        if (valueStillExists) {
+                                                                          console.warn(`[HealthTab] Value ${vitalValueId} still exists after deletion attempt, retrying...`);
+                                                                          // Retry deletion
+                                                                          await vitalService.deleteVitalValue(vitalDocId, vitalValueId);
+                                                                          await new Promise(resolve => setTimeout(resolve, 1000));
+                                                                        }
+                                                                      } catch (verifyError) {
+                                                                        console.warn(`[HealthTab] Error verifying deletion:`, verifyError);
+                                                                      }
+                                                                      
                                                                       // Check if vital is now orphaned (no values left) and clean it up
                                                                       try {
                                                                         const remainingValues = await vitalService.getVitalValues(vitalDocId);
@@ -2575,10 +2592,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                                       }
                                                                       
                                                                       // Reload health data to ensure UI matches database state
-                                                                      // Use a small delay to ensure Firestore has processed the deletion
-                                                                      setTimeout(async () => {
-                                                                        await reloadHealthData();
-                                                                      }, 500);
+                                                                      await reloadHealthData();
                                                                       
                                                                       // Show success banner
                                                                       showSuccess(`${displayName} reading deleted successfully`);
