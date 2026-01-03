@@ -3429,15 +3429,23 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
         <DocumentUploadOnboarding
           isOnboarding={!hasUploadedDocument}
           onClose={() => setShowDocumentOnboarding(false)}
-          onUploadClick={(documentType, documentDate = null, documentNote = null, file = null) => {
+          onUploadClick={async (documentType, documentDate = null, documentNote = null, fileOrFiles = null) => {
             setShowDocumentOnboarding(false);
             // Store document date and note for use in upload
             setPendingDocumentDate(documentDate);
             setPendingDocumentNote(documentNote);
             
-            // If file is provided (from component's file picker), upload it directly
-            if (file) {
-              handleRealFileUpload(file, documentType);
+            // If file(s) is provided (from component's file picker), upload it/them directly
+            if (fileOrFiles) {
+              if (Array.isArray(fileOrFiles)) {
+                // Multiple files - process sequentially
+                for (let i = 0; i < fileOrFiles.length; i++) {
+                  await handleRealFileUpload(fileOrFiles[i], documentType);
+                }
+              } else {
+                // Single file
+                handleRealFileUpload(fileOrFiles, documentType);
+              }
             } else {
               // Otherwise, open file picker (fallback)
               const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);

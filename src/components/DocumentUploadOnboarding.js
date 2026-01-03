@@ -1,12 +1,52 @@
-import React, { useState } from 'react';
-import { Upload, Activity, Dna, FileText, X, CheckCircle, ChevronRight, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Upload, Activity, Dna, FileText, X, CheckCircle, ChevronRight, AlertTriangle, Camera, Trash2 } from 'lucide-react';
 import DatePicker from './DatePicker';
 
 const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true }) => {
   const [selectedType, setSelectedType] = useState(null);
   const [documentDate, setDocumentDate] = useState('');
   const [documentNote, setDocumentNote] = useState('');
-  const [currentStep, setCurrentStep] = useState(1); // 1 = document type, 2 = date, 3 = notes
+  const [currentStep, setCurrentStep] = useState(1); // 1 = document type, 2 = date, 3 = notes, 4 = files
+  const [selectedFiles, setSelectedFiles] = useState([]); // Track selected files
+  const [filePreviews, setFilePreviews] = useState({}); // Track preview URLs for images
+  const filePreviewsRef = useRef({});
+
+  // Update ref when filePreviews changes
+  useEffect(() => {
+    filePreviewsRef.current = filePreviews;
+  }, [filePreviews]);
+
+  // Cleanup preview URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      // Cleanup all preview URLs on unmount
+      Object.values(filePreviewsRef.current).forEach(url => {
+        if (url && url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      });
+    };
+  }, []);
+
+  // Generate preview URLs for image files
+  useEffect(() => {
+    const newPreviews = {};
+    selectedFiles.forEach((file, index) => {
+      if (file.type.startsWith('image/')) {
+        newPreviews[index] = URL.createObjectURL(file);
+      }
+    });
+    
+    // Revoke old preview URLs that are no longer needed
+    const oldPreviews = filePreviewsRef.current;
+    Object.keys(oldPreviews).forEach(key => {
+      if (!newPreviews[key] && oldPreviews[key]?.startsWith('blob:')) {
+        URL.revokeObjectURL(oldPreviews[key]);
+      }
+    });
+    
+    setFilePreviews(newPreviews);
+  }, [selectedFiles]);
 
   const documentTypes = [
     {
@@ -57,7 +97,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
     }
   ];
 
-  const totalSteps = 3;
+  const totalSteps = 4;
   const progressPercentage = (currentStep / totalSteps) * 100;
 
   const handleContinueFromStep1 = () => {
@@ -77,21 +117,16 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
   };
 
   const handleSkipNote = () => {
-    // Skip note and proceed to file picker - open file picker directly from user click
-    // Normalize empty strings to null
-    const normalizedDate = documentDate && documentDate.trim() !== '' ? documentDate : null;
-    openFilePicker(selectedType, normalizedDate, null);
+    // Skip note and go to file selection step
+    setCurrentStep(4);
   };
 
   const handleContinueWithNote = () => {
-    // Continue with note and proceed to file picker - open file picker directly from user click
-    // Normalize empty strings to null
-    const normalizedDate = documentDate && documentDate.trim() !== '' ? documentDate : null;
-    const normalizedNote = documentNote && documentNote.trim() !== '' ? documentNote : null;
-    openFilePicker(selectedType, normalizedDate, normalizedNote);
+    // Continue with note and go to file selection step
+    setCurrentStep(4);
   };
 
-  const openFilePicker = (docType, date, note) => {
+  const openFilePicker = (useCamera = false) => {
     // Create file input and trigger it immediately (must be in user interaction context)
     const input = document.createElement('input');
     input.type = 'file';
@@ -100,8 +135,9 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
     
     // Check if mobile device and enable camera option
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
+    if (isMobile && useCamera) {
       input.capture = 'environment'; // Enable camera option on mobile
+      input.multiple = false; // Camera typically only allows one photo at a time
     }
     
     input.style.position = 'fixed';
@@ -114,40 +150,8 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
       console.log('[DocumentUploadOnboarding] Files array:', files.map(f => ({ name: f.name, type: f.type, size: f.size })));
       
       if (files.length > 0) {
-        // Use the parameters passed to openFilePicker, but fall back to component state if needed
-        const dateToUse = date || documentDate || null;
-        const noteToUse = note || documentNote || null;
-        
-        console.log('[DocumentUploadOnboarding] Date/note from params:', { date, note });
-        console.log('[DocumentUploadOnboarding] Date/note from state:', { documentDate, documentNote });
-        
-        // Normalize empty strings to null before passing
-        const normalizedDate = (dateToUse && typeof dateToUse === 'string' && dateToUse.trim() !== '') 
-          ? dateToUse.trim() 
-          : null;
-        const normalizedNote = (noteToUse && typeof noteToUse === 'string' && noteToUse.trim() !== '') 
-          ? noteToUse.trim() 
-          : null;
-        
-        console.log('[DocumentUploadOnboarding] Normalized date/note:', { normalizedDate, normalizedNote });
-        console.log('[DocumentUploadOnboarding] Calling onUploadClick with', files.length, 'file(s)');
-          
-        // Pass all files to onUploadClick so it can handle the upload
-        // If single file, pass as single file for backward compatibility
-        // If multiple files, pass as array
-        try {
-          if (files.length === 1) {
-            await onUploadClick(docType, normalizedDate, normalizedNote, files[0]);
-          } else {
-            await onUploadClick(docType, normalizedDate, normalizedNote, files);
-          }
-          console.log('[DocumentUploadOnboarding] onUploadClick completed successfully');
-        } catch (error) {
-          console.error('[DocumentUploadOnboarding] Error in onUploadClick:', error);
-          console.error('[DocumentUploadOnboarding] Error stack:', error.stack);
-        }
-      } else {
-        console.warn('[DocumentUploadOnboarding] No files selected');
+        // Add files to selectedFiles state instead of uploading immediately
+        setSelectedFiles(prev => [...prev, ...files]);
       }
       
       // Clean up
@@ -161,8 +165,40 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
     input.click();
   };
 
+  const removeFile = (index) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUploadAll = async () => {
+    if (selectedFiles.length === 0) {
+      return; // No files to upload
+    }
+
+    // Normalize date and note
+    const normalizedDate = (documentDate && typeof documentDate === 'string' && documentDate.trim() !== '') 
+      ? documentDate.trim() 
+      : null;
+    const normalizedNote = (documentNote && typeof documentNote === 'string' && documentNote.trim() !== '') 
+      ? documentNote.trim() 
+      : null;
+
+    // Pass all files to onUploadClick
+    try {
+      if (selectedFiles.length === 1) {
+        await onUploadClick(selectedType, normalizedDate, normalizedNote, selectedFiles[0]);
+      } else {
+        await onUploadClick(selectedType, normalizedDate, normalizedNote, selectedFiles);
+      }
+    } catch (error) {
+      console.error('[DocumentUploadOnboarding] Error in onUploadClick:', error);
+      console.error('[DocumentUploadOnboarding] Error stack:', error.stack);
+    }
+  };
+
   const handleBack = () => {
-    if (currentStep === 3) {
+    if (currentStep === 4) {
+      setCurrentStep(3);
+    } else if (currentStep === 3) {
       setCurrentStep(2);
     } else if (currentStep === 2) {
       setCurrentStep(1);
@@ -194,6 +230,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
               {currentStep === 1 && (isOnboarding ? 'Choose the type of file you\'d like to upload' : 'Select document type')}
               {currentStep === 2 && 'When was this document created or when were these tests performed?'}
               {currentStep === 3 && 'Add any context about this document (optional)'}
+              {currentStep === 4 && 'Add photos or files. You can take multiple photos or select from your gallery.'}
             </p>
           </div>
           <button
@@ -423,6 +460,89 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
               </div>
             </div>
           )}
+
+          {currentStep === 4 && (
+            // File selection step
+            <div className="space-y-4">
+              <div className={`rounded-lg p-4 border ${
+                selectedType === 'genomic-profile'
+                  ? 'bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200'
+                  : selectedType === 'blood-test'
+                  ? 'bg-blue-50 border-blue-200'
+                  : 'bg-green-50 border-green-200'
+              }`}>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Photos or Files</h3>
+                
+                {/* Action buttons */}
+                <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                  <button
+                    onClick={() => openFilePicker(true)}
+                    className="flex-1 px-4 py-3 bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition flex items-center justify-center gap-2 font-medium"
+                  >
+                    <Camera className="w-5 h-5" />
+                    Take Photo
+                  </button>
+                  <button
+                    onClick={() => openFilePicker(false)}
+                    className="flex-1 px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition flex items-center justify-center gap-2 font-medium"
+                  >
+                    <Upload className="w-5 h-5" />
+                    Choose from Gallery
+                  </button>
+                </div>
+
+                {/* Selected files list */}
+                {selectedFiles.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-gray-700">
+                      Selected Files ({selectedFiles.length})
+                    </p>
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {selectedFiles.map((file, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg"
+                        >
+                          <div className="flex-shrink-0 w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
+                            {file.type.startsWith('image/') && filePreviews[index] ? (
+                              <img
+                                src={filePreviews[index]}
+                                alt={file.name}
+                                className="w-full h-full object-cover rounded"
+                              />
+                            ) : (
+                              <FileText className="w-6 h-6 text-gray-400" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {(file.size / 1024).toFixed(1)} KB
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => removeFile(index)}
+                            className="flex-shrink-0 p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                            title="Remove file"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedFiles.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <Upload className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">No files selected yet</p>
+                    <p className="text-xs mt-1">Take a photo or choose from your gallery</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -482,7 +602,31 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                 onClick={documentNote && documentNote.trim() !== '' ? handleContinueWithNote : handleSkipNote}
                 className="px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 bg-medical-primary-500 text-white hover:bg-medical-primary-600"
               >
-                {documentNote && documentNote.trim() !== '' ? 'Continue to upload' : 'Skip with no notes'}
+                Continue
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </>
+          )}
+
+          {currentStep === 4 && (
+            <>
+              <button
+                onClick={handleBack}
+                className="text-gray-600 hover:text-gray-900 font-medium transition flex items-center gap-2"
+              >
+                <ChevronRight className="w-4 h-4 rotate-180" />
+                Back
+              </button>
+              <button
+                onClick={handleUploadAll}
+                disabled={selectedFiles.length === 0}
+                className={`px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 ${
+                  selectedFiles.length > 0
+                    ? 'bg-medical-primary-500 text-white hover:bg-medical-primary-600'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                Upload {selectedFiles.length > 0 ? `${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''}` : 'Files'}
                 <ChevronRight className="w-5 h-5" />
               </button>
             </>
