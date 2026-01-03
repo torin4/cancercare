@@ -142,7 +142,55 @@ export const transformLabsData = async (labs) => {
             }
           });
         } else {
-          // No values yet, just use the lab document data
+          // No values in subcollection - only use lab document data if currentValue exists
+          // (If currentValue is null, it means all values were deleted, so don't add it back)
+          if (lab.currentValue != null && lab.currentValue !== undefined && lab.currentValue !== '') {
+            // Convert to local date to avoid timezone shift
+            let timestamp;
+            if (lab.createdAt?.toDate) {
+              const firestoreDate = lab.createdAt.toDate();
+              timestamp = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
+            } else if (lab.createdAt) {
+              if (lab.createdAt instanceof Date) {
+                timestamp = new Date(lab.createdAt.getFullYear(), lab.createdAt.getMonth(), lab.createdAt.getDate());
+              } else {
+                const dateStr = formatDateString(lab.createdAt);
+                if (dateStr) {
+                  const parts = dateStr.split('-');
+                  timestamp = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                } else {
+                  timestamp = new Date();
+                }
+              }
+            } else {
+              timestamp = new Date();
+            }
+            
+            const dayStart = new Date(timestamp.getFullYear(), timestamp.getMonth(), timestamp.getDate()).getTime();
+            const valueKey = `${dayStart}_${lab.currentValue}`;
+            
+            // Check if this fallback value is already in the data array (from another lab document with same type)
+            // Use the persistent deduplication sets
+            if (!existingIds.has(lab.id) && !existingValueKeys.has(valueKey)) {
+              grouped[labType].data.push({
+                id: lab.id,
+                date: timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                dateOriginal: timestamp, // Store original Date object for editing
+                value: lab.currentValue,
+                timestamp: timestamp.getTime(),
+                notes: '' // No notes for initial value
+              });
+              existingIds.add(lab.id);
+              existingValueKeys.add(valueKey);
+            }
+          }
+          // If currentValue is null/empty, don't add anything - all values were deleted
+        }
+      } catch (error) {
+        console.error(`Error loading values for lab ${lab.id}:`, error);
+        // Fallback to lab document data only if currentValue exists
+        // (If currentValue is null, it means all values were deleted, so don't add it back)
+        if (lab.currentValue != null && lab.currentValue !== undefined && lab.currentValue !== '') {
           // Convert to local date to avoid timezone shift
           let timestamp;
           if (lab.createdAt?.toDate) {
@@ -176,53 +224,13 @@ export const transformLabsData = async (labs) => {
               dateOriginal: timestamp, // Store original Date object for editing
               value: lab.currentValue,
               timestamp: timestamp.getTime(),
-              notes: '' // No notes for initial value
+              notes: '' // No notes for fallback value
             });
             existingIds.add(lab.id);
             existingValueKeys.add(valueKey);
           }
         }
-      } catch (error) {
-        console.error(`Error loading values for lab ${lab.id}:`, error);
-        // Fallback to lab document data
-        // Convert to local date to avoid timezone shift
-        let timestamp;
-        if (lab.createdAt?.toDate) {
-          const firestoreDate = lab.createdAt.toDate();
-          timestamp = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
-        } else if (lab.createdAt) {
-          if (lab.createdAt instanceof Date) {
-            timestamp = new Date(lab.createdAt.getFullYear(), lab.createdAt.getMonth(), lab.createdAt.getDate());
-          } else {
-            const dateStr = formatDateString(lab.createdAt);
-            if (dateStr) {
-              const parts = dateStr.split('-');
-              timestamp = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-            } else {
-              timestamp = new Date();
-            }
-          }
-        } else {
-          timestamp = new Date();
-        }
-        
-        const dayStart = new Date(timestamp.getFullYear(), timestamp.getMonth(), timestamp.getDate()).getTime();
-        const valueKey = `${dayStart}_${lab.currentValue}`;
-        
-        // Check if this fallback value is already in the data array (from another lab document with same type)
-        // Use the persistent deduplication sets
-        if (!existingIds.has(lab.id) && !existingValueKeys.has(valueKey)) {
-          grouped[labType].data.push({
-            id: lab.id,
-            date: timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            dateOriginal: timestamp, // Store original Date object for editing
-            value: lab.currentValue,
-            timestamp: timestamp.getTime(),
-            notes: '' // No notes for fallback value
-          });
-          existingIds.add(lab.id);
-          existingValueKeys.add(valueKey);
-        }
+        // If currentValue is null/empty, don't add anything - all values were deleted
       }
     }
     
@@ -404,7 +412,46 @@ export const transformVitalsData = async (vitals) => {
           }
         }
       } else {
-        // No values yet, just use the vital document data
+        // No values in subcollection - only use vital document data if currentValue exists
+        // (If currentValue is null, it means all values were deleted, so don't add it back)
+        if (vital.currentValue != null && vital.currentValue !== undefined && vital.currentValue !== '') {
+          // Convert to local date to avoid timezone shift
+          let vitalDate;
+          if (vital.createdAt?.toDate) {
+            const firestoreDate = vital.createdAt.toDate();
+            vitalDate = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
+          } else if (vital.createdAt) {
+            if (vital.createdAt instanceof Date) {
+              vitalDate = new Date(vital.createdAt.getFullYear(), vital.createdAt.getMonth(), vital.createdAt.getDate());
+            } else {
+              const dateStr = formatDateString(vital.createdAt);
+              if (dateStr) {
+                const parts = dateStr.split('-');
+                vitalDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+              } else {
+                vitalDate = new Date();
+              }
+            }
+          } else {
+            vitalDate = new Date();
+          }
+          
+          grouped[canonicalKey].data.push({
+            id: vital.id, // Store vital document ID for deletion
+            date: vitalDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            dateOriginal: vitalDate, // Store original Date object for editing
+            value: vital.currentValue,
+            timestamp: vitalDate.getTime(),
+            notes: '' // No notes for initial value
+          });
+        }
+        // If currentValue is null/empty, don't add anything - all values were deleted
+      }
+    } catch (error) {
+      console.error(`Error loading values for vital ${vital.id}:`, error);
+      // Fallback to vital document data only if currentValue exists
+      // (If currentValue is null, it means all values were deleted, so don't add it back)
+      if (vital.currentValue != null && vital.currentValue !== undefined && vital.currentValue !== '') {
         // Convert to local date to avoid timezone shift
         let vitalDate;
         if (vital.createdAt?.toDate) {
@@ -432,41 +479,10 @@ export const transformVitalsData = async (vitals) => {
           dateOriginal: vitalDate, // Store original Date object for editing
           value: vital.currentValue,
           timestamp: vitalDate.getTime(),
-          notes: '' // No notes for initial value
+          notes: '' // No notes for fallback value
         });
       }
-    } catch (error) {
-      console.error(`Error loading values for vital ${vital.id}:`, error);
-      // Fallback to vital document data
-      // Convert to local date to avoid timezone shift
-      let vitalDate;
-      if (vital.createdAt?.toDate) {
-        const firestoreDate = vital.createdAt.toDate();
-        vitalDate = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
-      } else if (vital.createdAt) {
-        if (vital.createdAt instanceof Date) {
-          vitalDate = new Date(vital.createdAt.getFullYear(), vital.createdAt.getMonth(), vital.createdAt.getDate());
-        } else {
-          const dateStr = formatDateString(vital.createdAt);
-          if (dateStr) {
-            const parts = dateStr.split('-');
-            vitalDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-          } else {
-            vitalDate = new Date();
-          }
-        }
-      } else {
-        vitalDate = new Date();
-      }
-      
-      grouped[canonicalKey].data.push({
-        id: vital.id, // Store vital document ID for deletion
-        date: vitalDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        dateOriginal: vitalDate, // Store original Date object for editing
-        value: vital.currentValue,
-        timestamp: vitalDate.getTime(),
-        notes: '' // No notes for fallback value
-      });
+      // If currentValue is null/empty, don't add anything - all values were deleted
     }
   }
 

@@ -343,6 +343,17 @@ export const labService = {
     // Delete the value
     await deleteDoc(valueRef);
     console.log(`[deleteLabValue] ✓ Deleted value ${valueId} from lab ${labId}`);
+    
+    // Check if this was the last value - if so, clear currentValue to prevent it from reappearing
+    const remainingValues = await getDocs(query(collection(db, COLLECTIONS.LABS, labId, 'values')));
+    if (remainingValues.empty) {
+      // Clear currentValue so transform functions don't use it as a fallback
+      await updateDoc(labRef, {
+        currentValue: null,
+        updatedAt: serverTimestamp()
+      });
+      console.log(`[deleteLabValue] Cleared currentValue for lab ${labId} (no values remaining)`);
+    }
   },
 
   // Delete all labs of a specific type for a patient
@@ -676,6 +687,17 @@ export const vitalService = {
     
     await deleteDoc(valueRef);
     console.log(`[deleteVitalValue] ✓ Deleted value ${valueId} from vital ${vitalId}`);
+    
+    // Check if this was the last value - if so, clear currentValue to prevent it from reappearing
+    const remainingValues = await getDocs(query(collection(db, COLLECTIONS.VITALS, vitalId, 'values')));
+    if (remainingValues.empty) {
+      // Clear currentValue so transform functions don't use it as a fallback
+      await updateDoc(vitalRef, {
+        currentValue: null,
+        updatedAt: serverTimestamp()
+      });
+      console.log(`[deleteVitalValue] Cleared currentValue for vital ${vitalId} (no values remaining)`);
+    }
   },
 
   // Delete all vitals of a specific type for a patient
