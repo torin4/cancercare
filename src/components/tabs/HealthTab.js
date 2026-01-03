@@ -1689,88 +1689,115 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                   }
                                   
                                   return (
-                                    <div className="flex items-center justify-end gap-4">
-                                      {/* Hide Empty Metrics Toggle */}
-                                      <label className="flex items-center gap-2 cursor-pointer group">
-                                        <input
-                                          type="checkbox"
-                                          checked={hideEmptyMetrics}
-                                          onChange={(e) => setHideEmptyMetrics(e.target.checked)}
-                                          className="w-4 h-4 text-medical-primary-600 border-gray-300 rounded focus:ring-medical-primary-500 focus:ring-2 cursor-pointer"
-                                        />
-                                        <div className="flex items-center gap-2">
-                                          {hideEmptyMetrics ? (
-                                            <EyeOff className="w-4 h-4 text-gray-600" />
-                                          ) : (
-                                            <Eye className="w-4 h-4 text-gray-400" />
-                                          )}
-                                          <span className="text-sm text-gray-700 group-hover:text-gray-900">
-                                            Hide metrics with no values
-                                          </span>
-                                        </div>
-                                      </label>
-                                      
-                                      {/* Delete Empty Metrics Button */}
-                                      <button
-                                        onClick={async () => {
-                                          if (!user || !user.uid) {
-                                            showError('You must be logged in to delete metrics.');
-                                            return;
-                                          }
-                                          
-                                          const emptyLabTypes = emptyLabs.map(([key]) => key);
-                                          
-                                          setDeleteConfirm({
-                                            show: true,
-                                            title: `Delete ${emptyLabTypes.length} Empty Metric${emptyLabTypes.length !== 1 ? 's' : ''}?`,
-                                            message: `This will permanently delete ${emptyLabTypes.length} metric${emptyLabTypes.length !== 1 ? 's' : ''} with no values: ${emptyLabTypes.slice(0, 5).map(key => getLabDisplayName(allLabData[key]?.name || key)).join(', ')}${emptyLabTypes.length > 5 ? ` and ${emptyLabTypes.length - 5} more` : ''}.`,
-                                            itemName: `${emptyLabTypes.length} empty metric${emptyLabTypes.length !== 1 ? 's' : ''}`,
-                                            confirmText: 'Yes, Delete All',
-                                            onConfirm: async () => {
-                                              try {
-                                                setIsDeletingEmptyMetrics(true);
-                                                console.log(`[HealthTab] Deleting ${emptyLabTypes.length} empty lab metrics`);
-                                                
-                                                // Delete all empty labs
-                                                const deletePromises = emptyLabTypes.map(labType => 
-                                                  labService.deleteAllLabsByType(user.uid, labType)
-                                                );
-                                                const results = await Promise.all(deletePromises);
-                                                const totalDeleted = results.reduce((sum, count) => sum + count, 0);
-                                                
-                                                console.log(`[HealthTab] Deleted ${totalDeleted} empty lab document(s)`);
-                                                
-                                                // Wait a bit before reloading
-                                                await new Promise(resolve => setTimeout(resolve, 1000));
-                                                
-                                                // Reload health data
-                                                await reloadHealthData();
-                                                
-                                                showSuccess(`Deleted ${totalDeleted} empty metric${totalDeleted !== 1 ? 's' : ''}`);
-                                                setIsDeletingEmptyMetrics(false);
-                                              } catch (error) {
-                                                console.error('Error deleting empty metrics:', error);
-                                                showError('Failed to delete empty metrics. Please try again.');
-                                                setIsDeletingEmptyMetrics(false);
-                                              }
-                                            }
-                                          });
-                                        }}
-                                        disabled={isDeletingEmptyMetrics}
-                                        className="flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                      >
-                                        {isDeletingEmptyMetrics ? (
+                                    <div className="flex items-center justify-end">
+                                      <div className="relative">
+                                        <button
+                                          onClick={() => setOpenEmptyMetricsMenu(!openEmptyMetricsMenu)}
+                                          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                                          aria-label="Empty metrics options"
+                                        >
+                                          <MoreVertical className="w-5 h-5" />
+                                        </button>
+                                        
+                                        {openEmptyMetricsMenu && (
                                           <>
-                                            <Activity className="w-4 h-4 animate-spin" />
-                                            Deleting...
-                                          </>
-                                        ) : (
-                                          <>
-                                            <Trash2 className="w-4 h-4" />
-                                            Delete empty metrics ({emptyLabs.length})
+                                            <div
+                                              className="fixed inset-0 z-40"
+                                              onClick={() => setOpenEmptyMetricsMenu(false)}
+                                            />
+                                            <div className="absolute right-0 top-10 z-[100] bg-white rounded-lg shadow-lg border border-gray-200 py-2 min-w-[240px]">
+                                              {/* Hide Empty Metrics Toggle */}
+                                              <label className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors">
+                                                <input
+                                                  type="checkbox"
+                                                  checked={hideEmptyMetrics}
+                                                  onChange={(e) => {
+                                                    setHideEmptyMetrics(e.target.checked);
+                                                    setOpenEmptyMetricsMenu(false);
+                                                  }}
+                                                  className="w-4 h-4 text-medical-primary-600 border-gray-300 rounded focus:ring-medical-primary-500 focus:ring-2 cursor-pointer"
+                                                />
+                                                <div className="flex items-center gap-2 flex-1">
+                                                  {hideEmptyMetrics ? (
+                                                    <EyeOff className="w-4 h-4 text-gray-600" />
+                                                  ) : (
+                                                    <Eye className="w-4 h-4 text-gray-400" />
+                                                  )}
+                                                  <span className="text-sm text-gray-700">
+                                                    Hide metrics with no values
+                                                  </span>
+                                                </div>
+                                              </label>
+                                              
+                                              <div className="border-t border-gray-200 my-1"></div>
+                                              
+                                              {/* Delete Empty Metrics Button */}
+                                              <button
+                                                onClick={async () => {
+                                                  setOpenEmptyMetricsMenu(false);
+                                                  
+                                                  if (!user || !user.uid) {
+                                                    showError('You must be logged in to delete metrics.');
+                                                    return;
+                                                  }
+                                                  
+                                                  const emptyLabTypes = emptyLabs.map(([key]) => key);
+                                                  
+                                                  setDeleteConfirm({
+                                                    show: true,
+                                                    title: `Delete ${emptyLabTypes.length} Empty Metric${emptyLabTypes.length !== 1 ? 's' : ''}?`,
+                                                    message: `This will permanently delete ${emptyLabTypes.length} metric${emptyLabTypes.length !== 1 ? 's' : ''} with no values: ${emptyLabTypes.slice(0, 5).map(key => getLabDisplayName(allLabData[key]?.name || key)).join(', ')}${emptyLabTypes.length > 5 ? ` and ${emptyLabTypes.length - 5} more` : ''}.`,
+                                                    itemName: `${emptyLabTypes.length} empty metric${emptyLabTypes.length !== 1 ? 's' : ''}`,
+                                                    confirmText: 'Yes, Delete All',
+                                                    onConfirm: async () => {
+                                                      try {
+                                                        setIsDeletingEmptyMetrics(true);
+                                                        console.log(`[HealthTab] Deleting ${emptyLabTypes.length} empty lab metrics`);
+                                                        
+                                                        // Delete all empty labs
+                                                        const deletePromises = emptyLabTypes.map(labType => 
+                                                          labService.deleteAllLabsByType(user.uid, labType)
+                                                        );
+                                                        const results = await Promise.all(deletePromises);
+                                                        const totalDeleted = results.reduce((sum, count) => sum + count, 0);
+                                                        
+                                                        console.log(`[HealthTab] Deleted ${totalDeleted} empty lab document(s)`);
+                                                        
+                                                        // Wait a bit before reloading
+                                                        await new Promise(resolve => setTimeout(resolve, 1000));
+                                                        
+                                                        // Reload health data
+                                                        await reloadHealthData();
+                                                        
+                                                        showSuccess(`Deleted ${totalDeleted} empty metric${totalDeleted !== 1 ? 's' : ''}`);
+                                                        setIsDeletingEmptyMetrics(false);
+                                                      } catch (error) {
+                                                        console.error('Error deleting empty metrics:', error);
+                                                        showError('Failed to delete empty metrics. Please try again.');
+                                                        setIsDeletingEmptyMetrics(false);
+                                                      }
+                                                    }
+                                                  });
+                                                }}
+                                                disabled={isDeletingEmptyMetrics}
+                                                className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation active:opacity-70"
+                                              >
+                                                {isDeletingEmptyMetrics ? (
+                                                  <>
+                                                    <Activity className="w-4 h-4 animate-spin" />
+                                                    Deleting...
+                                                  </>
+                                                ) : (
+                                                  <>
+                                                    <Trash2 className="w-4 h-4" />
+                                                    Delete empty metrics ({emptyLabs.length})
+                                                  </>
+                                                )}
+                                              </button>
+                                            </div>
                                           </>
                                         )}
-                                      </button>
+                                      </div>
                                     </div>
                                   );
                                 })()}
