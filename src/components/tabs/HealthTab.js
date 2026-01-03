@@ -1488,12 +1488,22 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                 // Fallback values have id === lab.id (the lab document ID)
                                 // Real values have different IDs (from the subcollection)
                                 if (!lab.data || !Array.isArray(lab.data) || lab.data.length === 0) {
+                                  console.log(`[filterLabsBySearch] Lab ${key} has no data array or empty array`);
                                   return false; // No data at all
                                 }
+                                
+                                console.log(`[filterLabsBySearch] Checking lab ${key}:`, {
+                                  labId: lab.id,
+                                  dataLength: lab.data.length,
+                                  dataIds: lab.data.map(d => d.id),
+                                  allIdsMatchLabId: lab.data.every(d => d.id === lab.id)
+                                });
                                 
                                 // Check if there are any actual recorded values (not fallback)
                                 // A lab document ID in the data array means it's a fallback value
                                 const hasRealValues = lab.data.some(d => d.id !== lab.id);
+                                
+                                console.log(`[filterLabsBySearch] Lab ${key} hasRealValues:`, hasRealValues);
                                 
                                 // Only show labs that have actual recorded data points
                                 // This excludes labs that only have fallback values from the document
