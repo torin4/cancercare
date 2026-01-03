@@ -189,7 +189,17 @@ export default function FilesTab({ onTabChange }) {
   };
 
   const handleRealFileUpload = async (file, docType, providedDateOverride = null, providedNoteOverride = null, currentFileNumber = null, totalFiles = null) => {
+    console.log('[FilesTab] handleRealFileUpload called:', { 
+      fileName: file?.name, 
+      fileType: file?.type, 
+      fileSize: file?.size, 
+      docType, 
+      currentFileNumber, 
+      totalFiles 
+    });
+    
     if (!user) {
+      console.error('[FilesTab] No user found');
       showError('Please log in to upload files');
       return;
     }
@@ -197,16 +207,19 @@ export default function FilesTab({ onTabChange }) {
     try {
       // Show loading overlay (only if not part of a batch)
       if (currentFileNumber === null) {
+        console.log('[FilesTab] Setting upload state to true');
         setIsUploading(true);
         setUploadProgress('Preparing upload...');
         // Small delay to ensure overlay renders before heavy processing
         await new Promise(resolve => setTimeout(resolve, 100));
+        console.log('[FilesTab] Upload overlay should be visible now');
       }
       
       const fileProgressPrefix = currentFileNumber && totalFiles 
         ? `[File ${currentFileNumber}/${totalFiles}] ` 
         : '';
       
+      console.log('[FilesTab] Starting to read document');
       setUploadProgress(`${fileProgressPrefix}Reading document...`);
 
       // Get document date and note (user-provided or null)
@@ -620,36 +633,54 @@ export default function FilesTab({ onTabChange }) {
           isOnboarding={!hasUploadedDocument}
           onClose={() => setShowDocumentOnboarding(false)}
           onUploadClick={async (documentType, documentDate = null, documentNote = null, fileOrFiles = null) => {
-            // Normalize and set pending state - ensure we preserve actual note values
-            const normalizedDate = (documentDate && typeof documentDate === 'string' && documentDate.trim() !== '') 
-              ? documentDate.trim() 
-              : (documentDate || null);
-            const normalizedNote = (documentNote && typeof documentNote === 'string' && documentNote.trim() !== '') 
-              ? documentNote.trim() 
-              : (documentNote || null);
-            
-            setPendingDocumentDate(normalizedDate);
-            setPendingDocumentNote(normalizedNote);
-            
-            // Close modal first to show upload progress
-            setShowDocumentOnboarding(false);
-            
-            // Small delay to ensure modal closes before starting upload
-            await new Promise(resolve => setTimeout(resolve, 100));
+            console.log('[FilesTab] onUploadClick called:', { 
+              documentType, 
+              documentDate, 
+              documentNote, 
+              hasFile: !!fileOrFiles, 
+              isArray: Array.isArray(fileOrFiles),
+              fileCount: Array.isArray(fileOrFiles) ? fileOrFiles.length : (fileOrFiles ? 1 : 0)
+            });
             
             try {
+              // Normalize and set pending state - ensure we preserve actual note values
+              const normalizedDate = (documentDate && typeof documentDate === 'string' && documentDate.trim() !== '') 
+                ? documentDate.trim() 
+                : (documentDate || null);
+              const normalizedNote = (documentNote && typeof documentNote === 'string' && documentNote.trim() !== '') 
+                ? documentNote.trim() 
+                : (documentNote || null);
+              
+              console.log('[FilesTab] Normalized date/note:', { normalizedDate, normalizedNote });
+              
+              setPendingDocumentDate(normalizedDate);
+              setPendingDocumentNote(normalizedNote);
+              
+              // Close modal first to show upload progress
+              console.log('[FilesTab] Closing document onboarding modal');
+              setShowDocumentOnboarding(false);
+              
+              // Small delay to ensure modal closes before starting upload
+              await new Promise(resolve => setTimeout(resolve, 150));
+              console.log('[FilesTab] Delay complete, starting upload process');
+              
               // If file(s) is provided (from component's file picker), upload it/them directly
               if (fileOrFiles) {
+                console.log('[FilesTab] File(s) provided, starting upload');
                 if (Array.isArray(fileOrFiles)) {
                   // Multiple files - process sequentially
+                  console.log('[FilesTab] Processing multiple files:', fileOrFiles.length);
                   await handleMultipleFileUpload(fileOrFiles, documentType, normalizedDate, normalizedNote);
                 } else {
                   // Single file - use existing handler
+                  console.log('[FilesTab] Processing single file:', fileOrFiles.name, fileOrFiles.type, fileOrFiles.size);
                   await handleRealFileUpload(fileOrFiles, documentType, normalizedDate, normalizedNote);
                 }
               } else {
                 // Otherwise, open file picker (fallback)
+                console.log('[FilesTab] No file provided, opening file picker');
                 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                console.log('[FilesTab] Is mobile:', isMobile, 'Method:', documentOnboardingMethod);
                 
                 if (documentOnboardingMethod === 'camera') {
                   simulateCameraUpload(documentType);
@@ -661,7 +692,13 @@ export default function FilesTab({ onTabChange }) {
               }
             } catch (error) {
               console.error('[FilesTab] Error in onUploadClick:', error);
+              console.error('[FilesTab] Error stack:', error.stack);
               showError(`Failed to start upload: ${error.message}. Please try again.`);
+              // Ensure modal can be reopened if there's an error
+              setShowDocumentOnboarding(false);
+              setIsUploading(false);
+              setUploadProgress('');
+              setAiStatus(null);
             }
           }}
         />

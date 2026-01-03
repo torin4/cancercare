@@ -109,11 +109,17 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
     input.style.left = '-9999px';
     
     input.onchange = async (e) => {
+      console.log('[DocumentUploadOnboarding] File input changed, files:', e.target.files?.length || 0);
       const files = Array.from(e.target.files || []);
+      console.log('[DocumentUploadOnboarding] Files array:', files.map(f => ({ name: f.name, type: f.type, size: f.size })));
+      
       if (files.length > 0) {
         // Use the parameters passed to openFilePicker, but fall back to component state if needed
         const dateToUse = date || documentDate || null;
         const noteToUse = note || documentNote || null;
+        
+        console.log('[DocumentUploadOnboarding] Date/note from params:', { date, note });
+        console.log('[DocumentUploadOnboarding] Date/note from state:', { documentDate, documentNote });
         
         // Normalize empty strings to null before passing
         const normalizedDate = (dateToUse && typeof dateToUse === 'string' && dateToUse.trim() !== '') 
@@ -122,16 +128,28 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
         const normalizedNote = (noteToUse && typeof noteToUse === 'string' && noteToUse.trim() !== '') 
           ? noteToUse.trim() 
           : null;
+        
+        console.log('[DocumentUploadOnboarding] Normalized date/note:', { normalizedDate, normalizedNote });
+        console.log('[DocumentUploadOnboarding] Calling onUploadClick with', files.length, 'file(s)');
           
         // Pass all files to onUploadClick so it can handle the upload
         // If single file, pass as single file for backward compatibility
         // If multiple files, pass as array
-        if (files.length === 1) {
-          onUploadClick(docType, normalizedDate, normalizedNote, files[0]);
-        } else {
-          onUploadClick(docType, normalizedDate, normalizedNote, files);
+        try {
+          if (files.length === 1) {
+            await onUploadClick(docType, normalizedDate, normalizedNote, files[0]);
+          } else {
+            await onUploadClick(docType, normalizedDate, normalizedNote, files);
+          }
+          console.log('[DocumentUploadOnboarding] onUploadClick completed successfully');
+        } catch (error) {
+          console.error('[DocumentUploadOnboarding] Error in onUploadClick:', error);
+          console.error('[DocumentUploadOnboarding] Error stack:', error.stack);
         }
+      } else {
+        console.warn('[DocumentUploadOnboarding] No files selected');
       }
+      
       // Clean up
       if (document.body.contains(input)) {
         document.body.removeChild(input);
