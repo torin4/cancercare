@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
@@ -46,6 +46,15 @@ export default function FilesTab({ onTabChange }) {
   const [showDocumentMetadata, setShowDocumentMetadata] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null); // Track which document's menu is open
   const [debugLogs, setDebugLogs] = useState([]); // Visual debug logs for mobile
+
+  // Debug log helper function
+  const addDebugLog = useCallback((message, type = 'log') => {
+    setDebugLogs(prev => {
+      const newLog = { message, type, timestamp: new Date().toLocaleTimeString() };
+      return [...prev.slice(-9), newLog]; // Keep last 10 logs
+    });
+    console.log(`[DEBUG] ${message}`);
+  }, []);
 
   // Load documents from Firestore when user logs in
   useEffect(() => {
