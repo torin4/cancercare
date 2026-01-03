@@ -144,9 +144,9 @@ export default function FilesTab({ onTabChange }) {
           })));
           setDocuments(docs);
           setHasUploadedDocument(docs.length > 0);
-          
-          // Load date ranges for all documents
-          await refreshDocumentDateRanges(docs);
+
+          // Date ranges are now calculated and stored in documents by documentService.getDocuments()
+          // No need to calculate them here - they're already in doc.minDate/doc.maxDate
         } catch (error) {
           console.error('Error loading documents:', error);
         }
@@ -398,8 +398,10 @@ export default function FilesTab({ onTabChange }) {
       setDocuments(updatedDocsList);
       setHasUploadedDocument(true);
       
-      // Refresh date ranges for the new document
-      await refreshDocumentDateRanges(updatedDocsList);
+      // Date ranges are calculated and stored in documents by documentService.getDocuments()
+      // Reload documents to get updated date ranges
+      const reloadedDocs = await documentService.getDocuments(user.uid);
+      setDocuments(reloadedDocs);
 
       // Reload health data to show new values (only if not part of a batch)
       if (currentFileNumber === null || currentFileNumber === totalFiles) {
@@ -609,8 +611,10 @@ export default function FilesTab({ onTabChange }) {
                       setDocuments(updatedDocs);
                       setHasUploadedDocument(updatedDocs.length > 0);
                       
-                      // Refresh date ranges
-                      await refreshDocumentDateRanges(updatedDocs);
+                      // Date ranges are calculated and stored in documents by documentService.getDocuments()
+                      // Reload documents to get updated date ranges
+                      const reloadedDocs = await documentService.getDocuments(user.uid);
+                      setDocuments(reloadedDocs);
                       
                       // Reload health data to reflect deletions
                       await reloadHealthData();
@@ -657,7 +661,21 @@ export default function FilesTab({ onTabChange }) {
                       )}
                       <p className="text-xs text-gray-500 mt-0.5">
                         {(() => {
-                          // Check if document has multiple dates (date range)
+                          // Use stored date range from document if available (calculated upfront)
+                          if (doc.hasMultipleDates && doc.minDate && doc.maxDate) {
+                            const minDate = doc.minDate?.toDate ? doc.minDate.toDate() : new Date(doc.minDate);
+                            const maxDate = doc.maxDate?.toDate ? doc.maxDate.toDate() : new Date(doc.maxDate);
+                            const minStr = minDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                            const maxStr = maxDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                            // If same year, only show year once
+                            if (minDate.getFullYear() === maxDate.getFullYear()) {
+                              const minStrNoYear = minDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                              const maxStrNoYear = maxDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                              return `${minStrNoYear} - ${maxStrNoYear}, ${minDate.getFullYear()}`;
+                            }
+                            return `${minStr} - ${maxStr}`;
+                          }
+                          // Fallback to calculated date range (for backwards compatibility during migration)
                           const dateRange = documentDateRanges[doc.id];
                           if (dateRange) {
                             const minStr = dateRange.minDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -974,12 +992,9 @@ export default function FilesTab({ onTabChange }) {
 
             await documentService.saveDocument(updateData);
 
-            // Reload documents to get updated metadata
+            // Reload documents to get updated metadata (date ranges are calculated and stored by documentService.getDocuments())
             const updatedDocs = await documentService.getDocuments(user.uid);
             setDocuments(updatedDocs);
-            
-            // Refresh date ranges
-            await refreshDocumentDateRanges(updatedDocs);
 
             // Close modal after successful completion
             setRescanDocument(null);

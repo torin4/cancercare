@@ -796,7 +796,100 @@ export const documentService = {
         ...data
       };
     });
+    
+    // Calculate and update date ranges for all documents (in background, non-blocking)
+    // This ensures date ranges are available immediately and stored in the document
+    this.calculateAndUpdateDateRanges(patientId, documents).catch(error => {
+      console.warn('[getDocuments] Error calculating date ranges:', error);
+    });
+    
     return documents;
+  },
+
+  // Calculate date ranges for documents and update them in Firestore
+  async calculateAndUpdateDateRanges(patientId, documents) {
+    if (!documents || documents.length === 0) return;
+    
+    try {
+      // Get all labs and vitals for the user (only once)
+      const [labs, vitals] = await Promise.all([
+        labService.getLabs(patientId),
+        vitalService.getVitals(patientId)
+      ]);
+      
+      // Build a map of documentId -> all associated dates
+      const documentDatesMap = {};
+      
+      // Check all lab values
+      for (const lab of labs) {
+        const values = await labService.getLabValues(lab.id);
+        for (const value of values) {
+          if (value.documentId && value.date) {
+            if (!documentDatesMap[value.documentId]) {
+              documentDatesMap[value.documentId] = new Set();
+            }
+            const dateValue = value.date?.toDate ? value.date.toDate() : (value.date instanceof Date ? value.date : new Date(value.date));
+            const localDate = new Date(dateValue.getFullYear(), dateValue.getMonth(), dateValue.getDate());
+            documentDatesMap[value.documentId].add(localDate.getTime());
+          }
+        }
+      }
+      
+      // Check all vital values
+      for (const vital of vitals) {
+        const values = await vitalService.getVitalValues(vital.id);
+        for (const value of values) {
+          if (value.documentId && value.date) {
+            if (!documentDatesMap[value.documentId]) {
+              documentDatesMap[value.documentId] = new Set();
+            }
+            const dateValue = value.date?.toDate ? value.date.toDate() : (value.date instanceof Date ? value.date : new Date(value.date));
+            const localDate = new Date(dateValue.getFullYear(), dateValue.getMonth(), dateValue.getDate());
+            documentDatesMap[value.documentId].add(localDate.getTime());
+          }
+        }
+      }
+      
+      // Update documents with date ranges
+      const updatePromises = documents.map(async (doc) => {
+        const dates = documentDatesMap[doc.id];
+        if (!dates || dates.size <= 1) {
+          // Single date or no dates - clear date range if it exists
+          if (doc.minDate || doc.maxDate) {
+            const docRef = doc(db, COLLECTIONS.DOCUMENTS, doc.id);
+            await updateDoc(docRef, {
+              minDate: null,
+              maxDate: null,
+              hasMultipleDates: false
+            });
+          }
+          return;
+        }
+        
+        // Multiple dates - calculate and store range
+        const dateArray = Array.from(dates).sort((a, b) => a - b);
+        const minDate = new Date(dateArray[0]);
+        const maxDate = new Date(dateArray[dateArray.length - 1]);
+        
+        // Only update if the range has changed
+        const existingMin = doc.minDate ? (doc.minDate.toDate ? doc.minDate.toDate().getTime() : new Date(doc.minDate).getTime()) : null;
+        const existingMax = doc.maxDate ? (doc.maxDate.toDate ? doc.maxDate.toDate().getTime() : new Date(doc.maxDate).getTime()) : null;
+        
+        if (existingMin !== minDate.getTime() || existingMax !== maxDate.getTime()) {
+          const docRef = doc(db, COLLECTIONS.DOCUMENTS, doc.id);
+          await updateDoc(docRef, {
+            minDate: Timestamp.fromDate(minDate),
+            maxDate: Timestamp.fromDate(maxDate),
+            hasMultipleDates: true
+          });
+        }
+      });
+      
+      await Promise.all(updatePromises);
+    } catch (error) {
+      console.error('[calculateAndUpdateDateRanges] Error:', error);
+      throw error;
+    }
   },
 
   // Get document by ID

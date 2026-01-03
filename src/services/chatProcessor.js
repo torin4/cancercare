@@ -314,22 +314,41 @@ When answering questions about this trial, you should:
         }
       };
 
-      // Fetch all documents to get document dates
-      // This allows us to use the document date entered during upload
+      // Fetch all documents to get document dates and date ranges
+      // This allows us to use the document date entered during upload, or date ranges for multi-date documents
       let documentDateMap = {};
+      let documentDateRangeMap = {};
       try {
         const { documentService } = await import('../firebase/services');
         const documents = await documentService.getDocuments(userId);
-        // Create a map of documentId -> document date
+        // Create maps of documentId -> document date and date ranges
         documents.forEach(doc => {
-          if (doc.id && doc.date) {
-            const docDate = formatDateString(doc.date);
-            if (docDate) {
-              documentDateMap[doc.id] = docDate;
+          if (doc.id) {
+            // For multi-date documents, use the date range
+            if (doc.hasMultipleDates && doc.minDate && doc.maxDate) {
+              const minDate = doc.minDate?.toDate ? doc.minDate.toDate() : new Date(doc.minDate);
+              const maxDate = doc.maxDate?.toDate ? doc.maxDate.toDate() : new Date(doc.maxDate);
+              const minDateStr = formatDateString(minDate);
+              const maxDateStr = formatDateString(maxDate);
+              if (minDateStr && maxDateStr) {
+                documentDateRangeMap[doc.id] = { minDate: minDateStr, maxDate: maxDateStr };
+                // Also store the range as a string for the date map
+                if (minDateStr === maxDateStr) {
+                  documentDateMap[doc.id] = minDateStr;
+                } else {
+                  documentDateMap[doc.id] = `${minDateStr} to ${maxDateStr}`;
+                }
+              }
+            } else if (doc.date) {
+              // Single date document
+              const docDate = formatDateString(doc.date);
+              if (docDate) {
+                documentDateMap[doc.id] = docDate;
+              }
             }
           }
         });
-        console.log(`[chatProcessor] Loaded ${Object.keys(documentDateMap).length} document dates for health context`);
+        console.log(`[chatProcessor] Loaded ${Object.keys(documentDateMap).length} document dates (${Object.keys(documentDateRangeMap).length} with ranges) for health context`);
       } catch (error) {
         console.warn('[chatProcessor] Error loading document dates:', error);
         // Continue without document dates - will fall back to value dates
@@ -345,12 +364,22 @@ When answering questions about this trial, you should:
               : null;
             const valueStr = latestValue ? `${latestValue.value} ${lab.unit || ''}` : lab.currentValue || 'N/A';
             
-            // Get date: prefer document date if value has documentId, otherwise use value date
+            // Get date: prefer document date/range if value has documentId, otherwise use value date
             let dateStr = null;
-            if (latestValue?.documentId && documentDateMap[latestValue.documentId]) {
-              // Use document date entered during upload
-              dateStr = documentDateMap[latestValue.documentId];
-              console.log(`[chatProcessor] Using document date ${dateStr} for lab ${lab.label} (documentId: ${latestValue.documentId})`);
+            if (latestValue?.documentId) {
+              // Check if document has a date range (multi-date document)
+              if (documentDateRangeMap[latestValue.documentId]) {
+                const range = documentDateRangeMap[latestValue.documentId];
+                dateStr = `${range.minDate} to ${range.maxDate}`;
+                console.log(`[chatProcessor] Using document date range ${dateStr} for lab ${lab.label} (documentId: ${latestValue.documentId})`);
+              } else if (documentDateMap[latestValue.documentId]) {
+                // Use document date entered during upload
+                dateStr = documentDateMap[latestValue.documentId];
+                console.log(`[chatProcessor] Using document date ${dateStr} for lab ${lab.label} (documentId: ${latestValue.documentId})`);
+              } else if (latestValue?.date) {
+                // Fall back to value date
+                dateStr = formatDateString(latestValue.date);
+              }
             } else if (latestValue?.date) {
               // Fall back to value date
               dateStr = formatDateString(latestValue.date);
@@ -385,12 +414,22 @@ When answering questions about this trial, you should:
               : null;
             const valueStr = latestValue ? latestValue.value : vital.currentValue || 'N/A';
             
-            // Get date: prefer document date if value has documentId, otherwise use value date
+            // Get date: prefer document date/range if value has documentId, otherwise use value date
             let dateStr = null;
-            if (latestValue?.documentId && documentDateMap[latestValue.documentId]) {
-              // Use document date entered during upload
-              dateStr = documentDateMap[latestValue.documentId];
-              console.log(`[chatProcessor] Using document date ${dateStr} for vital ${vital.label} (documentId: ${latestValue.documentId})`);
+            if (latestValue?.documentId) {
+              // Check if document has a date range (multi-date document)
+              if (documentDateRangeMap[latestValue.documentId]) {
+                const range = documentDateRangeMap[latestValue.documentId];
+                dateStr = `${range.minDate} to ${range.maxDate}`;
+                console.log(`[chatProcessor] Using document date range ${dateStr} for vital ${vital.label} (documentId: ${latestValue.documentId})`);
+              } else if (documentDateMap[latestValue.documentId]) {
+                // Use document date entered during upload
+                dateStr = documentDateMap[latestValue.documentId];
+                console.log(`[chatProcessor] Using document date ${dateStr} for vital ${vital.label} (documentId: ${latestValue.documentId})`);
+              } else if (latestValue?.date) {
+                // Fall back to value date
+                dateStr = formatDateString(latestValue.date);
+              }
             } else if (latestValue?.date) {
               // Fall back to value date
               dateStr = formatDateString(latestValue.date);
