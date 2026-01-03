@@ -3520,7 +3520,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
       <UploadProgressOverlay
         show={isUploading}
         uploadProgress={uploadProgress}
-        documentScanAnimation={null}
       />
     </div>
   );

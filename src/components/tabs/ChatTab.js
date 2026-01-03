@@ -1057,7 +1057,6 @@ export default function ChatTab({ onTabChange }) {
         <UploadProgressOverlay
         show={isUploading}
         uploadProgress={uploadProgress}
-        documentScanAnimation={null}
         />
     </>
   );

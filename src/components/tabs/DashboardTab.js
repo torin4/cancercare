@@ -897,7 +897,6 @@ setIsUploading(false);
       <UploadProgressOverlay
         show={isUploading}
         uploadProgress={uploadProgress}
-        documentScanAnimation={null}
       />
 
       {/* Add Lab Modal */}
@@ -940,7 +939,6 @@ setIsUploading(false);
       <UploadProgressOverlay
         show={isUploading}
         uploadProgress={uploadProgress}
-        documentScanAnimation={null}
       />
     </>
   );

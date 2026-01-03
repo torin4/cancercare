@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import Lottie from 'lottie-react';
 
-export default function UploadProgressOverlay({ show, uploadProgress, documentScanAnimation, aiStatus }) {
+export default function UploadProgressOverlay({ show, uploadProgress, aiStatus }) {
   const [progressPercentage, setProgressPercentage] = useState(0);
   const [smoothProgress, setSmoothProgress] = useState(0);
 

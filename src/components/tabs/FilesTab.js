@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
 import { useBanner } from '../../contexts/BannerContext';
-import { documentService } from '../../firebase/services';
+import { documentService, labService, vitalService } from '../../firebase/services';
 import { uploadDocument, deleteDocument, downloadFileAsBlob } from '../../firebase/storage';
 import { cleanupDocumentData } from '../../services/documentCleanupService';
 import { parseLocalDate, formatDateString } from '../../utils/helpers';
@@ -46,6 +46,7 @@ export default function FilesTab({ onTabChange }) {
   const [showDocumentMetadata, setShowDocumentMetadata] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null); // Track which document's menu is open
   const [debugLogs, setDebugLogs] = useState([]); // Visual debug logs for mobile
+  const [documentDateRanges, setDocumentDateRanges] = useState({}); // Cache date ranges for documents
 
   // Debug log helper function
   const addDebugLog = useCallback((message, type = 'log') => {
@@ -55,6 +56,77 @@ export default function FilesTab({ onTabChange }) {
     });
     console.log(`[DEBUG] ${message}`);
   }, []);
+
+  // Helper function to get date range for a document
+  const getDocumentDateRange = useCallback(async (documentId) => {
+    if (!user || !documentId) return null;
+    
+    try {
+      // Get all labs and vitals for the user
+      const labs = await labService.getLabs(user.uid);
+      const vitals = await vitalService.getVitals(user.uid);
+      
+      const dates = new Set();
+      
+      // Check all lab values
+      for (const lab of labs) {
+        const values = await labService.getLabValues(lab.id);
+        for (const value of values) {
+          if (value.documentId === documentId && value.date) {
+            const dateValue = value.date?.toDate ? value.date.toDate() : (value.date instanceof Date ? value.date : new Date(value.date));
+            // Use local date components to avoid timezone issues
+            const localDate = new Date(dateValue.getFullYear(), dateValue.getMonth(), dateValue.getDate());
+            dates.add(localDate.getTime());
+          }
+        }
+      }
+      
+      // Check all vital values
+      for (const vital of vitals) {
+        const values = await vitalService.getVitalValues(vital.id);
+        for (const value of values) {
+          if (value.documentId === documentId && value.date) {
+            const dateValue = value.date?.toDate ? value.date.toDate() : (value.date instanceof Date ? value.date : new Date(value.date));
+            // Use local date components to avoid timezone issues
+            const localDate = new Date(dateValue.getFullYear(), dateValue.getMonth(), dateValue.getDate());
+            dates.add(localDate.getTime());
+          }
+        }
+      }
+      
+      if (dates.size === 0) return null;
+      if (dates.size === 1) return null; // Single date, no range needed
+      
+      // Calculate min and max dates
+      const dateArray = Array.from(dates).sort((a, b) => a - b);
+      const minDate = new Date(dateArray[0]);
+      const maxDate = new Date(dateArray[dateArray.length - 1]);
+      
+      return { minDate, maxDate };
+    } catch (error) {
+      console.error('Error getting document date range:', error);
+      return null;
+    }
+  }, [user]);
+
+  // Helper function to refresh date ranges for all documents
+  const refreshDocumentDateRanges = useCallback(async (docs) => {
+    if (!user || !docs || docs.length === 0) {
+      setDocumentDateRanges({});
+      return;
+    }
+    
+    // Load date ranges for all documents (in parallel for better performance)
+    const rangePromises = docs.map(doc => getDocumentDateRange(doc.id).then(range => ({ docId: doc.id, range })));
+    const rangeResults = await Promise.all(rangePromises);
+    const ranges = {};
+    rangeResults.forEach(({ docId, range }) => {
+      if (range) {
+        ranges[docId] = range;
+      }
+    });
+    setDocumentDateRanges(ranges);
+  }, [user, getDocumentDateRange]);
 
   // Load documents from Firestore when user logs in
   useEffect(() => {
@@ -72,6 +144,9 @@ export default function FilesTab({ onTabChange }) {
           })));
           setDocuments(docs);
           setHasUploadedDocument(docs.length > 0);
+          
+          // Load date ranges for all documents
+          await refreshDocumentDateRanges(docs);
         } catch (error) {
           console.error('Error loading documents:', error);
         }
@@ -316,8 +391,12 @@ export default function FilesTab({ onTabChange }) {
         fileType: file.type
       };
 
-      setDocuments([newDoc, ...documents]);
+      const updatedDocsList = [newDoc, ...documents];
+      setDocuments(updatedDocsList);
       setHasUploadedDocument(true);
+      
+      // Refresh date ranges for the new document
+      await refreshDocumentDateRanges(updatedDocsList);
 
       // Reload health data to show new values (only if not part of a batch)
       if (currentFileNumber === null || currentFileNumber === totalFiles) {
@@ -527,6 +606,9 @@ export default function FilesTab({ onTabChange }) {
                       setDocuments(updatedDocs);
                       setHasUploadedDocument(updatedDocs.length > 0);
                       
+                      // Refresh date ranges
+                      await refreshDocumentDateRanges(updatedDocs);
+                      
                       // Reload health data to reflect deletions
                       await reloadHealthData();
                       
@@ -571,7 +653,23 @@ export default function FilesTab({ onTabChange }) {
                         <p className="text-xs sm:text-sm text-medical-primary-600 mt-1 sm:mt-0.5 italic break-words line-clamp-2 sm:line-clamp-none">{doc.note}</p>
                       )}
                       <p className="text-xs text-gray-500 mt-0.5">
-                        {doc.date ? parseLocalDate(doc.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No date'}
+                        {(() => {
+                          // Check if document has multiple dates (date range)
+                          const dateRange = documentDateRanges[doc.id];
+                          if (dateRange) {
+                            const minStr = dateRange.minDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                            const maxStr = dateRange.maxDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                            // If same year, only show year once
+                            if (dateRange.minDate.getFullYear() === dateRange.maxDate.getFullYear()) {
+                              const minStrNoYear = dateRange.minDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                              const maxStrNoYear = dateRange.maxDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                              return `${minStrNoYear} - ${maxStrNoYear}, ${dateRange.minDate.getFullYear()}`;
+                            }
+                            return `${minStr} - ${maxStr}`;
+                          }
+                          // Single date or no date
+                          return doc.date ? parseLocalDate(doc.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No date';
+                        })()}
                       </p>
                     </div>
                   </div>
@@ -777,7 +875,6 @@ export default function FilesTab({ onTabChange }) {
       <UploadProgressOverlay
         show={isUploading}
         uploadProgress={uploadProgress}
-        documentScanAnimation={null}
         aiStatus={aiStatus}
       />
 
@@ -877,6 +974,9 @@ export default function FilesTab({ onTabChange }) {
             // Reload documents to get updated metadata
             const updatedDocs = await documentService.getDocuments(user.uid);
             setDocuments(updatedDocs);
+            
+            // Refresh date ranges
+            await refreshDocumentDateRanges(updatedDocs);
 
             // Close modal after successful completion
             setRescanDocument(null);

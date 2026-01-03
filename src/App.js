@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, TrendingDown, Minus, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2, Calendar, Globe, Scale, Ruler, Clock, FileText, Users, Phone, Dna, UserCircle, ClipboardList, MessageCircle, Bot, Thermometer, Pill, BarChart, Check, LogOut, ChevronLeft, Save, Link2, Loader2, Unlink, Settings, FlaskConical, RefreshCw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import Lottie from 'lottie-react';
 import { onAuthStateChanged, signOut, deleteUser, linkWithPopup, unlink, GoogleAuthProvider } from 'firebase/auth';
 import { uploadDocument, deleteUserDirectory, deleteDocument } from './firebase/storage';
 import { documentService, labService, vitalService, patientService, accountService, genomicProfileService, emergencyContactService, medicationService, symptomService, trialLocationService, messageService } from './firebase/services';
@@ -132,7 +131,6 @@ export default function CancerCareApp() {
   // Profile tab state moved to ProfileTab component
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
-  const [documentScanAnimation, setDocumentScanAnimation] = useState(null);
   // patientProfile is now from PatientContext
   const [trialLocation, setTrialLocation] = useState({
     country: 'United States',
@@ -589,28 +587,6 @@ export default function CancerCareApp() {
 
   // Mock data removed - app now uses real data from Firestore and ClinicalTrials.gov API
 
-  // Load Lottie animation
-  useEffect(() => {
-    // URL encode the filename to handle spaces
-    const animationPath = `${process.env.PUBLIC_URL || ''}/animations/${encodeURIComponent('Document OCR Scan.json')}`;
-    fetch(animationPath)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          throw new Error('Response is not JSON');
-        }
-        return response.json();
-      })
-      .then(data => setDocumentScanAnimation(data))
-      .catch(error => {
-        console.error('Error loading Lottie animation:', error);
-        // Set to null so fallback spinner is shown
-        setDocumentScanAnimation(null);
-      });
-  }, []);
 
   // Welcome message initialization moved to ChatTab component
 
@@ -1417,7 +1393,6 @@ export default function CancerCareApp() {
       <UploadProgressOverlay
         show={isUploading}
         uploadProgress={uploadProgress}
-        documentScanAnimation={documentScanAnimation}
       />
 
       {/* Patient Onboarding Modal */}
