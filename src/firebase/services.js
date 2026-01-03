@@ -340,19 +340,38 @@ export const labService = {
       return; // Don't throw - value may have already been deleted
     }
 
+    // Log before deletion
+    const valueData = valueDoc.data();
+    console.log(`[deleteLabValue] DELETING value:`, {
+      labId,
+      valueId,
+      value: valueData.value,
+      date: valueData.date,
+      labCurrentValue: labData.currentValue
+    });
+    
     // Delete the value
     await deleteDoc(valueRef);
     console.log(`[deleteLabValue] ✓ Deleted value ${valueId} from lab ${labId}`);
     
     // Check if this was the last value - if so, clear currentValue to prevent it from reappearing
     const remainingValues = await getDocs(query(collection(db, COLLECTIONS.LABS, labId, 'values')));
+    console.log(`[deleteLabValue] Remaining values count: ${remainingValues.size} for lab ${labId}`);
+    
     if (remainingValues.empty) {
       // Clear currentValue so transform functions don't use it as a fallback
+      console.log(`[deleteLabValue] Clearing currentValue for lab ${labId} (no values remaining)`);
       await updateDoc(labRef, {
         currentValue: null,
         updatedAt: serverTimestamp()
       });
-      console.log(`[deleteLabValue] Cleared currentValue for lab ${labId} (no values remaining)`);
+      
+      // Verify it was cleared
+      const updatedLabDoc = await getDoc(labRef);
+      const updatedLabData = updatedLabDoc.data();
+      console.log(`[deleteLabValue] ✓ Cleared currentValue for lab ${labId}. New currentValue:`, updatedLabData.currentValue);
+    } else {
+      console.log(`[deleteLabValue] Lab ${labId} still has ${remainingValues.size} value(s), keeping currentValue`);
     }
   },
 
@@ -685,18 +704,37 @@ export const vitalService = {
       return; // Don't throw - value may have already been deleted
     }
     
+    // Log before deletion
+    const valueData = valueDoc.data();
+    console.log(`[deleteVitalValue] DELETING value:`, {
+      vitalId,
+      valueId,
+      value: valueData.value,
+      date: valueData.date,
+      vitalCurrentValue: vitalData.currentValue
+    });
+    
     await deleteDoc(valueRef);
     console.log(`[deleteVitalValue] ✓ Deleted value ${valueId} from vital ${vitalId}`);
     
     // Check if this was the last value - if so, clear currentValue to prevent it from reappearing
     const remainingValues = await getDocs(query(collection(db, COLLECTIONS.VITALS, vitalId, 'values')));
+    console.log(`[deleteVitalValue] Remaining values count: ${remainingValues.size} for vital ${vitalId}`);
+    
     if (remainingValues.empty) {
       // Clear currentValue so transform functions don't use it as a fallback
+      console.log(`[deleteVitalValue] Clearing currentValue for vital ${vitalId} (no values remaining)`);
       await updateDoc(vitalRef, {
         currentValue: null,
         updatedAt: serverTimestamp()
       });
-      console.log(`[deleteVitalValue] Cleared currentValue for vital ${vitalId} (no values remaining)`);
+      
+      // Verify it was cleared
+      const updatedVitalDoc = await getDoc(vitalRef);
+      const updatedVitalData = updatedVitalDoc.data();
+      console.log(`[deleteVitalValue] ✓ Cleared currentValue for vital ${vitalId}. New currentValue:`, updatedVitalData.currentValue);
+    } else {
+      console.log(`[deleteVitalValue] Vital ${vitalId} still has ${remainingValues.size} value(s), keeping currentValue`);
     }
   },
 

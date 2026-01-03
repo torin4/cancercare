@@ -1061,23 +1061,35 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                                   throw new Error('User not authenticated');
                                                                 }
                                                                 
+                                                                console.log(`[HealthTab] DELETING lab value:`, {
+                                                                  labDocId,
+                                                                  labValueId,
+                                                                  labName,
+                                                                  labType: selectedLab
+                                                                });
+                                                                
                                                                 await labService.deleteLabValue(labDocId, labValueId);
+                                                                
+                                                                console.log(`[HealthTab] Deletion complete, checking for orphaned lab...`);
                                                                 
                                                                 // Check if lab is now orphaned (no values left) and clean it up
                                                                 try {
                                                                   const remainingValues = await labService.getLabValues(labDocId);
+                                                                  console.log(`[HealthTab] Remaining values after deletion:`, remainingValues.length);
                                                                   if (!remainingValues || remainingValues.length === 0) {
-                                                                    console.log(`Lab ${labDocId} is now orphaned (no values), deleting...`);
+                                                                    console.log(`[HealthTab] Lab ${labDocId} is now orphaned (no values), deleting...`);
                                                                     await labService.deleteLab(labDocId);
-                                                                    console.log(`Deleted orphaned lab ${labDocId}`);
+                                                                    console.log(`[HealthTab] Deleted orphaned lab ${labDocId}`);
                                                                   }
                                                                 } catch (cleanupError) {
-                                                                  console.warn(`Error checking/deleting orphaned lab ${labDocId}:`, cleanupError);
+                                                                  console.warn(`[HealthTab] Error checking/deleting orphaned lab ${labDocId}:`, cleanupError);
                                                                 }
                                                                 
+                                                                console.log(`[HealthTab] Reloading health data...`);
                                                                 // Reload health data to ensure UI matches database state
                                                                 // deleteLabValue now clears currentValue when last value is deleted, preventing reappearance
                                                                 await reloadHealthData();
+                                                                console.log(`[HealthTab] Health data reloaded`);
                                                                 
                                                                 // Show success banner
                                                                 showSuccess(`${labName} reading deleted successfully`);
