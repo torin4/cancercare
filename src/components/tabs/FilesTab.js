@@ -485,8 +485,23 @@ export default function FilesTab({ onTabChange }) {
               };
 
               return (
-                <div key={doc.id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-2.5 sm:p-3 border rounded-lg hover:bg-gray-50 transition">
-                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                <div key={doc.id} className="relative flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-2.5 sm:p-3 border rounded-lg hover:bg-gray-50 transition">
+                  {/* Menu button - three dots in upper right corner */}
+                  <div className="absolute top-2 right-2 z-10">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setOpenMenuId(openMenuId === doc.id ? null : doc.id);
+                      }}
+                      className="p-1.5 sm:p-1.5 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
+                      title="More options"
+                    >
+                      <MoreVertical className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+                    </button>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 pr-8 sm:pr-10">
                     <div className={`w-10 h-10 sm:w-12 sm:h-12 ${iconConfig.bgColor} rounded-lg flex items-center justify-center flex-shrink-0`}>
                       <div className={`${iconConfig.iconColor} w-5 h-5 sm:w-6 sm:h-6`}>
                         {iconConfig.icon}
@@ -503,7 +518,7 @@ export default function FilesTab({ onTabChange }) {
                       </p>
                     </div>
                   </div>
-                  <div className="flex-shrink-0 flex items-center justify-end sm:justify-start gap-1 sm:gap-2 flex-wrap relative">
+                  <div className="flex-shrink-0 flex items-center justify-end gap-1 sm:gap-2 mt-2 sm:mt-0 sm:mr-12">
                     {/* View button - always visible */}
                     {doc.fileUrl && (
                       <a
@@ -516,34 +531,21 @@ export default function FilesTab({ onTabChange }) {
                         View
                       </a>
                     )}
-                    
-                    {/* Menu button - three dots */}
-                    <div className="relative">
-                      <button
+                  </div>
+                  
+                  {/* Dropdown menu - positioned relative to menu button */}
+                  {openMenuId === doc.id && (
+                    <>
+                      {/* Backdrop to close menu */}
+                      <div 
+                        className="fixed inset-0 z-20"
                         onClick={(e) => {
                           e.stopPropagation();
-                          e.preventDefault();
-                          setOpenMenuId(openMenuId === doc.id ? null : doc.id);
+                          setOpenMenuId(null);
                         }}
-                        className="p-1.5 sm:p-1.5 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70 relative z-10"
-                        title="More options"
-                      >
-                        <MoreVertical className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
-                      </button>
-                      
-                      {/* Dropdown menu */}
-                      {openMenuId === doc.id && (
-                        <>
-                          {/* Backdrop to close menu */}
-                          <div 
-                            className="fixed inset-0 z-20"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenMenuId(null);
-                            }}
-                          />
-                          {/* Menu items */}
-                          <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
+                      />
+                      {/* Menu items */}
+                      <div className="absolute top-10 right-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
                             {/* Info button */}
                             <button
                               onClick={(e) => {
@@ -600,8 +602,6 @@ export default function FilesTab({ onTabChange }) {
                           </div>
                         </>
                       )}
-                    </div>
-                  </div>
                 </div>
               );
             })}
