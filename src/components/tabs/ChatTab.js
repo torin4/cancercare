@@ -397,7 +397,7 @@ export default function ChatTab({ onTabChange }) {
     
     // Auto-scroll to bottom after user message
     setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      scrollToBottom();
     }, 50);
 
     // Save user message to Firestore (async, don't wait)
