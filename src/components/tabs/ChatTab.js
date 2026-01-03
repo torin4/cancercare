@@ -957,6 +957,22 @@ export default function ChatTab({ onTabChange }) {
               )}
             </div>
           ))}
+          
+          {/* Loading indicator when bot is processing */}
+          {isBotProcessing && (
+            <div className="flex items-start gap-2 sm:gap-3 justify-start">
+              <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-medical-primary-500 to-medical-accent-500 flex items-center justify-center shadow-sm">
+                <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              </div>
+              <div className="max-w-[82%] sm:max-w-[70%] rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 bg-white border border-medical-neutral-200 text-medical-neutral-900">
+                <div className="flex items-center gap-2 text-sm sm:text-base">
+                  <Loader2 className="w-4 h-4 animate-spin text-medical-primary-500" />
+                  <span className="text-medical-neutral-600">Analyzing...</span>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {/* Scroll target - invisible element at the end of messages */}
           <div ref={messagesEndRef} className="h-1" />
         </div>
