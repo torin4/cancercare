@@ -122,6 +122,7 @@ export default function HealthTab({ onTabChange, initialSection = null }) {
   const [labTooltip, setLabTooltip] = useState(null);
   const [openDeleteMenu, setOpenDeleteMenu] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Delete Permanently' });
+  const [isDeleting, setIsDeleting] = useState(false);
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
   const [documentOnboardingMethod, setDocumentOnboardingMethod] = useState('picker');
 
@@ -3614,18 +3615,28 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
 
       <DeletionConfirmationModal
         show={deleteConfirm.show}
-        onClose={() => setDeleteConfirm({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Delete Permanently' })}
+        onClose={() => {
+          if (!isDeleting) {
+            setDeleteConfirm({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Delete Permanently' });
+            setIsDeleting(false);
+          }
+        }}
         onConfirm={async () => {
           if (deleteConfirm.onConfirm) {
-            await deleteConfirm.onConfirm();
+            setIsDeleting(true);
+            try {
+              await deleteConfirm.onConfirm();
+            } finally {
+              setIsDeleting(false);
+              setDeleteConfirm({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Delete Permanently' });
+            }
           }
-          setDeleteConfirm({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Delete Permanently' });
         }}
         title={deleteConfirm.title}
         message={deleteConfirm.message}
         itemName={deleteConfirm.itemName}
         confirmText={deleteConfirm.confirmText}
-        isDeleting={false}
+        isDeleting={isDeleting}
       />
 
       {/* Upload Progress Overlay */}
