@@ -2575,7 +2575,10 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                                       }
                                                                       
                                                                       // Reload health data to ensure UI matches database state
-                                                                      await reloadHealthData();
+                                                                      // Use a small delay to ensure Firestore has processed the deletion
+                                                                      setTimeout(async () => {
+                                                                        await reloadHealthData();
+                                                                      }, 500);
                                                                       
                                                                       // Show success banner
                                                                       showSuccess(`${displayName} reading deleted successfully`);
