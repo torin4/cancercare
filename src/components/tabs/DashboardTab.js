@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Activity, TrendingUp, Upload, AlertCircle, ClipboardList, Info, Dna, Bookmark, Star, ChevronRight, Search, MessageSquare, X, Heart } from 'lucide-react';
+import { Zap, Activity, TrendingUp, Upload, AlertCircle, ClipboardList, Info, Dna, Bookmark, Star, ChevronRight, Search, MessageSquare, X, Heart, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
@@ -19,7 +19,7 @@ import UploadProgressOverlay from '../UploadProgressOverlay';
 export default function DashboardTab({ onTabChange }) {
   const { user } = useAuth();
   const { hasUploadedDocument, patientProfile } = usePatientContext();
-  const { labsData, vitalsData, hasRealLabData, hasRealVitalData, genomicProfile, reloadHealthData } = useHealthContext();
+  const { labsData, vitalsData, hasRealLabData, hasRealVitalData, genomicProfile, reloadHealthData, loading: healthLoading } = useHealthContext();
   const { showSuccess, showError } = useBanner();
 
   // Tab-specific state
@@ -302,6 +302,20 @@ setIsUploading(false);
 
   return (
     <>
+      {/* Loading spinner with blurred background */}
+      {healthLoading && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-8 max-w-sm w-full mx-4 shadow-2xl">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-medical-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Loader2 className="w-8 h-8 text-medical-primary-600 animate-spin" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Loading Health Data</h3>
+              <p className="text-gray-600">Processing labs and vitals...</p>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Quick Action Buttons */}
       <div className="bg-white border-b border-medical-neutral-200 px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-5">
         <div className="max-w-6xl mx-auto">
