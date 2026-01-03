@@ -198,6 +198,9 @@ export default function FilesTab({ onTabChange }) {
       // Show loading overlay (only if not part of a batch)
       if (currentFileNumber === null) {
         setIsUploading(true);
+        setUploadProgress('Preparing upload...');
+        // Small delay to ensure overlay renders before heavy processing
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
       
       const fileProgressPrefix = currentFileNumber && totalFiles 
@@ -616,9 +619,7 @@ export default function FilesTab({ onTabChange }) {
         <DocumentUploadOnboarding
           isOnboarding={!hasUploadedDocument}
           onClose={() => setShowDocumentOnboarding(false)}
-          onUploadClick={(documentType, documentDate = null, documentNote = null, fileOrFiles = null) => {
-            setShowDocumentOnboarding(false);
-            
+          onUploadClick={async (documentType, documentDate = null, documentNote = null, fileOrFiles = null) => {
             // Normalize and set pending state - ensure we preserve actual note values
             const normalizedDate = (documentDate && typeof documentDate === 'string' && documentDate.trim() !== '') 
               ? documentDate.trim() 
@@ -630,26 +631,37 @@ export default function FilesTab({ onTabChange }) {
             setPendingDocumentDate(normalizedDate);
             setPendingDocumentNote(normalizedNote);
             
-            // If file(s) is provided (from component's file picker), upload it/them directly
-            if (fileOrFiles) {
-              if (Array.isArray(fileOrFiles)) {
-                // Multiple files - process sequentially
-                handleMultipleFileUpload(fileOrFiles, documentType, normalizedDate, normalizedNote);
-              } else {
-                // Single file - use existing handler
-                handleRealFileUpload(fileOrFiles, documentType, normalizedDate, normalizedNote);
-              }
-            } else {
-              // Otherwise, open file picker (fallback)
-            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            // Close modal first to show upload progress
+            setShowDocumentOnboarding(false);
             
-            if (documentOnboardingMethod === 'camera') {
-              simulateCameraUpload(documentType);
-            } else if (isMobile) {
-              simulateCameraUpload(documentType);
-            } else {
-              simulateDocumentUpload(documentType);
+            // Small delay to ensure modal closes before starting upload
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            try {
+              // If file(s) is provided (from component's file picker), upload it/them directly
+              if (fileOrFiles) {
+                if (Array.isArray(fileOrFiles)) {
+                  // Multiple files - process sequentially
+                  await handleMultipleFileUpload(fileOrFiles, documentType, normalizedDate, normalizedNote);
+                } else {
+                  // Single file - use existing handler
+                  await handleRealFileUpload(fileOrFiles, documentType, normalizedDate, normalizedNote);
+                }
+              } else {
+                // Otherwise, open file picker (fallback)
+                const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                
+                if (documentOnboardingMethod === 'camera') {
+                  simulateCameraUpload(documentType);
+                } else if (isMobile) {
+                  simulateCameraUpload(documentType);
+                } else {
+                  simulateDocumentUpload(documentType);
+                }
               }
+            } catch (error) {
+              console.error('[FilesTab] Error in onUploadClick:', error);
+              showError(`Failed to start upload: ${error.message}. Please try again.`);
             }
           }}
         />
