@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MessageSquare, BarChart, Heart, Thermometer, Pill, Plus, Upload, Edit2, X, TrendingUp, TrendingDown, Minus, Activity, Info, Calendar, Clock, Check, AlertCircle, Trash2, MoreVertical, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
@@ -61,19 +61,6 @@ export default function HealthTab({ onTabChange, initialSection = null }) {
       setHealthSection(initialSection);
     }
   }, [initialSection]);
-
-  // Auto-scroll charts to latest date (right side) on load
-  useEffect(() => {
-    if (labChartScrollRef.current) {
-      labChartScrollRef.current.scrollLeft = labChartScrollRef.current.scrollWidth;
-    }
-  }, [selectedLab, labsData]);
-
-  useEffect(() => {
-    if (vitalChartScrollRef.current) {
-      vitalChartScrollRef.current.scrollLeft = vitalChartScrollRef.current.scrollWidth;
-    }
-  }, [selectedVital, vitalsData]);
   
   const [selectedLab, setSelectedLab] = useState('ca125');
   const [selectedDate, setSelectedDate] = useState(null);
@@ -135,9 +122,6 @@ export default function HealthTab({ onTabChange, initialSection = null }) {
   const [labTooltip, setLabTooltip] = useState(null);
   const [openDeleteMenu, setOpenDeleteMenu] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Delete Permanently' });
-  const [isDeleting, setIsDeleting] = useState(false);
-  const labChartScrollRef = useRef(null);
-  const vitalChartScrollRef = useRef(null);
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
   const [documentOnboardingMethod, setDocumentOnboardingMethod] = useState('picker');
 
@@ -705,42 +689,20 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
 
                             {/* Chart area */}
                             <div className="flex-1">
-                              <div 
-                                ref={labChartScrollRef}
-                                className="relative h-40 mb-3 overflow-x-auto overflow-y-hidden"
-                                style={{ scrollbarWidth: 'thin' }}
-                              >
-                                <div className="relative h-40" style={{ minWidth: 'max-content' }}>
-                                  {/* Horizontal grid lines */}
-                                  <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                                    {[0, 1, 2, 3, 4].map(i => (
-                                      <div key={i} className="border-t border-gray-200"></div>
-                                    ))}
-                                  </div>
+                              <div className="relative h-40 mb-3">
+                                {/* Horizontal grid lines */}
+                                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                                  {[0, 1, 2, 3, 4].map(i => (
+                                    <div key={i} className="border-t border-gray-200"></div>
+                                  ))}
+                                </div>
 
-                                  {/* SVG Graph */}
-                                  {(() => {
-                                    // Filter to show only last year of data
-                                    const oneYearAgo = new Date();
-                                    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-                                    const oneYearAgoTime = oneYearAgo.getTime();
-                                    
-                                    // Filter data to last year, but keep all data for reference
-                                    const recentData = currentLab.data.filter(d => {
-                                      const dateTime = d.timestamp || (d.dateOriginal ? d.dateOriginal.getTime() : new Date(d.date).getTime());
-                                      return dateTime >= oneYearAgoTime;
-                                    });
-                                    
-                                    // Use recent data if available, otherwise use all data
-                                    const displayData = recentData.length > 0 ? recentData : currentLab.data;
-                                    
-                                    // Calculate chart width based on data points (min 400px for last year, scale for more)
-                                    const chartWidth = Math.max(400, displayData.length * 40);
-                                    
-                                    // Filter out non-numeric values and ensure we have valid numbers
-                                    const values = displayData
-                                      .map(d => parseFloat(d.value))
-                                      .filter(v => !isNaN(v) && isFinite(v));
+                                {/* SVG Graph */}
+                                {(() => {
+                                  // Filter out non-numeric values and ensure we have valid numbers
+                                  const values = currentLab.data
+                                    .map(d => parseFloat(d.value))
+                                    .filter(v => !isNaN(v) && isFinite(v));
 
                                   if (values.length === 0) {
                                     return (
@@ -794,7 +756,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
 
                                   return (
                                     <>
-                                      <svg className="absolute inset-0 h-full pointer-events-none" style={{ width: `${chartWidth}px` }} viewBox={`0 0 ${chartWidth} 160`} preserveAspectRatio="none">
+                                      <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 400 160" preserveAspectRatio="none">
                                         <defs>
                                           <linearGradient id={`gradient-${selectedLab}`} x1="0%" y1="0%" x2="0%" y2="100%">
                                             <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.2" />
@@ -818,14 +780,14 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                   <rect
                                                     x="0"
                                                     y={normMaxY}
-                                                    width={chartWidth}
+                                                    width="400"
                                                     height={normMinY - normMaxY}
                                                     fill="#3b82f6"
                                                     opacity="0.08"
                                                   />
                                                   {/* Normal range boundary lines */}
-                                                  <line x1="0" y1={normMinY} x2={chartWidth} y2={normMinY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
-                                                  <line x1="0" y1={normMaxY} x2={chartWidth} y2={normMaxY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                  <line x1="0" y1={normMinY} x2="400" y2={normMinY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
+                                                  <line x1="0" y1={normMaxY} x2="400" y2={normMaxY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
                                                 </>
                                               );
                                             }
@@ -842,7 +804,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                     <rect
                                                       x="0"
                                                       y={thresholdY}
-                                                      width={chartWidth}
+                                                      width="400"
                                                       height={160 - thresholdY}
                                                       fill="#3b82f6"
                                                       opacity="0.08"
@@ -865,7 +827,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                       <rect
                                                         x="0"
                                                         y="0"
-                                                        width={chartWidth}
+                                                        width="400"
                                                         height={thresholdY}
                                                           fill="#3b82f6"
                                                           opacity="0.08"
@@ -884,11 +846,11 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                         {/* Area under line */}
                                         <polygon
                                           points={(() => {
-                                            const dataLength = Math.max(displayData.length - 1, 1); // Prevent division by zero
-                                            const topPoints = displayData.map((d, i) =>
-                                              `${(i / dataLength) * chartWidth},${160 - ((d.value - yMin) / yRange) * 160}`
+                                            const dataLength = Math.max(currentLab.data.length - 1, 1); // Prevent division by zero
+                                            const topPoints = currentLab.data.map((d, i) =>
+                                              `${(i / dataLength) * 400},${160 - ((d.value - yMin) / yRange) * 160}`
                                             ).join(' ');
-                                            return `${topPoints} ${chartWidth},160 0,160`;
+                                            return `${topPoints} 400,160 0,160`;
                                           })()}
                                           fill={`url(#gradient-${selectedLab})`}
                                         />
@@ -896,9 +858,9 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                         {/* Line */}
                                         <polyline
                                           points={(() => {
-                                            const dataLength = Math.max(displayData.length - 1, 1); // Prevent division by zero
-                                            return displayData.map((d, i) =>
-                                              `${(i / dataLength) * chartWidth},${160 - ((d.value - yMin) / yRange) * 160}`
+                                            const dataLength = Math.max(currentLab.data.length - 1, 1); // Prevent division by zero
+                                            return currentLab.data.map((d, i) =>
+                                              `${(i / dataLength) * 400},${160 - ((d.value - yMin) / yRange) * 160}`
                                             ).join(' ');
                                           })()}
                                           fill="none"
@@ -910,12 +872,11 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                       </svg>
 
                                       {/* Interactive data points with tooltips */}
-                                      {displayData.map((d, i) => {
-                                        const dataLength = Math.max(displayData.length - 1, 1); // Prevent division by zero
-                                        const x = (i / dataLength) * chartWidth;
-                                        const xPercent = (i / dataLength) * 100;
+                                      {currentLab.data.map((d, i) => {
+                                        const dataLength = Math.max(currentLab.data.length - 1, 1); // Prevent division by zero
+                                        const x = (i / dataLength) * 100;
                                         const y = ((d.value - yMin) / yRange) * 100;
-                                        const isLatest = i === displayData.length - 1;
+                                        const isLatest = i === currentLab.data.length - 1;
                                         
                                         // Calculate lab status for this data point
                                         const labStatus = getLabStatus(parseFloat(d.value), currentLab.normalRange);
@@ -940,7 +901,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                             key={i}
                                             className="absolute group"
                                             style={{
-                                              left: `${x}px`,
+                                              left: `${x}%`,
                                               bottom: `${y}%`,
                                               transform: 'translate(-50%, 50%)'
                                             }}
@@ -1000,7 +961,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                               } transition-opacity ${
                                                 y > 70 ? 'bottom-full mb-4' : 'top-full mt-4'
                                               } ${
-                                                xPercent < 10 ? 'left-0' : xPercent > 90 ? 'right-0' : 'left-1/2 transform -translate-x-1/2'
+                                                x < 10 ? 'left-0' : x > 90 ? 'right-0' : 'left-1/2 transform -translate-x-1/2'
                                               }`}
                                               style={{ zIndex: 50 }}
                                             >
@@ -1022,7 +983,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                           if (currentLabDoc && currentLabDoc.id) {
                                                             setSelectedLabForValue({ id: currentLabDoc.id, name: getLabDisplayName(currentLabDoc.name || selectedLab), unit: currentLabDoc.unit, key: selectedLab });
                                                             // Pre-fill with existing value data
-                                                            const valueData = displayData.find(item => item.id === d.id);
+                                                            const valueData = currentLab.data.find(item => item.id === d.id);
                                                             // Use dateOriginal if available, otherwise fall back to timestamp, then formatted date
                                                             // Use formatDateString to ensure local time (not UTC) - prevents one-day shift
                                                             let dateValue = getTodayLocalDate();
@@ -1077,7 +1038,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                             itemName: `${labName} reading`,
                                                             confirmText: 'Yes, Delete',
                                                             onConfirm: async () => {
-                                                              setIsDeleting(true);
                                                               try {
                                                                 console.log('Deleting lab with ID:', labValueId);
                                                                 
@@ -1138,8 +1098,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                                 // Revert optimistic update on error only
                                                                 reloadHealthData();
                                                                 showError('Failed to delete lab reading. Please try again.');
-                                                              } finally {
-                                                                setIsDeleting(false);
                                                               }
                                                             }
                                                           });
@@ -1161,22 +1119,21 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                           </div>
                                         );
                                       })}
-                                      
-                                      {/* X-axis labels */}
-                                      <div className="flex justify-between border-t border-gray-300 pt-2 text-xs text-gray-600" style={{ minWidth: `${chartWidth}px` }}>
-                                        {displayData.map((d, i) => (
-                                          <span key={i} className="hidden sm:inline">{d.date}</span>
-                                        ))}
-                                        <span className="sm:hidden">{displayData[0]?.date}</span>
-                                        <span className="sm:hidden">{displayData[displayData.length - 1]?.date}</span>
-                                      </div>
                                     </>
                                   );
                                 })()}
-                                </div>
+                              </div>
+
+                              {/* X-axis labels */}
+                              <div className="flex justify-between border-t border-gray-300 pt-2 text-xs text-gray-600">
+                                {currentLab.data.map((d, i) => (
+                                  <span key={i} className="hidden sm:inline">{d.date}</span>
+                                ))}
+                                <span className="sm:hidden">{currentLab.data[0].date}</span>
+                                <span className="sm:hidden">{currentLab.data[currentLab.data.length - 1].date}</span>
                               </div>
                             </div>
-                            </div>
+                          </div>
                             </>
                           ) : (
                             // Non-numeric lab - show text info instead of chart
@@ -2587,7 +2544,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                                   itemName: `${displayName} reading`,
                                                                   confirmText: 'Yes, Delete',
                                                                   onConfirm: async () => {
-                                                                    setIsDeleting(true);
                                                                     try {
                                                                       console.log('Deleting vital with ID:', vitalValueId);
                                                                       
@@ -2648,8 +2604,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                                       // Revert optimistic update on error
                                                                       reloadHealthData();
                                                                       showError('Failed to delete vital reading. Please try again.');
-                                                                    } finally {
-                                                                      setIsDeleting(false);
                                                                     }
                                                                   }
                                                                 });
@@ -3641,7 +3595,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
         message={deleteConfirm.message}
         itemName={deleteConfirm.itemName}
         confirmText={deleteConfirm.confirmText}
-        isDeleting={isDeleting}
+        isDeleting={false}
       />
 
       {/* Upload Progress Overlay */}
