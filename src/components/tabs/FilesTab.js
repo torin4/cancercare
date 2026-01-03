@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical } from 'lucide-react';
+import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
@@ -47,6 +47,7 @@ export default function FilesTab({ onTabChange }) {
   const [openMenuId, setOpenMenuId] = useState(null); // Track which document's menu is open
   const [debugLogs, setDebugLogs] = useState([]); // Visual debug logs for mobile
   const [documentDateRanges, setDocumentDateRanges] = useState({}); // Cache date ranges for documents
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(false); // Loading state for documents
 
   // Debug log helper function
   const addDebugLog = useCallback((message, type = 'log') => {
@@ -133,6 +134,7 @@ export default function FilesTab({ onTabChange }) {
     const loadDocuments = async () => {
       if (user) {
         try {
+          setIsLoadingDocuments(true);
           const docs = await documentService.getDocuments(user.uid);
           console.log('[FilesTab] Loaded documents:', docs.map(d => ({
             id: d.id,
@@ -144,11 +146,13 @@ export default function FilesTab({ onTabChange }) {
           })));
           setDocuments(docs);
           setHasUploadedDocument(docs.length > 0);
-
+          
           // Date ranges are now calculated and stored in documents by documentService.getDocuments()
           // No need to calculate them here - they're already in doc.minDate/doc.maxDate
         } catch (error) {
           console.error('Error loading documents:', error);
+        } finally {
+          setIsLoadingDocuments(false);
         }
       }
     };
@@ -520,7 +524,22 @@ export default function FilesTab({ onTabChange }) {
   };
 
   return (
-    <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4">
+    <div className="relative">
+      {/* Loading spinner with blurred background */}
+      {isLoadingDocuments && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-8 max-w-sm w-full mx-4 shadow-2xl">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-medical-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Loader2 className="w-8 h-8 text-medical-primary-600 animate-spin" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Loading Documents</h3>
+              <p className="text-gray-600">Calculating date ranges...</p>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4">
       {/* Visual Debug Panel - Only show if there are logs */}
       {debugLogs.length > 0 && (
         <div className="fixed bottom-4 right-4 bg-black/90 text-white p-3 rounded-lg text-xs max-w-xs z-[9999] max-h-64 overflow-y-auto shadow-2xl border border-white/20">
@@ -1110,6 +1129,7 @@ export default function FilesTab({ onTabChange }) {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

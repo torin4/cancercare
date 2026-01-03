@@ -820,12 +820,19 @@ export const documentService = {
         vitalService.getVitals(patientId)
       ]);
       
+      // Load ALL lab and vital values in parallel (much faster than sequential)
+      const labValuePromises = labs.map(lab => labService.getLabValues(lab.id));
+      const vitalValuePromises = vitals.map(vital => vitalService.getVitalValues(vital.id));
+      const [allLabValues, allVitalValues] = await Promise.all([
+        Promise.all(labValuePromises),
+        Promise.all(vitalValuePromises)
+      ]);
+      
       // Build a map of documentId -> all associated dates
       const documentDatesMap = {};
       
-      // Check all lab values
-      for (const lab of labs) {
-        const values = await labService.getLabValues(lab.id);
+      // Process all lab values (already loaded)
+      allLabValues.forEach((values, index) => {
         for (const value of values) {
           if (value.documentId && value.date) {
             if (!documentDatesMap[value.documentId]) {
@@ -836,11 +843,10 @@ export const documentService = {
             documentDatesMap[value.documentId].add(localDate.getTime());
           }
         }
-      }
+      });
       
-      // Check all vital values
-      for (const vital of vitals) {
-        const values = await vitalService.getVitalValues(vital.id);
+      // Process all vital values (already loaded)
+      allVitalValues.forEach((values, index) => {
         for (const value of values) {
           if (value.documentId && value.date) {
             if (!documentDatesMap[value.documentId]) {
@@ -851,7 +857,7 @@ export const documentService = {
             documentDatesMap[value.documentId].add(localDate.getTime());
           }
         }
-      }
+      });
       
       // Add date ranges to document objects immediately
       return documents.map(doc => {
