@@ -205,11 +205,22 @@ export const labSynonymMap = {
   'il6': ['il6', 'il-6', 'interleukin-6', 'interleukin 6']
   };
 
+// Helper function to normalize a string the same way normalizeLabName does
+const normalizeForLookup = (str) => {
+  if (!str) return '';
+  let cleaned = str.toString().trim().toLowerCase();
+  // Remove common separators (same as normalizeLabName)
+  cleaned = cleaned.replace(/[\s\-_\/\.]/g, '');
+  return cleaned;
+};
+
 // Reverse map: create lookup from any variation to canonical key
+// Normalize variations the same way normalizeLabName does for consistent matching
 export const labKeyMap = {};
 Object.entries(labSynonymMap).forEach(([canonicalKey, variations]) => {
   variations.forEach(variation => {
-    labKeyMap[variation.toLowerCase()] = canonicalKey;
+    const normalized = normalizeForLookup(variation);
+    labKeyMap[normalized] = canonicalKey;
   });
 });
 
