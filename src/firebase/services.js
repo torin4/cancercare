@@ -797,13 +797,92 @@ export const documentService = {
       };
     });
     
-    // Calculate and update date ranges for all documents (in background, non-blocking)
-    // This ensures date ranges are available immediately and stored in the document
-    this.calculateAndUpdateDateRanges(patientId, documents).catch(error => {
-      console.warn('[getDocuments] Error calculating date ranges:', error);
+    // Calculate date ranges synchronously and include them in returned documents immediately
+    // This prevents visual "jump" when Files tab loads
+    const documentsWithRanges = await this.calculateDateRangesForDocuments(patientId, documents);
+    
+    // Update Firestore in background (non-blocking) for persistence
+    this.calculateAndUpdateDateRanges(patientId, documentsWithRanges).catch(error => {
+      console.warn('[getDocuments] Error updating date ranges in Firestore:', error);
     });
     
-    return documents;
+    return documentsWithRanges;
+  },
+
+  // Calculate date ranges and include them in document objects immediately (synchronous)
+  async calculateDateRangesForDocuments(patientId, documents) {
+    if (!documents || documents.length === 0) return documents;
+    
+    try {
+      // Get all labs and vitals for the user (only once)
+      const [labs, vitals] = await Promise.all([
+        labService.getLabs(patientId),
+        vitalService.getVitals(patientId)
+      ]);
+      
+      // Build a map of documentId -> all associated dates
+      const documentDatesMap = {};
+      
+      // Check all lab values
+      for (const lab of labs) {
+        const values = await labService.getLabValues(lab.id);
+        for (const value of values) {
+          if (value.documentId && value.date) {
+            if (!documentDatesMap[value.documentId]) {
+              documentDatesMap[value.documentId] = new Set();
+            }
+            const dateValue = value.date?.toDate ? value.date.toDate() : (value.date instanceof Date ? value.date : new Date(value.date));
+            const localDate = new Date(dateValue.getFullYear(), dateValue.getMonth(), dateValue.getDate());
+            documentDatesMap[value.documentId].add(localDate.getTime());
+          }
+        }
+      }
+      
+      // Check all vital values
+      for (const vital of vitals) {
+        const values = await vitalService.getVitalValues(vital.id);
+        for (const value of values) {
+          if (value.documentId && value.date) {
+            if (!documentDatesMap[value.documentId]) {
+              documentDatesMap[value.documentId] = new Set();
+            }
+            const dateValue = value.date?.toDate ? value.date.toDate() : (value.date instanceof Date ? value.date : new Date(value.date));
+            const localDate = new Date(dateValue.getFullYear(), dateValue.getMonth(), dateValue.getDate());
+            documentDatesMap[value.documentId].add(localDate.getTime());
+          }
+        }
+      }
+      
+      // Add date ranges to document objects immediately
+      return documents.map(doc => {
+        const dates = documentDatesMap[doc.id];
+        if (!dates || dates.size <= 1) {
+          // Single date or no dates - return document as-is (or clear ranges if they exist)
+          return {
+            ...doc,
+            minDate: null,
+            maxDate: null,
+            hasMultipleDates: false
+          };
+        }
+        
+        // Multiple dates - calculate and include range
+        const dateArray = Array.from(dates).sort((a, b) => a - b);
+        const minDate = new Date(dateArray[0]);
+        const maxDate = new Date(dateArray[dateArray.length - 1]);
+        
+        return {
+          ...doc,
+          minDate: minDate,
+          maxDate: maxDate,
+          hasMultipleDates: true
+        };
+      });
+    } catch (error) {
+      console.error('[calculateDateRangesForDocuments] Error:', error);
+      // Return documents as-is if calculation fails
+      return documents;
+    }
   },
 
   // Calculate date ranges for documents and update them in Firestore
