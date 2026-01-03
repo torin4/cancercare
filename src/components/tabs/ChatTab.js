@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap } from 'lucide-react';
+import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
@@ -101,6 +101,7 @@ export default function ChatTab({ onTabChange }) {
   const [suggestionIndex, setSuggestionIndex] = useState(0);
   const [profileImage, setProfileImage] = useState(null);
   const [suggestionsKey, setSuggestionsKey] = useState(0); // Force re-render when role changes
+  const [isBotProcessing, setIsBotProcessing] = useState(false);
 
   // Document upload state
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
@@ -282,12 +283,19 @@ export default function ChatTab({ onTabChange }) {
                 extractedData: result.extractedData || null
               }).catch(err => console.error('Error saving AI message:', err));
 
+              // Clear loading state
+              setIsBotProcessing(false);
+              
               // Reload health data if values were extracted
               if (result.extractedData) {
                 await reloadHealthData();
               }
             } catch (error) {
               console.error('Error processing pending message:', error);
+              
+              // Clear loading state
+              setIsBotProcessing(false);
+              
               const errorMsg = {
                 type: 'ai',
                 text: 'Sorry, I\'m having trouble processing your message right now. Please try again in a moment.'
@@ -408,6 +416,9 @@ export default function ChatTab({ onTabChange }) {
         text: userMessage,
         isAnalysis: false
       }).catch(err => console.error('Error saving user message:', err));
+    
+    // Set loading state
+    setIsBotProcessing(true);
     }
 
     try {
@@ -507,6 +518,9 @@ export default function ChatTab({ onTabChange }) {
         }
       }
 
+      // Clear loading state
+      setIsBotProcessing(false);
+      
       // Add AI response
       const aiMsg = {
         type: 'ai',
@@ -538,6 +552,10 @@ export default function ChatTab({ onTabChange }) {
 
     } catch (error) {
       console.error('Error processing message:', error);
+      
+      // Clear loading state
+      setIsBotProcessing(false);
+      
       const errorMsg = {
         type: 'ai',
         text: 'Sorry, I\'m having trouble processing your message right now. Please try again in a moment.'
