@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, BarChart, Heart, Thermometer, Pill, Plus, Upload, Edit2, X, TrendingUp, TrendingDown, Minus, Activity, Info, Calendar, Clock, Check, AlertCircle, Trash2, MoreVertical, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { MessageSquare, BarChart, Heart, Thermometer, Pill, Plus, Upload, Edit2, X, TrendingUp, TrendingDown, Minus, Activity, Info, Calendar, Clock, Check, AlertCircle, Trash2, MoreVertical, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
@@ -65,6 +65,7 @@ export default function HealthTab({ onTabChange, initialSection = null }) {
   const [selectedLab, setSelectedLab] = useState('ca125');
   const [selectedDate, setSelectedDate] = useState(null);
   const [labSearchQuery, setLabSearchQuery] = useState('');
+  const [hideEmptyMetrics, setHideEmptyMetrics] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
   const [pendingDocumentDate, setPendingDocumentDate] = useState(null);
@@ -1465,10 +1466,10 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                             });
                           };
 
-                          // Apply search filter to categorized labs
+                          // Apply search filter and empty metrics filter to categorized labs
                           const filteredCategorizedLabs = {};
                           Object.keys(categorizedLabs).forEach(category => {
-                            const filtered = filterLabsBySearch(categorizedLabs[category], labSearchQuery);
+                            const filtered = filterLabsBySearch(categorizedLabs[category], labSearchQuery, hideEmptyMetrics);
                             if (filtered.length > 0) {
                               filteredCategorizedLabs[category] = filtered;
                             }
@@ -1542,26 +1543,47 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                           </button>
                               </div>
                               
-                              {/* Search Bar */}
-                              <div className="relative mb-4">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                  <Search className="h-5 w-5 text-gray-400" />
+                              {/* Search Bar and Hide Empty Metrics Toggle */}
+                              <div className="mb-4 space-y-3">
+                                <div className="relative">
+                                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <Search className="h-5 w-5 text-gray-400" />
+                                  </div>
+                                  <input
+                                    type="text"
+                                    value={labSearchQuery}
+                                    onChange={(e) => setLabSearchQuery(e.target.value)}
+                                    placeholder="Search labs by name..."
+                                    className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-medical-primary-500 focus:border-medical-primary-500 text-sm"
+                                  />
+                                  {labSearchQuery && (
+                                    <button
+                                      onClick={() => setLabSearchQuery('')}
+                                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                                    >
+                                      <X className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                                    </button>
+                                  )}
                                 </div>
-                                <input
-                                  type="text"
-                                  value={labSearchQuery}
-                                  onChange={(e) => setLabSearchQuery(e.target.value)}
-                                  placeholder="Search labs by name..."
-                                  className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-medical-primary-500 focus:border-medical-primary-500 text-sm"
-                                />
-                                {labSearchQuery && (
-                                  <button
-                                    onClick={() => setLabSearchQuery('')}
-                                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                                  >
-                                    <X className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                                  </button>
-                                )}
+                                {/* Hide Empty Metrics Toggle */}
+                                <label className="flex items-center gap-2 cursor-pointer group">
+                                  <input
+                                    type="checkbox"
+                                    checked={hideEmptyMetrics}
+                                    onChange={(e) => setHideEmptyMetrics(e.target.checked)}
+                                    className="w-4 h-4 text-medical-primary-600 border-gray-300 rounded focus:ring-medical-primary-500 focus:ring-2 cursor-pointer"
+                                  />
+                                  <div className="flex items-center gap-2">
+                                    {hideEmptyMetrics ? (
+                                      <EyeOff className="w-4 h-4 text-gray-600" />
+                                    ) : (
+                                      <Eye className="w-4 h-4 text-gray-400" />
+                                    )}
+                                    <span className="text-sm text-gray-700 group-hover:text-gray-900">
+                                      Hide metrics with no values
+                                    </span>
+                                  </div>
+                                </label>
                               </div>
                               
                               {/* Total metrics count - aligned left above first card */}
