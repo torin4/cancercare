@@ -7,7 +7,7 @@ import { uploadDocument, deleteUserDirectory, deleteDocument } from './firebase/
 import { documentService, labService, vitalService, patientService, accountService, genomicProfileService, emergencyContactService, medicationService, symptomService, trialLocationService, messageService } from './firebase/services';
 import { getSavedTrials } from './services/clinicalTrials/clinicalTrialsService';
 import { IMPORTANT_GENES } from './config/importantGenes';
-import { processDocument, generateExtractionSummary } from './services/documentProcessor';
+import { processDocument, generateExtractionSummary, linkValuesToDocument } from './services/documentProcessor';
 import { processChatMessage, generateChatExtractionSummary } from './services/chatProcessor';
 import { auth } from './firebase/config';
 import Login from './components/Login';
@@ -56,7 +56,7 @@ export default function CancerCareApp() {
   // Use contexts for shared state
   const { user, authLoading, setUser } = useAuth();
   const { patientProfile, setPatientProfile, refreshPatient, needsOnboarding, setNeedsOnboarding } = usePatientContext();
-  const { labsData, setLabsData, vitalsData, setVitalsData, genomicProfile, setGenomicProfile, hasRealLabData, hasRealVitalData, reloadHealthData } = useHealthContext();
+  const { labsData, setLabsData, vitalsData, setVitalsData, genomicProfile, setGenomicProfile, hasRealLabData, hasRealVitalData, loading: healthLoading, reloadHealthData } = useHealthContext();
   const { showSuccess, showError } = useBanner();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [pendingHealthSection, setPendingHealthSection] = useState(null);
@@ -242,11 +242,25 @@ export default function CancerCareApp() {
       const uploadResult = await uploadDocument(file, user.uid, {
         category: processingResult.documentType || docType,
         documentType: processingResult.documentType || docType,
+        date: providedDate || null, // Pass the date to be saved with document
         note: providedNote || null,
         dataPointCount: processingResult.dataPointCount || 0
       });
 
       console.log('File uploaded successfully:', uploadResult);
+
+      // Step 3: Link all extracted values to the document ID
+      // This is critical - values were created without documentId, now we link them
+      setUploadProgress('Linking data to document...');
+      if (processingResult.extractedData && uploadResult.id) {
+        try {
+          await linkValuesToDocument(processingResult.extractedData, uploadResult.id, user.uid);
+          console.log('[App] Successfully linked all values to document', uploadResult.id);
+        } catch (linkError) {
+          console.error('[App] Error linking values to document:', linkError);
+          // Don't fail the upload if linking fails - values are still saved
+        }
+      }
 
       setUploadProgress('Saving extracted data...');
 
@@ -876,13 +890,16 @@ export default function CancerCareApp() {
   // Handle sign out
   // Profile tab handlers moved to ProfileTab component
 
-  // Show loading screen while checking auth
-  if (authLoading) {
+  // Show loading screen while checking auth or loading health data
+  if (authLoading || (user && healthLoading)) {
     return (
       <div className="min-h-screen bg-medical-neutral-50 flex items-center justify-center">
         <div className="text-center">
-          <Activity className="w-12 h-12 text-medical-primary-600 animate-pulse mx-auto mb-4" />
-          <p className="text-medical-neutral-600">Loading...</p>
+          <div className="w-16 h-16 bg-medical-primary-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+            <Activity className="w-8 h-8 text-medical-primary-600 animate-pulse" />
+          </div>
+          <h1 className="text-2xl font-bold text-medical-neutral-900 mb-2">CancerCare</h1>
+          <p className="text-medical-neutral-600">Loading your health data...</p>
         </div>
       </div>
     );

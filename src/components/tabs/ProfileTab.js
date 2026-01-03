@@ -50,6 +50,15 @@ export default function ProfileTab({ onTabChange }) {
     baselineCa125: ''
   });
   const [genomicExpanded, setGenomicExpanded] = useState(false);
+  
+  // Check if we should expand genomic profile (e.g., after genomic upload)
+  useEffect(() => {
+    const shouldExpand = sessionStorage.getItem('expandGenomicProfile');
+    if (shouldExpand === 'true') {
+      setGenomicExpanded(true);
+      sessionStorage.removeItem('expandGenomicProfile');
+    }
+  }, []);
   const [emergencyContacts, setEmergencyContacts] = useState([]);
   const [editContacts, setEditContacts] = useState([]);
   
@@ -1196,20 +1205,40 @@ export default function ProfileTab({ onTabChange }) {
                       setDeletionType('data');
                       setShowDeletionConfirm(true);
                     }}
-                    className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-white border border-red-300 text-red-700 rounded-lg text-sm font-medium hover:bg-red-100 active:bg-red-200 transition touch-manipulation"
+                    disabled={isDeleting}
+                    className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-white border border-red-300 text-red-700 rounded-lg text-sm font-medium hover:bg-red-100 active:bg-red-200 transition touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Trash2 className="w-4 h-4" />
-                    Clear Health Data
+                    {isDeleting ? (
+                      <>
+                        <Activity className="w-4 h-4 animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4" />
+                        Clear Health Data
+                      </>
+                    )}
                   </button>
                   <button
                     onClick={() => {
                       setDeletionType('account');
                       setShowDeletionConfirm(true);
                     }}
-                    className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 active:bg-red-800 transition touch-manipulation"
+                    disabled={isDeleting}
+                    className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 active:bg-red-800 transition touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Trash2 className="w-4 h-4" />
-                    Delete Account
+                    {isDeleting ? (
+                      <>
+                        <Activity className="w-4 h-4 animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4" />
+                        Delete Account
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

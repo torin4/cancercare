@@ -2,120 +2,192 @@
 
 import { labService, vitalService } from '../firebase/services';
 import { getCancerRelevanceScore } from './healthUtils';
-import { normalizeVitalName, getVitalDisplayName } from './normalizationUtils';
+import { normalizeVitalName, getVitalDisplayName, normalizeLabName } from './normalizationUtils';
 
 // Transform Firestore labs data to UI format
 export const transformLabsData = async (labs) => {
   const grouped = {};
 
   // Process each lab and load its values
+  // First, group labs by labType to handle multiple lab documents with same type
+  // Normalize lab types to ensure variations (e.g., "crp", "CRP", "c-reactive protein") are grouped together
+  const labsByType = {};
   for (const lab of labs) {
-    const labType = lab.labType || 'unknown';
+    // Normalize the labType to a canonical key (e.g., "crp", "ca125")
+    // Try normalizing both labType and label, fallback to lowercase labType
+    const normalizedLabType = normalizeLabName(lab.labType) || 
+                               normalizeLabName(lab.label) || 
+                               (lab.labType || 'unknown').toLowerCase();
+    if (!labsByType[normalizedLabType]) {
+      labsByType[normalizedLabType] = [];
+    }
+    labsByType[normalizedLabType].push(lab);
+  }
 
+  // Process each unique labType (merge values from all lab documents with same type)
+  for (const [labType, labDocuments] of Object.entries(labsByType)) {
+    // Use the first lab document as the primary one (most recent or first found)
+    const primaryLab = labDocuments[0];
+    
     if (!grouped[labType]) {
       grouped[labType] = {
-        id: lab.id, // Store lab document ID for adding values
-        name: lab.label,
-        unit: lab.unit,
-        current: lab.currentValue,
-        status: lab.status || 'normal',
+        id: primaryLab.id, // Store primary lab document ID for adding values
+        name: primaryLab.label,
+        unit: primaryLab.unit,
+        current: primaryLab.currentValue,
+        status: primaryLab.status || 'normal',
         trend: 'stable',
-        normalRange: lab.normalRange,
-        isNumeric: typeof lab.currentValue === 'number',
+        normalRange: primaryLab.normalRange,
+        isNumeric: typeof primaryLab.currentValue === 'number',
         relevanceScore: getCancerRelevanceScore(labType),
         data: []
       };
     }
 
-    // Load lab values from subcollection
-    try {
-      const values = await labService.getLabValues(lab.id);
-      if (values && values.length > 0) {
-        // Sort by date (oldest first) for trend calculation
-        const sortedValues = values
-          .map(v => ({
-            id: v.id,
-            value: v.value,
-            date: v.date?.toDate ? v.date.toDate() : (v.date ? new Date(v.date) : new Date()),
-            timestamp: v.date?.toDate ? v.date.toDate().getTime() : (v.date ? new Date(v.date).getTime() : Date.now())
-          }))
-          .sort((a, b) => a.timestamp - b.timestamp);
+    // Initialize deduplication sets OUTSIDE the loop so they persist across all lab documents with same type
+    const existingIds = new Set(grouped[labType].data.map(d => d.id));
+    const existingValueKeys = new Set(grouped[labType].data.map(d => {
+      // Use day-level timestamp for deduplication
+      const dayStart = d.dateOriginal ? new Date(d.dateOriginal.getFullYear(), d.dateOriginal.getMonth(), d.dateOriginal.getDate()).getTime() : d.timestamp;
+      return `${dayStart}_${d.value}`;
+    }));
+    let totalSkippedCount = 0;
 
-        // Add all values to data array, avoiding duplicates by ID and timestamp+value
-        const existingIds = new Set(grouped[labType].data.map(d => d.id));
-        const existingValueKeys = new Set(grouped[labType].data.map(d => `${d.timestamp}_${d.value}`));
-        sortedValues.forEach(v => {
-          const valueKey = `${v.timestamp}_${v.value}`;
-          // Only add if we haven't seen this ID or timestamp+value combination before
-          // This prevents duplicates from multiple lab documents or reprocessing issues
-          if (!existingIds.has(v.id) && !existingValueKeys.has(valueKey)) {
+    // Process all lab documents with this type to merge their values
+    for (const lab of labDocuments) {
+      // Load lab values from subcollection
+      try {
+        const values = await labService.getLabValues(lab.id);
+        if (values && values.length > 0) {
+          // Sort by date (oldest first) for trend calculation
+          // Round timestamps to day level (midnight) to handle timezone issues and ensure same-day values are treated as duplicates
+          const sortedValues = values
+            .map(v => {
+              const date = v.date?.toDate ? v.date.toDate() : (v.date ? new Date(v.date) : new Date());
+              const timestamp = date.getTime();
+              // Round to day level (midnight) for deduplication - this prevents same-day duplicates with different times
+              const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+              return {
+                id: v.id,
+                value: v.value,
+                date: date,
+                timestamp: timestamp, // Keep original timestamp for sorting
+                dayTimestamp: dayStart, // Use day-level timestamp for deduplication
+                notes: v.notes || '' // Include notes
+              };
+            })
+            .sort((a, b) => a.timestamp - b.timestamp);
+
+          // Add all values to data array, avoiding duplicates by ID and day+value
+          // Use the persistent deduplication sets that span all lab documents with this type
+          sortedValues.forEach(v => {
+            const valueKey = `${v.dayTimestamp}_${v.value}`;
+            // Only add if we haven't seen this ID or day+value combination before
+            // This prevents duplicates from multiple lab documents or reprocessing issues
+            if (existingIds.has(v.id)) {
+              totalSkippedCount++;
+            } else if (existingValueKeys.has(valueKey)) {
+              totalSkippedCount++;
+            } else {
+              // Format date for display (use local date components to avoid timezone shift)
+              const displayDate = v.date instanceof Date 
+                ? v.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                : (v.date ? new Date(v.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '');
+              
+              grouped[labType].data.push({
+                id: v.id,
+                date: displayDate,
+                dateOriginal: v.date, // Store original Date object for editing
+                value: v.value,
+                timestamp: v.timestamp,
+                notes: v.notes || '' // Store notes for editing
+              });
+              existingIds.add(v.id);
+              existingValueKeys.add(valueKey);
+            }
+          });
+        } else {
+          // No values yet, just use the lab document data
+          const timestamp = lab.createdAt?.toDate ? lab.createdAt.toDate() : (lab.createdAt ? new Date(lab.createdAt) : new Date());
+          const dayStart = new Date(timestamp.getFullYear(), timestamp.getMonth(), timestamp.getDate()).getTime();
+          const valueKey = `${dayStart}_${lab.currentValue}`;
+          
+          // Check if this fallback value is already in the data array (from another lab document with same type)
+          // Use the persistent deduplication sets
+          if (!existingIds.has(lab.id) && !existingValueKeys.has(valueKey)) {
             grouped[labType].data.push({
-              id: v.id,
-              date: v.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-              dateOriginal: v.date, // Store original Date object for editing
-              value: v.value,
-              timestamp: v.timestamp,
-              notes: v.notes || '' // Store notes for editing
+              id: lab.id,
+              date: timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+              dateOriginal: timestamp, // Store original Date object for editing
+              value: lab.currentValue,
+              timestamp: timestamp.getTime(),
+              notes: '' // No notes for initial value
             });
-            existingIds.add(v.id);
+            existingIds.add(lab.id);
             existingValueKeys.add(valueKey);
           }
-        });
-
-        // Calculate trend based on values
-        if (sortedValues.length === 1) {
-          // Only one value - no trend
-          grouped[labType].trend = 'stable';
-        } else if (sortedValues.length >= 2) {
-          // Compare last two values
-          const lastValue = sortedValues[sortedValues.length - 1].value;
-          const previousValue = sortedValues[sortedValues.length - 2].value;
-          
-          if (typeof lastValue === 'number' && typeof previousValue === 'number') {
-            const difference = lastValue - previousValue;
-            const percentChange = Math.abs(difference / previousValue);
-            
-            // Only show trend if change is significant (> 1% to avoid noise)
-            if (percentChange > 0.01) {
-              grouped[labType].trend = difference > 0 ? 'up' : 'down';
-            } else {
-              grouped[labType].trend = 'stable';
-            }
-          } else {
-            grouped[labType].trend = 'stable';
-          }
         }
-
-        // Update current value to most recent
-        if (sortedValues.length > 0) {
-          grouped[labType].current = sortedValues[sortedValues.length - 1].value;
-        }
-      } else {
-        // No values yet, just use the lab document data
-        const timestamp = lab.createdAt?.toDate ? lab.createdAt.toDate() : (lab.createdAt ? new Date(lab.createdAt) : new Date());
+      } catch (error) {
+      console.error(`Error loading values for lab ${lab.id}:`, error);
+      // Fallback to lab document data
+      const timestamp = lab.createdAt?.toDate ? lab.createdAt.toDate() : (lab.createdAt ? new Date(lab.createdAt) : new Date());
+      const dayStart = new Date(timestamp.getFullYear(), timestamp.getMonth(), timestamp.getDate()).getTime();
+      const valueKey = `${dayStart}_${lab.currentValue}`;
+      
+      // Check if this fallback value is already in the data array (from another lab document with same type)
+      // Use the persistent deduplication sets
+      if (!existingIds.has(lab.id) && !existingValueKeys.has(valueKey)) {
         grouped[labType].data.push({
           id: lab.id,
           date: timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
           dateOriginal: timestamp, // Store original Date object for editing
           value: lab.currentValue,
           timestamp: timestamp.getTime(),
-          notes: '' // No notes for initial value
+          notes: '' // No notes for fallback value
         });
+        existingIds.add(lab.id);
+        existingValueKeys.add(valueKey);
+      }
+    }
+    }
+    
+    // CRITICAL: Sort the data array by timestamp after all values from all lab documents are added
+    // This ensures the graph displays points in chronological order
+    grouped[labType].data.sort((a, b) => a.timestamp - b.timestamp);
+    
+    // Only log duplicates in development mode if there are many
+    if (process.env.NODE_ENV === 'development' && totalSkippedCount > 5) {
+      console.warn(`[transformLabsData] Skipped ${totalSkippedCount} duplicate values for ${labType} (across ${labDocuments.length} lab document(s))`);
+    }
+
+    // Calculate trend based on all merged values
+    const allValues = grouped[labType].data;
+    if (allValues.length === 1) {
+      // Only one value - no trend
+      grouped[labType].trend = 'stable';
+    } else if (allValues.length >= 2) {
+      // Compare last two values
+      const lastValue = allValues[allValues.length - 1].value;
+      const previousValue = allValues[allValues.length - 2].value;
+      
+      if (typeof lastValue === 'number' && typeof previousValue === 'number') {
+        const difference = lastValue - previousValue;
+        const percentChange = Math.abs(difference / previousValue);
+        
+        // Only show trend if change is significant (> 1% to avoid noise)
+        if (percentChange > 0.01) {
+          grouped[labType].trend = difference > 0 ? 'up' : 'down';
+        } else {
+          grouped[labType].trend = 'stable';
+        }
+      } else {
         grouped[labType].trend = 'stable';
       }
-    } catch (error) {
-      console.error(`Error loading values for lab ${lab.id}:`, error);
-      // Fallback to lab document data
-      const timestamp = lab.createdAt?.toDate ? lab.createdAt.toDate() : (lab.createdAt ? new Date(lab.createdAt) : new Date());
-      grouped[labType].data.push({
-        id: lab.id,
-        date: timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        dateOriginal: timestamp, // Store original Date object for editing
-        value: lab.currentValue,
-        timestamp: timestamp.getTime(),
-        notes: '' // No notes for fallback value
-      });
-      grouped[labType].trend = 'stable';
+    }
+
+    // Update current value to most recent
+    if (allValues.length > 0) {
+      grouped[labType].current = allValues[allValues.length - 1].value;
     }
   }
 
@@ -152,25 +224,43 @@ export const transformVitalsData = async (vitals) => {
       const values = await vitalService.getVitalValues(vital.id);
       if (values && values.length > 0) {
         // Sort by date (oldest first) for trend calculation
+        // Round timestamps to day level (midnight) to handle timezone issues and ensure same-day values are treated as duplicates
         const sortedValues = values
-          .map(v => ({
-            id: v.id,
-            value: v.value,
-            systolic: v.systolic,
-            diastolic: v.diastolic,
-            date: v.date?.toDate ? v.date.toDate() : (v.date ? new Date(v.date) : new Date()),
-            timestamp: v.date?.toDate ? v.date.toDate().getTime() : (v.date ? new Date(v.date).getTime() : Date.now()),
-            notes: v.notes || ''
-          }))
+          .map(v => {
+            const date = v.date?.toDate ? v.date.toDate() : (v.date ? new Date(v.date) : new Date());
+            const timestamp = date.getTime();
+            // Round to day level (midnight) for deduplication - this prevents same-day duplicates with different times
+            const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+            return {
+              id: v.id,
+              value: v.value,
+              systolic: v.systolic,
+              diastolic: v.diastolic,
+              date: date,
+              timestamp: timestamp, // Keep original timestamp for sorting
+              dayTimestamp: dayStart, // Use day-level timestamp for deduplication
+              notes: v.notes || ''
+            };
+          })
           .sort((a, b) => a.timestamp - b.timestamp);
 
-        // Add all values to data array, avoiding duplicates by ID and timestamp+value
+        // Add all values to data array, avoiding duplicates by ID and day+value
         const existingIds = new Set(grouped[canonicalKey].data.map(d => d.id));
-        const existingValueKeys = new Set(grouped[canonicalKey].data.map(d => `${d.timestamp}_${d.value}_${d.systolic || ''}_${d.diastolic || ''}`));
+        const existingValueKeys = new Set(grouped[canonicalKey].data.map(d => {
+          // Use day-level timestamp for deduplication
+          const dayStart = d.dateOriginal ? new Date(d.dateOriginal.getFullYear(), d.dateOriginal.getMonth(), d.dateOriginal.getDate()).getTime() : d.timestamp;
+          return `${dayStart}_${d.value}_${d.systolic || ''}_${d.diastolic || ''}`;
+        }));
+        let skippedCount = 0;
         sortedValues.forEach(v => {
-          const valueKey = `${v.timestamp}_${v.value}_${v.systolic || ''}_${v.diastolic || ''}`;
-          // Only add if we haven't seen this ID or timestamp+value combination before
+          const valueKey = `${v.dayTimestamp}_${v.value}_${v.systolic || ''}_${v.diastolic || ''}`;
+          // Only add if we haven't seen this ID or day+value combination before
           // This prevents duplicates from multiple vital documents or reprocessing issues
+          if (existingIds.has(v.id)) {
+            skippedCount++;
+          } else if (existingValueKeys.has(valueKey)) {
+            skippedCount++;
+          }
           if (!existingIds.has(v.id) && !existingValueKeys.has(valueKey)) {
             grouped[canonicalKey].data.push({
               id: v.id,
@@ -186,6 +276,19 @@ export const transformVitalsData = async (vitals) => {
             existingValueKeys.add(valueKey);
           }
         });
+        
+        // CRITICAL: Sort the data array by timestamp after all values are added
+        // This ensures the graph displays points in chronological order
+        grouped[canonicalKey].data.sort((a, b) => a.timestamp - b.timestamp);
+        
+        // CRITICAL: Sort the data array by timestamp after all values are added
+        // This ensures the graph displays points in chronological order
+        grouped[canonicalKey].data.sort((a, b) => a.timestamp - b.timestamp);
+        
+        // Only log duplicates in development mode if there are many
+        if (process.env.NODE_ENV === 'development' && skippedCount > 5) {
+          console.warn(`[transformVitalsData] Skipped ${skippedCount} duplicate values for ${canonicalKey}`);
+        }
 
         // Update current value to most recent
         if (sortedValues.length > 0) {

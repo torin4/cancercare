@@ -78,12 +78,17 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
 
   const handleSkipNote = () => {
     // Skip note and proceed to file picker - open file picker directly from user click
-    openFilePicker(selectedType, documentDate || null, null);
+    // Normalize empty strings to null
+    const normalizedDate = documentDate && documentDate.trim() !== '' ? documentDate : null;
+    openFilePicker(selectedType, normalizedDate, null);
   };
 
   const handleContinueWithNote = () => {
     // Continue with note and proceed to file picker - open file picker directly from user click
-    openFilePicker(selectedType, documentDate || null, documentNote || null);
+    // Normalize empty strings to null
+    const normalizedDate = documentDate && documentDate.trim() !== '' ? documentDate : null;
+    const normalizedNote = documentNote && documentNote.trim() !== '' ? documentNote : null;
+    openFilePicker(selectedType, normalizedDate, normalizedNote);
   };
 
   const openFilePicker = (docType, date, note) => {
@@ -105,8 +110,20 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (file) {
+        // Use the parameters passed to openFilePicker, but fall back to component state if needed
+        const dateToUse = date || documentDate || null;
+        const noteToUse = note || documentNote || null;
+        
+        // Normalize empty strings to null before passing
+        const normalizedDate = (dateToUse && typeof dateToUse === 'string' && dateToUse.trim() !== '') 
+          ? dateToUse.trim() 
+          : null;
+        const normalizedNote = (noteToUse && typeof noteToUse === 'string' && noteToUse.trim() !== '') 
+          ? noteToUse.trim() 
+          : null;
+          
         // Pass the file directly to onUploadClick so it can handle the upload
-        onUploadClick(docType, date, note, file);
+        onUploadClick(docType, normalizedDate, normalizedNote, file);
       }
       // Clean up
       if (document.body.contains(input)) {
@@ -289,7 +306,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                       value={documentDate}
                       onChange={(e) => setDocumentDate(e.target.value)}
                       max={new Date().toISOString().split('T')[0]}
-                      placeholder="Select document date"
+                      placeholder="YYYY-MM-DD"
                       showClear={true}
                     />
                     <p className="text-xs text-gray-500 mt-1">

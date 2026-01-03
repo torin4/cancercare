@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
-export default function DatePicker({ value, onChange, max, min, className = '', placeholder = 'Select date', showClear = false }) {
+export default function DatePicker({ value, onChange, max, min, className = '', placeholder = 'YYYY-MM-DD', showClear = false, disabled = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const [viewDate, setViewDate] = useState(value ? new Date(value) : new Date());
   const [selectedDate, setSelectedDate] = useState(value ? new Date(value) : null);
@@ -281,16 +281,22 @@ export default function DatePicker({ value, onChange, max, min, className = '', 
             onFocus={handleInputFocus}
             onBlur={handleInputBlur}
             placeholder={placeholder || 'YYYY-MM-DD'}
+            title="Enter date in YYYY-MM-DD format (e.g., 2025-12-25)"
             maxLength={10}
             pattern="\d{4}-\d{2}-\d{2}"
             className={`w-full border border-gray-300 rounded-lg px-3 py-2.5 pr-10 text-sm bg-white text-left focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-gray-400 transition-colors ${
+              disabled ? 'bg-gray-100 cursor-not-allowed' : ''
+            } ${
               !value ? 'text-gray-500' : 'text-gray-900'
             }`}
           />
           <button
             type="button"
-            onClick={() => setIsOpen(!isOpen)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-gray-100 rounded-lg transition-colors touch-manipulation"
+            onClick={() => !disabled && setIsOpen(!isOpen)}
+            disabled={disabled}
+            className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-gray-100 rounded-lg transition-colors touch-manipulation ${
+              disabled ? 'cursor-not-allowed opacity-50' : ''
+            }`}
             aria-label="Open calendar"
           >
             <Calendar className="w-4 h-4 text-gray-400" />

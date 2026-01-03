@@ -8,7 +8,7 @@ import { getSavedTrials } from '../../services/clinicalTrials/clinicalTrialsServ
 import { parseMutation, getTodayLocalDate } from '../../utils/helpers';
 import { formatLabel } from '../../utils/formatters';
 import { normalizeLabName, getLabDisplayName, labValueDescriptions, normalizeVitalName, getVitalDisplayName, vitalDescriptions, labKeyMap } from '../../utils/normalizationUtils';
-import { processDocument } from '../../services/documentProcessor';
+import { processDocument, generateChatSummary } from '../../services/documentProcessor';
 import { uploadDocument } from '../../firebase/storage';
 import AddSymptomModal from '../modals/AddSymptomModal';
 import AddLabModal from '../modals/AddLabModal';
@@ -148,11 +148,24 @@ export default function DashboardTab({ onTabChange }) {
       const uploadResult = await uploadDocument(file, user.uid, {
         category: processingResult.documentType || docType,
         documentType: processingResult.documentType || docType,
+        date: providedDate || null, // Pass the date to be saved with document
         note: providedNote || null,
         dataPointCount: processingResult.dataPointCount || 0
       });
 
       console.log('File uploaded successfully:', uploadResult);
+
+      // Step 3: Link all extracted values to the document ID
+      setUploadProgress('Linking data to document...');
+      if (processingResult.extractedData && uploadResult.id) {
+        try {
+          const { linkValuesToDocument } = await import('../../services/documentProcessor');
+          await linkValuesToDocument(processingResult.extractedData, uploadResult.id, user.uid);
+          console.log('[DashboardTab] Successfully linked all values to document', uploadResult.id);
+        } catch (linkError) {
+          console.error('[DashboardTab] Error linking values to document:', linkError);
+        }
+      }
 
       setUploadProgress('Saving extracted data...');
 
@@ -160,29 +173,25 @@ export default function DashboardTab({ onTabChange }) {
       setUploadProgress('Refreshing your health data...');
       await reloadHealthData();
 
-      setIsUploading(false);
-      setUploadProgress('');
-      const dataPointText = processingResult.dataPointCount > 0 
-        ? ` ${processingResult.dataPointCount} data point${processingResult.dataPointCount !== 1 ? 's' : ''} extracted.`
-        : '';
-      showSuccess(`Document uploaded and processed successfully!${dataPointText} All extracted data has been saved to your health records.`);
-      
-      // Navigate to relevant tab based on document type
-      const detectedDocType = (processingResult.documentType || docType || '').toLowerCase();
-      if (detectedDocType === 'lab' || detectedDocType === 'labs') {
-        onTabChange('health');
-      } else if (detectedDocType === 'vital' || detectedDocType === 'vitals') {
-        onTabChange('health');
-      } else if (detectedDocType === 'genomic' || detectedDocType === 'genome') {
-        onTabChange('profile');
-      } else if (detectedDocType === 'symptom' || detectedDocType === 'symptoms') {
-        onTabChange('health');
-      } else if (detectedDocType === 'medication' || detectedDocType === 'medications') {
-        onTabChange('health');
-      } else {
-        // Default: go to files tab
-        onTabChange('files');
-      }
+setIsUploading(false);
+       setUploadProgress('');
+       const dataPointText = processingResult.dataPointCount > 0 
+         ? ` ${processingResult.dataPointCount} data point${processingResult.dataPointCount !== 1 ? 's' : ''} extracted.`
+         : '';
+       showSuccess(`Document uploaded and processed successfully!${dataPointText} All extracted data has been saved to your health records.`);
+       
+       // Generate chat summary and navigate to chat
+       const chatSummary = generateChatSummary(processingResult.extractedData, processingResult.extractedData);
+       
+       // Store the summary in sessionStorage for the chat tab to pick up
+       sessionStorage.setItem('uploadSummary', JSON.stringify({
+         summary: chatSummary,
+         timestamp: Date.now(),
+         documentType: processingResult.documentType || docType
+       }));
+       
+       // Navigate to chat tab
+       onTabChange('chat');
     } catch (error) {
       console.error('Upload error:', error);
       showError(`Failed to process document: ${error.message}. The file was not uploaded. Please try again or contact support if the issue persists.`);
@@ -918,6 +927,13 @@ export default function DashboardTab({ onTabChange }) {
           }}
         />
       )}
+
+      {/* Upload Progress Overlay */}
+      <UploadProgressOverlay
+        show={isUploading}
+        uploadProgress={uploadProgress}
+        documentScanAnimation={null}
+      />
     </>
   );
 }

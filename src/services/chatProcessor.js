@@ -273,7 +273,70 @@ When answering questions about this trial, you should:
     // Build health context section if provided
     let healthContextSection = '';
     if (healthContext) {
-      // Format labs data - show summary with latest values and notes
+      // Helper function to format date as YYYY-MM-DD (avoids timezone issues)
+      const formatDateString = (date) => {
+        if (!date) return null;
+        try {
+          // Handle Firestore Timestamp
+          if (date.toDate) {
+            const d = date.toDate();
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          }
+          // Handle Date object
+          if (date instanceof Date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          }
+          // Handle string (already in YYYY-MM-DD format or needs parsing)
+          if (typeof date === 'string') {
+            // If already in YYYY-MM-DD format, return as is
+            if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+              return date;
+            }
+            // Otherwise parse it
+            const d = new Date(date);
+            if (!isNaN(d.getTime())) {
+              const year = d.getFullYear();
+              const month = String(d.getMonth() + 1).padStart(2, '0');
+              const day = String(d.getDate()).padStart(2, '0');
+              return `${year}-${month}-${day}`;
+            }
+          }
+          return null;
+        } catch (e) {
+          console.warn('Error formatting date:', date, e);
+          return null;
+        }
+      };
+
+      // Fetch all documents to get document dates
+      // This allows us to use the document date entered during upload
+      let documentDateMap = {};
+      try {
+        const { documentService } = await import('../firebase/services');
+        const documents = await documentService.getDocuments(userId);
+        // Create a map of documentId -> document date
+        documents.forEach(doc => {
+          if (doc.id && doc.date) {
+            const docDate = formatDateString(doc.date);
+            if (docDate) {
+              documentDateMap[doc.id] = docDate;
+            }
+          }
+        });
+        console.log(`[chatProcessor] Loaded ${Object.keys(documentDateMap).length} document dates for health context`);
+      } catch (error) {
+        console.warn('[chatProcessor] Error loading document dates:', error);
+        // Continue without document dates - will fall back to value dates
+      }
+
+      // Format labs data - show summary with latest values, dates, and notes
+      // PRIORITY: Use document date if value has documentId, otherwise use value date
       const labsCount = healthContext.labs ? healthContext.labs.length : 0;
       const labsSummary = labsCount > 0
         ? healthContext.labs.map(lab => {
@@ -281,14 +344,39 @@ When answering questions about this trial, you should:
               ? lab.values[lab.values.length - 1] 
               : null;
             const valueStr = latestValue ? `${latestValue.value} ${lab.unit || ''}` : lab.currentValue || 'N/A';
-            const noteStr = latestValue?.notes && latestValue.notes !== 'Extracted from document' 
-              ? ` (Note: ${latestValue.notes})` 
-              : '';
-            return `${lab.label || lab.labType}: ${valueStr} ${lab.unit || ''} (${lab.status || 'unknown'})${noteStr}`;
+            
+            // Get date: prefer document date if value has documentId, otherwise use value date
+            let dateStr = null;
+            if (latestValue?.documentId && documentDateMap[latestValue.documentId]) {
+              // Use document date entered during upload
+              dateStr = documentDateMap[latestValue.documentId];
+              console.log(`[chatProcessor] Using document date ${dateStr} for lab ${lab.label} (documentId: ${latestValue.documentId})`);
+            } else if (latestValue?.date) {
+              // Fall back to value date
+              dateStr = formatDateString(latestValue.date);
+            } else if (lab.createdAt) {
+              // Last resort: use lab creation date
+              dateStr = formatDateString(lab.createdAt);
+            }
+            
+            const dateDisplay = dateStr ? ` on ${dateStr}` : '';
+            // Format note: extract just the context part if it's in "Extracted from document. Context: {note}" format
+            let noteStr = '';
+            if (latestValue?.notes && latestValue.notes !== 'Extracted from document') {
+              // If note contains "Context: ", extract just the context part for cleaner display
+              if (latestValue.notes.includes('Context: ')) {
+                const contextPart = latestValue.notes.split('Context: ')[1];
+                noteStr = ` (Note: ${contextPart})`;
+              } else {
+                noteStr = ` (Note: ${latestValue.notes})`;
+              }
+            }
+            return `${lab.label || lab.labType}: ${valueStr}${dateDisplay} (${lab.status || 'unknown'})${noteStr}`;
           }).join(', ')
         : 'No lab data available';
 
-      // Format vitals data - show summary with latest values and notes
+      // Format vitals data - show summary with latest values, dates, and notes
+      // PRIORITY: Use document date if value has documentId, otherwise use value date
       const vitalsCount = healthContext.vitals ? healthContext.vitals.length : 0;
       const vitalsSummary = vitalsCount > 0
         ? healthContext.vitals.map(vital => {
@@ -296,10 +384,34 @@ When answering questions about this trial, you should:
               ? vital.values[vital.values.length - 1] 
               : null;
             const valueStr = latestValue ? latestValue.value : vital.currentValue || 'N/A';
-            const noteStr = latestValue?.notes && latestValue.notes !== 'Extracted from document' 
-              ? ` (Note: ${latestValue.notes})` 
-              : '';
-            return `${vital.label || vital.vitalType}: ${valueStr} ${vital.unit || ''}${noteStr}`;
+            
+            // Get date: prefer document date if value has documentId, otherwise use value date
+            let dateStr = null;
+            if (latestValue?.documentId && documentDateMap[latestValue.documentId]) {
+              // Use document date entered during upload
+              dateStr = documentDateMap[latestValue.documentId];
+              console.log(`[chatProcessor] Using document date ${dateStr} for vital ${vital.label} (documentId: ${latestValue.documentId})`);
+            } else if (latestValue?.date) {
+              // Fall back to value date
+              dateStr = formatDateString(latestValue.date);
+            } else if (vital.createdAt) {
+              // Last resort: use vital creation date
+              dateStr = formatDateString(vital.createdAt);
+            }
+            
+            const dateDisplay = dateStr ? ` on ${dateStr}` : '';
+            // Format note: extract just the context part if it's in "Extracted from document. Context: {note}" format
+            let noteStr = '';
+            if (latestValue?.notes && latestValue.notes !== 'Extracted from document') {
+              // If note contains "Context: ", extract just the context part for cleaner display
+              if (latestValue.notes.includes('Context: ')) {
+                const contextPart = latestValue.notes.split('Context: ')[1];
+                noteStr = ` (Note: ${contextPart})`;
+              } else {
+                noteStr = ` (Note: ${latestValue.notes})`;
+              }
+            }
+            return `${vital.label || vital.vitalType}: ${valueStr}${dateDisplay} ${vital.unit || ''}${noteStr}`;
           }).join(', ')
         : 'No vital signs data available';
 
@@ -334,6 +446,7 @@ When answering questions about the user's health data, you should:
 8. Use MARKDOWN formatting: **bold** for important values and key terms, bullet points for lists
 9. If values are outside normal ranges, explain what this might mean but emphasize consulting with their medical team
 10. Look for patterns across different data types (e.g., low hemoglobin + fatigue symptoms)
+11. CRITICAL: When referring to dates, use the EXACT dates shown in the health context (format: YYYY-MM-DD). These dates are the DOCUMENT DATES entered by the user when uploading documents. Do NOT adjust or modify dates - use them exactly as provided. If a value shows "on 2025-12-24", refer to it as December 24, 2025, NOT December 25, 2025. The dates shown in the health context are the actual document dates from when the user uploaded the documents, which may differ from the test dates extracted from the document content.
 
 ═══════════════════════════════════════════════════════════════════════════════`;
     }

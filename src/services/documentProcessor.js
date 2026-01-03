@@ -1,8 +1,15 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { labService, vitalService, medicationService, genomicProfileService } from '../firebase/services';
 import { parseLocalDate } from '../utils/helpers';
+import { cleanupDocumentData, verifyCleanupComplete } from './documentCleanupService';
 
-const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY || process.env.GEMINI_API_KEY);
+// Check if API key is available
+const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
+if (!apiKey) {
+  console.error('REACT_APP_GEMINI_API_KEY is not set. Please set it in Vercel environment variables and redeploy.');
+}
+
+const genAI = new GoogleGenerativeAI(apiKey || '');
 
 /**
  * Process an uploaded medical document
@@ -64,6 +71,10 @@ async function fileToBase64(file) {
  * @param {string|null} documentDate - Optional date provided by user (YYYY-MM-DD format)
  */
 async function analyzeDocument(base64Data, mimeType, patientProfile = null, documentDate = null) {
+  if (!apiKey) {
+    throw new Error('Gemini API key is not configured. Please set REACT_APP_GEMINI_API_KEY in Vercel environment variables and redeploy.');
+  }
+  
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
   // Build patient demographics section if provided
@@ -130,7 +141,7 @@ DOCUMENT DATE: NOT PROVIDED BY USER
 The user did not provide a document date. You MUST extract the date from the document itself.
 - Look for dates in the document (test date, report date, collection date, etc.)
 - Use the most relevant date for the medical data (prefer test/collection date over report date)
-- If no date is found, use today's date as a last resort: ${new Date().toISOString().split('T')[0]}
+- If no date is found, use today's date as a last resort: ${parseLocalDate(new Date().toISOString().split('T')[0]).toISOString().split('T')[0]}
 - Format dates consistently as YYYY-MM-DD
 
 ═══════════════════════════════════════════════════════════════════════════════`;
@@ -184,7 +195,7 @@ STEP 3: DATE ASSIGNMENT RULES:
 - For GENOMIC REPORTS: Use the test date (testDate) from testInfo section
 - For VITALS: Use the measurement date
 - If multiple dates exist, use the MOST RECENT test/collection date
-${documentDate ? `- If NO date is found after thorough search, use the user-provided date: ${documentDate}` : `- If NO date is found after thorough search, ONLY THEN use: ${new Date().toISOString().split('T')[0]}`}
+${documentDate ? `- If NO date is found after thorough search, use the user-provided date: ${documentDate}` : `- If NO date is found after thorough search, ONLY THEN use: ${parseLocalDate(new Date().toISOString().split('T')[0]).toISOString().split('T')[0]}`}
 
 STEP 4: VALIDATION:
 - Every lab value MUST have a "date" field
@@ -227,8 +238,8 @@ Return a JSON object with this EXACT structure:
     - ALL lab values in the "labs" array MUST use the SAME date - the collection/test date from the document
     - Do NOT use different dates for different lab values from the same report
     - Do NOT skip the date field - it is MANDATORY
-    - Example: If document shows "採取日時: 2025/12/25" or "Collection Date: 12/25/2025", ALL labs should have "date": "2025-12-25"
-    - If you cannot find a date after searching the entire document, use today's date: ${new Date().toISOString().split('T')[0]}
+- Example: If document shows "採取日時: 2025/12/25" or "Collection Date: 12/25/2025", ALL labs should have "date": "2025-12-25"
+     - If you cannot find a date after searching the entire document, use today's date: ${parseLocalDate(new Date().toISOString().split('T')[0]).toISOString().split('T')[0]}
 
     // For Vitals:
     "vitals": [
@@ -435,7 +446,7 @@ GENERAL RULES:
 - CRITICAL: For normalRange field - only include if explicitly shown in the document. If not shown, DO NOT include the field at all
 - CRITICAL: For date fields - ALWAYS extract the actual test/collection/report date from the document. Look carefully for date labels
 - VALIDATION: Before returning JSON, verify that EVERY lab has a "date" field, EVERY vital has a "date" field, and genomic testInfo has a "testDate" field
-- If you cannot find dates after thorough search, you MUST still include date fields using today's date: ${new Date().toISOString().split('T')[0]}`;
+- If you cannot find dates after thorough search, you MUST still include date fields using today's date: ${parseLocalDate(new Date().toISOString().split('T')[0]).toISOString().split('T')[0]}`;
 
   const result = await model.generateContent([
     {
@@ -487,6 +498,7 @@ GENERAL RULES:
  * @param {string|null} documentDate - Optional date provided by user (YYYY-MM-DD format)
  */
 async function saveExtractedData(extractedData, userId, documentDate = null, documentNote = null, documentId = null) {
+  const startTime = Date.now();
   const savedData = {
     labs: [],
     vitals: [],
@@ -494,111 +506,96 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
     genomic: null
   };
 
+  console.log(`[saveExtractedData] 🚀 Starting data extraction save process`, {
+    documentId: documentId || 'NEW UPLOAD',
+    userId,
+    hasLabs: !!(extractedData.data?.labs?.length),
+    hasVitals: !!(extractedData.data?.vitals?.length),
+    hasGenomic: !!extractedData.data?.genomic,
+    hasMedications: !!(extractedData.data?.medications?.length)
+  });
+
   try {
     // If reprocessing (documentId provided), delete ALL existing values from this document first
     // This prevents duplicates when reprocessing the same document
     if (documentId) {
-      console.log(`Reprocessing document ${documentId} - deleting existing values...`);
-      
-      // Track labs that might become orphaned after deletion
-      const labsToCheck = new Set();
-      
-      // Delete all lab values with this documentId
-      const allLabs = await labService.getLabs(userId);
-      for (const labDoc of allLabs) {
-        const values = await labService.getLabValues(labDoc.id);
-        let deletedCount = 0;
-        for (const value of values) {
-          if (value.documentId === documentId) {
-            try {
-              await labService.deleteLabValue(labDoc.id, value.id);
-              console.log(`Deleted lab value ${value.id} from document ${documentId}`);
-              deletedCount++;
-            } catch (error) {
-              console.warn(`Error deleting lab value ${value.id}:`, error);
-            }
-          }
-        }
-        // If we deleted values, check if the lab is now empty
-        if (deletedCount > 0) {
-          labsToCheck.add(labDoc.id);
-        }
-      }
-      
-      // Delete all vital values with this documentId
-      const allVitals = await vitalService.getVitals(userId);
-      for (const vitalDoc of allVitals) {
-        const values = await vitalService.getVitalValues(vitalDoc.id);
-        for (const value of values) {
-          if (value.documentId === documentId) {
-            try {
-              await vitalService.deleteVitalValue(vitalDoc.id, value.id);
-              console.log(`Deleted vital value ${value.id} from document ${documentId}`);
-            } catch (error) {
-              console.warn(`Error deleting vital value ${value.id}:`, error);
-            }
-          }
-        }
-      }
-      
-      // Clean up any labs that became orphaned (no values left)
-      for (const labId of labsToCheck) {
-        try {
-          const remainingValues = await labService.getLabValues(labId);
-          if (!remainingValues || remainingValues.length === 0) {
-            console.log(`Lab ${labId} is now orphaned (no values), deleting...`);
-            await labService.deleteLab(labId);
-            console.log(`Deleted orphaned lab ${labId}`);
-          }
-        } catch (error) {
-          console.warn(`Error checking/deleting orphaned lab ${labId}:`, error);
-        }
-      }
-      
-      // Also run full cleanup to catch any other orphaned labs
+      console.log(`[DocumentProcessor] Reprocessing document ${documentId} - using comprehensive cleanup service`);
+
       try {
-        const orphanedCount = await labService.cleanupOrphanedLabs(userId);
-        if (orphanedCount > 0) {
-          console.log(`Cleaned up ${orphanedCount} orphaned labs after reprocessing`);
+        // Use the comprehensive cleanup service
+        // Use non-aggressive cleanup - only delete values with matching documentId (not all values)
+        const cleanupResults = await cleanupDocumentData(documentId, userId, false);
+
+        console.log(`[DocumentProcessor] Cleanup complete:`, {
+          labValues: cleanupResults.labValuesDeleted,
+          vitalValues: cleanupResults.vitalValuesDeleted,
+          medications: cleanupResults.medicationsDeleted,
+          orphanedLabs: cleanupResults.orphanedLabsDeleted,
+          orphanedVitals: cleanupResults.orphanedVitalsDeleted,
+          legacyLabValues: cleanupResults.legacyLabValuesDeleted || 0,
+          legacyVitalValues: cleanupResults.legacyVitalValuesDeleted || 0,
+          duration: cleanupResults.duration + 'ms'
+        });
+
+        // Verify cleanup was successful
+        const verification = await verifyCleanupComplete(documentId, userId);
+        if (!verification.isComplete) {
+          console.warn(`[DocumentProcessor] ⚠️ Cleanup verification failed - some data may remain:`, verification);
+        } else {
+          console.log(`[DocumentProcessor] ✓ Cleanup verified - all document data removed`);
         }
-      } catch (error) {
-        console.warn('Error running orphaned labs cleanup:', error);
+      } catch (cleanupError) {
+        console.error(`[DocumentProcessor] Error during cleanup:`, cleanupError);
+        // Don't throw - continue with reprocessing even if cleanup had issues
+        console.warn(`[DocumentProcessor] Continuing with reprocessing despite cleanup errors`);
       }
-      
-      console.log(`Finished deleting existing values from document ${documentId}`);
     }
 
     // Save Lab Results
     if (extractedData.data?.labs) {
+      // Deduplicate labs from the same upload by labType + value + date
+      // This prevents the AI from creating duplicate entries if it extracts the same lab multiple times
+      const seenLabs = new Map(); // key: `${labType}_${value}_${date}`, value: lab object
+      const uniqueLabs = [];
+      
       for (const lab of extractedData.data.labs) {
-        // Parse date - try multiple formats and fallback to user-provided date or today if missing
-        // Use parseLocalDate to avoid timezone issues (prevents dates from shifting by one day)
-        let labDate = new Date();
+        // Parse date first to create deduplication key
+        let labDate = parseLocalDate(new Date().toISOString().split('T')[0]);
         if (lab.date) {
-          // Try parsing the date string as local date
           const parsedDate = parseLocalDate(lab.date);
           if (!isNaN(parsedDate.getTime())) {
             labDate = parsedDate;
-          } else {
-            console.warn(`Could not parse lab date "${lab.date}" for ${lab.label}, using fallback date`);
-            // Try user-provided date, otherwise use today
-            if (documentDate) {
-              const userDate = parseLocalDate(documentDate);
-              if (!isNaN(userDate.getTime())) {
-                labDate = userDate;
-              }
-            }
-          }
-        } else {
-          console.warn(`Lab ${lab.label} missing date field, using fallback date`);
-          // Use user-provided date if available, otherwise use today
-          if (documentDate) {
+          } else if (documentDate) {
             const userDate = parseLocalDate(documentDate);
             if (!isNaN(userDate.getTime())) {
               labDate = userDate;
             }
           }
+        } else if (documentDate) {
+          const userDate = parseLocalDate(documentDate);
+          if (!isNaN(userDate.getTime())) {
+            labDate = userDate;
+          }
         }
+        
+        // Create deduplication key: labType + value + date (day level)
+        const dateKey = labDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        const dedupKey = `${(lab.labType || 'other').toLowerCase()}_${lab.value}_${dateKey}`;
+        
+        if (!seenLabs.has(dedupKey)) {
+          seenLabs.set(dedupKey, lab);
+          uniqueLabs.push({ ...lab, _parsedDate: labDate }); // Store parsed date for later use
+        } else {
+          console.log(`[saveExtractedData] Skipping duplicate lab from same upload: ${lab.label || lab.labType} = ${lab.value} on ${dateKey}`);
+        }
+      }
+      
+      console.log(`[saveExtractedData] 📊 Lab deduplication: ${extractedData.data.labs.length} extracted → ${uniqueLabs.length} unique labs (${extractedData.data.labs.length - uniqueLabs.length} duplicates removed)`);
+      
+      for (const lab of uniqueLabs) {
+        // Use the pre-parsed date
+        const labDate = lab._parsedDate;
+        // Date already parsed during deduplication, use it directly
 
         // Ensure all fields have defined values (Firestore doesn't accept undefined)
         const labData = {
@@ -625,48 +622,95 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
           labId = await labService.saveLab(labData);
         }
         
-        // Create new lab value (existing values with this documentId were already deleted above if reprocessing)
-        await labService.addLabValue(labId, {
-          value: lab.value,
-          date: labDate,
-          notes: documentNote ? `Extracted from document. Context: ${documentNote}` : `Extracted from document`,
-          documentId: documentId || null
+        // Cross-document deduplication: Check if same lab+value+date already exists
+        // Convert date to timestamp for comparison (day-level precision)
+        const dayStart = new Date(labDate.getFullYear(), labDate.getMonth(), labDate.getDate()).getTime();
+        const existingValues = await labService.getLabValues(labId);
+        const duplicateValue = existingValues.find(v => {
+          const vDate = v.date?.toDate ? v.date.toDate() : (v.date ? new Date(v.date) : null);
+          if (!vDate) return false;
+          const vDayStart = new Date(vDate.getFullYear(), vDate.getMonth(), vDate.getDate()).getTime();
+          return vDayStart === dayStart && v.value === lab.value;
         });
+        
+        let valueId;
+        if (duplicateValue) {
+          // Update existing value with new documentId and note if different
+          valueId = duplicateValue.id;
+          const newNote = documentNote ? `Extracted from document. Context: ${documentNote}` : `Extracted from document`;
+          if (duplicateValue.documentId !== documentId || duplicateValue.notes !== newNote) {
+            await labService.updateLabValue(labId, valueId, {
+              value: lab.value,
+              date: labDate,
+              notes: newNote,
+              documentId: documentId || null
+            });
+            console.log(`[saveExtractedData] Updated existing lab value ${valueId} (duplicate detected)`);
+          } else {
+            console.log(`[saveExtractedData] Skipping duplicate lab value: ${lab.label || lab.labType} = ${lab.value} on ${labDate.toISOString().split('T')[0]}`);
+          }
+        } else {
+          // Create new lab value (existing values with this documentId were already deleted above if reprocessing)
+          valueId = await labService.addLabValue(labId, {
+            value: lab.value,
+            date: labDate,
+            notes: documentNote ? `Extracted from document. Context: ${documentNote}` : `Extracted from document`,
+            documentId: documentId || null
+          });
+        }
 
-        savedData.labs.push({ labId, ...lab });
+        savedData.labs.push({ labId, valueId, ...lab });
       }
     }
 
     // Save Vitals
     if (extractedData.data?.vitals) {
+      // Deduplicate vitals from the same upload by vitalType + value + date
+      const seenVitals = new Map(); // key: `${vitalType}_${value}_${date}`, value: vital object
+      const uniqueVitals = [];
+      
       for (const vital of extractedData.data.vitals) {
-        // Parse date - try multiple formats and fallback to user-provided date or today if missing
-        // Use parseLocalDate to avoid timezone issues (prevents dates from shifting by one day)
-        let vitalDate = new Date();
+        // Parse date first to create deduplication key
+        let vitalDate = parseLocalDate(new Date().toISOString().split('T')[0]);
         if (vital.date) {
           const parsedDate = parseLocalDate(vital.date);
           if (!isNaN(parsedDate.getTime())) {
             vitalDate = parsedDate;
-          } else {
-            console.warn(`Could not parse vital date "${vital.date}" for ${vital.label}, using fallback date`);
-            // Try user-provided date, otherwise use today
-            if (documentDate) {
-              const userDate = parseLocalDate(documentDate);
-              if (!isNaN(userDate.getTime())) {
-                vitalDate = userDate;
-              }
-            }
-          }
-        } else {
-          console.warn(`Vital ${vital.label} missing date field, using fallback date`);
-          // Use user-provided date if available, otherwise use today
-          if (documentDate) {
+          } else if (documentDate) {
             const userDate = parseLocalDate(documentDate);
             if (!isNaN(userDate.getTime())) {
               vitalDate = userDate;
             }
           }
+        } else if (documentDate) {
+          const userDate = parseLocalDate(documentDate);
+          if (!isNaN(userDate.getTime())) {
+            vitalDate = userDate;
+          }
         }
+        
+        // Create deduplication key: vitalType + value + date (day level)
+        // For BP, include systolic/diastolic in the key
+        const dateKey = vitalDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        const valueKey = vital.vitalType === 'bp' || vital.vitalType === 'bloodpressure'
+          ? `${vital.systolic || vital.value}_${vital.diastolic || ''}`
+          : vital.value;
+        const dedupKey = `${(vital.vitalType || 'other').toLowerCase()}_${valueKey}_${dateKey}`;
+        
+        if (!seenVitals.has(dedupKey)) {
+          seenVitals.set(dedupKey, vital);
+          uniqueVitals.push({ ...vital, _parsedDate: vitalDate }); // Store parsed date for later use
+        } else {
+          console.log(`[saveExtractedData] Skipping duplicate vital from same upload: ${vital.label || vital.vitalType} = ${vital.value} on ${dateKey}`);
+        }
+      }
+      
+      console.log(`[saveExtractedData] 📊 Vital deduplication: ${extractedData.data.vitals.length} extracted → ${uniqueVitals.length} unique vitals (${extractedData.data.vitals.length - uniqueVitals.length} duplicates removed)`);
+      
+      for (const vital of uniqueVitals) {
+        // Use the pre-parsed date
+        const vitalDate = vital._parsedDate;
+        // Date already parsed during deduplication, use it directly
 
         // Ensure all fields have defined values (Firestore doesn't accept undefined)
         const vitalData = {
@@ -692,15 +736,51 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
           vitalId = await vitalService.saveVital(vitalData);
         }
         
-        // Create new vital value (existing values with this documentId were already deleted above if reprocessing)
-        await vitalService.addVitalValue(vitalId, {
-          value: vital.value,
-          date: vitalDate,
-          notes: documentNote ? `Extracted from document. Context: ${documentNote}` : `Extracted from document`,
-          documentId: documentId || null
+        // Cross-document deduplication: Check if same vital+value+date already exists
+        const dayStart = new Date(vitalDate.getFullYear(), vitalDate.getMonth(), vitalDate.getDate()).getTime();
+        const existingValues = await vitalService.getVitalValues(vitalId);
+        const duplicateValue = existingValues.find(v => {
+          const vDate = v.date?.toDate ? v.date.toDate() : (v.date ? new Date(v.date) : null);
+          if (!vDate) return false;
+          const vDayStart = new Date(vDate.getFullYear(), vDate.getMonth(), vDate.getDate()).getTime();
+          // For BP, also check systolic/diastolic
+          if (vital.vitalType === 'bp' || vital.vitalType === 'bloodpressure') {
+            return vDayStart === dayStart && 
+                   v.systolic === vital.systolic && 
+                   v.diastolic === vital.diastolic;
+          }
+          return vDayStart === dayStart && v.value === vital.value;
         });
+        
+        let valueId;
+        if (duplicateValue) {
+          // Update existing value with new documentId and note if different
+          valueId = duplicateValue.id;
+          const newNote = documentNote ? `Extracted from document. Context: ${documentNote}` : `Extracted from document`;
+          if (duplicateValue.documentId !== documentId || duplicateValue.notes !== newNote) {
+            await vitalService.updateVitalValue(vitalId, valueId, {
+              value: vital.value,
+              date: vitalDate,
+              notes: newNote,
+              systolic: vital.systolic,
+              diastolic: vital.diastolic,
+              documentId: documentId || null
+            });
+            console.log(`[saveExtractedData] Updated existing vital value ${valueId} (duplicate detected)`);
+          } else {
+            console.log(`[saveExtractedData] Skipping duplicate vital value: ${vital.label || vital.vitalType} = ${vital.value} on ${vitalDate.toISOString().split('T')[0]}`);
+          }
+        } else {
+          // Create new vital value (existing values with this documentId were already deleted above if reprocessing)
+          valueId = await vitalService.addVitalValue(vitalId, {
+            value: vital.value,
+            date: vitalDate,
+            notes: documentNote ? `Extracted from document. Context: ${documentNote}` : `Extracted from document`,
+            documentId: documentId || null
+          });
+        }
 
-        savedData.vitals.push({ vitalId, ...vital });
+        savedData.vitals.push({ vitalId, valueId, ...vital });
       }
     }
 
@@ -733,7 +813,7 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         fdaApprovedTherapies: genomicData.fdaApprovedTherapies || [],
         clinicalTrialEligible: genomicData.clinicalTrialEligible || false,
 
-        lastUpdated: new Date()
+        lastUpdated: parseLocalDate(new Date().toISOString().split('T')[0])
       };
 
       // Only include test info fields if they have defined values
@@ -746,7 +826,7 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
           genomicProfile.testDate = parsedTestDate;
         } else {
           console.warn(`Could not parse genomic testDate "${genomicData.testInfo.testDate}", using today's date`);
-          genomicProfile.testDate = new Date();
+genomicProfile.testDate = parseLocalDate(new Date().toISOString().split('T')[0]);
         }
       } else {
         console.warn('Genomic test missing testDate field, using today\'s date');
@@ -843,19 +923,209 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
           name: med.name,
           dosage: med.dosage,
           frequency: med.frequency,
-          startDate: new Date(med.startDate),
-          active: true
+          startDate: med.startDate ? parseLocalDate(med.startDate) : new Date(),
+          active: true,
+          documentId: documentId || null,  // Track which document this came from
+          extractedFromDocument: true      // Flag that this was auto-extracted
         });
 
         savedData.medications.push({ medId, ...med });
       }
     }
 
+    const duration = Date.now() - startTime;
+    const totalValues = savedData.labs.length + savedData.vitals.length;
+    console.log(`[saveExtractedData] ✅ Data extraction save complete in ${duration}ms:`, {
+      labs: savedData.labs.length,
+      vitals: savedData.vitals.length,
+      medications: savedData.medications.length,
+      hasGenomic: !!savedData.genomic,
+      totalValues,
+      documentId: documentId || 'NEW (will be linked after document creation)'
+    });
+
     return savedData;
   } catch (error) {
-    console.error('Error saving extracted data:', error);
+    const duration = Date.now() - startTime;
+    console.error(`[saveExtractedData] ❌ Error saving extracted data after ${duration}ms:`, error);
     throw error;
   }
+}
+
+/**
+ * Link all values created during processing to a document ID
+ * This is used for new uploads where document is created AFTER processing
+ * @param {Object} savedData - The saved data returned from saveExtractedData
+ * @param {string} documentId - The document ID to link values to
+ * @param {string} userId - User ID
+ */
+export async function linkValuesToDocument(savedData, documentId, userId) {
+  if (!documentId) {
+    console.warn('[linkValuesToDocument] ⚠️ No documentId provided, skipping linking');
+    return { linked: 0, errors: [] };
+  }
+
+  console.log(`[linkValuesToDocument] 🔗 Starting linking process for document ${documentId}`);
+  const startTime = Date.now();
+  let linkedCount = 0;
+  const errors = [];
+
+  try {
+    // Link lab values
+    if (savedData.labs && savedData.labs.length > 0) {
+      console.log(`[linkValuesToDocument] Processing ${savedData.labs.length} lab values`);
+      for (const lab of savedData.labs) {
+        if (lab.labId && lab.valueId) {
+          try {
+            await labService.updateLabValueDocumentId(lab.labId, lab.valueId, documentId);
+            linkedCount++;
+            console.log(`[linkValuesToDocument] ✓ Linked lab value ${lab.valueId} (${lab.label || lab.labType}) to document ${documentId}`);
+          } catch (error) {
+            const errorMsg = `Error linking lab value ${lab.valueId}: ${error.message}`;
+            console.error(`[linkValuesToDocument] ✗ ${errorMsg}`);
+            errors.push(errorMsg);
+          }
+        } else {
+          console.warn(`[linkValuesToDocument] ⚠️ Lab value missing labId or valueId:`, lab);
+        }
+      }
+    } else {
+      console.log(`[linkValuesToDocument] No lab values to link`);
+    }
+
+    // Link vital values
+    if (savedData.vitals && savedData.vitals.length > 0) {
+      console.log(`[linkValuesToDocument] Processing ${savedData.vitals.length} vital values`);
+      for (const vital of savedData.vitals) {
+        if (vital.vitalId && vital.valueId) {
+          try {
+            await vitalService.updateVitalValueDocumentId(vital.vitalId, vital.valueId, documentId);
+            linkedCount++;
+            console.log(`[linkValuesToDocument] ✓ Linked vital value ${vital.valueId} (${vital.label || vital.vitalType}) to document ${documentId}`);
+          } catch (error) {
+            const errorMsg = `Error linking vital value ${vital.valueId}: ${error.message}`;
+            console.error(`[linkValuesToDocument] ✗ ${errorMsg}`);
+            errors.push(errorMsg);
+          }
+        } else {
+          console.warn(`[linkValuesToDocument] ⚠️ Vital value missing vitalId or valueId:`, vital);
+        }
+      }
+    } else {
+      console.log(`[linkValuesToDocument] No vital values to link`);
+    }
+
+    const duration = Date.now() - startTime;
+    console.log(`[linkValuesToDocument] ✅ Linking complete: ${linkedCount} values linked in ${duration}ms`);
+    if (errors.length > 0) {
+      console.warn(`[linkValuesToDocument] ⚠️ ${errors.length} errors during linking`);
+    }
+    
+    return { linked: linkedCount, errors, duration };
+  } catch (error) {
+    console.error('[linkValuesToDocument] ❌ Fatal error during linking:', error);
+    throw error;
+  }
+}
+
+/**
+ * Generate a chat-friendly summary with navigation links for document upload
+ */
+export function generateChatSummary(extractedData, savedData) {
+  const parts = [];
+  
+  // Start with a success message
+  parts.push(`**Document uploaded successfully!**`);
+  parts.push(``);
+  
+  // Document type and summary
+  if (extractedData.documentType) {
+    parts.push(`**Document Type:** ${extractedData.documentType}`);
+  }
+  if (extractedData.summary) {
+    parts.push(`**Summary:** ${extractedData.summary}`);
+  }
+  parts.push(``);
+
+  // Labs section
+  if (savedData.labs && savedData.labs.length > 0) {
+    parts.push(`**Lab Results (${savedData.labs.length})**`);
+    savedData.labs.slice(0, 5).forEach(lab => {
+      const status = lab.status ? ` (${lab.status})` : '';
+      parts.push(`• ${lab.label}: ${lab.value} ${lab.unit || ''}${status}`);
+    });
+    if (savedData.labs.length > 5) {
+      parts.push(`• ... and ${savedData.labs.length - 5} more values`);
+    }
+    parts.push(`Navigate to **Health Tab** → Labs section to view details`);
+    parts.push(``);
+  }
+
+  // Vitals section
+  if (savedData.vitals && savedData.vitals.length > 0) {
+    parts.push(`**Vital Signs (${savedData.vitals.length})**`);
+    savedData.vitals.forEach(vital => {
+      parts.push(`• ${vital.label}: ${vital.value} ${vital.unit || ''}`);
+    });
+    parts.push(`Navigate to **Health Tab** → Vitals section to view details`);
+    parts.push(``);
+  }
+
+  // Genomic section
+  if (savedData.genomic) {
+    parts.push(`**Genomic Profile Updated**`);
+    
+    if (savedData.genomic.testInfo?.testName) {
+      parts.push(`• Test: ${savedData.genomic.testInfo.testName}`);
+    }
+    
+    if (savedData.genomic.mutations && savedData.genomic.mutations.length > 0) {
+      parts.push(`• Mutations: ${savedData.genomic.mutations.map(m => m.gene).join(', ')}`);
+    }
+    
+    if (savedData.genomic.biomarkers) {
+      const biomarkers = [];
+      if (savedData.genomic.biomarkers.tumorMutationalBurden) biomarkers.push('TMB');
+      if (savedData.genomic.biomarkers.microsatelliteInstability) biomarkers.push('MSI');
+      if (savedData.genomic.biomarkers.hrdScore) biomarkers.push('HRD');
+      if (biomarkers.length > 0) {
+        parts.push(`• Biomarkers: ${biomarkers.join(', ')}`);
+      }
+    }
+    
+    parts.push(`Navigate to **Profile Tab** → Genomic section to view details`);
+    parts.push(``);
+  }
+
+  // Medications section
+  if (savedData.medications && savedData.medications.length > 0) {
+    parts.push(`**Medications (${savedData.medications.length})**`);
+    savedData.medications.forEach(med => {
+      parts.push(`• ${med.name} - ${med.dosage || ''}`);
+    });
+    parts.push(`Navigate to **Health Tab** → Medications section to view details`);
+    parts.push(``);
+  }
+
+  // Data point count
+  const totalDataPoints = countDataPoints(savedData);
+  parts.push(`**Total Data Points Extracted:** ${totalDataPoints}`);
+  parts.push(``);
+
+  // Quick actions
+  parts.push(`**Try asking:**`);
+  if (savedData.labs && savedData.labs.length > 0) {
+    parts.push(`• "Analyze my lab trends"`);
+  }
+  if (savedData.vitals && savedData.vitals.length > 0) {
+    parts.push(`• "How are my vital signs trending?"`);
+  }
+  if (savedData.genomic) {
+    parts.push(`• "What treatments match my genomic profile?"`);
+  }
+  parts.push(`• "Show me what's most important"`);
+  
+  return parts.join('\n');
 }
 
 /**

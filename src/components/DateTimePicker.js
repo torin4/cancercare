@@ -66,7 +66,7 @@ export default function DateTimePicker({ value, onChange, max, min, className = 
             onChange={handleDateChange}
             max={dateMax}
             min={dateMin}
-            placeholder="Select date"
+            placeholder="YYYY-MM-DD"
             showClear={false}
             className="w-full"
           />

@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, FolderOpen, X, Edit2, RefreshCw, Info } from 'lucide-react';
+import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
 import { useBanner } from '../../contexts/BannerContext';
 import { documentService } from '../../firebase/services';
 import { uploadDocument, deleteDocument, downloadFileAsBlob } from '../../firebase/storage';
-import { processDocument, generateExtractionSummary } from '../../services/documentProcessor';
+import { cleanupDocumentData } from '../../services/documentCleanupService';
+import { parseLocalDate, formatDateString } from '../../utils/helpers';
+import { processDocument, generateExtractionSummary, generateChatSummary } from '../../services/documentProcessor';
 import DocumentUploadOnboarding from '../DocumentUploadOnboarding';
 import EditDocumentNoteModal from '../modals/EditDocumentNoteModal';
 import UploadProgressOverlay from '../UploadProgressOverlay';
 import DeletionConfirmationModal from '../modals/DeletionConfirmationModal';
-import ConfirmationModal from '../modals/ConfirmationModal';
+import RescanDocumentModal from '../modals/RescanDocumentModal';
 
 export default function FilesTab({ onTabChange }) {
   // Use contexts for shared state
@@ -28,9 +30,9 @@ export default function FilesTab({ onTabChange }) {
   const [pendingDocumentDate, setPendingDocumentDate] = useState(null);
   const [pendingDocumentNote, setPendingDocumentNote] = useState(null);
   const [editingDocumentNote, setEditingDocumentNote] = useState(null);
-  const [documentNoteEdit, setDocumentNoteEdit] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({
     show: false,
     title: '',
@@ -39,14 +41,7 @@ export default function FilesTab({ onTabChange }) {
     itemName: '',
     confirmText: 'Yes, Delete Permanently'
   });
-  const [rescanConfirm, setRescanConfirm] = useState({
-    show: false,
-    title: '',
-    message: '',
-    onConfirm: null,
-    itemName: '',
-    confirmText: 'Yes, Rescan Document'
-  });
+  const [rescanDocument, setRescanDocument] = useState(null);
   const [showDocumentMetadata, setShowDocumentMetadata] = useState(null);
 
   // Load documents from Firestore when user logs in
@@ -55,6 +50,14 @@ export default function FilesTab({ onTabChange }) {
       if (user) {
         try {
           const docs = await documentService.getDocuments(user.uid);
+          console.log('[FilesTab] Loaded documents:', docs.map(d => ({
+            id: d.id,
+            fileName: d.fileName,
+            date: d.date,
+            note: d.note,
+            hasDate: !!d.date,
+            hasNote: !!d.note
+          })));
           setDocuments(docs);
           setHasUploadedDocument(docs.length > 0);
         } catch (error) {
@@ -102,7 +105,7 @@ export default function FilesTab({ onTabChange }) {
     input.click();
   };
 
-  const handleRealFileUpload = async (file, docType) => {
+  const handleRealFileUpload = async (file, docType, providedDateOverride = null, providedNoteOverride = null) => {
     if (!user) {
       showError('Please log in to upload files');
       return;
@@ -114,8 +117,9 @@ export default function FilesTab({ onTabChange }) {
       setUploadProgress('Reading document...');
 
       // Get document date and note (user-provided or null)
-      const providedDate = pendingDocumentDate;
-      const providedNote = pendingDocumentNote;
+      // Use override parameters if provided (from onUploadClick), otherwise use state
+      const providedDate = providedDateOverride !== null ? providedDateOverride : pendingDocumentDate;
+      const providedNote = providedNoteOverride !== null ? providedNoteOverride : pendingDocumentNote;
       // Clear pending date and note after use
       setPendingDocumentDate(null);
       setPendingDocumentNote(null);
@@ -127,19 +131,37 @@ export default function FilesTab({ onTabChange }) {
 
       // Step 2: Upload file to Firebase Storage
       setUploadProgress('Uploading to secure storage...');
+      // Ensure note is passed correctly - preserve string values, normalize empty strings to null
+      const noteToSave = (providedNote && typeof providedNote === 'string' && providedNote.trim() !== '')
+        ? providedNote.trim()
+        : (providedNote || null);
+      
       const uploadResult = await uploadDocument(file, user.uid, {
         category: processingResult.documentType || docType,
         documentType: processingResult.documentType || docType,
-        note: providedNote || null,
+        date: providedDate || null, // Pass the date to be saved with document
+        note: noteToSave, // Pass the note (already normalized)
         dataPointCount: processingResult.dataPointCount || 0
       });
 
       console.log('File uploaded successfully:', uploadResult);
 
+      // Step 3: Link all extracted values to the document ID
+      setUploadProgress('Linking data to document...');
+      if (processingResult.extractedData && uploadResult.id) {
+        try {
+          const { linkValuesToDocument } = await import('../../services/documentProcessor');
+          await linkValuesToDocument(processingResult.extractedData, uploadResult.id, user.uid);
+        } catch (linkError) {
+          console.error('[FilesTab] Error linking values to document:', linkError);
+        }
+      }
+
       setUploadProgress('Saving extracted data...');
 
-      // Step 3: Add to local documents state
-      const docDate = providedDate || new Date().toISOString().split('T')[0];
+      // Step 4: Add to local documents state
+      // Use providedDate if available, otherwise format the date from uploadResult
+      const docDate = providedDate || (uploadResult.date ? formatDateString(uploadResult.date) : formatDateString(new Date()));
       const newDoc = {
         id: uploadResult.id,
         name: file.name,
@@ -165,25 +187,23 @@ export default function FilesTab({ onTabChange }) {
 
       setIsUploading(false);
       setUploadProgress('');
-      const dataPointText = processingResult.dataPointCount > 0 
+      const dataPointText = processingResult.dataPointCount > 0
         ? ` ${processingResult.dataPointCount} data point${processingResult.dataPointCount !== 1 ? 's' : ''} extracted.`
         : '';
       showSuccess(`Document uploaded and processed successfully!${dataPointText} All extracted data has been saved to your health records.`);
-      
-      // Navigate to relevant tab based on document type
-      const detectedDocType = (processingResult.documentType || docType || '').toLowerCase();
-      if (detectedDocType === 'lab' || detectedDocType === 'labs') {
-        onTabChange('health');
-      } else if (detectedDocType === 'vital' || detectedDocType === 'vitals') {
-        onTabChange('health');
-      } else if (detectedDocType === 'genomic' || detectedDocType === 'genome') {
-        onTabChange('profile');
-      } else if (detectedDocType === 'symptom' || detectedDocType === 'symptoms') {
-        onTabChange('health');
-      } else if (detectedDocType === 'medication' || detectedDocType === 'medications') {
-        onTabChange('health');
-      }
-      // Otherwise stay on files tab
+
+      // Generate chat summary with quick action buttons
+      const chatSummary = generateChatSummary(processingResult, processingResult.extractedData);
+
+      // Store summary in sessionStorage for ChatTab to pick up
+      sessionStorage.setItem('uploadSummary', JSON.stringify({
+        summary: chatSummary,
+        timestamp: Date.now(),
+        documentType: processingResult.documentType || docType
+      }));
+
+      // Navigate to chat tab to show summary
+      onTabChange('chat');
     } catch (error) {
       console.error('Upload error:', error);
       showError(`Failed to process document: ${error.message}. The file was not uploaded. Please try again or contact support if the issue persists.`);
@@ -261,12 +281,21 @@ export default function FilesTab({ onTabChange }) {
     <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4">
       <div className="bg-white rounded-lg shadow p-3 sm:p-4 md:p-5 border border-medical-neutral-200">
         {documents.length > 0 && (
-          <h3 className="text-sm sm:text-base md:text-lg font-semibold text-medical-neutral-900 mb-3 sm:mb-4 flex items-center gap-2">
-            <div className="bg-gray-100 p-1.5 sm:p-2 rounded-lg">
-              <FolderOpen className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
-            </div>
-            Medical Documents
-          </h3>
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h3 className="text-sm sm:text-base md:text-lg font-semibold text-medical-neutral-900 flex items-center gap-2">
+              <div className="bg-gray-100 p-1.5 sm:p-2 rounded-lg">
+                <FolderOpen className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+              </div>
+              Medical Documents
+            </h3>
+            <button
+              onClick={() => openDocumentOnboarding('general')}
+              className="flex items-center gap-2 text-medical-primary-600 hover:text-medical-primary-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="text-sm font-medium">Add File</span>
+            </button>
+          </div>
         )}
         {documents.length === 0 ? (
           <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-6 md:p-8 text-center">
@@ -296,19 +325,33 @@ export default function FilesTab({ onTabChange }) {
                 setDeleteConfirm({
                   show: true,
                   title: `Delete "${fileName}"?`,
-                  message: `This will permanently delete "${fileName}" and all extracted data from it.`,
+                  message: `This will permanently delete "${fileName}" AND ALL extracted lab values, vital signs, and medications from this document. This action cannot be undone.`,
                   itemName: `"${fileName}"`,
-                  confirmText: 'Yes, Delete',
+                  confirmText: 'Yes, Delete Permanently',
                   onConfirm: async () => {
                     try {
+                      setIsDeleting(true);
+                      // First clean up all associated health data
+                      // Use non-aggressive cleanup - only delete values with matching documentId
+                      await cleanupDocumentData(doc.id, user.uid, false);
+                      
+                      // Then delete the document
                       await deleteDocument(doc.id, doc.storagePath);
+                      
                       // Reload documents
                       const updatedDocs = await documentService.getDocuments(user.uid);
                       setDocuments(updatedDocs);
                       setHasUploadedDocument(updatedDocs.length > 0);
+                      
+                      // Reload health data to reflect deletions
+                      await reloadHealthData();
+                      
+                      showSuccess('Document and associated data deleted successfully.');
                     } catch (error) {
                       console.error('Error deleting document:', error);
                       showError('Failed to delete document. Please try again.');
+                    } finally {
+                      setIsDeleting(false);
                     }
                   }
                 });
@@ -328,7 +371,7 @@ export default function FilesTab({ onTabChange }) {
                       <p className="text-xs text-medical-primary-600 mt-0.5 italic break-words">{doc.note}</p>
                     )}
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {new Date(doc.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {doc.date ? parseLocalDate(doc.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No date'}
                     </p>
                   </div>
                   <div className="flex-shrink-0 flex items-center gap-1 sm:gap-2">
@@ -360,79 +403,7 @@ export default function FilesTab({ onTabChange }) {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          const docType = doc.documentType || doc.type || 'document';
-                          const fileName = doc.fileName || doc.name || 'document';
-                          setRescanConfirm({
-                            show: true,
-                            title: `Rescan ${docType} Document?`,
-                            message: `This will re-extract all data from "${fileName}". Existing values will be preserved.`,
-                            itemName: `"${fileName}"`,
-                            confirmText: 'Yes, Rescan Document',
-                            onConfirm: async () => {
-                              // Close modal immediately
-                              setRescanConfirm({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Rescan Document' });
-                              
-                              // Start processing (this will show UploadProgressOverlay)
-                              try {
-                                setIsUploading(true);
-                                setUploadProgress('Downloading document...');
-                                // Download file from storage using Firebase SDK (avoids CORS issues)
-                                if (!doc.storagePath) {
-                                  throw new Error('Storage path not found for this document');
-                                }
-                                // Use existing fileUrl if available, otherwise get a fresh one
-                                const blob = await downloadFileAsBlob(doc.storagePath, doc.fileUrl);
-                                const file = new File([blob], doc.fileName || doc.name || 'document.pdf', { type: doc.fileType || blob.type || 'application/pdf' });
-                                
-                                setUploadProgress('Re-processing document...');
-                                // Re-process with existing note and documentId
-                                const docDate = doc.date ? (typeof doc.date === 'string' ? doc.date : new Date(doc.date).toISOString().split('T')[0]) : null;
-                                const processingResult = await processDocument(file, user.uid, patientProfile, docDate, doc.note || null, doc.id);
-                                
-                                setUploadProgress('Refreshing your health data...');
-                                // Reload health data
-                                await reloadHealthData();
-                                
-                                // Update document metadata with new data point count
-                                if (processingResult.dataPointCount !== undefined) {
-                                  await documentService.saveDocument({
-                                    id: doc.id,
-                                    dataPointCount: processingResult.dataPointCount
-                                  });
-                                  // Reload documents to get updated metadata
-                                  const updatedDocs = await documentService.getDocuments(user.uid);
-                                  setDocuments(updatedDocs);
-                                }
-                                
-                                setIsUploading(false);
-                                setUploadProgress('');
-                                const dataPointText = processingResult.dataPointCount > 0 
-                                  ? ` ${processingResult.dataPointCount} data point${processingResult.dataPointCount !== 1 ? 's' : ''} extracted.`
-                                  : '';
-                                showSuccess(`Document rescanned successfully!${dataPointText} New values have been extracted.`);
-                                
-                                // Navigate to relevant tab based on document type
-                                const detectedDocType = (processingResult.documentType || doc.documentType || doc.type || '').toLowerCase();
-                                if (detectedDocType === 'lab' || detectedDocType === 'labs') {
-                                  onTabChange('health');
-                                } else if (detectedDocType === 'vital' || detectedDocType === 'vitals') {
-                                  onTabChange('health');
-                                } else if (detectedDocType === 'genomic' || detectedDocType === 'genome') {
-                                  onTabChange('profile');
-                                } else if (detectedDocType === 'symptom' || detectedDocType === 'symptoms') {
-                                  onTabChange('health');
-                                } else if (detectedDocType === 'medication' || detectedDocType === 'medications') {
-                                  onTabChange('health');
-                                }
-                                // Otherwise stay on files tab
-                              } catch (error) {
-                                console.error('Error rescanning document:', error);
-                                showError(`Error rescanning document: ${error.message}. Please try again.`);
-                                setIsUploading(false);
-                                setUploadProgress('');
-                              }
-                            }
-                          });
+                          setRescanDocument(doc);
                         }}
                         className="p-1.5 sm:p-1.5 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
                         title="Rescan document"
@@ -440,15 +411,14 @@ export default function FilesTab({ onTabChange }) {
                         <RefreshCw className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
                       </button>
                     )}
-                    {/* Edit note button - show for all documents */}
+                    {/* Edit date and note button - show for all documents */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditingDocumentNote(doc);
-                        setDocumentNoteEdit(doc.note || '');
                       }}
                       className="p-1.5 sm:p-1.5 rounded-full text-gray-500 hover:bg-green-100 hover:text-green-600 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
-                      title="Edit note"
+                      title="Edit date and note"
                     >
                       <Edit2 className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
                     </button>
@@ -467,15 +437,7 @@ export default function FilesTab({ onTabChange }) {
         )}
       </div>
 
-      {documents.length > 0 && (
-        <button
-          onClick={() => openDocumentOnboarding('general')}
-          className="w-full py-2.5 sm:py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 transition flex items-center justify-center gap-2 text-sm sm:text-base min-h-[44px] touch-manipulation active:opacity-70"
-        >
-          <Upload className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
-          Upload Document
-        </button>
-      )}
+      
 
       {/* Modals */}
       {showDocumentOnboarding && (
@@ -484,12 +446,22 @@ export default function FilesTab({ onTabChange }) {
           onClose={() => setShowDocumentOnboarding(false)}
           onUploadClick={(documentType, documentDate = null, documentNote = null, file = null) => {
             setShowDocumentOnboarding(false);
-            setPendingDocumentDate(documentDate);
-            setPendingDocumentNote(documentNote);
+            
+            // Normalize and set pending state - ensure we preserve actual note values
+            const normalizedDate = (documentDate && typeof documentDate === 'string' && documentDate.trim() !== '') 
+              ? documentDate.trim() 
+              : (documentDate || null);
+            const normalizedNote = (documentNote && typeof documentNote === 'string' && documentNote.trim() !== '') 
+              ? documentNote.trim() 
+              : (documentNote || null);
+            
+            setPendingDocumentDate(normalizedDate);
+            setPendingDocumentNote(normalizedNote);
             
             // If file is provided (from component's file picker), upload it directly
             if (file) {
-              handleRealFileUpload(file, documentType);
+              // Pass date and note directly to avoid state timing issues
+              handleRealFileUpload(file, documentType, normalizedDate, normalizedNote);
             } else {
               // Otherwise, open file picker (fallback)
               const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -510,13 +482,10 @@ export default function FilesTab({ onTabChange }) {
         show={!!editingDocumentNote}
         onClose={() => {
           setEditingDocumentNote(null);
-          setDocumentNoteEdit('');
         }}
         user={user}
         editingDocumentNote={editingDocumentNote}
         setEditingDocumentNote={setEditingDocumentNote}
-        documentNoteEdit={documentNoteEdit}
-        setDocumentNoteEdit={setDocumentNoteEdit}
         setIsUploading={setIsUploading}
         setUploadProgress={setUploadProgress}
         reloadHealthData={reloadHealthData}
@@ -531,41 +500,118 @@ export default function FilesTab({ onTabChange }) {
 
       <DeletionConfirmationModal
         show={deleteConfirm.show}
-        onClose={() => setDeleteConfirm({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Delete Permanently' })}
+        onClose={() => {
+          if (!isDeleting) {
+            setDeleteConfirm({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Delete Permanently' });
+          }
+        }}
         onConfirm={async () => {
           if (deleteConfirm.onConfirm) {
             await deleteConfirm.onConfirm();
           }
+          // Close modal after deletion completes (isDeleting will be false in finally block)
           setDeleteConfirm({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Delete Permanently' });
         }}
         title={deleteConfirm.title}
         message={deleteConfirm.message}
         itemName={deleteConfirm.itemName}
         confirmText={deleteConfirm.confirmText}
-        isDeleting={false}
+        isDeleting={isDeleting}
       />
 
-      <ConfirmationModal
-        show={rescanConfirm.show}
-        onClose={() => setRescanConfirm({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Rescan Document' })}
-        onConfirm={async () => {
-          if (rescanConfirm.onConfirm) {
-            await rescanConfirm.onConfirm();
+      <RescanDocumentModal
+        show={!!rescanDocument}
+        onClose={() => setRescanDocument(null)}
+        document={rescanDocument}
+        isProcessing={isUploading}
+        onConfirm={async ({ date, note }) => {
+          if (!rescanDocument) return;
+
+          try {
+            setIsUploading(true);
+            setUploadProgress('Downloading document...');
+
+            // Download file from storage using Firebase SDK (avoids CORS issues)
+            if (!rescanDocument.storagePath) {
+              throw new Error('Storage path not found for this document');
+            }
+
+            // Use existing fileUrl if available, otherwise get a fresh one
+            const blob = await downloadFileAsBlob(rescanDocument.storagePath, rescanDocument.fileUrl);
+            const file = new File([blob], rescanDocument.fileName || rescanDocument.name || 'document.pdf', {
+              type: rescanDocument.fileType || blob.type || 'application/pdf'
+            });
+
+            setUploadProgress('Re-processing document...');
+
+            // Use the edited values from the modal (or null if empty)
+            const docDate = date || null;
+            const docNote = note || null;
+            
+            // Clean up old data before reprocessing
+            // Use non-aggressive cleanup - only delete values with matching documentId (not all values)
+            await cleanupDocumentData(rescanDocument.id, user.uid, false); // false = only delete matching documentId
+            
+            // Re-process with edited values
+            const processingResult = await processDocument(file, user.uid, patientProfile, docDate, docNote, rescanDocument.id);
+
+            setUploadProgress('Refreshing your health data...');
+
+            // Reload health data
+            await reloadHealthData();
+
+            // Update document metadata with new data point count and preserved values
+            // Format date properly: if provided, parse it; otherwise use null
+            const formattedDate = docDate ? parseLocalDate(docDate) : null;
+            const updateData = {
+              id: rescanDocument.id,
+              dataPointCount: processingResult.dataPointCount,
+              // Always save date and note (either preserved values or null)
+              date: formattedDate,
+              note: docNote || null
+            };
+
+            await documentService.saveDocument(updateData);
+
+            // Reload documents to get updated metadata
+            const updatedDocs = await documentService.getDocuments(user.uid);
+            setDocuments(updatedDocs);
+
+            // Close modal after successful completion
+            setRescanDocument(null);
+            setIsUploading(false);
+            setUploadProgress('');
+
+            const dataPointText = processingResult.dataPointCount > 0
+              ? ` ${processingResult.dataPointCount} data point${processingResult.dataPointCount !== 1 ? 's' : ''} extracted.`
+              : '';
+            showSuccess(`Document rescanned successfully!${dataPointText} Previous data has been cleaned up and new values extracted.`);
+
+            // Generate chat summary with quick action buttons
+            const chatSummary = generateChatSummary(processingResult, processingResult.extractedData);
+
+            // Store summary in sessionStorage for ChatTab to pick up
+            sessionStorage.setItem('uploadSummary', JSON.stringify({
+              summary: chatSummary,
+              timestamp: Date.now()
+            }));
+
+            // Navigate to chat tab to show summary
+            onTabChange('chat');
+          } catch (error) {
+            console.error('Error rescanning document:', error);
+            showError(`Error rescanning document: ${error.message}. Please try again.`);
+            // Close modal on error
+            setRescanDocument(null);
+            setIsUploading(false);
+            setUploadProgress('');
           }
         }}
-        title={rescanConfirm.title}
-        message={rescanConfirm.message}
-        confirmText={rescanConfirm.confirmText}
-        isProcessing={isUploading}
-        icon={RefreshCw}
-        iconColor="text-blue-600"
-        iconBgColor="bg-blue-100"
-        confirmButtonColor="bg-blue-600 hover:bg-blue-700"
       />
 
       {/* Document Metadata Modal */}
       {showDocumentMetadata && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-fade-scale">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-900">Document Metadata</h3>
@@ -618,7 +664,7 @@ export default function FilesTab({ onTabChange }) {
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Upload Date</p>
                 <p className="text-sm text-gray-900">
-                  {new Date(showDocumentMetadata.date).toLocaleDateString('en-US', { 
+                  {parseLocalDate(showDocumentMetadata.date).toLocaleDateString('en-US', { 
                     month: 'long', 
                     day: 'numeric', 
                     year: 'numeric',

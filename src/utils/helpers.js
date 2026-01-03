@@ -74,6 +74,57 @@ export const parseLocalDate = (dateString) => {
   return new Date(dateString);
 };
 
+/**
+ * Format a date as YYYY-MM-DD string (avoids timezone issues)
+ * This ensures dates are displayed consistently regardless of timezone
+ * @param {Date|string|FirestoreTimestamp} date - Date to format
+ * @returns {string} - Date string in YYYY-MM-DD format
+ */
+export const formatDateString = (date) => {
+  if (!date) return null;
+  try {
+    let d;
+    
+    // Handle Firestore Timestamp
+    if (date.toDate) {
+      d = date.toDate();
+    }
+    // Handle Date object
+    else if (date instanceof Date) {
+      d = date;
+    }
+    // Handle string (already in YYYY-MM-DD format or needs parsing)
+    else if (typeof date === 'string') {
+      // If already in YYYY-MM-DD format, return as is
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return date;
+      }
+      // Otherwise parse it using parseLocalDate to avoid timezone issues
+      d = parseLocalDate(date);
+    }
+    // Handle number (timestamp)
+    else if (typeof date === 'number') {
+      d = new Date(date);
+    }
+    else {
+      return null;
+    }
+    
+    if (!d || isNaN(d.getTime())) {
+      return null;
+    }
+    
+    // Format as YYYY-MM-DD using local date components (not UTC)
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  } catch (e) {
+    console.warn('Error formatting date:', date, e);
+    return null;
+  }
+};
+
 // Helpers for country-specific address labels/placeholders
 export const getStateLabel = (country) => {
   if (!country) return 'State/Region';

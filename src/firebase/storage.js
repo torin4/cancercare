@@ -8,6 +8,7 @@ import {
 } from 'firebase/storage';
 import { storage } from './config';
 import { documentService } from './services';
+import { parseLocalDate } from '../utils/helpers';
 
 /**
  * Upload a file to Firebase Storage and save metadata to Firestore
@@ -32,6 +33,27 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
     const fileUrl = await getDownloadURL(snapshot.ref);
 
     // 4. Save metadata to Firestore
+    // Use date from metadata if provided, otherwise use today's date
+    // Normalize empty strings to null
+    const providedDate = (metadata.date && typeof metadata.date === 'string' && metadata.date.trim() !== '') 
+      ? metadata.date.trim() 
+      : (metadata.date || null);
+    const documentDate = providedDate 
+      ? parseLocalDate(providedDate)
+      : parseLocalDate(new Date().toISOString().split('T')[0]);
+    
+    // Normalize note - empty strings become null, but preserve actual note values
+    let normalizedNote = null;
+    if (metadata.note !== undefined && metadata.note !== null) {
+      if (typeof metadata.note === 'string' && metadata.note.trim() !== '') {
+        normalizedNote = metadata.note.trim();
+      } else if (metadata.note) {
+        // If it's not a string but truthy, keep it
+        normalizedNote = metadata.note;
+      }
+    }
+    
+    // Build document data - put date and note AFTER metadata spread to ensure they're not overwritten
     const documentData = {
       patientId: userId,
       fileName: file.name,
@@ -39,8 +61,10 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
       storagePath: storagePath,
       fileSize: file.size,
       fileType: file.type,
-      date: new Date(),
-      ...metadata // category, notes, documentType, dataPointCount, etc.
+      ...metadata, // category, documentType, dataPointCount, etc. (but NOT date/note)
+      // Explicitly set date and note AFTER spread to ensure they're not overwritten
+      date: documentDate,
+      note: normalizedNote
     };
 
     const docId = await documentService.saveDocument(documentData);
@@ -61,6 +85,17 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
  * @param {string} docId - The Firestore document ID
  * @param {string} storagePath - The path to the file in Storage
  */
+/**
+ * Clean up all health data associated with a specific document ID
+ * This is a wrapper that calls the comprehensive cleanup service
+ * @deprecated Use cleanupDocumentData from documentCleanupService directly
+ */
+export const cleanupDocumentData = async (docId, userId, aggressiveCleanup = false) => {
+  // Delegate to the comprehensive cleanup service
+  const { cleanupDocumentData: comprehensiveCleanup } = await import('../services/documentCleanupService');
+  return await comprehensiveCleanup(docId, userId, aggressiveCleanup);
+};
+
 export const deleteDocument = async (docId, storagePath) => {
   try {
     // 1. Delete from Firestore
@@ -118,13 +153,16 @@ export const getFileUrl = async (storagePath) => {
  * @returns {Promise<Blob>} - File as Blob
  */
 export const downloadFileAsBlob = async (storagePath, existingUrl = null) => {
+  // Get storage reference
+  const storageRef = ref(storage, storagePath);
+  
   // Get download URL (use existing or get fresh one)
   let downloadUrl = existingUrl;
   if (!downloadUrl) {
-    const storageRef = ref(storage, storagePath);
     downloadUrl = await getDownloadURL(storageRef);
   }
   
+  // Firebase Storage has CORS restrictions, so we need to use a proxy
   // Use server-side proxy to bypass CORS (required for browser downloads)
   // In production on Vercel, this uses the /api/storage-proxy serverless function
   // For local development, use the proxy server or set REACT_APP_PROXY_URL
@@ -136,11 +174,18 @@ export const downloadFileAsBlob = async (storagePath, existingUrl = null) => {
   console.log('Downloading file via proxy:', proxyUrl);
   
   try {
+    // Add timeout to fetch request (60 seconds for large files)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    
     const response = await fetch(proxyUrl, {
       method: 'GET',
       mode: 'cors',
-      credentials: 'omit'
+      credentials: 'omit',
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -152,15 +197,23 @@ export const downloadFileAsBlob = async (storagePath, existingUrl = null) => {
     }
     
     return await response.blob();
-  } catch (error) {
-    console.error('Error downloading file via proxy:', error);
-    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('CORS')) {
-      const proxyInfo = proxyBaseUrl
-        ? `Cannot connect to proxy server at ${proxyBaseUrl}. Please ensure the proxy server is running.`
-        : 'Cannot connect to proxy. For localhost: run "npm run start:proxy". For production: ensure Vercel serverless functions are deployed.';
-      throw new Error(`${proxyInfo} Error: ${error.message}`);
+  } catch (proxyError) {
+    console.error('Error downloading file via proxy:', proxyError);
+    
+    // Provide clear error message based on the type of failure
+    const proxyInfo = proxyBaseUrl
+      ? `Cannot connect to proxy server at ${proxyBaseUrl}. Please ensure the proxy server is running.`
+      : 'Cannot connect to proxy. For localhost: run "npm run start:proxy" in a separate terminal. For production: ensure Vercel serverless functions are deployed.';
+    
+    if (proxyError.name === 'AbortError' || proxyError.message.includes('timeout') || proxyError.message.includes('504')) {
+      throw new Error(`Proxy request timed out. The file may be too large or the proxy server is slow. ${proxyInfo}`);
     }
-    throw new Error(`Failed to download file: ${error.message}`);
+    
+    if (proxyError.message.includes('Failed to fetch') || proxyError.message.includes('NetworkError')) {
+      throw new Error(`${proxyInfo} Network error: ${proxyError.message}`);
+    }
+    
+    throw new Error(`Failed to download file via proxy: ${proxyError.message}. ${proxyInfo}`);
   }
 };
 /**

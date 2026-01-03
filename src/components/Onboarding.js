@@ -256,7 +256,7 @@ export default function Onboarding({ onComplete }) {
   const progressPercentage = (step / totalSteps) * 100;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col animate-fade-scale">
         {/* Progress Bar with Step Indicator */}
         <div className="px-8 pt-6 pb-4">

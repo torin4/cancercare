@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bot, Trash2, Send, Paperclip } from 'lucide-react';
+import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
@@ -179,6 +179,47 @@ export default function ChatTab({ onTabChange }) {
       }
     };
     loadChatHistory();
+  }, [user, chatHistoryLoaded]);
+
+  // Process upload summary from document upload
+  useEffect(() => {
+    const uploadSummaryStr = sessionStorage.getItem('uploadSummary');
+    if (uploadSummaryStr && user) {
+      try {
+        const uploadSummaryData = JSON.parse(uploadSummaryStr);
+        // Only process if it's from the last 30 seconds (to avoid showing old summaries)
+        const thirtySecondsAgo = Date.now() - 30000;
+        if (uploadSummaryData.timestamp > thirtySecondsAgo) {
+          sessionStorage.removeItem('uploadSummary');
+          
+          // Add the upload summary as an assistant message
+          const summaryMessage = {
+            type: 'assistant',
+            text: uploadSummaryData.summary,
+            isAnalysis: false,
+            documentType: uploadSummaryData.documentType // Store documentType in message for button logic
+          };
+          
+          setMessages(prev => [...prev, summaryMessage]);
+          
+          // Save the summary message to Firestore
+          messageService.addMessage({
+            patientId: user.uid,
+            type: 'assistant',
+            text: uploadSummaryData.summary,
+            isAnalysis: false
+          }).catch(err => console.error('Error saving upload summary:', err));
+          
+          // Auto-scroll to bottom to show the summary
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
+        }
+      } catch (error) {
+        console.error('Error processing upload summary:', error);
+        sessionStorage.removeItem('uploadSummary');
+      }
+    }
   }, [user, chatHistoryLoaded]);
 
   // Process pending Quick Log message
@@ -544,14 +585,27 @@ export default function ChatTab({ onTabChange }) {
       const uploadResult = await uploadDocument(file, user.uid, {
         category: processingResult.documentType || docType,
         documentType: processingResult.documentType || docType,
+        date: providedDate || null, // Pass the date to be saved with document
         note: providedNote || null // Store note with document record
       });
 
       console.log('File uploaded successfully:', uploadResult);
 
+      // Step 3: Link all extracted values to the document ID
+      setUploadProgress('Linking data to document...');
+      if (processingResult.extractedData && uploadResult.id) {
+        try {
+          const { linkValuesToDocument } = await import('../../services/documentProcessor');
+          await linkValuesToDocument(processingResult.extractedData, uploadResult.id, user.uid);
+          console.log('[ChatTab] Successfully linked all values to document', uploadResult.id);
+        } catch (linkError) {
+          console.error('[ChatTab] Error linking values to document:', linkError);
+        }
+      }
+
       setUploadProgress('Saving extracted data...');
 
-      // Step 3: Add to local documents state
+      // Step 4: Add to local documents state
       // Use user-provided date or today
       const docDate = providedDate || new Date().toISOString().split('T')[0];
       const newDoc = {
@@ -694,11 +748,121 @@ export default function ChatTab({ onTabChange }) {
                   ? 'bg-medical-secondary-50 border border-medical-secondary-200 text-medical-neutral-800'
                   : 'bg-white border border-medical-neutral-200 text-medical-neutral-900'
                 }`}>
-                {msg.type === 'user' ? (
-                  <p className="text-sm sm:text-base whitespace-pre-wrap">{msg.text}</p>
-                ) : (
-                  <div className="text-sm sm:text-base prose prose-sm max-w-none">
-                    <ReactMarkdown
+{msg.type === 'user' ? (
+                   <p className="text-sm sm:text-base whitespace-pre-wrap">{msg.text}</p>
+                 ) : (
+                   <div className="text-sm sm:text-base prose prose-sm max-w-none">
+                     {/* Check if this is an upload summary and add action buttons */}
+                     {msg.text.includes('**Document uploaded successfully!**') && (() => {
+                       // Check if this is a genomic upload
+                       // First check if documentType is stored in the message object
+                       const docType = msg.documentType || '';
+                       let isGenomicUpload = docType === 'Genomic' || docType === 'genomic-profile' || docType.toLowerCase().includes('genomic');
+                       
+                       // Fallback: check message text if documentType not available
+                       if (!isGenomicUpload) {
+                         isGenomicUpload = msg.text.includes('Genomic Profile Updated') || msg.text.toLowerCase().includes('genomic');
+                       }
+                       
+                       // Check if this is a labs/vitals upload
+                       const isLabsVitalsUpload = msg.text.includes('Lab Results') || msg.text.includes('Vital Signs') || msg.text.includes('Medications');
+                       
+                       return (
+                         <div className="mb-4">
+                           <h3 className="text-sm font-semibold text-gray-700 mb-2">
+                             {isGenomicUpload ? 'Quick Actions' : 'Quick Actions'}
+                           </h3>
+                           <div className="flex flex-wrap gap-2">
+                             {isGenomicUpload ? (
+                               <>
+                                 <button
+                                   onClick={() => {
+                                     // Store flag to expand genomic profile
+                                     sessionStorage.setItem('expandGenomicProfile', 'true');
+                                     onTabChange('profile');
+                                   }}
+                                   className="px-3 py-1.5 bg-purple-500 text-white text-xs rounded-full hover:bg-purple-600 transition-colors flex items-center gap-1"
+                                 >
+                                   <Dna className="w-3 h-3" />
+                                   View Profile
+                                 </button>
+                                 <button
+                                   onClick={() => onTabChange('trials')}
+                                   className="px-3 py-1.5 bg-green-500 text-white text-xs rounded-full hover:bg-green-600 transition-colors flex items-center gap-1"
+                                 >
+                                   <Activity className="w-3 h-3" />
+                                   Search Trials
+                                 </button>
+                               </>
+                             ) : (
+                               <>
+                                 <button
+                                   onClick={() => onTabChange('health')}
+                                   className="px-3 py-1.5 bg-blue-500 text-white text-xs rounded-full hover:bg-blue-600 transition-colors flex items-center gap-1"
+                                 >
+                                   <Activity className="w-3 h-3" />
+                                   View Health Data
+                                 </button>
+                                 {isLabsVitalsUpload && (
+                                   <button
+                                     onClick={async () => {
+                                       // Pre-load health context before sending the message
+                                       let healthContext = null;
+                                       if (user && !currentHealthContext) {
+                                         try {
+                                           const labs = await labService.getLabs(user.uid);
+                                           const vitals = await vitalService.getVitals(user.uid);
+                                           const symptoms = await symptomService.getSymptoms(user.uid);
+                                           healthContext = {
+                                             labs: labs,
+                                             vitals: vitals,
+                                             symptoms: symptoms
+                                           };
+                                           setCurrentHealthContext(healthContext);
+                                         } catch (error) {
+                                           console.error('Error loading health data for quick analysis:', error);
+                                         }
+                                       } else {
+                                         healthContext = currentHealthContext;
+                                       }
+
+                                       // Build a smart prompt based on what data is available
+                                       const hasLabs = healthContext?.labs?.length > 0;
+                                       const hasVitals = healthContext?.vitals?.length > 0;
+                                       const hasSymptoms = healthContext?.symptoms?.length > 0;
+
+                                       let analysisPrompt = 'Analyze my ';
+                                       const dataTypes = [];
+                                       if (hasLabs) dataTypes.push('latest lab results');
+                                       if (hasVitals) dataTypes.push('vitals');
+                                       if (hasSymptoms) dataTypes.push('symptoms');
+
+                                       if (dataTypes.length === 0) {
+                                         analysisPrompt = 'What should I know about the data you just extracted?';
+                                       } else if (dataTypes.length === 1) {
+                                         analysisPrompt += dataTypes[0] + '. What\'s most important?';
+                                       } else if (dataTypes.length === 2) {
+                                         analysisPrompt += dataTypes.join(' and ') + '. What\'s most important?';
+                                       } else {
+                                         analysisPrompt += dataTypes.slice(0, -1).join(', ') + ', and ' + dataTypes[dataTypes.length - 1] + '. What\'s most important?';
+                                       }
+
+                                       setInputText(analysisPrompt);
+                                       setTimeout(() => handleSendMessage(), 150);
+                                     }}
+                                     className="px-3 py-1.5 bg-green-500 text-white text-xs rounded-full hover:bg-green-600 transition-colors flex items-center gap-1"
+                                   >
+                                     <Zap className="w-3 h-3" />
+                                     Quick Analysis
+                                   </button>
+                                 )}
+                               </>
+                             )}
+                           </div>
+                         </div>
+                       );
+                     })()}
+                     <ReactMarkdown
                       components={{
                         p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
                         ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 space-y-1" {...props} />,

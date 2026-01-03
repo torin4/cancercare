@@ -23,9 +23,13 @@ module.exports = async (req, res) => {
 
     console.log('storage-proxy: Downloading file from', fileUrl);
     
+    // Increase timeout for large files (up to 60 seconds for Vercel Pro, 10s for free tier)
+    // For large files, we'll stream the response
     const response = await axios.get(fileUrl, {
       responseType: 'arraybuffer',
-      timeout: 30000,
+      timeout: 60000, // 60 seconds for large files
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
       headers: {
         'User-Agent': req.headers['user-agent'] || 'CancerCareProxy/1.0'
       }

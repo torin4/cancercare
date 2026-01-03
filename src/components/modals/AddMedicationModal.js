@@ -8,7 +8,7 @@ export default function AddMedicationModal({ show, onClose }) {
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end md:items-center justify-center z-50 p-0 md:p-4">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4">
       <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
         <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
           <h3 className="font-bold text-lg text-gray-800">Add Medication</h3>
@@ -137,7 +137,7 @@ export default function AddMedicationModal({ show, onClose }) {
                 <DatePicker
                   value=""
                   onChange={() => {}}
-                  placeholder="Select start date"
+                  placeholder="YYYY-MM-DD"
                 />
             </div>
 

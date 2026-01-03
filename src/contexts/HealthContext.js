@@ -28,22 +28,17 @@ export const HealthProvider = ({ children }) => {
     try {
       setLoading(true);
       
-      // Clean up orphaned labs before loading (wait for completion to ensure cleanup happens)
-      try {
-        const orphanedCount = await labService.cleanupOrphanedLabs(user.uid);
-        if (orphanedCount > 0) {
-          console.log(`[HealthContext] Cleaned up ${orphanedCount} orphaned labs during reload`);
-        }
-      } catch (error) {
-        console.warn('Error cleaning up orphaned labs:', error);
-      }
+      // Load data in parallel with cleanup (cleanup runs in background, doesn't block)
+      const [labs, vitals, genomic] = await Promise.all([
+        labService.getLabs(user.uid),
+        vitalService.getVitals(user.uid),
+        genomicProfileService.getGenomicProfile(user.uid)
+      ]);
       
-      const labs = await labService.getLabs(user.uid);
       const transformedLabs = await transformLabsData(labs);
       setLabsData(transformedLabs);
       setHasRealLabData(labs.length > 0);
 
-      const vitals = await vitalService.getVitals(user.uid);
       const transformedVitals = await transformVitalsData(vitals);
       setVitalsData(transformedVitals);
       const hasData = Object.values(transformedVitals).some(vital => 
@@ -51,9 +46,19 @@ export const HealthProvider = ({ children }) => {
       );
       setHasRealVitalData(hasData);
 
-      // Reload genomic profile - explicitly set to null if not found
-      const genomic = await genomicProfileService.getGenomicProfile(user.uid);
       setGenomicProfile(genomic || null);
+      
+      // Run cleanup in background (non-blocking) - only log if orphans found
+      Promise.all([
+        labService.cleanupOrphanedLabs(user.uid),
+        vitalService.cleanupOrphanedVitals(user.uid)
+      ]).then(([labCount, vitalCount]) => {
+        if (labCount > 0 || vitalCount > 0) {
+          console.log(`[HealthContext] Cleaned up ${labCount} orphaned labs, ${vitalCount} orphaned vitals`);
+        }
+      }).catch(error => {
+        console.warn('Error cleaning up orphaned data:', error);
+      });
     } catch (error) {
       console.error('Error reloading health data:', error);
     } finally {
@@ -76,22 +81,17 @@ export const HealthProvider = ({ children }) => {
       try {
         setLoading(true);
         
-        // Clean up orphaned labs before loading (wait for completion to ensure cleanup happens)
-        try {
-          const orphanedCount = await labService.cleanupOrphanedLabs(user.uid);
-          if (orphanedCount > 0) {
-            console.log(`[HealthContext] Cleaned up ${orphanedCount} orphaned labs during initial load`);
-          }
-        } catch (error) {
-          console.warn('Error cleaning up orphaned labs:', error);
-        }
+        // Load data first (don't wait for cleanup)
+        const [labs, vitals, genomic] = await Promise.all([
+          labService.getLabs(user.uid),
+          vitalService.getVitals(user.uid),
+          genomicProfileService.getGenomicProfile(user.uid)
+        ]);
         
-        const labs = await labService.getLabs(user.uid);
         const transformedLabs = await transformLabsData(labs);
         setLabsData(transformedLabs);
         setHasRealLabData(labs.length > 0);
 
-        const vitals = await vitalService.getVitals(user.uid);
         const transformedVitals = await transformVitalsData(vitals);
         setVitalsData(transformedVitals);
         const hasData = Object.values(transformedVitals).some(vital => 
@@ -99,9 +99,19 @@ export const HealthProvider = ({ children }) => {
         );
         setHasRealVitalData(hasData);
 
-        // Reload genomic profile - explicitly set to null if not found
-        const genomic = await genomicProfileService.getGenomicProfile(user.uid);
         setGenomicProfile(genomic || null);
+        
+        // Run cleanup in background (non-blocking) - only log if orphans found
+        Promise.all([
+          labService.cleanupOrphanedLabs(user.uid),
+          vitalService.cleanupOrphanedVitals(user.uid)
+        ]).then(([labCount, vitalCount]) => {
+          if (labCount > 0 || vitalCount > 0) {
+            console.log(`[HealthContext] Cleaned up ${labCount} orphaned labs, ${vitalCount} orphaned vitals`);
+          }
+        }).catch(error => {
+          console.warn('Error cleaning up orphaned data:', error);
+        });
       } catch (error) {
         console.error('Error loading health data:', error);
       } finally {
