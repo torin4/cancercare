@@ -20,10 +20,30 @@ import { parseLocalDate } from '../utils/helpers';
  */
 export const uploadDocument = async (file, userId, metadata = {}) => {
   try {
-    // 1. Create a reference to the file location in Storage
+    // 1. Determine the date for filename (user-provided or AI-extracted, or today)
+    const providedDate = (metadata.date && typeof metadata.date === 'string' && metadata.date.trim() !== '') 
+      ? metadata.date.trim() 
+      : (metadata.date || null);
+    const documentDate = providedDate 
+      ? parseLocalDate(providedDate)
+      : parseLocalDate(new Date().toISOString().split('T')[0]);
+    
+    // Format date as YYYY-MM-DD for filename
+    const dateStr = documentDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    // Get file extension from original filename
+    const originalName = file.name || 'document';
+    const fileExtension = originalName.includes('.') 
+      ? originalName.substring(originalName.lastIndexOf('.'))
+      : '';
+    
+    // Generate date-based filename: YYYY-MM-DD_timestamp.extension
+    // Use timestamp to avoid collisions if multiple files uploaded on same date
     const timestamp = Date.now();
-    const fileName = `${timestamp}_${file.name}`;
-    const storagePath = `documents/${userId}/${fileName}`;
+    const dateBasedFileName = `${dateStr}_${timestamp}${fileExtension}`;
+    
+    // 2. Create a reference to the file location in Storage
+    const storagePath = `documents/${userId}/${dateBasedFileName}`;
     const storageRef = ref(storage, storagePath);
 
     // 2. Upload the file to Firebase Storage
@@ -33,14 +53,7 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
     const fileUrl = await getDownloadURL(snapshot.ref);
 
     // 4. Save metadata to Firestore
-    // Use date from metadata if provided, otherwise use today's date
-    // Normalize empty strings to null
-    const providedDate = (metadata.date && typeof metadata.date === 'string' && metadata.date.trim() !== '') 
-      ? metadata.date.trim() 
-      : (metadata.date || null);
-    const documentDate = providedDate 
-      ? parseLocalDate(providedDate)
-      : parseLocalDate(new Date().toISOString().split('T')[0]);
+    // documentDate is already calculated above for filename
     
     // Normalize note - empty strings become null, but preserve actual note values
     let normalizedNote = null;
@@ -56,7 +69,8 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
     // Build document data - put date and note AFTER metadata spread to ensure they're not overwritten
     const documentData = {
       patientId: userId,
-      fileName: file.name,
+      fileName: dateBasedFileName, // Use date-based filename
+      name: originalName, // Preserve original filename for reference
       fileUrl: fileUrl,
       storagePath: storagePath,
       fileSize: file.size,

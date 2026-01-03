@@ -237,10 +237,13 @@ export default function CancerCareApp() {
 
       // Step 2: Upload file to Firebase Storage
       setUploadProgress('Uploading to secure storage...');
+      // Use user-provided date, or AI-extracted date, or null (will default to today)
+      const dateForFilename = providedDate || processingResult.extractedDate || null;
+      
       const uploadResult = await uploadDocument(file, user.uid, {
         category: processingResult.documentType || docType,
         documentType: processingResult.documentType || docType,
-        date: providedDate || null, // Pass the date to be saved with document
+        date: dateForFilename, // Pass the date (user-provided or AI-extracted) for filename
         note: providedNote || null,
         dataPointCount: processingResult.dataPointCount || 0
       });

@@ -30,7 +30,30 @@ export async function processDocument(file, userId, patientProfile = null, docum
     // Step 1: Analyze document and extract data
     const extractedData = await analyzeDocument(base64Data, file.type, patientProfile, documentDate, onProgress);
 
-    // Step 2: Save extracted data to Firestore
+    // Step 2: Extract a date from the document (for filename if user didn't provide one)
+    // Priority: user-provided date > first lab date > first vital date > genomic test date > today
+    let extractedDate = null;
+    if (documentDate) {
+      extractedDate = documentDate; // User-provided takes precedence
+    } else if (extractedData.data?.labs && extractedData.data.labs.length > 0) {
+      // Use the first lab's date
+      const firstLab = extractedData.data.labs[0];
+      if (firstLab.date) {
+        extractedDate = firstLab.date;
+      }
+    } else if (extractedData.data?.vitals && extractedData.data.vitals.length > 0) {
+      // Use the first vital's date
+      const firstVital = extractedData.data.vitals[0];
+      if (firstVital.date) {
+        extractedDate = firstVital.date;
+      }
+    } else if (extractedData.data?.genomic?.testInfo?.testDate) {
+      // Use genomic test date
+      extractedDate = extractedData.data.genomic.testInfo.testDate;
+    }
+    // If no date found, extractedDate remains null (will default to today in uploadDocument)
+
+    // Step 3: Save extracted data to Firestore
     const savedData = await saveExtractedData(extractedData, userId, documentDate, documentNote, documentId);
 
     // Count total data points extracted (metric + value = 1 data point)
@@ -41,7 +64,8 @@ export async function processDocument(file, userId, patientProfile = null, docum
       documentType: extractedData.documentType,
       extractedData: savedData,
       summary: extractedData.summary,
-      dataPointCount
+      dataPointCount,
+      extractedDate // Return the extracted date for filename use
     };
   } catch (error) {
     console.error('Error processing document:', error);
