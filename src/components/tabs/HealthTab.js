@@ -1505,24 +1505,46 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                 // Check if all data points are fallback values (ID matches any lab document ID)
                                 const allDataIdsAreFallback = lab.data.length > 0 && lab.data.every(d => labDocIds.includes(d.id));
                                 
+                                // Check if values are valid (not empty, null, or placeholder values)
+                                // This catches cases where metrics were extracted from documents but have empty/placeholder values
+                                const hasValidValues = lab.data.some(d => {
+                                  const value = d.value;
+                                  // Check if value is valid (not empty, null, undefined, or placeholder)
+                                  if (value == null || value === undefined || value === '') return false;
+                                  const valueStr = String(value).trim().toLowerCase();
+                                  // Check for placeholder values
+                                  if (valueStr === '-' || valueStr === '—' || valueStr === 'n/a' || valueStr === 'na' || 
+                                      valueStr === '未測定' || valueStr === '測定なし' || valueStr === '--') {
+                                    return false;
+                                  }
+                                  // For numeric labs, check if it's a valid number
+                                  if (lab.isNumeric && isNaN(parseFloat(value))) {
+                                    return false;
+                                  }
+                                  return true;
+                                });
+                                
                                 console.log(`[filterLabsBySearch] Checking lab ${key}:`, {
                                   labDocIds: labDocIds,
                                   dataLength: lab.data.length,
                                   dataIds: lab.data.map(d => d.id),
+                                  dataValues: lab.data.map(d => d.value),
                                   allDataIdsAreFallback: allDataIdsAreFallback,
+                                  hasValidValues: hasValidValues,
                                   dataIdsMatchAnyLabDoc: lab.data.map(d => labDocIds.includes(d.id))
                                 });
                                 
-                                // Check if there are any actual recorded values (not fallback)
+                                // Check if there are any actual recorded values (not fallback) AND the values are valid
                                 // A data point ID that matches any lab document ID means it's a fallback value
                                 // Real values have IDs from the subcollection that don't match any lab document ID
-                                const hasRealValues = !allDataIdsAreFallback;
+                                // But even real values need to have valid (non-empty) values
+                                const hasRealValidValues = !allDataIdsAreFallback && hasValidValues;
                                 
-                                console.log(`[filterLabsBySearch] Lab ${key} hasRealValues:`, hasRealValues, `(filtering ${hasRealValues ? 'KEEP' : 'HIDE'})`);
+                                console.log(`[filterLabsBySearch] Lab ${key} hasRealValidValues:`, hasRealValidValues, `(filtering ${hasRealValidValues ? 'KEEP' : 'HIDE'})`);
                                 
-                                // Only show labs that have actual recorded data points
-                                // This excludes labs that only have fallback values from the document
-                                return hasRealValues;
+                                // Only show labs that have actual recorded data points with valid values
+                                // This excludes labs that only have fallback values OR have empty/placeholder values
+                                return hasRealValidValues;
                               });
                             }
                             
