@@ -288,6 +288,24 @@ Return a JSON object with this EXACT structure:
       }
     ],
 
+    ═══════════════════════════════════════════════════════════════════════════════
+    CRITICAL: DO NOT INCLUDE METRICS WITHOUT VALUES
+    ═══════════════════════════════════════════════════════════════════════════════
+    
+    - If a metric name appears in the document but the value is missing, empty, or shows:
+      * "-" (dash/hyphen)
+      * "—" (em dash)
+      * "N/A" or "NA" or "n/a"
+      * Empty space or blank
+      * "未測定" (Japanese: not measured)
+      * "測定なし" (Japanese: no measurement)
+      * Any placeholder indicating no value
+    - DO NOT include that metric in the labs or vitals array
+    - Only extract metrics that have actual numeric or text values
+    - If you see "CA-125: -" or "CA-125: (blank)", skip it entirely
+    - If you see "WBC: N/A", skip it entirely
+    - Only include metrics where you can extract a real, meaningful value
+
     CRITICAL RULE FOR ALL LAB VALUES:
     - ALL lab values in the "labs" array MUST use the SAME date - the collection/test date from the document
     - Do NOT use different dates for different lab values from the same report
