@@ -45,6 +45,7 @@ export default function FilesTab({ onTabChange }) {
   const [rescanDocument, setRescanDocument] = useState(null);
   const [showDocumentMetadata, setShowDocumentMetadata] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null); // Track which document's menu is open
+  const [debugLogs, setDebugLogs] = useState([]); // Visual debug logs for mobile
 
   // Load documents from Firestore when user logs in
   useEffect(() => {
@@ -189,6 +190,7 @@ export default function FilesTab({ onTabChange }) {
   };
 
   const handleRealFileUpload = async (file, docType, providedDateOverride = null, providedNoteOverride = null, currentFileNumber = null, totalFiles = null) => {
+    addDebugLog(`handleRealFileUpload: ${file?.name || 'unknown'}`, 'info');
     console.log('[FilesTab] handleRealFileUpload called:', { 
       fileName: file?.name, 
       fileType: file?.type, 
@@ -199,6 +201,7 @@ export default function FilesTab({ onTabChange }) {
     });
     
     if (!user) {
+      addDebugLog('ERROR: No user found', 'error');
       console.error('[FilesTab] No user found');
       showError('Please log in to upload files');
       return;
@@ -207,11 +210,13 @@ export default function FilesTab({ onTabChange }) {
     try {
       // Show loading overlay (only if not part of a batch)
       if (currentFileNumber === null) {
+        addDebugLog('Setting upload overlay to visible', 'info');
         console.log('[FilesTab] Setting upload state to true');
         setIsUploading(true);
         setUploadProgress('Preparing upload...');
         // Small delay to ensure overlay renders before heavy processing
         await new Promise(resolve => setTimeout(resolve, 100));
+        addDebugLog('Upload overlay should be visible', 'success');
         console.log('[FilesTab] Upload overlay should be visible now');
       }
       
@@ -219,6 +224,7 @@ export default function FilesTab({ onTabChange }) {
         ? `[File ${currentFileNumber}/${totalFiles}] ` 
         : '';
       
+      addDebugLog('Starting document processing', 'info');
       console.log('[FilesTab] Starting to read document');
       setUploadProgress(`${fileProgressPrefix}Reading document...`);
 
@@ -422,6 +428,32 @@ export default function FilesTab({ onTabChange }) {
 
   return (
     <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4">
+      {/* Visual Debug Panel - Only show if there are logs */}
+      {debugLogs.length > 0 && (
+        <div className="fixed bottom-4 right-4 bg-black/90 text-white p-3 rounded-lg text-xs max-w-xs z-[9999] max-h-64 overflow-y-auto shadow-2xl border border-white/20">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-bold text-sm">Debug Logs</span>
+            <button 
+              onClick={() => setDebugLogs([])}
+              className="text-white/70 hover:text-white p-1"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="space-y-1 font-mono">
+            {debugLogs.map((log, idx) => (
+              <div key={idx} className={`text-xs break-words ${
+                log.type === 'error' ? 'text-red-400' : 
+                log.type === 'success' ? 'text-green-400' : 
+                log.type === 'warning' ? 'text-yellow-400' : 
+                'text-white/90'
+              }`}>
+                <span className="text-white/50 text-[10px]">{log.timestamp}</span> {log.message}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="bg-white rounded-lg shadow p-3 sm:p-4 md:p-5 border border-medical-neutral-200">
         {documents.length > 0 && (
           <div className="flex items-center justify-between mb-3 sm:mb-4">
@@ -633,6 +665,7 @@ export default function FilesTab({ onTabChange }) {
           isOnboarding={!hasUploadedDocument}
           onClose={() => setShowDocumentOnboarding(false)}
           onUploadClick={async (documentType, documentDate = null, documentNote = null, fileOrFiles = null) => {
+            addDebugLog(`onUploadClick: ${documentType}, hasFile: ${!!fileOrFiles}`, 'info');
             console.log('[FilesTab] onUploadClick called:', { 
               documentType, 
               documentDate, 
@@ -651,33 +684,40 @@ export default function FilesTab({ onTabChange }) {
                 ? documentNote.trim() 
                 : (documentNote || null);
               
+              addDebugLog(`Normalized: date=${normalizedDate}, note=${normalizedNote ? 'yes' : 'no'}`, 'info');
               console.log('[FilesTab] Normalized date/note:', { normalizedDate, normalizedNote });
               
               setPendingDocumentDate(normalizedDate);
               setPendingDocumentNote(normalizedNote);
               
               // Close modal first to show upload progress
+              addDebugLog('Closing modal...', 'info');
               console.log('[FilesTab] Closing document onboarding modal');
               setShowDocumentOnboarding(false);
               
               // Small delay to ensure modal closes before starting upload
               await new Promise(resolve => setTimeout(resolve, 150));
+              addDebugLog('Modal closed, starting upload', 'info');
               console.log('[FilesTab] Delay complete, starting upload process');
               
               // If file(s) is provided (from component's file picker), upload it/them directly
               if (fileOrFiles) {
+                addDebugLog(`File received: ${fileOrFiles.name || 'array'}`, 'success');
                 console.log('[FilesTab] File(s) provided, starting upload');
                 if (Array.isArray(fileOrFiles)) {
                   // Multiple files - process sequentially
+                  addDebugLog(`Processing ${fileOrFiles.length} files`, 'info');
                   console.log('[FilesTab] Processing multiple files:', fileOrFiles.length);
                   await handleMultipleFileUpload(fileOrFiles, documentType, normalizedDate, normalizedNote);
                 } else {
                   // Single file - use existing handler
+                  addDebugLog(`Processing: ${fileOrFiles.name} (${(fileOrFiles.size / 1024).toFixed(0)}KB)`, 'info');
                   console.log('[FilesTab] Processing single file:', fileOrFiles.name, fileOrFiles.type, fileOrFiles.size);
                   await handleRealFileUpload(fileOrFiles, documentType, normalizedDate, normalizedNote);
                 }
               } else {
                 // Otherwise, open file picker (fallback)
+                addDebugLog('No file, opening picker', 'warning');
                 console.log('[FilesTab] No file provided, opening file picker');
                 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
                 console.log('[FilesTab] Is mobile:', isMobile, 'Method:', documentOnboardingMethod);
@@ -690,16 +730,18 @@ export default function FilesTab({ onTabChange }) {
                   simulateDocumentUpload(documentType);
                 }
               }
-            } catch (error) {
-              console.error('[FilesTab] Error in onUploadClick:', error);
-              console.error('[FilesTab] Error stack:', error.stack);
-              showError(`Failed to start upload: ${error.message}. Please try again.`);
-              // Ensure modal can be reopened if there's an error
-              setShowDocumentOnboarding(false);
-              setIsUploading(false);
-              setUploadProgress('');
-              setAiStatus(null);
-            }
+    } catch (error) {
+      addDebugLog(`ERROR: ${error.message}`, 'error');
+      addDebugLog(`Stack: ${error.stack?.substring(0, 100)}...`, 'error');
+      console.error('[FilesTab] Error in onUploadClick:', error);
+      console.error('[FilesTab] Error stack:', error.stack);
+      showError(`Failed to start upload: ${error.message}. Please try again.`);
+      // Ensure modal can be reopened if there's an error
+      setShowDocumentOnboarding(false);
+      setIsUploading(false);
+      setUploadProgress('');
+      setAiStatus(null);
+    }
           }}
         />
       )}
