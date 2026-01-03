@@ -1454,16 +1454,36 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                             'Others'
                           ];
 
-                          // Filter labs based on search query
-                          const filterLabsBySearch = (labs, query) => {
-                            if (!query || query.trim() === '') return labs;
-                            const searchLower = query.toLowerCase().trim();
-                            return labs.filter(([key, lab]) => {
-                              const displayName = getLabDisplayName(lab.name);
-                              const labName = lab.name || '';
-                              return displayName.toLowerCase().includes(searchLower) || 
-                                     labName.toLowerCase().includes(searchLower);
-                            });
+                          // Filter labs based on search query and empty metrics option
+                          const filterLabsBySearch = (labs, query, hideEmpty) => {
+                            let filtered = labs;
+                            
+                            // Filter by search query
+                            if (query && query.trim() !== '') {
+                              const searchLower = query.toLowerCase().trim();
+                              filtered = filtered.filter(([key, lab]) => {
+                                const displayName = getLabDisplayName(lab.name);
+                                const labName = lab.name || '';
+                                return displayName.toLowerCase().includes(searchLower) || 
+                                       labName.toLowerCase().includes(searchLower);
+                              });
+                            }
+                            
+                            // Filter out metrics with no values if hideEmpty is true
+                            if (hideEmpty) {
+                              filtered = filtered.filter(([key, lab]) => {
+                                // Check if lab has actual recorded data points
+                                // A lab has real data if it has a data array with at least one entry
+                                // The data array contains actual recorded values from the database
+                                const hasDataArray = lab.data && Array.isArray(lab.data) && lab.data.length > 0;
+                                
+                                // Only show labs that have actual data points recorded
+                                // This excludes labs that were just created but never had values added
+                                return hasDataArray;
+                              });
+                            }
+                            
+                            return filtered;
                           };
 
                           // Apply search filter and empty metrics filter to categorized labs
