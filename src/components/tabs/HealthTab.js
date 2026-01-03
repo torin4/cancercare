@@ -66,6 +66,7 @@ export default function HealthTab({ onTabChange, initialSection = null }) {
   const [selectedDate, setSelectedDate] = useState(null);
   const [labSearchQuery, setLabSearchQuery] = useState('');
   const [hideEmptyMetrics, setHideEmptyMetrics] = useState(false);
+  const [isDeletingEmptyMetrics, setIsDeletingEmptyMetrics] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
   const [pendingDocumentDate, setPendingDocumentDate] = useState(null);
@@ -1471,6 +1472,32 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                             'Others'
                           ];
 
+                          // Helper function to check if a lab is empty (same logic as filter)
+                          const isLabEmpty = (lab) => {
+                            if (!lab.data || !Array.isArray(lab.data) || lab.data.length === 0) {
+                              return true; // No data at all
+                            }
+                            
+                            const labDocIds = lab.labDocumentIds || [lab.id];
+                            const allDataIdsAreFallback = lab.data.every(d => labDocIds.includes(d.id));
+                            
+                            const hasValidValues = lab.data.some(d => {
+                              const value = d.value;
+                              if (value == null || value === undefined || value === '') return false;
+                              const valueStr = String(value).trim().toLowerCase();
+                              if (valueStr === '-' || valueStr === '—' || valueStr === 'n/a' || valueStr === 'na' || 
+                                  valueStr === '未測定' || valueStr === '測定なし' || valueStr === '--') {
+                                return false;
+                              }
+                              if (lab.isNumeric && isNaN(parseFloat(value))) {
+                                return false;
+                              }
+                              return true;
+                            });
+                            
+                            return allDataIdsAreFallback || !hasValidValues;
+                          };
+
                           // Filter labs based on search query and empty metrics option
                           const filterLabsBySearch = (labs, query, hideEmpty) => {
                             let filtered = labs;
@@ -1650,25 +1677,102 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                     </button>
                                   )}
                                 </div>
-                                {/* Hide Empty Metrics Toggle */}
-                                <label className="flex items-center gap-2 cursor-pointer group">
-                                  <input
-                                    type="checkbox"
-                                    checked={hideEmptyMetrics}
-                                    onChange={(e) => setHideEmptyMetrics(e.target.checked)}
-                                    className="w-4 h-4 text-medical-primary-600 border-gray-300 rounded focus:ring-medical-primary-500 focus:ring-2 cursor-pointer"
-                                  />
-                                  <div className="flex items-center gap-2">
-                                    {hideEmptyMetrics ? (
-                                      <EyeOff className="w-4 h-4 text-gray-600" />
-                                    ) : (
-                                      <Eye className="w-4 h-4 text-gray-400" />
-                                    )}
-                                    <span className="text-sm text-gray-700 group-hover:text-gray-900">
-                                      Hide metrics with no values
-                                    </span>
-                                  </div>
-                                </label>
+                                
+                                {/* Empty Metrics Options - only show if there are empty metrics */}
+                                {(() => {
+                                  // Find all empty labs
+                                  const emptyLabs = Object.entries(allLabData).filter(([key, lab]) => isLabEmpty(lab));
+                                  
+                                  if (emptyLabs.length === 0) {
+                                    return null; // Don't show options if no empty metrics
+                                  }
+                                  
+                                  return (
+                                    <div className="flex items-center justify-end gap-4">
+                                      {/* Hide Empty Metrics Toggle */}
+                                      <label className="flex items-center gap-2 cursor-pointer group">
+                                        <input
+                                          type="checkbox"
+                                          checked={hideEmptyMetrics}
+                                          onChange={(e) => setHideEmptyMetrics(e.target.checked)}
+                                          className="w-4 h-4 text-medical-primary-600 border-gray-300 rounded focus:ring-medical-primary-500 focus:ring-2 cursor-pointer"
+                                        />
+                                        <div className="flex items-center gap-2">
+                                          {hideEmptyMetrics ? (
+                                            <EyeOff className="w-4 h-4 text-gray-600" />
+                                          ) : (
+                                            <Eye className="w-4 h-4 text-gray-400" />
+                                          )}
+                                          <span className="text-sm text-gray-700 group-hover:text-gray-900">
+                                            Hide metrics with no values
+                                          </span>
+                                        </div>
+                                      </label>
+                                      
+                                      {/* Delete Empty Metrics Button */}
+                                      <button
+                                        onClick={async () => {
+                                          if (!user || !user.uid) {
+                                            showError('You must be logged in to delete metrics.');
+                                            return;
+                                          }
+                                          
+                                          const emptyLabTypes = emptyLabs.map(([key]) => key);
+                                          
+                                          setDeleteConfirm({
+                                            show: true,
+                                            title: `Delete ${emptyLabTypes.length} Empty Metric${emptyLabTypes.length !== 1 ? 's' : ''}?`,
+                                            message: `This will permanently delete ${emptyLabTypes.length} metric${emptyLabTypes.length !== 1 ? 's' : ''} with no values: ${emptyLabTypes.slice(0, 5).map(key => getLabDisplayName(allLabData[key]?.name || key)).join(', ')}${emptyLabTypes.length > 5 ? ` and ${emptyLabTypes.length - 5} more` : ''}.`,
+                                            itemName: `${emptyLabTypes.length} empty metric${emptyLabTypes.length !== 1 ? 's' : ''}`,
+                                            confirmText: 'Yes, Delete All',
+                                            onConfirm: async () => {
+                                              try {
+                                                setIsDeletingEmptyMetrics(true);
+                                                console.log(`[HealthTab] Deleting ${emptyLabTypes.length} empty lab metrics`);
+                                                
+                                                // Delete all empty labs
+                                                const deletePromises = emptyLabTypes.map(labType => 
+                                                  labService.deleteAllLabsByType(user.uid, labType)
+                                                );
+                                                const results = await Promise.all(deletePromises);
+                                                const totalDeleted = results.reduce((sum, count) => sum + count, 0);
+                                                
+                                                console.log(`[HealthTab] Deleted ${totalDeleted} empty lab document(s)`);
+                                                
+                                                // Wait a bit before reloading
+                                                await new Promise(resolve => setTimeout(resolve, 1000));
+                                                
+                                                // Reload health data
+                                                await reloadHealthData();
+                                                
+                                                showSuccess(`Deleted ${totalDeleted} empty metric${totalDeleted !== 1 ? 's' : ''}`);
+                                                setIsDeletingEmptyMetrics(false);
+                                              } catch (error) {
+                                                console.error('Error deleting empty metrics:', error);
+                                                showError('Failed to delete empty metrics. Please try again.');
+                                                setIsDeletingEmptyMetrics(false);
+                                              }
+                                            }
+                                          });
+                                        }}
+                                        disabled={isDeletingEmptyMetrics}
+                                        className="flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        {isDeletingEmptyMetrics ? (
+                                          <>
+                                            <Activity className="w-4 h-4 animate-spin" />
+                                            Deleting...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Trash2 className="w-4 h-4" />
+                                            Delete empty metrics ({emptyLabs.length})
+                                          </>
+                                        )}
+                                      </button>
+                                    </div>
+                                  );
+                                })()}
                               </div>
                               
                               {/* Total metrics count - aligned left above first card */}
