@@ -1492,18 +1492,28 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                   return false; // No data at all
                                 }
                                 
+                                // Check if data IDs match the lab document ID (fallback values)
+                                // The transformed lab object has id: primaryLab.id (the lab document ID)
+                                // Fallback values use id: lab.id, real values have different IDs from subcollection
+                                const labDocId = lab.id; // This is the lab document ID from transform
+                                
+                                // Check if all data points are fallback values (ID matches lab document ID)
+                                const allDataIdsAreFallback = lab.data.length > 0 && lab.data.every(d => d.id === labDocId);
+                                
                                 console.log(`[filterLabsBySearch] Checking lab ${key}:`, {
-                                  labId: lab.id,
+                                  labDocId: labDocId,
                                   dataLength: lab.data.length,
                                   dataIds: lab.data.map(d => d.id),
-                                  allIdsMatchLabId: lab.data.every(d => d.id === lab.id)
+                                  allDataIdsAreFallback: allDataIdsAreFallback,
+                                  dataIdsMatchLabDoc: lab.data.map(d => d.id === labDocId)
                                 });
                                 
                                 // Check if there are any actual recorded values (not fallback)
-                                // A lab document ID in the data array means it's a fallback value
-                                const hasRealValues = lab.data.some(d => d.id !== lab.id);
+                                // A data point ID that matches the lab document ID means it's a fallback value
+                                // Real values have IDs from the subcollection that don't match the lab document ID
+                                const hasRealValues = !allDataIdsAreFallback;
                                 
-                                console.log(`[filterLabsBySearch] Lab ${key} hasRealValues:`, hasRealValues);
+                                console.log(`[filterLabsBySearch] Lab ${key} hasRealValues:`, hasRealValues, `(filtering ${hasRealValues ? 'KEEP' : 'HIDE'})`);
                                 
                                 // Only show labs that have actual recorded data points
                                 // This excludes labs that only have fallback values from the document
