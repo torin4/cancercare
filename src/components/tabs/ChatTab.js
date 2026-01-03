@@ -748,10 +748,10 @@ export default function ChatTab({ onTabChange }) {
                   ? 'bg-medical-secondary-50 border border-medical-secondary-200 text-medical-neutral-800'
                   : 'bg-white border border-medical-neutral-200 text-medical-neutral-900'
                 }`}>
-{msg.type === 'user' ? (
-                   <p className="text-sm sm:text-base whitespace-pre-wrap">{msg.text}</p>
-                 ) : (
-                   <div className="text-sm sm:text-base prose prose-sm max-w-none">
+                {msg.type === 'user' ? (
+                  <p className="text-sm sm:text-base whitespace-pre-wrap">{msg.text}</p>
+                ) : (
+                  <div className="text-sm sm:text-base prose prose-sm max-w-none">
                      {/* Check if this is an upload summary and add action buttons */}
                      {msg.text.includes('**Document uploaded successfully!**') && (() => {
                        // Check if this is a genomic upload
@@ -862,7 +862,7 @@ export default function ChatTab({ onTabChange }) {
                          </div>
                        );
                      })()}
-                     <ReactMarkdown
+                    <ReactMarkdown
                       components={{
                         p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
                         ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 space-y-1" {...props} />,
@@ -1054,11 +1054,11 @@ export default function ChatTab({ onTabChange }) {
       )}
 
       {/* Upload Progress Overlay */}
-      <UploadProgressOverlay
+        <UploadProgressOverlay
         show={isUploading}
         uploadProgress={uploadProgress}
         documentScanAnimation={null}
-      />
+        />
     </>
   );
 }

@@ -121,13 +121,21 @@ IMPORTANT FOR NORMAL RANGES:
     dateInstruction = `
 
 ═══════════════════════════════════════════════════════════════════════════════
-DOCUMENT DATE PROVIDED BY USER: ${documentDate}
+⚠️ USER-PROVIDED DATE TAKES ABSOLUTE PRECEDENCE ⚠️
 ═══════════════════════════════════════════════════════════════════════════════
 
-The user has provided the document date: ${documentDate}
-- FIRST, try to extract the date from the document itself (test date, collection date, report date)
-- If the document shows a different date, prefer the date from the document itself
-- If NO date is found in the document after thorough search, use the user-provided date: ${documentDate}
+THE USER HAS PROVIDED A DOCUMENT DATE: ${documentDate}
+
+CRITICAL RULE: USE THIS USER-PROVIDED DATE FOR ALL VALUES.
+
+DATE ASSIGNMENT PRIORITY:
+1. **USER-PROVIDED DATE (${documentDate})** - USE THIS AS THE PRIMARY DATE FOR ALL LAB VALUES, VITAL VALUES, AND GENOMIC TEST DATE
+2. Only if the document explicitly shows a DIFFERENT date that is clearly more accurate (e.g., document shows test was performed on a different date than the user entered), you may use that date instead
+3. If no date is found in the document, ALWAYS use the user-provided date: ${documentDate}
+
+FOR ALL LAB VALUES: Use ${documentDate} unless the document clearly shows a different collection/test date
+FOR ALL VITAL VALUES: Use ${documentDate} unless the document clearly shows a different measurement date  
+FOR GENOMIC TEST DATE: Use ${documentDate} unless the document clearly shows a different test date
 - Format dates consistently as YYYY-MM-DD
 
 ═══════════════════════════════════════════════════════════════════════════════`;
@@ -173,6 +181,26 @@ ${dateInstruction}
 CRITICAL: DATE EXTRACTION IS MANDATORY - DO NOT SKIP THIS STEP
 ═══════════════════════════════════════════════════════════════════════════════
 
+${documentDate ? `
+═══════════════════════════════════════════════════════════════════════════════
+⚠️ USER-PROVIDED DATE TAKES ABSOLUTE PRECEDENCE ⚠️
+═══════════════════════════════════════════════════════════════════════════════
+
+THE USER HAS PROVIDED A DOCUMENT DATE: ${documentDate}
+
+CRITICAL RULE: USE THIS USER-PROVIDED DATE FOR ALL VALUES UNLESS THERE IS A COMPELLING REASON NOT TO.
+
+DATE ASSIGNMENT PRIORITY (in order):
+1. **USER-PROVIDED DATE (${documentDate})** - USE THIS AS THE PRIMARY DATE FOR ALL LAB VALUES, VITAL VALUES, AND GENOMIC TEST DATE
+2. Only if the document explicitly shows a DIFFERENT date that is clearly more accurate (e.g., document shows test was performed on a different date than the user entered), you may use that date instead
+3. If no date is found in the document, ALWAYS use the user-provided date: ${documentDate}
+
+FOR ALL LAB VALUES: Use ${documentDate} unless the document clearly shows a different collection/test date
+FOR ALL VITAL VALUES: Use ${documentDate} unless the document clearly shows a different measurement date  
+FOR GENOMIC TEST DATE: Use ${documentDate} unless the document clearly shows a different test date
+
+═══════════════════════════════════════════════════════════════════════════════
+` : `
 BEFORE extracting any other data, you MUST find and extract dates from the document.
 
 STEP 1: SEARCH FOR DATES IN THESE LOCATIONS (in order of priority):
@@ -195,7 +223,8 @@ STEP 3: DATE ASSIGNMENT RULES:
 - For GENOMIC REPORTS: Use the test date (testDate) from testInfo section
 - For VITALS: Use the measurement date
 - If multiple dates exist, use the MOST RECENT test/collection date
-${documentDate ? `- If NO date is found after thorough search, use the user-provided date: ${documentDate}` : `- If NO date is found after thorough search, ONLY THEN use: ${parseLocalDate(new Date().toISOString().split('T')[0]).toISOString().split('T')[0]}`}
+- If NO date is found after thorough search, ONLY THEN use: ${parseLocalDate(new Date().toISOString().split('T')[0]).toISOString().split('T')[0]}
+`}
 
 STEP 4: VALIDATION:
 - Every lab value MUST have a "date" field
@@ -560,21 +589,21 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
       
       for (const lab of extractedData.data.labs) {
         // Parse date first to create deduplication key
+        // USER-PROVIDED DATE TAKES PRECEDENCE - use it first if available
         let labDate = parseLocalDate(new Date().toISOString().split('T')[0]);
-        if (lab.date) {
-          const parsedDate = parseLocalDate(lab.date);
-          if (!isNaN(parsedDate.getTime())) {
-            labDate = parsedDate;
-          } else if (documentDate) {
-            const userDate = parseLocalDate(documentDate);
-            if (!isNaN(userDate.getTime())) {
-              labDate = userDate;
-            }
-          }
-        } else if (documentDate) {
+        
+        // Priority 1: User-provided date (takes absolute precedence)
+        if (documentDate) {
           const userDate = parseLocalDate(documentDate);
           if (!isNaN(userDate.getTime())) {
             labDate = userDate;
+          }
+        }
+        // Priority 2: AI-extracted date from document (only if user didn't provide one)
+        else if (lab.date) {
+          const parsedDate = parseLocalDate(lab.date);
+          if (!isNaN(parsedDate.getTime())) {
+            labDate = parsedDate;
           }
         }
         
@@ -623,11 +652,25 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         }
         
         // Cross-document deduplication: Check if same lab+value+date already exists
-        // Convert date to timestamp for comparison (day-level precision)
+        // Convert date to timestamp for comparison (day-level precision, using local time)
         const dayStart = new Date(labDate.getFullYear(), labDate.getMonth(), labDate.getDate()).getTime();
         const existingValues = await labService.getLabValues(labId);
         const duplicateValue = existingValues.find(v => {
-          const vDate = v.date?.toDate ? v.date.toDate() : (v.date ? new Date(v.date) : null);
+          // Convert Firestore Timestamp to local date (avoid timezone shift)
+          let vDate = null;
+          if (v.date?.toDate) {
+            const firestoreDate = v.date.toDate();
+            // Use local date components to avoid timezone shift
+            vDate = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
+          } else if (v.date) {
+            if (v.date instanceof Date) {
+              vDate = new Date(v.date.getFullYear(), v.date.getMonth(), v.date.getDate());
+            } else {
+              // String date - parse as local
+              const parsed = parseLocalDate(v.date);
+              vDate = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+            }
+          }
           if (!vDate) return false;
           const vDayStart = new Date(vDate.getFullYear(), vDate.getMonth(), vDate.getDate()).getTime();
           return vDayStart === dayStart && v.value === lab.value;
@@ -671,21 +714,21 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
       
       for (const vital of extractedData.data.vitals) {
         // Parse date first to create deduplication key
+        // USER-PROVIDED DATE TAKES PRECEDENCE - use it first if available
         let vitalDate = parseLocalDate(new Date().toISOString().split('T')[0]);
-        if (vital.date) {
-          const parsedDate = parseLocalDate(vital.date);
-          if (!isNaN(parsedDate.getTime())) {
-            vitalDate = parsedDate;
-          } else if (documentDate) {
-            const userDate = parseLocalDate(documentDate);
-            if (!isNaN(userDate.getTime())) {
-              vitalDate = userDate;
-            }
-          }
-        } else if (documentDate) {
+        
+        // Priority 1: User-provided date (takes absolute precedence)
+        if (documentDate) {
           const userDate = parseLocalDate(documentDate);
           if (!isNaN(userDate.getTime())) {
             vitalDate = userDate;
+          }
+        }
+        // Priority 2: AI-extracted date from document (only if user didn't provide one)
+        else if (vital.date) {
+          const parsedDate = parseLocalDate(vital.date);
+          if (!isNaN(parsedDate.getTime())) {
+            vitalDate = parsedDate;
           }
         }
         
@@ -737,10 +780,25 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         }
         
         // Cross-document deduplication: Check if same vital+value+date already exists
+        // Convert date to timestamp for comparison (day-level precision, using local time)
         const dayStart = new Date(vitalDate.getFullYear(), vitalDate.getMonth(), vitalDate.getDate()).getTime();
         const existingValues = await vitalService.getVitalValues(vitalId);
         const duplicateValue = existingValues.find(v => {
-          const vDate = v.date?.toDate ? v.date.toDate() : (v.date ? new Date(v.date) : null);
+          // Convert Firestore Timestamp to local date (avoid timezone shift)
+          let vDate = null;
+          if (v.date?.toDate) {
+            const firestoreDate = v.date.toDate();
+            // Use local date components to avoid timezone shift
+            vDate = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
+          } else if (v.date) {
+            if (v.date instanceof Date) {
+              vDate = new Date(v.date.getFullYear(), v.date.getMonth(), v.date.getDate());
+            } else {
+              // String date - parse as local
+              const parsed = parseLocalDate(v.date);
+              vDate = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+            }
+          }
           if (!vDate) return false;
           const vDayStart = new Date(vDate.getFullYear(), vDate.getMonth(), vDate.getDate()).getTime();
           // For BP, also check systolic/diastolic
@@ -820,17 +878,34 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
       if (genomicData.testInfo?.testName) {
         genomicProfile.testName = genomicData.testInfo.testName;
       }
-      if (genomicData.testInfo?.testDate) {
-        const parsedTestDate = new Date(genomicData.testInfo.testDate);
+      // USER-PROVIDED DATE TAKES PRECEDENCE for genomic test date
+      if (documentDate) {
+        const userDate = parseLocalDate(documentDate);
+        if (!isNaN(userDate.getTime())) {
+          genomicProfile.testDate = userDate;
+        } else if (genomicData.testInfo?.testDate) {
+          const parsedTestDate = parseLocalDate(genomicData.testInfo.testDate);
+          if (!isNaN(parsedTestDate.getTime())) {
+            genomicProfile.testDate = parsedTestDate;
+          } else {
+            console.warn(`Could not parse genomic testDate "${genomicData.testInfo.testDate}", using today's date`);
+            genomicProfile.testDate = parseLocalDate(new Date().toISOString().split('T')[0]);
+          }
+        } else {
+          console.warn('Genomic test missing testDate field, using today\'s date');
+          genomicProfile.testDate = parseLocalDate(new Date().toISOString().split('T')[0]);
+        }
+      } else if (genomicData.testInfo?.testDate) {
+        const parsedTestDate = parseLocalDate(genomicData.testInfo.testDate);
         if (!isNaN(parsedTestDate.getTime())) {
           genomicProfile.testDate = parsedTestDate;
         } else {
           console.warn(`Could not parse genomic testDate "${genomicData.testInfo.testDate}", using today's date`);
-genomicProfile.testDate = parseLocalDate(new Date().toISOString().split('T')[0]);
+          genomicProfile.testDate = parseLocalDate(new Date().toISOString().split('T')[0]);
         }
       } else {
         console.warn('Genomic test missing testDate field, using today\'s date');
-        genomicProfile.testDate = new Date();
+        genomicProfile.testDate = parseLocalDate(new Date().toISOString().split('T')[0]);
       }
       if (genomicData.testInfo?.laboratoryName) {
         genomicProfile.laboratoryName = genomicData.testInfo.laboratoryName;

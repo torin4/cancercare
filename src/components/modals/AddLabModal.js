@@ -45,9 +45,9 @@ const normalizeLabName = (rawName, labKeyMap) => {
   return canonicalKey || null;
 };
 
-export default function AddLabModal({
-  show,
-  onClose,
+export default function AddLabModal({ 
+  show, 
+  onClose, 
   user,
   reloadHealthData,
   labKeyMap,
@@ -298,7 +298,7 @@ export default function AddLabModal({
                         </option>
                       );
                     })}
-                  </optgroup>
+              </optgroup>
                 ));
               })()}
 
@@ -310,50 +310,50 @@ export default function AddLabModal({
           </div>
 
           {newLabData.label === '' && (
-            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-              <h4 className="font-semibold text-gray-800 text-sm">Custom Lab Metric</h4>
+          <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+            <h4 className="font-semibold text-gray-800 text-sm">Custom Lab Metric</h4>
 
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Lab Name *</label>
+              <input
+                type="text"
+                value={newLabData.label}
+                onChange={(e) => setNewLabData({ ...newLabData, label: e.target.value })}
+                placeholder="e.g., Vitamin D, Albumin, Magnesium"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Lab Name *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Normal Range *</label>
                 <input
                   type="text"
-                  value={newLabData.label}
-                  onChange={(e) => setNewLabData({ ...newLabData, label: e.target.value })}
-                  placeholder="e.g., Vitamin D, Albumin, Magnesium"
+                  value={newLabData.normalRange}
+                  onChange={(e) => setNewLabData({ ...newLabData, normalRange: e.target.value })}
+                  placeholder="e.g., <35, 4.5-11.0"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Normal Range *</label>
-                  <input
-                    type="text"
-                    value={newLabData.normalRange}
-                    onChange={(e) => setNewLabData({ ...newLabData, normalRange: e.target.value })}
-                    placeholder="e.g., <35, 4.5-11.0"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Unit *</label>
-                  <input
-                    type="text"
-                    value={newLabData.unit}
-                    onChange={(e) => setNewLabData({ ...newLabData, unit: e.target.value })}
-                    placeholder="e.g., U/mL, mg/dL"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Unit *</label>
+                <input
+                  type="text"
+                  value={newLabData.unit}
+                  onChange={(e) => setNewLabData({ ...newLabData, unit: e.target.value })}
+                  placeholder="e.g., U/mL, mg/dL"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
+            </div>
             </div>
           )}
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
-            <p className="text-xs text-blue-700">
-              <span className="font-semibold">Tip:</span> You can add any lab metric from your medical records - the AI will learn what's normal for you over time.
-            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
+              <p className="text-xs text-blue-700">
+                <span className="font-semibold">Tip:</span> You can add any lab metric from your medical records - the AI will learn what's normal for you over time.
+              </p>
           </div>
 
           {/* Optional: Add Initial Value */}

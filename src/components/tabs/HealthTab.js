@@ -8,7 +8,7 @@ import { labService, vitalService, symptomService, medicationService } from '../
 import { getLabStatus, getVitalStatus, getWeightNormalRange } from '../../utils/healthUtils';
 import { normalizeLabName, getLabDisplayName, labValueDescriptions, normalizeVitalName, getVitalDisplayName, vitalDescriptions, categorizeLabs } from '../../utils/normalizationUtils';
 import { categoryIcons, categoryDescriptions } from '../../constants/categories';
-import { getTodayLocalDate } from '../../utils/helpers';
+import { getTodayLocalDate, formatDateString } from '../../utils/helpers';
 import AddSymptomModal from '../modals/AddSymptomModal';
 import AddMedicationModal from '../modals/AddMedicationModal';
 import AddLabModal from '../modals/AddLabModal';
@@ -923,17 +923,14 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                             // Pre-fill with existing value data
                                                             const valueData = currentLab.data.find(item => item.id === d.id);
                                                             // Use dateOriginal if available, otherwise fall back to timestamp, then formatted date
+                                                            // Use formatDateString to ensure local time (not UTC) - prevents one-day shift
                                                             let dateValue = getTodayLocalDate();
                                                             if (valueData?.dateOriginal) {
-                                                              dateValue = valueData.dateOriginal.toISOString().split('T')[0];
+                                                              dateValue = formatDateString(valueData.dateOriginal) || getTodayLocalDate();
                                                             } else if (valueData?.timestamp) {
-                                                              dateValue = new Date(valueData.timestamp).toISOString().split('T')[0];
+                                                              dateValue = formatDateString(new Date(valueData.timestamp)) || getTodayLocalDate();
                                                             } else if (valueData?.date) {
-                                                              // Try to parse the formatted date string (e.g., "Dec 14")
-                                                              const parsed = new Date(valueData.date);
-                                                              if (!isNaN(parsed.getTime())) {
-                                                                dateValue = parsed.toISOString().split('T')[0];
-                                                              }
+                                                              dateValue = formatDateString(valueData.date) || getTodayLocalDate();
                                                             }
                                                             setNewLabValue({ 
                                                               value: valueData?.value || '', 
@@ -2243,30 +2240,45 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                                 if (currentVitalDoc && currentVitalDoc.id) {
                                                                   // Pre-fill with existing value data
                                                                   const valueData = currentVital.data.find(item => item.id === d.id);
-                                                                  // Extract date from various possible formats
+                                                                  // Extract date from various possible formats, using local time to avoid timezone shift
                                                                   let dateTimeValue = new Date().toISOString().slice(0, 16);
                                                                   
-                                                                  // Check for Firestore Timestamp (has toDate method)
-                                                                  if (valueData?.date && typeof valueData.date.toDate === 'function') {
-                                                                    dateTimeValue = valueData.date.toDate().toISOString().slice(0, 16);
-                                                                  } 
-                                                                  // Check for dateOriginal (Firestore Timestamp)
-                                                                  else if (valueData?.dateOriginal && typeof valueData.dateOriginal.toDate === 'function') {
-                                                                    dateTimeValue = valueData.dateOriginal.toDate().toISOString().slice(0, 16);
-                                                                  }
-                                                                  // Check for timestamp (number)
-                                                                  else if (valueData?.timestamp) {
-                                                                    dateTimeValue = new Date(valueData.timestamp).toISOString().slice(0, 16);
-                                                                  }
-                                                                  // Check for date as Date object
-                                                                  else if (valueData?.date instanceof Date) {
-                                                                    dateTimeValue = valueData.date.toISOString().slice(0, 16);
-                                                                  }
-                                                                  // Check for date as string (formatted or ISO)
-                                                                  else if (valueData?.date) {
-                                                                    const parsed = new Date(valueData.date);
-                                                                    if (!isNaN(parsed.getTime())) {
-                                                                      dateTimeValue = parsed.toISOString().slice(0, 16);
+                                                                  // Get the date value (prioritize dateOriginal, then date)
+                                                                  let dateValue = valueData?.dateOriginal || valueData?.date;
+                                                                  
+                                                                  if (dateValue) {
+                                                                    let dateObj = null;
+                                                                    
+                                                                    // Check for Firestore Timestamp (has toDate method)
+                                                                    if (dateValue && typeof dateValue.toDate === 'function') {
+                                                                      const firestoreDate = dateValue.toDate();
+                                                                      // Use local date components to avoid timezone shift
+                                                                      dateObj = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate(), firestoreDate.getHours(), firestoreDate.getMinutes());
+                                                                    }
+                                                                    // Check for timestamp (number)
+                                                                    else if (valueData?.timestamp) {
+                                                                      const dateFromTimestamp = new Date(valueData.timestamp);
+                                                                      dateObj = new Date(dateFromTimestamp.getFullYear(), dateFromTimestamp.getMonth(), dateFromTimestamp.getDate(), dateFromTimestamp.getHours(), dateFromTimestamp.getMinutes());
+                                                                    }
+                                                                    // Check for date as Date object
+                                                                    else if (dateValue instanceof Date) {
+                                                                      dateObj = new Date(dateValue.getFullYear(), dateValue.getMonth(), dateValue.getDate(), dateValue.getHours(), dateValue.getMinutes());
+                                                                    }
+                                                                    // Check for date as string
+                                                                    else if (typeof dateValue === 'string') {
+                                                                      const parsed = new Date(dateValue);
+                                                                      if (!isNaN(parsed.getTime())) {
+                                                                        dateObj = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), parsed.getHours(), parsed.getMinutes());
+                                                                      }
+                                                                    }
+                                                                    
+                                                                    if (dateObj && !isNaN(dateObj.getTime())) {
+                                                                      const year = dateObj.getFullYear();
+                                                                      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                                                                      const day = String(dateObj.getDate()).padStart(2, '0');
+                                                                      const hours = String(dateObj.getHours()).padStart(2, '0');
+                                                                      const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+                                                                      dateTimeValue = `${year}-${month}-${day}T${hours}:${minutes}`;
                                                                     }
                                                                   }
                                                                   const displayName = getVitalDisplayName(currentVitalDoc.name || selectedVital);

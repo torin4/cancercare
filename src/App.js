@@ -1314,12 +1314,12 @@ export default function CancerCareApp() {
               } else {
                 // Otherwise, open file picker (fallback)
                 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-                if (documentOnboardingMethod === 'camera') {
-                  simulateCameraUpload(documentType);
-                } else if (isMobile) {
-                  simulateCameraUpload(documentType);
-                } else {
-                  simulateDocumentUpload(documentType);
+              if (documentOnboardingMethod === 'camera') {
+                simulateCameraUpload(documentType);
+              } else if (isMobile) {
+                simulateCameraUpload(documentType);
+              } else {
+                simulateDocumentUpload(documentType);
                 }
               }
             }}

@@ -3,6 +3,7 @@ import { X, Heart } from 'lucide-react';
 import { vitalService } from '../../firebase/services';
 import { useBanner } from '../../contexts/BannerContext';
 import DateTimePicker from '../DateTimePicker';
+import { formatDateString } from '../../utils/helpers';
 
 export default function AddVitalValueModal({ 
   show, 
@@ -28,30 +29,55 @@ export default function AddVitalValueModal({
       if (currentVital && currentVital.data) {
         const valueToEdit = currentVital.data.find(v => v.id === editingVitalValueId);
         if (valueToEdit) {
-          // Extract date from various possible formats
+          // Extract date from various possible formats, using local time to avoid timezone shift
           let dateTimeValue = new Date().toISOString().slice(0, 16);
           
-          // Check for Firestore Timestamp (has toDate method)
-          if (valueToEdit.date && typeof valueToEdit.date.toDate === 'function') {
-            dateTimeValue = valueToEdit.date.toDate().toISOString().slice(0, 16);
-          } 
-          // Check for dateOriginal (Firestore Timestamp)
-          else if (valueToEdit.dateOriginal && typeof valueToEdit.dateOriginal.toDate === 'function') {
-            dateTimeValue = valueToEdit.dateOriginal.toDate().toISOString().slice(0, 16);
-          }
-          // Check for timestamp (number)
-          else if (valueToEdit.timestamp) {
-            dateTimeValue = new Date(valueToEdit.timestamp).toISOString().slice(0, 16);
-          }
-          // Check for date as Date object
-          else if (valueToEdit.date instanceof Date) {
-            dateTimeValue = valueToEdit.date.toISOString().slice(0, 16);
-          }
-          // Check for date as string (formatted or ISO)
-          else if (valueToEdit.date) {
-            const parsed = new Date(valueToEdit.date);
-            if (!isNaN(parsed.getTime())) {
-              dateTimeValue = parsed.toISOString().slice(0, 16);
+          // Get the date value (prioritize dateOriginal, then date)
+          let dateValue = valueToEdit.dateOriginal || valueToEdit.date;
+          
+          if (dateValue) {
+            // Check for Firestore Timestamp (has toDate method)
+            if (dateValue && typeof dateValue.toDate === 'function') {
+              const firestoreDate = dateValue.toDate();
+              // Use local date components to avoid timezone shift
+              const year = firestoreDate.getFullYear();
+              const month = String(firestoreDate.getMonth() + 1).padStart(2, '0');
+              const day = String(firestoreDate.getDate()).padStart(2, '0');
+              const hours = String(firestoreDate.getHours()).padStart(2, '0');
+              const minutes = String(firestoreDate.getMinutes()).padStart(2, '0');
+              dateTimeValue = `${year}-${month}-${day}T${hours}:${minutes}`;
+            }
+            // Check for timestamp (number)
+            else if (valueToEdit.timestamp) {
+              const dateFromTimestamp = new Date(valueToEdit.timestamp);
+              const year = dateFromTimestamp.getFullYear();
+              const month = String(dateFromTimestamp.getMonth() + 1).padStart(2, '0');
+              const day = String(dateFromTimestamp.getDate()).padStart(2, '0');
+              const hours = String(dateFromTimestamp.getHours()).padStart(2, '0');
+              const minutes = String(dateFromTimestamp.getMinutes()).padStart(2, '0');
+              dateTimeValue = `${year}-${month}-${day}T${hours}:${minutes}`;
+            }
+            // Check for date as Date object
+            else if (dateValue instanceof Date) {
+              const year = dateValue.getFullYear();
+              const month = String(dateValue.getMonth() + 1).padStart(2, '0');
+              const day = String(dateValue.getDate()).padStart(2, '0');
+              const hours = String(dateValue.getHours()).padStart(2, '0');
+              const minutes = String(dateValue.getMinutes()).padStart(2, '0');
+              dateTimeValue = `${year}-${month}-${day}T${hours}:${minutes}`;
+            }
+            // Check for date as string (formatted or ISO)
+            else if (typeof dateValue === 'string') {
+              // Try to parse and format using local time
+              const parsed = new Date(dateValue);
+              if (!isNaN(parsed.getTime())) {
+                const year = parsed.getFullYear();
+                const month = String(parsed.getMonth() + 1).padStart(2, '0');
+                const day = String(parsed.getDate()).padStart(2, '0');
+                const hours = String(parsed.getHours()).padStart(2, '0');
+                const minutes = String(parsed.getMinutes()).padStart(2, '0');
+                dateTimeValue = `${year}-${month}-${day}T${hours}:${minutes}`;
+              }
             }
           }
           // For blood pressure, extract systolic and diastolic from value if not stored separately
@@ -129,7 +155,14 @@ export default function AddVitalValueModal({
     }
 
     try {
-      const vitalDate = new Date(newVitalValue.dateTime);
+      // Parse dateTime string (YYYY-MM-DDTHH:mm format) as local time
+      // Split into date and time parts to avoid timezone shift
+      const [datePart, timePart] = newVitalValue.dateTime.split('T');
+      const [year, month, day] = datePart.split('-').map(Number);
+      const [hours = 0, minutes = 0] = (timePart || '').split(':').map(Number);
+      
+      // Create date in local timezone (not UTC) - prevents one-day shift
+      const vitalDate = new Date(year, month - 1, day, hours, minutes);
       if (isNaN(vitalDate.getTime())) {
         showError('Please enter a valid date and time.');
         return;

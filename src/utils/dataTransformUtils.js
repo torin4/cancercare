@@ -3,6 +3,7 @@
 import { labService, vitalService } from '../firebase/services';
 import { getCancerRelevanceScore } from './healthUtils';
 import { normalizeVitalName, getVitalDisplayName, normalizeLabName } from './normalizationUtils';
+import { formatDateString } from './helpers';
 
 // Transform Firestore labs data to UI format
 export const transformLabsData = async (labs) => {
@@ -63,7 +64,31 @@ export const transformLabsData = async (labs) => {
           // Round timestamps to day level (midnight) to handle timezone issues and ensure same-day values are treated as duplicates
           const sortedValues = values
             .map(v => {
-              const date = v.date?.toDate ? v.date.toDate() : (v.date ? new Date(v.date) : new Date());
+              // Convert Firestore Timestamp to local date (avoid timezone shift)
+              let date;
+              if (v.date?.toDate) {
+                // Firestore Timestamp - convert to local date using date components
+                const firestoreDate = v.date.toDate();
+                // Use local date components to avoid timezone shift
+                date = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
+              } else if (v.date) {
+                // Already a Date object or string - parse as local date
+                if (v.date instanceof Date) {
+                  date = new Date(v.date.getFullYear(), v.date.getMonth(), v.date.getDate());
+                } else {
+                  // String date - parse as local
+                  const dateStr = formatDateString(v.date);
+                  if (dateStr) {
+                    const parts = dateStr.split('-');
+                    date = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                  } else {
+                    date = new Date();
+                  }
+                }
+              } else {
+                date = new Date();
+              }
+              
               const timestamp = date.getTime();
               // Round to day level (midnight) for deduplication - this prevents same-day duplicates with different times
               const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
@@ -108,7 +133,27 @@ export const transformLabsData = async (labs) => {
           });
         } else {
           // No values yet, just use the lab document data
-          const timestamp = lab.createdAt?.toDate ? lab.createdAt.toDate() : (lab.createdAt ? new Date(lab.createdAt) : new Date());
+          // Convert to local date to avoid timezone shift
+          let timestamp;
+          if (lab.createdAt?.toDate) {
+            const firestoreDate = lab.createdAt.toDate();
+            timestamp = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
+          } else if (lab.createdAt) {
+            if (lab.createdAt instanceof Date) {
+              timestamp = new Date(lab.createdAt.getFullYear(), lab.createdAt.getMonth(), lab.createdAt.getDate());
+            } else {
+              const dateStr = formatDateString(lab.createdAt);
+              if (dateStr) {
+                const parts = dateStr.split('-');
+                timestamp = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+              } else {
+                timestamp = new Date();
+              }
+            }
+          } else {
+            timestamp = new Date();
+          }
+          
           const dayStart = new Date(timestamp.getFullYear(), timestamp.getMonth(), timestamp.getDate()).getTime();
           const valueKey = `${dayStart}_${lab.currentValue}`;
           
@@ -128,27 +173,47 @@ export const transformLabsData = async (labs) => {
           }
         }
       } catch (error) {
-      console.error(`Error loading values for lab ${lab.id}:`, error);
-      // Fallback to lab document data
-      const timestamp = lab.createdAt?.toDate ? lab.createdAt.toDate() : (lab.createdAt ? new Date(lab.createdAt) : new Date());
-      const dayStart = new Date(timestamp.getFullYear(), timestamp.getMonth(), timestamp.getDate()).getTime();
-      const valueKey = `${dayStart}_${lab.currentValue}`;
-      
-      // Check if this fallback value is already in the data array (from another lab document with same type)
-      // Use the persistent deduplication sets
-      if (!existingIds.has(lab.id) && !existingValueKeys.has(valueKey)) {
-        grouped[labType].data.push({
-          id: lab.id,
-          date: timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          dateOriginal: timestamp, // Store original Date object for editing
-          value: lab.currentValue,
-          timestamp: timestamp.getTime(),
-          notes: '' // No notes for fallback value
-        });
-        existingIds.add(lab.id);
-        existingValueKeys.add(valueKey);
+        console.error(`Error loading values for lab ${lab.id}:`, error);
+        // Fallback to lab document data
+        // Convert to local date to avoid timezone shift
+        let timestamp;
+        if (lab.createdAt?.toDate) {
+          const firestoreDate = lab.createdAt.toDate();
+          timestamp = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
+        } else if (lab.createdAt) {
+          if (lab.createdAt instanceof Date) {
+            timestamp = new Date(lab.createdAt.getFullYear(), lab.createdAt.getMonth(), lab.createdAt.getDate());
+          } else {
+            const dateStr = formatDateString(lab.createdAt);
+            if (dateStr) {
+              const parts = dateStr.split('-');
+              timestamp = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+            } else {
+              timestamp = new Date();
+            }
+          }
+        } else {
+          timestamp = new Date();
+        }
+        
+        const dayStart = new Date(timestamp.getFullYear(), timestamp.getMonth(), timestamp.getDate()).getTime();
+        const valueKey = `${dayStart}_${lab.currentValue}`;
+        
+        // Check if this fallback value is already in the data array (from another lab document with same type)
+        // Use the persistent deduplication sets
+        if (!existingIds.has(lab.id) && !existingValueKeys.has(valueKey)) {
+          grouped[labType].data.push({
+            id: lab.id,
+            date: timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            dateOriginal: timestamp, // Store original Date object for editing
+            value: lab.currentValue,
+            timestamp: timestamp.getTime(),
+            notes: '' // No notes for fallback value
+          });
+          existingIds.add(lab.id);
+          existingValueKeys.add(valueKey);
+        }
       }
-    }
     }
     
     // CRITICAL: Sort the data array by timestamp after all values from all lab documents are added
@@ -227,7 +292,31 @@ export const transformVitalsData = async (vitals) => {
         // Round timestamps to day level (midnight) to handle timezone issues and ensure same-day values are treated as duplicates
         const sortedValues = values
           .map(v => {
-            const date = v.date?.toDate ? v.date.toDate() : (v.date ? new Date(v.date) : new Date());
+            // Convert Firestore Timestamp to local date (avoid timezone shift)
+            let date;
+            if (v.date?.toDate) {
+              // Firestore Timestamp - convert to local date using date components
+              const firestoreDate = v.date.toDate();
+              // Use local date components to avoid timezone shift
+              date = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
+            } else if (v.date) {
+              // Already a Date object or string - parse as local date
+              if (v.date instanceof Date) {
+                date = new Date(v.date.getFullYear(), v.date.getMonth(), v.date.getDate());
+              } else {
+                // String date - parse as local
+                const dateStr = formatDateString(v.date);
+                if (dateStr) {
+                  const parts = dateStr.split('-');
+                  date = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                } else {
+                  date = new Date();
+                }
+              }
+            } else {
+              date = new Date();
+            }
+            
             const timestamp = date.getTime();
             // Round to day level (midnight) for deduplication - this prevents same-day duplicates with different times
             const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
@@ -281,10 +370,6 @@ export const transformVitalsData = async (vitals) => {
         // This ensures the graph displays points in chronological order
         grouped[canonicalKey].data.sort((a, b) => a.timestamp - b.timestamp);
         
-        // CRITICAL: Sort the data array by timestamp after all values are added
-        // This ensures the graph displays points in chronological order
-        grouped[canonicalKey].data.sort((a, b) => a.timestamp - b.timestamp);
-        
         // Only log duplicates in development mode if there are many
         if (process.env.NODE_ENV === 'development' && skippedCount > 5) {
           console.warn(`[transformVitalsData] Skipped ${skippedCount} duplicate values for ${canonicalKey}`);
@@ -300,7 +385,27 @@ export const transformVitalsData = async (vitals) => {
         }
       } else {
         // No values yet, just use the vital document data
-        const vitalDate = new Date(vital.createdAt?.toDate ? vital.createdAt.toDate() : vital.createdAt);
+        // Convert to local date to avoid timezone shift
+        let vitalDate;
+        if (vital.createdAt?.toDate) {
+          const firestoreDate = vital.createdAt.toDate();
+          vitalDate = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
+        } else if (vital.createdAt) {
+          if (vital.createdAt instanceof Date) {
+            vitalDate = new Date(vital.createdAt.getFullYear(), vital.createdAt.getMonth(), vital.createdAt.getDate());
+          } else {
+            const dateStr = formatDateString(vital.createdAt);
+            if (dateStr) {
+              const parts = dateStr.split('-');
+              vitalDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+            } else {
+              vitalDate = new Date();
+            }
+          }
+        } else {
+          vitalDate = new Date();
+        }
+        
         grouped[canonicalKey].data.push({
           id: vital.id, // Store vital document ID for deletion
           date: vitalDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
@@ -313,7 +418,27 @@ export const transformVitalsData = async (vitals) => {
     } catch (error) {
       console.error(`Error loading values for vital ${vital.id}:`, error);
       // Fallback to vital document data
-      const vitalDate = new Date(vital.createdAt?.toDate ? vital.createdAt.toDate() : vital.createdAt);
+      // Convert to local date to avoid timezone shift
+      let vitalDate;
+      if (vital.createdAt?.toDate) {
+        const firestoreDate = vital.createdAt.toDate();
+        vitalDate = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
+      } else if (vital.createdAt) {
+        if (vital.createdAt instanceof Date) {
+          vitalDate = new Date(vital.createdAt.getFullYear(), vital.createdAt.getMonth(), vital.createdAt.getDate());
+        } else {
+          const dateStr = formatDateString(vital.createdAt);
+          if (dateStr) {
+            const parts = dateStr.split('-');
+            vitalDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+          } else {
+            vitalDate = new Date();
+          }
+        }
+      } else {
+        vitalDate = new Date();
+      }
+      
       grouped[canonicalKey].data.push({
         id: vital.id, // Store vital document ID for deletion
         date: vitalDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),

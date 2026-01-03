@@ -283,11 +283,11 @@ export default function FilesTab({ onTabChange }) {
         {documents.length > 0 && (
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <h3 className="text-sm sm:text-base md:text-lg font-semibold text-medical-neutral-900 flex items-center gap-2">
-              <div className="bg-gray-100 p-1.5 sm:p-2 rounded-lg">
-                <FolderOpen className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
-              </div>
-              Medical Documents
-            </h3>
+            <div className="bg-gray-100 p-1.5 sm:p-2 rounded-lg">
+              <FolderOpen className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+            </div>
+            Medical Documents
+          </h3>
             <button
               onClick={() => openDocumentOnboarding('general')}
               className="flex items-center gap-2 text-medical-primary-600 hover:text-medical-primary-700 transition-colors"
@@ -400,28 +400,28 @@ export default function FilesTab({ onTabChange }) {
                     )}
                     {/* Reload button - show for all processable document types */}
                     {(doc.documentType === 'Lab' || doc.type === 'Lab' || doc.documentType === 'Vitals' || doc.type === 'Vitals' || doc.documentType === 'Genomic' || doc.type === 'Genomic' || doc.documentType === 'blood-test') && (
-                      <button
+                        <button
                         onClick={(e) => {
-                          e.stopPropagation();
+                            e.stopPropagation();
                           setRescanDocument(doc);
-                        }}
-                        className="p-1.5 sm:p-1.5 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
-                        title="Rescan document"
-                      >
-                        <RefreshCw className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
-                      </button>
+                          }}
+                          className="p-1.5 sm:p-1.5 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
+                          title="Rescan document"
+                        >
+                          <RefreshCw className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+                        </button>
                     )}
                     {/* Edit date and note button - show for all documents */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingDocumentNote(doc);
-                      }}
-                      className="p-1.5 sm:p-1.5 rounded-full text-gray-500 hover:bg-green-100 hover:text-green-600 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingDocumentNote(doc);
+                          }}
+                          className="p-1.5 sm:p-1.5 rounded-full text-gray-500 hover:bg-green-100 hover:text-green-600 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
                       title="Edit date and note"
-                    >
-                      <Edit2 className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
-                    </button>
+                        >
+                          <Edit2 className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+                        </button>
                     <button
                       onClick={handleDelete}
                       className="p-1.5 sm:p-1.5 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-600 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
@@ -464,14 +464,14 @@ export default function FilesTab({ onTabChange }) {
               handleRealFileUpload(file, documentType, normalizedDate, normalizedNote);
             } else {
               // Otherwise, open file picker (fallback)
-              const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-              
-              if (documentOnboardingMethod === 'camera') {
-                simulateCameraUpload(documentType);
-              } else if (isMobile) {
-                simulateCameraUpload(documentType);
-              } else {
-                simulateDocumentUpload(documentType);
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            
+            if (documentOnboardingMethod === 'camera') {
+              simulateCameraUpload(documentType);
+            } else if (isMobile) {
+              simulateCameraUpload(documentType);
+            } else {
+              simulateDocumentUpload(documentType);
               }
             }
           }}

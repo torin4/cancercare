@@ -14,7 +14,7 @@ root.render(
       <PatientProvider>
         <HealthProvider>
           <BannerProvider>
-            <App />
+          <App />
           </BannerProvider>
         </HealthProvider>
       </PatientProvider>

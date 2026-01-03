@@ -551,7 +551,7 @@ export const vitalService = {
           await deleteDoc(valueDoc.ref);
           deletedCount++;
           console.log(`[deleteVital] ✓ Deleted value ${valueDoc.id} from vital ${vitalId}`);
-        } catch (error) {
+    } catch (error) {
           console.warn(`[deleteVital] Error deleting vital value ${valueDoc.id}:`, error.message);
         }
       }
@@ -792,7 +792,7 @@ export const documentService = {
     const documents = querySnapshot.docs.map(doc => {
       const data = convertTimestamps(doc.data());
       return {
-        id: doc.id,
+      id: doc.id,
         ...data
       };
     });

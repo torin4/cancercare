@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check } from 'lucide-react';
 import { labService } from '../../firebase/services';
-import { getTodayLocalDate } from '../../utils/helpers';
+import { getTodayLocalDate, formatDateString, parseLocalDate } from '../../utils/helpers';
 import { useBanner } from '../../contexts/BannerContext';
 import DatePicker from '../DatePicker';
 
@@ -27,9 +27,8 @@ export default function AddLabValueModal({
       const valueToEdit = selectedLabForValue.data?.find(v => v.id === editingLabValueId);
       if (valueToEdit) {
         const date = valueToEdit.dateOriginal || new Date();
-        const dateStr = date instanceof Date 
-          ? date.toISOString().split('T')[0]
-          : (typeof date === 'string' ? date.split(' ')[0] : getTodayLocalDate());
+        // Use formatDateString to ensure local time (not UTC) - prevents one-day shift
+        const dateStr = formatDateString(date) || getTodayLocalDate();
         setNewLabValue({
           value: valueToEdit.value || '',
           date: dateStr,
@@ -59,7 +58,8 @@ export default function AddLabValueModal({
     }
 
     try {
-      const valueDate = new Date(newLabValue.date);
+      // Use parseLocalDate to ensure local time (not UTC) - prevents one-day shift
+      const valueDate = parseLocalDate(newLabValue.date);
       if (isNaN(valueDate.getTime())) {
         showError('Please enter a valid date.');
         return;
