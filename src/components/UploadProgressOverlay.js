@@ -5,8 +5,6 @@ export default function UploadProgressOverlay({ show, uploadProgress, documentSc
   const [progressPercentage, setProgressPercentage] = useState(0);
   const [smoothProgress, setSmoothProgress] = useState(0);
 
-  if (!show) return null;
-
   // Calculate progress percentage based on current step with more granular steps
   useEffect(() => {
     if (!show) return; // Don't run if not showing
@@ -63,6 +61,8 @@ export default function UploadProgressOverlay({ show, uploadProgress, documentSc
 
     return () => clearInterval(interval);
   }, [show, progressPercentage]);
+
+  if (!show) return null;
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
