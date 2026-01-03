@@ -51,9 +51,17 @@ export const transformLabsData = async (labs) => {
         normalRange: primaryLab.normalRange,
         isNumeric: typeof primaryLab.currentValue === 'number',
         relevanceScore: getCancerRelevanceScore(labType),
-        data: []
+        data: [],
+        labDocumentIds: [] // Store all lab document IDs for this type (to identify fallback values)
       };
     }
+    
+    // Track all lab document IDs for this type
+    labDocuments.forEach(lab => {
+      if (!grouped[labType].labDocumentIds.includes(lab.id)) {
+        grouped[labType].labDocumentIds.push(lab.id);
+      }
+    });
 
     // Initialize deduplication sets OUTSIDE the loop so they persist across all lab documents with same type
     const existingIds = new Set(grouped[labType].data.map(d => d.id));

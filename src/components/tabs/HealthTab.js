@@ -1290,12 +1290,14 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                         
                                                         // Delete from Firestore in background
                                                         const deletedCount = await labService.deleteAllLabsByType(user.uid, labType);
-                                                        console.log('Deleted labs count:', deletedCount);
+                                                        console.log('[HealthTab] Deleted labs count:', deletedCount);
+                                                        
+                                                        // Wait a bit longer and verify deletion before reloading
+                                                        await new Promise(resolve => setTimeout(resolve, 1000));
                                                         
                                                         // Reload to ensure sync (but UI already updated)
-                                                        setTimeout(async () => {
-                                                          await reloadHealthData();
-                                                        }, 300);
+                                                        await reloadHealthData();
+                                                        console.log('[HealthTab] Health data reloaded after deletion');
                                                       } catch (error) {
                                                         console.error('Error deleting labs:', error);
                                                         // Revert optimistic update on error
@@ -1414,12 +1416,14 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                         
                                                         // Delete from Firestore in background
                                                         const deletedCount = await labService.deleteAllLabsByType(user.uid, labType);
-                                                        console.log('Deleted labs count:', deletedCount);
+                                                        console.log('[HealthTab] Deleted labs count:', deletedCount);
+                                                        
+                                                        // Wait a bit longer and verify deletion before reloading
+                                                        await new Promise(resolve => setTimeout(resolve, 1000));
                                                         
                                                         // Reload to ensure sync (but UI already updated)
-                                                        setTimeout(async () => {
-                                                          await reloadHealthData();
-                                                        }, 300);
+                                                        await reloadHealthData();
+                                                        console.log('[HealthTab] Health data reloaded after deletion');
                                                       } catch (error) {
                                                         console.error('Error deleting labs:', error);
                                                         // Revert optimistic update on error
@@ -1492,25 +1496,25 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                   return false; // No data at all
                                 }
                                 
-                                // Check if data IDs match the lab document ID (fallback values)
-                                // The transformed lab object has id: primaryLab.id (the lab document ID)
-                                // Fallback values use id: lab.id, real values have different IDs from subcollection
-                                const labDocId = lab.id; // This is the lab document ID from transform
+                                // Check if data IDs match any lab document ID (fallback values)
+                                // When multiple lab documents have the same type, fallback values can have different IDs
+                                // The transformed lab object stores all lab document IDs in labDocumentIds array
+                                const labDocIds = lab.labDocumentIds || [lab.id]; // Fallback to just the primary ID
                                 
-                                // Check if all data points are fallback values (ID matches lab document ID)
-                                const allDataIdsAreFallback = lab.data.length > 0 && lab.data.every(d => d.id === labDocId);
+                                // Check if all data points are fallback values (ID matches any lab document ID)
+                                const allDataIdsAreFallback = lab.data.length > 0 && lab.data.every(d => labDocIds.includes(d.id));
                                 
                                 console.log(`[filterLabsBySearch] Checking lab ${key}:`, {
-                                  labDocId: labDocId,
+                                  labDocIds: labDocIds,
                                   dataLength: lab.data.length,
                                   dataIds: lab.data.map(d => d.id),
                                   allDataIdsAreFallback: allDataIdsAreFallback,
-                                  dataIdsMatchLabDoc: lab.data.map(d => d.id === labDocId)
+                                  dataIdsMatchAnyLabDoc: lab.data.map(d => labDocIds.includes(d.id))
                                 });
                                 
                                 // Check if there are any actual recorded values (not fallback)
-                                // A data point ID that matches the lab document ID means it's a fallback value
-                                // Real values have IDs from the subcollection that don't match the lab document ID
+                                // A data point ID that matches any lab document ID means it's a fallback value
+                                // Real values have IDs from the subcollection that don't match any lab document ID
                                 const hasRealValues = !allDataIdsAreFallback;
                                 
                                 console.log(`[filterLabsBySearch] Lab ${key} hasRealValues:`, hasRealValues, `(filtering ${hasRealValues ? 'KEEP' : 'HIDE'})`);

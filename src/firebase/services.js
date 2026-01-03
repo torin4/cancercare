@@ -452,27 +452,53 @@ export const labService = {
   },
 
   // Delete all labs of a specific type for a patient
+  // labType is the normalized key from the UI (e.g., "ca125")
+  // We need to find all labs that normalize to this key, regardless of their exact labType value
   async deleteAllLabsByType(patientId, labType) {
+    // Import normalizeLabName dynamically to avoid circular dependencies
+    const { normalizeLabName } = await import('../utils/normalizationUtils');
+    
+    // Get all labs for this patient (can't query by normalized labType)
     const q = query(
       collection(db, COLLECTIONS.LABS),
-      where('patientId', '==', patientId),
-      where('labType', '==', labType)
+      where('patientId', '==', patientId)
     );
     const querySnapshot = await getDocs(q);
-    const deletePromises = querySnapshot.docs.map(async (docSnap) => {
+    
+    // Filter labs by normalized labType
+    const labsToDelete = [];
+    for (const docSnap of querySnapshot.docs) {
+      const labData = docSnap.data();
+      // Normalize both the stored labType and label to match the normalized key
+      const normalizedStoredType = normalizeLabName(labData.labType) || 
+                                     normalizeLabName(labData.label) || 
+                                     (labData.labType || '').toLowerCase();
+      const normalizedTargetType = normalizeLabName(labType) || labType.toLowerCase();
+      
+      if (normalizedStoredType === normalizedTargetType) {
+        labsToDelete.push(docSnap);
+      }
+    }
+    
+    console.log(`[deleteAllLabsByType] Found ${labsToDelete.length} lab document(s) to delete for type ${labType}`);
+    
+    // Delete all matching labs and their subcollection values
+    const deletePromises = labsToDelete.map(async (docSnap) => {
       // Also delete any subcollection values
       try {
         const valuesRef = collection(db, COLLECTIONS.LABS, docSnap.id, 'values');
         const valuesSnapshot = await getDocs(valuesRef);
         const deleteValuePromises = valuesSnapshot.docs.map(d => deleteDoc(d.ref));
         await Promise.all(deleteValuePromises);
+        console.log(`[deleteAllLabsByType] Deleted ${valuesSnapshot.docs.length} value(s) from lab ${docSnap.id}`);
       } catch (error) {
-        console.warn(`Error deleting subcollection values for lab ${docSnap.id}:`, error);
+        console.warn(`[deleteAllLabsByType] Error deleting subcollection values for lab ${docSnap.id}:`, error);
       }
-      return deleteDoc(docSnap.ref);
+      await deleteDoc(docSnap.ref);
+      console.log(`[deleteAllLabsByType] Deleted lab document ${docSnap.id}`);
     });
     await Promise.all(deletePromises);
-    return querySnapshot.docs.length;
+    return labsToDelete.length;
   },
 
   // Clean up orphaned lab documents (labs with no values)
@@ -878,27 +904,53 @@ export const vitalService = {
   },
 
   // Delete all vitals of a specific type for a patient
+  // vitalType is the normalized key from the UI (e.g., "blood_pressure")
+  // We need to find all vitals that normalize to this key, regardless of their exact vitalType value
   async deleteAllVitalsByType(patientId, vitalType) {
+    // Import normalizeVitalName dynamically to avoid circular dependencies
+    const { normalizeVitalName } = await import('../utils/normalizationUtils');
+    
+    // Get all vitals for this patient (can't query by normalized vitalType)
     const q = query(
       collection(db, COLLECTIONS.VITALS),
-      where('patientId', '==', patientId),
-      where('vitalType', '==', vitalType)
+      where('patientId', '==', patientId)
     );
     const querySnapshot = await getDocs(q);
-    const deletePromises = querySnapshot.docs.map(async (docSnap) => {
+    
+    // Filter vitals by normalized vitalType
+    const vitalsToDelete = [];
+    for (const docSnap of querySnapshot.docs) {
+      const vitalData = docSnap.data();
+      // Normalize both the stored vitalType and label to match the normalized key
+      const normalizedStoredType = normalizeVitalName(vitalData.vitalType) || 
+                                    normalizeVitalName(vitalData.label) || 
+                                    (vitalData.vitalType || '').toLowerCase();
+      const normalizedTargetType = normalizeVitalName(vitalType) || vitalType.toLowerCase();
+      
+      if (normalizedStoredType === normalizedTargetType) {
+        vitalsToDelete.push(docSnap);
+      }
+    }
+    
+    console.log(`[deleteAllVitalsByType] Found ${vitalsToDelete.length} vital document(s) to delete for type ${vitalType}`);
+    
+    // Delete all matching vitals and their subcollection values
+    const deletePromises = vitalsToDelete.map(async (docSnap) => {
       // Also delete any subcollection values
       try {
         const valuesRef = collection(db, COLLECTIONS.VITALS, docSnap.id, 'values');
         const valuesSnapshot = await getDocs(valuesRef);
         const deleteValuePromises = valuesSnapshot.docs.map(d => deleteDoc(d.ref));
         await Promise.all(deleteValuePromises);
+        console.log(`[deleteAllVitalsByType] Deleted ${valuesSnapshot.docs.length} value(s) from vital ${docSnap.id}`);
       } catch (error) {
-        console.warn(`Error deleting subcollection values for vital ${docSnap.id}:`, error);
+        console.warn(`[deleteAllVitalsByType] Error deleting subcollection values for vital ${docSnap.id}:`, error);
       }
-      return deleteDoc(docSnap.ref);
+      await deleteDoc(docSnap.ref);
+      console.log(`[deleteAllVitalsByType] Deleted vital document ${docSnap.id}`);
     });
     await Promise.all(deletePromises);
-    return querySnapshot.docs.length;
+    return vitalsToDelete.length;
   },
 
   // Clean up orphaned vital documents (vitals with no values)
