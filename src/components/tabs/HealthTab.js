@@ -122,6 +122,7 @@ export default function HealthTab({ onTabChange, initialSection = null }) {
   });
   const [labTooltip, setLabTooltip] = useState(null);
   const [openDeleteMenu, setOpenDeleteMenu] = useState(null);
+  const [openEmptyMetricsMenu, setOpenEmptyMetricsMenu] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Delete Permanently' });
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
