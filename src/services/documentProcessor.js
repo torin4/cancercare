@@ -661,6 +661,32 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
       const uniqueLabs = [];
       
       for (const lab of extractedData.data.labs) {
+        // Validate that lab has a meaningful value (not empty, "-", "N/A", etc.)
+        const value = lab.value;
+        if (value === null || value === undefined) {
+          console.log(`[saveExtractedData] Skipping lab with null/undefined value: ${lab.label || lab.labType}`);
+          continue;
+        }
+        
+        // Convert to string for validation
+        const valueStr = String(value).trim();
+        
+        // Check for empty/invalid value indicators
+        const emptyIndicators = ['-', '—', 'n/a', 'na', 'n.a.', '未測定', '測定なし', '', 'null', 'undefined'];
+        if (emptyIndicators.includes(valueStr.toLowerCase())) {
+          console.log(`[saveExtractedData] Skipping lab with empty/invalid value: ${lab.label || lab.labType} = "${valueStr}"`);
+          continue;
+        }
+        
+        // For numeric labs, check if value is actually a number
+        if (lab.labType && ['ca125', 'cea', 'wbc', 'hemoglobin', 'platelets', 'creatinine', 'alt', 'ast', 'albumin', 'ldh'].includes(lab.labType.toLowerCase())) {
+          const numValue = parseFloat(valueStr);
+          if (isNaN(numValue)) {
+            console.log(`[saveExtractedData] Skipping numeric lab with non-numeric value: ${lab.label || lab.labType} = "${valueStr}"`);
+            continue;
+          }
+        }
+        
         // Parse date first to create deduplication key
         // USER-PROVIDED DATE TAKES PRECEDENCE - use it first if available
         let labDate = parseLocalDate(new Date().toISOString().split('T')[0]);
@@ -682,13 +708,13 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         
         // Create deduplication key: labType + value + date (day level)
         const dateKey = labDate.toISOString().split('T')[0]; // YYYY-MM-DD
-        const dedupKey = `${(lab.labType || 'other').toLowerCase()}_${lab.value}_${dateKey}`;
+        const dedupKey = `${(lab.labType || 'other').toLowerCase()}_${valueStr}_${dateKey}`;
         
         if (!seenLabs.has(dedupKey)) {
           seenLabs.set(dedupKey, lab);
           uniqueLabs.push({ ...lab, _parsedDate: labDate }); // Store parsed date for later use
         } else {
-          console.log(`[saveExtractedData] Skipping duplicate lab from same upload: ${lab.label || lab.labType} = ${lab.value} on ${dateKey}`);
+          console.log(`[saveExtractedData] Skipping duplicate lab from same upload: ${lab.label || lab.labType} = ${valueStr} on ${dateKey}`);
         }
       }
       
@@ -786,6 +812,33 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
       const uniqueVitals = [];
       
       for (const vital of extractedData.data.vitals) {
+        // Validate that vital has a meaningful value (not empty, "-", "N/A", etc.)
+        const value = vital.value;
+        if (value === null || value === undefined) {
+          console.log(`[saveExtractedData] Skipping vital with null/undefined value: ${vital.label || vital.vitalType}`);
+          continue;
+        }
+        
+        // Convert to string for validation
+        const valueStr = String(value).trim();
+        
+        // Check for empty/invalid value indicators
+        const emptyIndicators = ['-', '—', 'n/a', 'na', 'n.a.', '未測定', '測定なし', '', 'null', 'undefined'];
+        if (emptyIndicators.includes(valueStr.toLowerCase())) {
+          console.log(`[saveExtractedData] Skipping vital with empty/invalid value: ${vital.label || vital.vitalType} = "${valueStr}"`);
+          continue;
+        }
+        
+        // For BP, check both systolic and diastolic
+        if ((vital.vitalType === 'bp' || vital.vitalType === 'bloodpressure') && vital.systolic) {
+          const systolicStr = String(vital.systolic).trim();
+          const diastolicStr = vital.diastolic ? String(vital.diastolic).trim() : '';
+          if (emptyIndicators.includes(systolicStr.toLowerCase()) || (diastolicStr && emptyIndicators.includes(diastolicStr.toLowerCase()))) {
+            console.log(`[saveExtractedData] Skipping BP with empty/invalid values: ${vital.label || vital.vitalType} = "${systolicStr}/${diastolicStr}"`);
+            continue;
+          }
+        }
+        
         // Parse date first to create deduplication key
         // USER-PROVIDED DATE TAKES PRECEDENCE - use it first if available
         let vitalDate = parseLocalDate(new Date().toISOString().split('T')[0]);
@@ -809,15 +862,15 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         // For BP, include systolic/diastolic in the key
         const dateKey = vitalDate.toISOString().split('T')[0]; // YYYY-MM-DD
         const valueKey = vital.vitalType === 'bp' || vital.vitalType === 'bloodpressure'
-          ? `${vital.systolic || vital.value}_${vital.diastolic || ''}`
-          : vital.value;
+          ? `${vital.systolic || valueStr}_${vital.diastolic || ''}`
+          : valueStr;
         const dedupKey = `${(vital.vitalType || 'other').toLowerCase()}_${valueKey}_${dateKey}`;
         
         if (!seenVitals.has(dedupKey)) {
           seenVitals.set(dedupKey, vital);
           uniqueVitals.push({ ...vital, _parsedDate: vitalDate }); // Store parsed date for later use
         } else {
-          console.log(`[saveExtractedData] Skipping duplicate vital from same upload: ${vital.label || vital.vitalType} = ${vital.value} on ${dateKey}`);
+          console.log(`[saveExtractedData] Skipping duplicate vital from same upload: ${vital.label || vital.vitalType} = ${valueStr} on ${dateKey}`);
         }
       }
       
