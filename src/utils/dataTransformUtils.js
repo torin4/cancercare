@@ -2,7 +2,7 @@
 
 import { labService, vitalService } from '../firebase/services';
 import { getCancerRelevanceScore } from './healthUtils';
-import { normalizeVitalName, getVitalDisplayName, normalizeLabName } from './normalizationUtils';
+import { normalizeVitalName, getVitalDisplayName, normalizeLabName, shouldMergeLabNames } from './normalizationUtils';
 import { formatDateString } from './helpers';
 
 // Transform Firestore labs data to UI format
@@ -12,6 +12,7 @@ export const transformLabsData = async (labs) => {
   // Process each lab and load its values
   // First, group labs by labType to handle multiple lab documents with same type
   // Normalize lab types to ensure variations (e.g., "crp", "CRP", "c-reactive protein") are grouped together
+  // Also merge labs where names match (case-insensitive) or one contains the other (e.g., "Color" and "Urine Color")
   const labsByType = {};
   for (const lab of labs) {
     // Normalize the labType to a canonical key (e.g., "crp", "ca125")
@@ -19,10 +20,27 @@ export const transformLabsData = async (labs) => {
     const normalizedLabType = normalizeLabName(lab.labType) || 
                                normalizeLabName(lab.label) || 
                                (lab.labType || 'unknown').toLowerCase();
-    if (!labsByType[normalizedLabType]) {
-      labsByType[normalizedLabType] = [];
+    
+    // Check if this lab should be merged with an existing group
+    let mergedKey = normalizedLabType;
+    for (const existingKey of Object.keys(labsByType)) {
+      // Check if labType or label matches any existing key
+      const labTypeMatch = shouldMergeLabNames(lab.labType, existingKey) || 
+                           shouldMergeLabNames(lab.label, existingKey);
+      const existingLab = labsByType[existingKey][0];
+      const existingMatch = shouldMergeLabNames(existingLab.labType, normalizedLabType) ||
+                           shouldMergeLabNames(existingLab.label, normalizedLabType);
+      
+      if (labTypeMatch || existingMatch) {
+        mergedKey = existingKey;
+        break;
+      }
     }
-    labsByType[normalizedLabType].push(lab);
+    
+    if (!labsByType[mergedKey]) {
+      labsByType[mergedKey] = [];
+    }
+    labsByType[mergedKey].push(lab);
   }
 
   // Load ALL lab values in parallel FIRST (much faster than sequential)

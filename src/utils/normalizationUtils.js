@@ -353,7 +353,58 @@ export const normalizeLabName = (rawName) => {
   
   // Look up in synonym map
   const canonicalKey = labKeyMap[cleaned];
-  return canonicalKey || null;
+  if (canonicalKey) {
+    return canonicalKey;
+  }
+  
+  // If not found in synonym map, return the cleaned version for partial matching
+  // This allows "color" and "urinecolor" to be compared
+  return cleaned;
+  };
+
+// Check if two lab names should be considered the same (for merging)
+export const shouldMergeLabNames = (name1, name2) => {
+  if (!name1 || !name2) return false;
+  
+  // Normalize both names
+  const normalized1 = normalizeLabName(name1);
+  const normalized2 = normalizeLabName(name2);
+  
+  // If they normalize to the same thing, merge them
+  if (normalized1 === normalized2) {
+    return true;
+  }
+  
+  // Check if one contains the other (for cases like "Color" and "Urine Color")
+  // Remove common prefixes that might cause false matches
+  const removeCommonPrefixes = (str) => {
+    return str
+      .replace(/^urine/, '')
+      .replace(/^blood/, '')
+      .replace(/^serum/, '')
+      .replace(/^plasma/, '')
+      .trim();
+  };
+  
+  const cleaned1 = removeCommonPrefixes(normalized1);
+  const cleaned2 = removeCommonPrefixes(normalized2);
+  
+  // If one is empty after removing prefixes, use the original
+  const final1 = cleaned1 || normalized1;
+  const final2 = cleaned2 || normalized2;
+  
+  // Check if one contains the other (and they're not too different in length)
+  if (final1.includes(final2) || final2.includes(final1)) {
+    // Only merge if the shorter one is at least 3 characters and the difference is reasonable
+    const shorter = final1.length < final2.length ? final1 : final2;
+    const longer = final1.length >= final2.length ? final1 : final2;
+    
+    if (shorter.length >= 3 && longer.length <= shorter.length * 2) {
+      return true;
+    }
+  }
+  
+  return false;
   };
 
 // Get display name for a lab (canonical key or raw name)
