@@ -2567,23 +2567,35 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                                         throw new Error('User not authenticated');
                                                                       }
                                                                       
+                                                                      console.log(`[HealthTab] DELETING vital value:`, {
+                                                                        vitalDocId,
+                                                                        vitalValueId,
+                                                                        displayName,
+                                                                        vitalType: selectedVital
+                                                                      });
+                                                                      
                                                                       await vitalService.deleteVitalValue(vitalDocId, vitalValueId);
+                                                                      
+                                                                      console.log(`[HealthTab] Deletion complete, checking for orphaned vital...`);
                                                                       
                                                                       // Check if vital is now orphaned (no values left) and clean it up
                                                                       try {
                                                                         const remainingValues = await vitalService.getVitalValues(vitalDocId);
+                                                                        console.log(`[HealthTab] Remaining values after deletion:`, remainingValues.length);
                                                                         if (!remainingValues || remainingValues.length === 0) {
-                                                                          console.log(`Vital ${vitalDocId} is now orphaned (no values), deleting...`);
+                                                                          console.log(`[HealthTab] Vital ${vitalDocId} is now orphaned (no values), deleting...`);
                                                                           await vitalService.deleteVital(vitalDocId);
-                                                                          console.log(`Deleted orphaned vital ${vitalDocId}`);
+                                                                          console.log(`[HealthTab] Deleted orphaned vital ${vitalDocId}`);
                                                                         }
                                                                       } catch (cleanupError) {
-                                                                        console.warn(`Error checking/deleting orphaned vital ${vitalDocId}:`, cleanupError);
+                                                                        console.warn(`[HealthTab] Error checking/deleting orphaned vital ${vitalDocId}:`, cleanupError);
                                                                       }
                                                                       
+                                                                      console.log(`[HealthTab] Reloading health data...`);
                                                                       // Reload health data to ensure UI matches database state
                                                                       // deleteVitalValue now clears currentValue when last value is deleted, preventing reappearance
                                                                       await reloadHealthData();
+                                                                      console.log(`[HealthTab] Health data reloaded`);
                                                                       
                                                                       // Show success banner
                                                                       showSuccess(`${displayName} reading deleted successfully`);
