@@ -1,20 +1,60 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Lottie from 'lottie-react';
 
-export default function UploadProgressOverlay({ show, uploadProgress, documentScanAnimation }) {
+export default function UploadProgressOverlay({ show, uploadProgress, documentScanAnimation, aiStatus }) {
+  const [progressPercentage, setProgressPercentage] = useState(0);
+  const [smoothProgress, setSmoothProgress] = useState(0);
+
   if (!show) return null;
 
-  // Calculate progress percentage based on current step
-  const getProgressPercentage = () => {
-    if (uploadProgress.includes('Reading') || uploadProgress.includes('Downloading')) return 20;
-    if (uploadProgress.includes('Analyzing') || uploadProgress.includes('Re-processing')) return 50;
-    if (uploadProgress.includes('Uploading')) return 70;
-    if (uploadProgress.includes('Saving')) return 85;
-    if (uploadProgress.includes('Refreshing')) return 95;
-    return 10;
-  };
+  // Calculate progress percentage based on current step with more granular steps
+  useEffect(() => {
+    let percentage = 0;
+    
+    if (uploadProgress.includes('Reading') || uploadProgress.includes('Downloading')) {
+      percentage = 15;
+    } else if (uploadProgress.includes('Analyzing') || uploadProgress.includes('Re-processing')) {
+      // During AI analysis, progress from 20% to 60% based on AI status
+      if (aiStatus) {
+        if (aiStatus.includes('Identifying document type')) percentage = 25;
+        else if (aiStatus.includes('Extracting dates')) percentage = 30;
+        else if (aiStatus.includes('Extracting labs')) percentage = 40;
+        else if (aiStatus.includes('Extracting vitals')) percentage = 45;
+        else if (aiStatus.includes('Extracting genomic')) percentage = 50;
+        else if (aiStatus.includes('Validating data')) percentage = 55;
+        else percentage = 35; // General analyzing
+      } else {
+        percentage = 20; // Starting analysis
+      }
+    } else if (uploadProgress.includes('Uploading')) {
+      percentage = 70;
+    } else if (uploadProgress.includes('Linking')) {
+      percentage = 80;
+    } else if (uploadProgress.includes('Saving')) {
+      percentage = 85;
+    } else if (uploadProgress.includes('Refreshing')) {
+      percentage = 95;
+    } else {
+      percentage = 10;
+    }
+    
+    setProgressPercentage(percentage);
+  }, [uploadProgress, aiStatus]);
 
-  const progressPercentage = getProgressPercentage();
+  // Smooth progress animation
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSmoothProgress(prev => {
+        if (prev < progressPercentage) {
+          const diff = progressPercentage - prev;
+          return Math.min(prev + Math.max(diff * 0.1, 0.5), progressPercentage);
+        }
+        return prev;
+      });
+    }, 50);
+
+    return () => clearInterval(interval);
+  }, [progressPercentage]);
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
@@ -23,19 +63,33 @@ export default function UploadProgressOverlay({ show, uploadProgress, documentSc
           {/* Progress Bar */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xl font-bold text-gray-900">Processing Document</h3>
-              <span className="text-sm font-medium text-gray-600">{progressPercentage}%</span>
+              <h3 className="text-xl font-bold text-gray-900">
+                {uploadProgress.includes('[File') 
+                  ? uploadProgress.match(/\[File \d+\/\d+\]/)?.[0] || 'Processing Documents'
+                  : 'Processing Document'}
+              </h3>
+              <span className="text-sm font-medium text-gray-600">{Math.round(smoothProgress)}%</span>
             </div>
             <div className="w-full bg-gray-200 h-3 rounded-full overflow-hidden">
               <div 
-                className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500 ease-out rounded-full"
-                style={{ width: `${progressPercentage}%` }}
+                className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-300 ease-out rounded-full"
+                style={{ width: `${smoothProgress}%` }}
               />
             </div>
           </div>
 
           {/* Progress text */}
-          <p className="text-gray-600 mb-6 text-lg">{uploadProgress}</p>
+          <p className="text-gray-600 mb-4 text-lg font-medium">{uploadProgress}</p>
+          
+          {/* AI Status - Real-time processing info */}
+          {aiStatus && (uploadProgress.includes('Analyzing') || uploadProgress.includes('Re-processing')) && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800 font-medium flex items-center gap-2">
+                <span className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
+                {aiStatus}
+              </p>
+            </div>
+          )}
 
           {/* Progress steps */}
           <div className="space-y-2 text-left bg-gray-50 rounded-lg p-4">

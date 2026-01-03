@@ -36,7 +36,7 @@ export default function AddVitalValueModal({
           let dateValue = valueToEdit.dateOriginal || valueToEdit.date;
           
           if (dateValue) {
-            // Check for Firestore Timestamp (has toDate method)
+          // Check for Firestore Timestamp (has toDate method)
             if (dateValue && typeof dateValue.toDate === 'function') {
               const firestoreDate = dateValue.toDate();
               // Use local date components to avoid timezone shift
@@ -46,9 +46,9 @@ export default function AddVitalValueModal({
               const hours = String(firestoreDate.getHours()).padStart(2, '0');
               const minutes = String(firestoreDate.getMinutes()).padStart(2, '0');
               dateTimeValue = `${year}-${month}-${day}T${hours}:${minutes}`;
-            }
-            // Check for timestamp (number)
-            else if (valueToEdit.timestamp) {
+          }
+          // Check for timestamp (number)
+          else if (valueToEdit.timestamp) {
               const dateFromTimestamp = new Date(valueToEdit.timestamp);
               const year = dateFromTimestamp.getFullYear();
               const month = String(dateFromTimestamp.getMonth() + 1).padStart(2, '0');
@@ -56,8 +56,8 @@ export default function AddVitalValueModal({
               const hours = String(dateFromTimestamp.getHours()).padStart(2, '0');
               const minutes = String(dateFromTimestamp.getMinutes()).padStart(2, '0');
               dateTimeValue = `${year}-${month}-${day}T${hours}:${minutes}`;
-            }
-            // Check for date as Date object
+          }
+          // Check for date as Date object
             else if (dateValue instanceof Date) {
               const year = dateValue.getFullYear();
               const month = String(dateValue.getMonth() + 1).padStart(2, '0');
@@ -65,12 +65,12 @@ export default function AddVitalValueModal({
               const hours = String(dateValue.getHours()).padStart(2, '0');
               const minutes = String(dateValue.getMinutes()).padStart(2, '0');
               dateTimeValue = `${year}-${month}-${day}T${hours}:${minutes}`;
-            }
-            // Check for date as string (formatted or ISO)
+          }
+          // Check for date as string (formatted or ISO)
             else if (typeof dateValue === 'string') {
               // Try to parse and format using local time
               const parsed = new Date(dateValue);
-              if (!isNaN(parsed.getTime())) {
+            if (!isNaN(parsed.getTime())) {
                 const year = parsed.getFullYear();
                 const month = String(parsed.getMonth() + 1).padStart(2, '0');
                 const day = String(parsed.getDate()).padStart(2, '0');

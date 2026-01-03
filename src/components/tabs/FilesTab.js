@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus } from 'lucide-react';
+import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
@@ -32,6 +32,7 @@ export default function FilesTab({ onTabChange }) {
   const [editingDocumentNote, setEditingDocumentNote] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
+  const [aiStatus, setAiStatus] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({
     show: false,
@@ -43,6 +44,7 @@ export default function FilesTab({ onTabChange }) {
   });
   const [rescanDocument, setRescanDocument] = useState(null);
   const [showDocumentMetadata, setShowDocumentMetadata] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null); // Track which document's menu is open
 
   // Load documents from Firestore when user logs in
   useEffect(() => {
@@ -78,11 +80,16 @@ export default function FilesTab({ onTabChange }) {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls';
+    input.multiple = true; // Enable multiple file selection
 
     input.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        await handleRealFileUpload(file, docType);
+      const files = Array.from(e.target.files || []);
+      if (files.length > 0) {
+        if (files.length === 1) {
+          await handleRealFileUpload(files[0], docType);
+        } else {
+          await handleMultipleFileUpload(files, docType, pendingDocumentDate, pendingDocumentNote);
+        }
       }
     };
 
@@ -94,27 +101,110 @@ export default function FilesTab({ onTabChange }) {
     input.type = 'file';
     input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls,image/*';
     input.capture = 'environment';
+    input.multiple = true; // Enable multiple file selection (for camera, user can take multiple photos)
 
     input.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        await handleRealFileUpload(file, docType);
+      const files = Array.from(e.target.files || []);
+      if (files.length > 0) {
+        if (files.length === 1) {
+          await handleRealFileUpload(files[0], docType);
+        } else {
+          await handleMultipleFileUpload(files, docType, pendingDocumentDate, pendingDocumentNote);
+        }
       }
     };
 
     input.click();
   };
 
-  const handleRealFileUpload = async (file, docType, providedDateOverride = null, providedNoteOverride = null) => {
+  const handleMultipleFileUpload = async (files, docType, providedDate = null, providedNote = null) => {
+    if (!user || !files || files.length === 0) {
+      showError('Please log in to upload files');
+      return;
+    }
+
+    const totalFiles = files.length;
+    let successCount = 0;
+    let errorCount = 0;
+    const errors = [];
+
+    try {
+      setIsUploading(true);
+      
+      // Process files sequentially
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileNumber = i + 1;
+        
+        try {
+          setUploadProgress(`Processing file ${fileNumber} of ${totalFiles}: ${file.name}`);
+          setAiStatus(null);
+          
+          // Process each file with the shared date and note
+          await handleRealFileUpload(
+            file, 
+            docType, 
+            providedDate, 
+            providedNote,
+            fileNumber,
+            totalFiles
+          );
+          
+          successCount++;
+          
+          // Small delay between files to avoid overwhelming the system
+          if (i < files.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        } catch (error) {
+          console.error(`Error processing file ${fileNumber} (${file.name}):`, error);
+          errorCount++;
+          errors.push({ file: file.name, error: error.message });
+        }
+      }
+
+      // Final summary
+      setIsUploading(false);
+      setUploadProgress('');
+      setAiStatus(null);
+      
+      if (successCount === totalFiles) {
+        showSuccess(`Successfully processed all ${totalFiles} file${totalFiles !== 1 ? 's' : ''}!`);
+      } else if (successCount > 0) {
+        showError(`Processed ${successCount} of ${totalFiles} files successfully. ${errorCount} file${errorCount !== 1 ? 's' : ''} failed.`);
+      } else {
+        showError(`Failed to process all files. Please try again.`);
+      }
+      
+      // Reload health data after all files are processed
+      await reloadHealthData();
+      
+    } catch (error) {
+      console.error('Error in multiple file upload:', error);
+      showError(`Failed to process files: ${error.message}`);
+      setIsUploading(false);
+      setUploadProgress('');
+      setAiStatus(null);
+    }
+  };
+
+  const handleRealFileUpload = async (file, docType, providedDateOverride = null, providedNoteOverride = null, currentFileNumber = null, totalFiles = null) => {
     if (!user) {
       showError('Please log in to upload files');
       return;
     }
 
     try {
-      // Show loading overlay
-      setIsUploading(true);
-      setUploadProgress('Reading document...');
+      // Show loading overlay (only if not part of a batch)
+      if (currentFileNumber === null) {
+        setIsUploading(true);
+      }
+      
+      const fileProgressPrefix = currentFileNumber && totalFiles 
+        ? `[File ${currentFileNumber}/${totalFiles}] ` 
+        : '';
+      
+      setUploadProgress(`${fileProgressPrefix}Reading document...`);
 
       // Get document date and note (user-provided or null)
       // Use override parameters if provided (from onUploadClick), otherwise use state
@@ -125,12 +215,29 @@ export default function FilesTab({ onTabChange }) {
       setPendingDocumentNote(null);
 
       // Step 1: Process document with AI to extract medical data
-      setUploadProgress('Analyzing document with AI...');
-      const processingResult = await processDocument(file, user.uid, patientProfile, providedDate, providedNote, null);
+      setUploadProgress(`${fileProgressPrefix}Analyzing document with AI...`);
+      setAiStatus('Initializing AI analysis...');
+      
+      const processingResult = await processDocument(
+        file,
+        user.uid,
+        patientProfile,
+        providedDate,
+        providedNote,
+        null,
+        (message, status) => {
+          // Progress callback for real-time updates
+          if (status) {
+            setAiStatus(status);
+          }
+        }
+      );
+      
+      setAiStatus(null); // Clear AI status after analysis
       console.log('Document processing result:', processingResult);
 
       // Step 2: Upload file to Firebase Storage
-      setUploadProgress('Uploading to secure storage...');
+      setUploadProgress(`${fileProgressPrefix}Uploading to secure storage...`);
       // Ensure note is passed correctly - preserve string values, normalize empty strings to null
       const noteToSave = (providedNote && typeof providedNote === 'string' && providedNote.trim() !== '')
         ? providedNote.trim()
@@ -147,7 +254,7 @@ export default function FilesTab({ onTabChange }) {
       console.log('File uploaded successfully:', uploadResult);
 
       // Step 3: Link all extracted values to the document ID
-      setUploadProgress('Linking data to document...');
+      setUploadProgress(`${fileProgressPrefix}Linking data to document...`);
       if (processingResult.extractedData && uploadResult.id) {
         try {
           const { linkValuesToDocument } = await import('../../services/documentProcessor');
@@ -157,7 +264,7 @@ export default function FilesTab({ onTabChange }) {
         }
       }
 
-      setUploadProgress('Saving extracted data...');
+      setUploadProgress(`${fileProgressPrefix}Saving extracted data...`);
 
       // Step 4: Add to local documents state
       // Use providedDate if available, otherwise format the date from uploadResult
@@ -181,34 +288,54 @@ export default function FilesTab({ onTabChange }) {
       setDocuments([newDoc, ...documents]);
       setHasUploadedDocument(true);
 
-      // Reload health data to show new values
-      setUploadProgress('Refreshing your health data...');
-      await reloadHealthData();
+      // Reload health data to show new values (only if not part of a batch)
+      if (currentFileNumber === null || currentFileNumber === totalFiles) {
+        setUploadProgress(`${fileProgressPrefix}Refreshing your health data...`);
+        setAiStatus(null); // Clear AI status
+        await reloadHealthData();
+      }
 
-      setIsUploading(false);
-      setUploadProgress('');
-      const dataPointText = processingResult.dataPointCount > 0
-        ? ` ${processingResult.dataPointCount} data point${processingResult.dataPointCount !== 1 ? 's' : ''} extracted.`
-        : '';
-      showSuccess(`Document uploaded and processed successfully!${dataPointText} All extracted data has been saved to your health records.`);
+      // Only show success message and close overlay if not part of a batch
+      if (currentFileNumber === null) {
+        setIsUploading(false);
+        setUploadProgress('');
+        setAiStatus(null);
+        const dataPointText = processingResult.dataPointCount > 0
+          ? ` ${processingResult.dataPointCount} data point${processingResult.dataPointCount !== 1 ? 's' : ''} extracted.`
+          : '';
+        showSuccess(`Document uploaded and processed successfully!${dataPointText} All extracted data has been saved to your health records.`);
+      } else {
+        // For batch uploads, just clear status
+        setAiStatus(null);
+      }
 
-      // Generate chat summary with quick action buttons
-      const chatSummary = generateChatSummary(processingResult, processingResult.extractedData);
+      // Generate chat summary with quick action buttons (only for single file or last file in batch)
+      if (currentFileNumber === null || currentFileNumber === totalFiles) {
+        const chatSummary = generateChatSummary(processingResult, processingResult.extractedData);
 
-      // Store summary in sessionStorage for ChatTab to pick up
-      sessionStorage.setItem('uploadSummary', JSON.stringify({
-        summary: chatSummary,
-        timestamp: Date.now(),
-        documentType: processingResult.documentType || docType
-      }));
+        // Store summary in sessionStorage for ChatTab to pick up
+        sessionStorage.setItem('uploadSummary', JSON.stringify({
+          summary: chatSummary,
+          timestamp: Date.now(),
+          documentType: processingResult.documentType || docType
+        }));
 
-      // Navigate to chat tab to show summary
-      onTabChange('chat');
+        // Navigate to chat tab to show summary (only for single file or last file)
+        if (currentFileNumber === null || currentFileNumber === totalFiles) {
+          onTabChange('chat');
+        }
+      }
     } catch (error) {
       console.error('Upload error:', error);
-      showError(`Failed to process document: ${error.message}. The file was not uploaded. Please try again or contact support if the issue persists.`);
-      setIsUploading(false);
-      setUploadProgress('');
+      // Only show error and close overlay if not part of a batch (batch handler will show summary)
+      if (currentFileNumber === null) {
+        showError(`Failed to process document: ${error.message}. The file was not uploaded. Please try again or contact support if the issue persists.`);
+        setIsUploading(false);
+        setUploadProgress('');
+        setAiStatus(null);
+      }
+      // Re-throw error so batch handler can catch it
+      throw error;
     }
   };
 
@@ -358,77 +485,122 @@ export default function FilesTab({ onTabChange }) {
               };
 
               return (
-                <div key={doc.id} className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 border rounded-lg hover:bg-gray-50 transition">
-                  <div className={`w-10 h-10 sm:w-12 sm:h-12 ${iconConfig.bgColor} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                    <div className={`${iconConfig.iconColor} w-5 h-5 sm:w-6 sm:h-6`}>
-                      {iconConfig.icon}
+                <div key={doc.id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-2.5 sm:p-3 border rounded-lg hover:bg-gray-50 transition">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 ${iconConfig.bgColor} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                      <div className={`${iconConfig.iconColor} w-5 h-5 sm:w-6 sm:h-6`}>
+                        {iconConfig.icon}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm sm:text-base font-semibold truncate">{fileName}</p>
+                      <p className="text-xs text-gray-700 mt-0.5">{iconConfig.label}</p>
+                      {doc.note && (
+                        <p className="text-xs sm:text-sm text-medical-primary-600 mt-1 sm:mt-0.5 italic break-words line-clamp-2 sm:line-clamp-none">{doc.note}</p>
+                      )}
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {doc.date ? parseLocalDate(doc.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No date'}
+                      </p>
                     </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm sm:text-base font-semibold truncate">{fileName}</p>
-                    <p className="text-xs text-gray-700 mt-0.5">{iconConfig.label}</p>
-                    {doc.note && (
-                      <p className="text-xs text-medical-primary-600 mt-0.5 italic break-words">{doc.note}</p>
-                    )}
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {doc.date ? parseLocalDate(doc.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No date'}
-                    </p>
-                  </div>
-                  <div className="flex-shrink-0 flex items-center gap-1 sm:gap-2">
-                    {/* Info button - show metadata */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowDocumentMetadata(doc);
-                      }}
-                      className="p-1.5 sm:p-1.5 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
-                      title="View metadata"
-                    >
-                      <Info className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
-                    </button>
+                  <div className="flex-shrink-0 flex items-center justify-end sm:justify-start gap-1 sm:gap-2 flex-wrap relative">
+                    {/* View button - always visible */}
                     {doc.fileUrl && (
                       <a
                         href={doc.fileUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-2 sm:px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
+                        className="px-3 py-1.5 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded hover:bg-blue-700 transition min-h-[44px] flex items-center justify-center touch-manipulation active:opacity-70 whitespace-nowrap"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <span className="hidden sm:inline">View</span>
-                        <span className="sm:hidden">View</span>
+                        View
                       </a>
                     )}
-                    {/* Reload button - show for all processable document types */}
-                    {(doc.documentType === 'Lab' || doc.type === 'Lab' || doc.documentType === 'Vitals' || doc.type === 'Vitals' || doc.documentType === 'Genomic' || doc.type === 'Genomic' || doc.documentType === 'blood-test') && (
-                        <button
+                    
+                    {/* Menu button - three dots */}
+                    <div className="relative">
+                      <button
                         onClick={(e) => {
-                            e.stopPropagation();
-                          setRescanDocument(doc);
-                          }}
-                          className="p-1.5 sm:p-1.5 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
-                          title="Rescan document"
-                        >
-                          <RefreshCw className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
-                        </button>
-                    )}
-                    {/* Edit date and note button - show for all documents */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingDocumentNote(doc);
-                          }}
-                          className="p-1.5 sm:p-1.5 rounded-full text-gray-500 hover:bg-green-100 hover:text-green-600 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
-                      title="Edit date and note"
-                        >
-                          <Edit2 className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
-                        </button>
-                    <button
-                      onClick={handleDelete}
-                      className="p-1.5 sm:p-1.5 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-600 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
-                      aria-label="Delete document"
-                    >
-                      <X className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
-                    </button>
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setOpenMenuId(openMenuId === doc.id ? null : doc.id);
+                        }}
+                        className="p-1.5 sm:p-1.5 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70 relative z-10"
+                        title="More options"
+                      >
+                        <MoreVertical className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+                      </button>
+                      
+                      {/* Dropdown menu */}
+                      {openMenuId === doc.id && (
+                        <>
+                          {/* Backdrop to close menu */}
+                          <div 
+                            className="fixed inset-0 z-20"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuId(null);
+                            }}
+                          />
+                          {/* Menu items */}
+                          <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
+                            {/* Info button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuId(null);
+                                setShowDocumentMetadata(doc);
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                            >
+                              <Info className="w-4 h-4" />
+                              View Metadata
+                            </button>
+                            
+                            {/* Edit button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuId(null);
+                                setEditingDocumentNote(doc);
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                              Edit Name, Date & Note
+                            </button>
+                            
+                            {/* Rescan button - show for processable document types */}
+                            {(doc.documentType === 'Lab' || doc.type === 'Lab' || doc.documentType === 'Vitals' || doc.type === 'Vitals' || doc.documentType === 'Genomic' || doc.type === 'Genomic' || doc.documentType === 'blood-test') && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenMenuId(null);
+                                  setRescanDocument(doc);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                              >
+                                <RefreshCw className="w-4 h-4" />
+                                Rescan Document
+                              </button>
+                            )}
+                            
+                            {/* Delete button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuId(null);
+                                handleDelete(e);
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                            >
+                              <X className="w-4 h-4" />
+                              Delete Document
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -444,7 +616,7 @@ export default function FilesTab({ onTabChange }) {
         <DocumentUploadOnboarding
           isOnboarding={!hasUploadedDocument}
           onClose={() => setShowDocumentOnboarding(false)}
-          onUploadClick={(documentType, documentDate = null, documentNote = null, file = null) => {
+          onUploadClick={(documentType, documentDate = null, documentNote = null, fileOrFiles = null) => {
             setShowDocumentOnboarding(false);
             
             // Normalize and set pending state - ensure we preserve actual note values
@@ -458,10 +630,15 @@ export default function FilesTab({ onTabChange }) {
             setPendingDocumentDate(normalizedDate);
             setPendingDocumentNote(normalizedNote);
             
-            // If file is provided (from component's file picker), upload it directly
-            if (file) {
-              // Pass date and note directly to avoid state timing issues
-              handleRealFileUpload(file, documentType, normalizedDate, normalizedNote);
+            // If file(s) is provided (from component's file picker), upload it/them directly
+            if (fileOrFiles) {
+              if (Array.isArray(fileOrFiles)) {
+                // Multiple files - process sequentially
+                handleMultipleFileUpload(fileOrFiles, documentType, normalizedDate, normalizedNote);
+              } else {
+                // Single file - use existing handler
+                handleRealFileUpload(fileOrFiles, documentType, normalizedDate, normalizedNote);
+              }
             } else {
               // Otherwise, open file picker (fallback)
             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -490,12 +667,18 @@ export default function FilesTab({ onTabChange }) {
         setUploadProgress={setUploadProgress}
         reloadHealthData={reloadHealthData}
         setDocuments={setDocuments}
+        onRescanRequest={(doc) => {
+          // Close edit modal and open rescan modal
+          setEditingDocumentNote(null);
+          setRescanDocument(doc);
+        }}
       />
 
       <UploadProgressOverlay
         show={isUploading}
         uploadProgress={uploadProgress}
         documentScanAnimation={null}
+        aiStatus={aiStatus}
       />
 
       <DeletionConfirmationModal
@@ -521,6 +704,7 @@ export default function FilesTab({ onTabChange }) {
 
       <RescanDocumentModal
         show={!!rescanDocument}
+        user={user}
         onClose={() => setRescanDocument(null)}
         document={rescanDocument}
         isProcessing={isUploading}
@@ -543,7 +727,8 @@ export default function FilesTab({ onTabChange }) {
             });
 
             setUploadProgress('Re-processing document...');
-
+            setAiStatus('Initializing AI analysis...');
+            
             // Use the edited values from the modal (or null if empty)
             const docDate = date || null;
             const docNote = note || null;
@@ -553,9 +738,25 @@ export default function FilesTab({ onTabChange }) {
             await cleanupDocumentData(rescanDocument.id, user.uid, false); // false = only delete matching documentId
             
             // Re-process with edited values
-            const processingResult = await processDocument(file, user.uid, patientProfile, docDate, docNote, rescanDocument.id);
+            const processingResult = await processDocument(
+              file,
+              user.uid,
+              patientProfile,
+              docDate,
+              docNote,
+              rescanDocument.id,
+              (message, status) => {
+                // Progress callback for real-time updates
+                if (status) {
+                  setAiStatus(status);
+                }
+              }
+            );
+            
+            setAiStatus(null); // Clear AI status after analysis
 
             setUploadProgress('Refreshing your health data...');
+            setAiStatus(null); // Clear AI status
 
             // Reload health data
             await reloadHealthData();

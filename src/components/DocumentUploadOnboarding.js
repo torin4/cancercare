@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, Activity, Dna, FileText, X, CheckCircle, ChevronRight } from 'lucide-react';
+import { Upload, Activity, Dna, FileText, X, CheckCircle, ChevronRight, AlertTriangle } from 'lucide-react';
 import DatePicker from './DatePicker';
 
 const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true }) => {
@@ -96,6 +96,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls,image/*';
+    input.multiple = true; // Enable multiple file selection
     
     // Check if mobile device and enable camera option
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -108,8 +109,8 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
     input.style.left = '-9999px';
     
     input.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (file) {
+      const files = Array.from(e.target.files || []);
+      if (files.length > 0) {
         // Use the parameters passed to openFilePicker, but fall back to component state if needed
         const dateToUse = date || documentDate || null;
         const noteToUse = note || documentNote || null;
@@ -122,8 +123,14 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
           ? noteToUse.trim() 
           : null;
           
-        // Pass the file directly to onUploadClick so it can handle the upload
-        onUploadClick(docType, normalizedDate, normalizedNote, file);
+        // Pass all files to onUploadClick so it can handle the upload
+        // If single file, pass as single file for backward compatibility
+        // If multiple files, pass as array
+        if (files.length === 1) {
+          onUploadClick(docType, normalizedDate, normalizedNote, files[0]);
+        } else {
+          onUploadClick(docType, normalizedDate, normalizedNote, files);
+        }
       }
       // Clean up
       if (document.body.contains(input)) {
@@ -297,6 +304,23 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                 <p className="text-sm text-gray-700 mb-4">
                   When was this document created or when were these tests performed? This helps us accurately track your health data over time.
                 </p>
+                
+                {/* Warning for multiple dates */}
+                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold text-amber-900 mb-1">
+                        Important: Single Date Only
+                      </p>
+                      <p className="text-xs text-amber-800">
+                        This date field should only be used for documents where all tests/results are from the same date. 
+                        If your document contains results from multiple dates, leave this blank and we'll extract dates from the document itself.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -310,7 +334,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                       showClear={true}
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      If you don't know the date, you can skip and we'll try to extract it from the document.
+                      If you don't know the date or your document has multiple dates, you can skip and we'll try to extract it from the document.
                     </p>
                   </div>
                 </div>

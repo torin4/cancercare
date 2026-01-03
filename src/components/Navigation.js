@@ -131,14 +131,14 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
-              <button
+          <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={`w-full flex items-center py-3 transition-all duration-200 group ${
                   isActive
                     ? 'text-white bg-white/20 border-r-4 border-white'
                     : 'text-white/80 hover:text-white hover:bg-white/10'
-                }`}
+            }`}
                 title={!isExpanded ? item.label : ''}
               >
                 <div className="flex-shrink-0 w-20 flex justify-center">
@@ -149,7 +149,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
                 }`}>
                   {item.label}
                 </span>
-              </button>
+          </button>
             );
           })}
         </nav>
@@ -184,18 +184,18 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
-              <button
+          <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`flex flex-col items-center gap-1 px-3 sm:px-4 py-2 rounded-lg transition-all duration-200 min-h-[44px] min-w-[44px] touch-manipulation ${
+            className={`flex flex-col items-center gap-1 px-3 sm:px-4 py-2 rounded-lg transition-all duration-200 min-h-[44px] min-w-[44px] touch-manipulation ${
                   isActive
-                    ? 'text-medical-primary-600 bg-medical-primary-50'
-                    : 'text-medical-neutral-600 hover:text-medical-primary-600 hover:bg-medical-neutral-50'
-                }`}
-              >
+                ? 'text-medical-primary-600 bg-medical-primary-50' 
+                : 'text-medical-neutral-600 hover:text-medical-primary-600 hover:bg-medical-neutral-50'
+            }`}
+          >
                 <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
                 <span className="text-xs font-medium">{item.label}</span>
-              </button>
+          </button>
             );
           })}
         </div>

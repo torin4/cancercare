@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, RefreshCw, Activity } from 'lucide-react';
+import { X, RefreshCw, Activity, AlertTriangle } from 'lucide-react';
+import { labService, vitalService } from '../../firebase/services';
+import { formatDateString, parseLocalDate } from '../../utils/helpers';
 import DatePicker from '../DatePicker';
 
 export default function RescanDocumentModal({
@@ -7,11 +9,99 @@ export default function RescanDocumentModal({
   onClose,
   onConfirm,
   document,
+  user,
   isProcessing = false
 }) {
   // Initialize with document's current values
   const [editedDate, setEditedDate] = useState('');
   const [editedNote, setEditedNote] = useState('');
+  const [hasMultipleDates, setHasMultipleDates] = useState(false);
+  const [dateRange, setDateRange] = useState({ min: null, max: null });
+  const [isCheckingDates, setIsCheckingDates] = useState(false);
+  const [acknowledgeOverwrite, setAcknowledgeOverwrite] = useState(false);
+
+  // Check for multiple dates when modal opens
+  useEffect(() => {
+    const checkMultipleDates = async () => {
+      if (show && document && user) {
+        setIsCheckingDates(true);
+        try {
+          const uniqueDates = new Set();
+          let minDate = null;
+          let maxDate = null;
+
+          // Check lab values
+          const labs = await labService.getLabs(user.uid);
+          for (const lab of labs) {
+            const values = await labService.getLabValues(lab.id);
+            for (const value of values) {
+              if (value.documentId === document.id && value.date) {
+                let dateObj = null;
+                if (value.date?.toDate) {
+                  const firestoreDate = value.date.toDate();
+                  // Use local date components to normalize to day-level
+                  dateObj = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
+                } else if (value.date instanceof Date) {
+                  dateObj = new Date(value.date.getFullYear(), value.date.getMonth(), value.date.getDate());
+                } else if (typeof value.date === 'string') {
+                  dateObj = parseLocalDate(value.date);
+                }
+                
+                if (dateObj && !isNaN(dateObj.getTime())) {
+                  const dateStr = formatDateString(dateObj);
+                  uniqueDates.add(dateStr);
+                  if (!minDate || dateObj < minDate) minDate = dateObj;
+                  if (!maxDate || dateObj > maxDate) maxDate = dateObj;
+                }
+              }
+            }
+          }
+
+          // Check vital values
+          const vitals = await vitalService.getVitals(user.uid);
+          for (const vital of vitals) {
+            const values = await vitalService.getVitalValues(vital.id);
+            for (const value of values) {
+              if (value.documentId === document.id && value.date) {
+                let dateObj = null;
+                if (value.date?.toDate) {
+                  const firestoreDate = value.date.toDate();
+                  // Use local date components to normalize to day-level
+                  dateObj = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
+                } else if (value.date instanceof Date) {
+                  dateObj = new Date(value.date.getFullYear(), value.date.getMonth(), value.date.getDate());
+                } else if (typeof value.date === 'string') {
+                  dateObj = parseLocalDate(value.date);
+                }
+                
+                if (dateObj && !isNaN(dateObj.getTime())) {
+                  const dateStr = formatDateString(dateObj);
+                  uniqueDates.add(dateStr);
+                  if (!minDate || dateObj < minDate) minDate = dateObj;
+                  if (!maxDate || dateObj > maxDate) maxDate = dateObj;
+                }
+              }
+            }
+          }
+
+          const hasMultiple = uniqueDates.size > 1;
+          setHasMultipleDates(hasMultiple);
+          if (hasMultiple && minDate && maxDate) {
+            setDateRange({ min: minDate, max: maxDate });
+          } else {
+            setDateRange({ min: null, max: null });
+          }
+        } catch (error) {
+          console.error('[RescanDocumentModal] Error checking dates:', error);
+          setHasMultipleDates(false);
+        } finally {
+          setIsCheckingDates(false);
+        }
+      }
+    };
+
+    checkMultipleDates();
+  }, [show, document, user]);
 
   // Update state when document changes
   useEffect(() => {
@@ -65,10 +155,14 @@ export default function RescanDocumentModal({
       console.log('[RescanDocumentModal] Full document object:', JSON.stringify(document, null, 2));
       setEditedDate(dateValue);
       setEditedNote(document.note || document.note || ''); // Ensure note is set even if undefined
+      setAcknowledgeOverwrite(false); // Reset acknowledgment when document changes
     } else {
       // Reset when document is null
       setEditedDate('');
       setEditedNote('');
+      setHasMultipleDates(false);
+      setDateRange({ min: null, max: null });
+      setAcknowledgeOverwrite(false);
     }
   }, [document]);
 
@@ -106,15 +200,54 @@ export default function RescanDocumentModal({
             <label className="block text-sm font-semibold text-gray-900 mb-2">
               Document Date
             </label>
-            <DatePicker
-              value={editedDate}
-              onChange={(e) => setEditedDate(e.target.value)}
-              disabled={isProcessing}
-              placeholder="YYYY-MM-DD"
-              className="w-full"
-            />
+            
+            {/* Warning for multiple dates */}
+            {hasMultipleDates && (
+              <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-amber-900 mb-1">
+                      Multiple Dates Detected
+                    </p>
+                    <p className="text-xs text-amber-800 mb-3">
+                      This document contains values with different dates ({dateRange.min && dateRange.max ? `${formatDateString(dateRange.min)} to ${formatDateString(dateRange.max)}` : 'various dates'}). 
+                      Entering a date here will <strong>overwrite all values with a single date</strong>.
+                    </p>
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={acknowledgeOverwrite}
+                        onChange={(e) => setAcknowledgeOverwrite(e.target.checked)}
+                        disabled={isProcessing}
+                        className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500 disabled:opacity-50 mt-0.5"
+                      />
+                      <span className="text-xs text-amber-900">
+                        I understand this will overwrite all dates with a single date
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Date picker - show if no multiple dates, or if multiple dates and acknowledged */}
+            {(!hasMultipleDates || acknowledgeOverwrite) && (
+              <DatePicker
+                value={editedDate}
+                onChange={(e) => setEditedDate(e.target.value)}
+                disabled={isProcessing}
+                placeholder="YYYY-MM-DD"
+                className="w-full"
+              />
+            )}
+            
             <p className="text-xs text-gray-500 mt-1">
-              Leave empty to extract date from document
+              {hasMultipleDates && !acknowledgeOverwrite
+                ? 'Check the box above to enable date editing. This will overwrite all values with a single date.'
+                : hasMultipleDates && acknowledgeOverwrite
+                  ? 'Enter a date to overwrite all values. Leave empty to extract dates from document.'
+                  : 'Leave empty to extract date from document'}
             </p>
           </div>
 

@@ -20,14 +20,15 @@ const genAI = new GoogleGenerativeAI(apiKey || '');
  * @param {string} userId - User ID
  * @param {Object} patientProfile - Patient demographics (age, gender, weight) for normal range adjustments
  * @param {string|null} documentDate - Optional date provided by user (YYYY-MM-DD format)
+ * @param {Function|null} onProgress - Optional callback for progress updates (message, aiStatus)
  */
-export async function processDocument(file, userId, patientProfile = null, documentDate = null, documentNote = null, documentId = null) {
+export async function processDocument(file, userId, patientProfile = null, documentDate = null, documentNote = null, documentId = null, onProgress = null) {
   try {
     // Convert file to base64 for Gemini API
     const base64Data = await fileToBase64(file);
 
     // Step 1: Analyze document and extract data
-    const extractedData = await analyzeDocument(base64Data, file.type, patientProfile, documentDate);
+    const extractedData = await analyzeDocument(base64Data, file.type, patientProfile, documentDate, onProgress);
 
     // Step 2: Save extracted data to Firestore
     const savedData = await saveExtractedData(extractedData, userId, documentDate, documentNote, documentId);
@@ -70,7 +71,7 @@ async function fileToBase64(file) {
  * @param {Object} patientProfile - Patient demographics for normal range adjustments
  * @param {string|null} documentDate - Optional date provided by user (YYYY-MM-DD format)
  */
-async function analyzeDocument(base64Data, mimeType, patientProfile = null, documentDate = null) {
+async function analyzeDocument(base64Data, mimeType, patientProfile = null, documentDate = null, onProgress = null) {
   if (!apiKey) {
     throw new Error('Gemini API key is not configured. Please set REACT_APP_GEMINI_API_KEY in Vercel environment variables and redeploy.');
   }
@@ -477,6 +478,11 @@ GENERAL RULES:
 - VALIDATION: Before returning JSON, verify that EVERY lab has a "date" field, EVERY vital has a "date" field, and genomic testInfo has a "testDate" field
 - If you cannot find dates after thorough search, you MUST still include date fields using today's date: ${parseLocalDate(new Date().toISOString().split('T')[0]).toISOString().split('T')[0]}`;
 
+  // Update progress: Starting AI analysis
+  if (onProgress) {
+    onProgress(null, 'Identifying document type and structure...');
+  }
+
   const result = await model.generateContent([
     {
       inlineData: {
@@ -487,7 +493,18 @@ GENERAL RULES:
     { text: prompt }
   ]);
 
+  // Update progress: AI is processing
+  if (onProgress) {
+    onProgress(null, 'Extracting dates and metadata...');
+  }
+
   const response = await result.response;
+  
+  // Update progress: Parsing AI response
+  if (onProgress) {
+    onProgress(null, 'Parsing extracted data...');
+  }
+  
   const text = response.text();
 
   // Parse JSON response
@@ -497,6 +514,20 @@ GENERAL RULES:
   }
 
   const parsed = JSON.parse(jsonMatch[0]);
+
+  // Update progress: Validating extracted data
+  if (onProgress) {
+    const dataTypes = [];
+    if (parsed.data?.labs?.length) dataTypes.push(`${parsed.data.labs.length} lab${parsed.data.labs.length !== 1 ? 's' : ''}`);
+    if (parsed.data?.vitals?.length) dataTypes.push(`${parsed.data.vitals.length} vital${parsed.data.vitals.length !== 1 ? 's' : ''}`);
+    if (parsed.data?.genomic) dataTypes.push('genomic profile');
+    if (parsed.data?.medications?.length) dataTypes.push(`${parsed.data.medications.length} medication${parsed.data.medications.length !== 1 ? 's' : ''}`);
+    
+    const statusText = dataTypes.length > 0 
+      ? `Validating ${dataTypes.join(', ')}...`
+      : 'Validating extracted data...';
+    onProgress(null, statusText);
+  }
 
   // Validate that dates were extracted
   if (parsed.data?.labs) {

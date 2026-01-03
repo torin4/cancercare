@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, BarChart, Heart, Thermometer, Pill, Plus, Upload, Edit2, X, TrendingUp, TrendingDown, Minus, Activity, Info, Calendar, Clock, Check, AlertCircle, Trash2, MoreVertical, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MessageSquare, BarChart, Heart, Thermometer, Pill, Plus, Upload, Edit2, X, TrendingUp, TrendingDown, Minus, Activity, Info, Calendar, Clock, Check, AlertCircle, Trash2, MoreVertical, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
@@ -29,6 +29,31 @@ export default function HealthTab({ onTabChange, initialSection = null }) {
 
   // Tab-specific state
   const [healthSection, setHealthSection] = useState(initialSection || 'labs');
+  const [selectedDataPoint, setSelectedDataPoint] = useState(null); // Track which data point tooltip is open
+  
+  // Close tooltip when clicking outside
+  useEffect(() => {
+    if (selectedDataPoint) {
+      const handleClickOutside = (e) => {
+        // Don't close if clicking on a button or tooltip
+        if (!e.target.closest('.tooltip-container') && !e.target.closest('button')) {
+          setSelectedDataPoint(null);
+        }
+      };
+      
+      // Add a small delay to allow button clicks to register first
+      const timer = setTimeout(() => {
+        document.addEventListener('click', handleClickOutside);
+        document.addEventListener('touchstart', handleClickOutside);
+      }, 100);
+      
+      return () => {
+        clearTimeout(timer);
+        document.removeEventListener('click', handleClickOutside);
+        document.removeEventListener('touchstart', handleClickOutside);
+      };
+    }
+  }, [selectedDataPoint]);
   
   // Update section when initialSection prop changes (e.g., after document upload)
   useEffect(() => {
@@ -36,8 +61,10 @@ export default function HealthTab({ onTabChange, initialSection = null }) {
       setHealthSection(initialSection);
     }
   }, [initialSection]);
+  
   const [selectedLab, setSelectedLab] = useState('ca125');
   const [selectedDate, setSelectedDate] = useState(null);
+  const [labSearchQuery, setLabSearchQuery] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
   const [pendingDocumentDate, setPendingDocumentDate] = useState(null);
@@ -863,6 +890,8 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                           gray: 'bg-gray-100 text-gray-700'
                                         };
 
+                                        const isSelected = selectedDataPoint === `${selectedLab}-${d.id}`;
+                                        
                                         return (
                                           <div
                                             key={i}
@@ -873,12 +902,31 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                               transform: 'translate(-50%, 50%)'
                                             }}
                                           >
-                                            {/* Hover area */}
-                                            <div className="absolute inset-0 w-10 h-10 -m-5"></div>
+                                            {/* Touch/Click area - larger on mobile */}
+                                            <div 
+                                              className="absolute inset-0 w-12 h-12 sm:w-10 sm:h-10 -m-6 sm:-m-5 cursor-pointer touch-manipulation"
+                                              style={{ zIndex: 20 }}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                e.preventDefault();
+                                                // Toggle tooltip on click/tap
+                                                const pointKey = `${selectedLab}-${d.id}`;
+                                                if (isSelected) {
+                                                  setSelectedDataPoint(null);
+                                                } else {
+                                                  setSelectedDataPoint(pointKey);
+                                                }
+                                              }}
+                                              onTouchStart={(e) => {
+                                                e.stopPropagation();
+                                              }}
+                                            />
 
-                                            {/* Outer ring on hover */}
+                                            {/* Outer ring on hover or when selected */}
                                             <div
-                                              className="absolute inset-0 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                                              className={`absolute inset-0 rounded-full transition-all ${
+                                                isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                                              }`}
                                               style={{
                                                 width: '20px',
                                                 height: '20px',
@@ -890,8 +938,9 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
 
                                             {/* Data point dot */}
                                             <div
-                                              className={`rounded-full transition-all relative z-10 group-hover:scale-125 ${isLatest ? 'w-3.5 h-3.5' : 'w-3 h-3'
-                                                }`}
+                                              className={`rounded-full transition-all relative z-10 ${
+                                                isSelected || isLatest ? 'scale-125' : 'group-hover:scale-125'
+                                              } ${isLatest ? 'w-3.5 h-3.5' : 'w-3 h-3'}`}
                                               style={{
                                                 backgroundColor: dotColor,
                                                 border: '2px solid white',
@@ -901,13 +950,18 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                               }}
                                             />
 
-                                            {/* Tooltip with edit and delete buttons */}
-                                            <div className={`absolute opacity-0 group-hover:opacity-100 transition-opacity z-30 ${
-                                              y > 70 ? 'bottom-full mb-4' : 'top-full mt-4'
-                                            } ${
-                                              x < 10 ? 'left-0' : x > 90 ? 'right-0' : 'left-1/2 transform -translate-x-1/2'
-                                            }`}>
-                                              <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl whitespace-nowrap">
+                                            {/* Tooltip with edit and delete buttons - show on hover or when selected */}
+                                            <div 
+                                              className={`absolute ${
+                                                isSelected ? 'opacity-100 pointer-events-auto' : 'opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto'
+                                              } transition-opacity ${
+                                                y > 70 ? 'bottom-full mb-4' : 'top-full mt-4'
+                                              } ${
+                                                x < 10 ? 'left-0' : x > 90 ? 'right-0' : 'left-1/2 transform -translate-x-1/2'
+                                              }`}
+                                              style={{ zIndex: 50 }}
+                                            >
+                                              <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl whitespace-nowrap tooltip-container">
                                                 <div className="flex items-center justify-between gap-3">
                                                   <div>
                                                 <div className="font-bold text-sm">{d.value} {currentLab.unit}</div>
@@ -917,6 +971,10 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                       <button
                                                         onClick={(e) => {
                                                           e.stopPropagation();
+                                                          e.preventDefault();
+                                                          // Close tooltip
+                                                          setSelectedDataPoint(null);
+                                                          
                                                           const currentLabDoc = allLabData[selectedLab];
                                                           if (currentLabDoc && currentLabDoc.id) {
                                                             setSelectedLabForValue({ id: currentLabDoc.id, name: getLabDisplayName(currentLabDoc.name || selectedLab), unit: currentLabDoc.unit, key: selectedLab });
@@ -942,10 +1000,14 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                             setShowAddLabValue(true);
                                                           }
                                                         }}
-                                                        className="text-blue-400 hover:text-blue-300 transition-colors p-2 rounded hover:bg-blue-900/20 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
+                                                        onTouchStart={(e) => {
+                                                          e.stopPropagation();
+                                                          e.preventDefault();
+                                                        }}
+                                                        className="text-blue-400 hover:text-blue-300 active:text-blue-200 transition-colors p-2.5 sm:p-2 rounded hover:bg-blue-900/20 active:bg-blue-900/30 min-h-[48px] min-w-[48px] sm:min-h-[44px] sm:min-w-[44px] flex items-center justify-center touch-manipulation"
                                                         title="Edit this reading"
                                                       >
-                                                        <Edit2 className="w-3.5 h-3.5" />
+                                                        <Edit2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                                                       </button>
                                                       <button
                                                         onClick={(e) => {
@@ -1024,10 +1086,14 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                             }
                                                           });
                                                         }}
-                                                        className="text-red-400 hover:text-red-300 transition-colors p-2 rounded hover:bg-red-900/20 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
+                                                        onTouchStart={(e) => {
+                                                          e.stopPropagation();
+                                                          e.preventDefault();
+                                                        }}
+                                                        className="text-red-400 hover:text-red-300 active:text-red-200 transition-colors p-2.5 sm:p-2 rounded hover:bg-red-900/20 active:bg-red-900/30 min-h-[48px] min-w-[48px] sm:min-h-[44px] sm:min-w-[44px] flex items-center justify-center touch-manipulation"
                                                         title="Delete this reading"
                                                       >
-                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                        <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                                                       </button>
                                                     </div>
                                                   )}
@@ -1384,9 +1450,30 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                             'Others'
                           ];
 
-                          // Count total lab metrics that are actually displayed (after categorization and deduplication)
+                          // Filter labs based on search query
+                          const filterLabsBySearch = (labs, query) => {
+                            if (!query || query.trim() === '') return labs;
+                            const searchLower = query.toLowerCase().trim();
+                            return labs.filter(([key, lab]) => {
+                              const displayName = getLabDisplayName(lab.name);
+                              const labName = lab.name || '';
+                              return displayName.toLowerCase().includes(searchLower) || 
+                                     labName.toLowerCase().includes(searchLower);
+                            });
+                          };
+
+                          // Apply search filter to categorized labs
+                          const filteredCategorizedLabs = {};
+                          Object.keys(categorizedLabs).forEach(category => {
+                            const filtered = filterLabsBySearch(categorizedLabs[category], labSearchQuery);
+                            if (filtered.length > 0) {
+                              filteredCategorizedLabs[category] = filtered;
+                            }
+                          });
+
+                          // Count total lab metrics that are actually displayed (after categorization, deduplication, and search filtering)
                           // This matches the number of cards shown
-                          const totalLabCount = Object.values(categorizedLabs).reduce((sum, labs) => sum + labs.length, 0);
+                          const totalLabCount = Object.values(filteredCategorizedLabs).reduce((sum, labs) => sum + labs.length, 0);
                           
                           // Debug: Always log counts to help identify orphaned data
                           const allLabCount = Object.keys(allLabData).length;
@@ -1451,15 +1538,45 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                   <span className="text-sm font-medium">Add Lab Metric</span>
                           </button>
                               </div>
+                              
+                              {/* Search Bar */}
+                              <div className="relative mb-4">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                  <Search className="h-5 w-5 text-gray-400" />
+                                </div>
+                                <input
+                                  type="text"
+                                  value={labSearchQuery}
+                                  onChange={(e) => setLabSearchQuery(e.target.value)}
+                                  placeholder="Search labs by name..."
+                                  className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-medical-primary-500 focus:border-medical-primary-500 text-sm"
+                                />
+                                {labSearchQuery && (
+                                  <button
+                                    onClick={() => setLabSearchQuery('')}
+                                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                                  >
+                                    <X className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                                  </button>
+                                )}
+                              </div>
+                              
                               {/* Total metrics count - aligned left above first card */}
                               {totalLabCount > 0 && (
                                 <p className="text-sm text-medical-neutral-600 mb-2 text-left">
-                                  {totalLabCount} metric{totalLabCount !== 1 ? 's' : ''} tracked
+                                  {labSearchQuery 
+                                    ? `${totalLabCount} metric${totalLabCount !== 1 ? 's' : ''} found`
+                                    : `${totalLabCount} metric${totalLabCount !== 1 ? 's' : ''} tracked`}
+                                </p>
+                              )}
+                              {labSearchQuery && totalLabCount === 0 && (
+                                <p className="text-sm text-gray-500 mb-2 text-left">
+                                  No labs found matching "{labSearchQuery}"
                                 </p>
                               )}
                               {categoryOrder.map(category => {
-                                const labsInCategory = categorizedLabs[category];
-                                if (labsInCategory.length === 0) return null;
+                                const labsInCategory = filteredCategorizedLabs[category];
+                                if (!labsInCategory || labsInCategory.length === 0) return null;
 
                                 const isExpanded = expandedCategories[category];
                                 const CategoryIcon = categoryIcons[category] || Activity;
@@ -2190,12 +2307,31 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                     transform: 'translate(-50%, 50%)'
                                                   }}
                                                 >
-                                                  {/* Hover area */}
-                                                  <div className="absolute inset-0 w-10 h-10 -m-5"></div>
+                                                  {/* Touch/Click area - larger on mobile */}
+                                                  <div 
+                                                    className="absolute inset-0 w-12 h-12 sm:w-10 sm:h-10 -m-6 sm:-m-5 cursor-pointer touch-manipulation"
+                                                    style={{ zIndex: 20 }}
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      e.preventDefault();
+                                                      // Toggle tooltip on click/tap
+                                                      const pointKey = `${selectedVital}-${d.id}`;
+                                                      if (selectedDataPoint === pointKey) {
+                                                        setSelectedDataPoint(null);
+                                                      } else {
+                                                        setSelectedDataPoint(pointKey);
+                                                      }
+                                                    }}
+                                                    onTouchStart={(e) => {
+                                                      e.stopPropagation();
+                                                    }}
+                                                  />
 
-                                                  {/* Outer ring on hover */}
+                                                  {/* Outer ring on hover or when selected */}
                                                   <div
-                                                    className="absolute inset-0 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                                                    className={`absolute inset-0 rounded-full transition-all ${
+                                                      selectedDataPoint === `${selectedVital}-${d.id}` ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                                                    }`}
                                                     style={{
                                                       width: '20px',
                                                       height: '20px',
@@ -2207,8 +2343,9 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
 
                                                   {/* Data point dot */}
                                                   <div
-                                                    className={`rounded-full transition-all relative z-10 group-hover:scale-125 ${isLatest ? 'w-3.5 h-3.5' : 'w-3 h-3'
-                                                      }`}
+                                                    className={`rounded-full transition-all relative z-10 ${
+                                                      selectedDataPoint === `${selectedVital}-${d.id}` || isLatest ? 'scale-125' : 'group-hover:scale-125'
+                                                    } ${isLatest ? 'w-3.5 h-3.5' : 'w-3 h-3'}`}
                                                     style={{
                                                       backgroundColor: dotColor,
                                                       border: '2px solid white',
@@ -2218,13 +2355,18 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                     }}
                                                   />
 
-                                                  {/* Tooltip with edit and delete buttons */}
-                                                  <div className={`absolute opacity-0 group-hover:opacity-100 transition-opacity z-30 ${
-                                                    y > 70 ? 'bottom-full mb-4' : 'top-full mt-4'
-                                                  } ${
-                                                    x < 10 ? 'left-0' : x > 90 ? 'right-0' : 'left-1/2 transform -translate-x-1/2'
-                                                  }`}>
-                                                    <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl whitespace-nowrap">
+                                                  {/* Tooltip with edit and delete buttons - show on hover or when selected */}
+                                                  <div 
+                                                    className={`absolute ${
+                                                      selectedDataPoint === `${selectedVital}-${d.id}` ? 'opacity-100 pointer-events-auto' : 'opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto'
+                                                    } transition-opacity ${
+                                                      y > 70 ? 'bottom-full mb-4' : 'top-full mt-4'
+                                                    } ${
+                                                      x < 10 ? 'left-0' : x > 90 ? 'right-0' : 'left-1/2 transform -translate-x-1/2'
+                                                    }`}
+                                                    style={{ zIndex: 50 }}
+                                                  >
+                                                    <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl whitespace-nowrap tooltip-container">
                                                       <div className="flex items-center justify-between gap-3">
                                                         <div>
                                                       <div className="font-bold text-sm">
@@ -2236,6 +2378,10 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                             <button
                                                               onClick={(e) => {
                                                                 e.stopPropagation();
+                                                                e.preventDefault();
+                                                                // Close tooltip
+                                                                setSelectedDataPoint(null);
+                                                                
                                                                 const currentVitalDoc = allVitalsData[selectedVital];
                                                                 if (currentVitalDoc && currentVitalDoc.id) {
                                                                   // Pre-fill with existing value data
@@ -2301,14 +2447,22 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                                   setShowAddVitalValue(true);
                                                                 }
                                                               }}
-                                                              className="text-blue-400 hover:text-blue-300 transition-colors p-2 rounded hover:bg-blue-900/20 flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
+                                                              onTouchStart={(e) => {
+                                                                e.stopPropagation();
+                                                                e.preventDefault();
+                                                              }}
+                                                              className="text-blue-400 hover:text-blue-300 active:text-blue-200 transition-colors p-2.5 sm:p-2 rounded hover:bg-blue-900/20 active:bg-blue-900/30 flex-shrink-0 min-h-[48px] min-w-[48px] sm:min-h-[44px] sm:min-w-[44px] flex items-center justify-center touch-manipulation"
                                                               title="Edit this reading"
                                                             >
-                                                              <Edit2 className="w-3.5 h-3.5" />
+                                                              <Edit2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                                                             </button>
                                                             <button
                                                               onClick={(e) => {
                                                                 e.stopPropagation();
+                                                                e.preventDefault();
+                                                                // Close tooltip
+                                                                setSelectedDataPoint(null);
+                                                                
                                                                 // Capture values in closure
                                                                 const vitalValueId = d.id;
                                                                 const vitalKey = selectedVital;
