@@ -331,12 +331,34 @@ export const labService = {
       throw new Error(`Permission denied: You don't have permission to delete this value. Lab belongs to user ${labData.patientId}, but you are ${currentUser.uid}`);
     }
 
+    // Check if valueId is actually the lab document ID (fallback value with no subcollection)
+    // This happens when transform functions use lab.id as the data point ID
+    if (valueId === labId) {
+      console.log(`[deleteLabValue] valueId matches labId - this is a fallback value. Clearing currentValue instead.`);
+      // This is a fallback value (lab document used as data point), just clear currentValue
+      await updateDoc(labRef, {
+        currentValue: null,
+        updatedAt: serverTimestamp()
+      });
+      console.log(`[deleteLabValue] ✓ Cleared currentValue for lab ${labId} (fallback value deleted)`);
+      return;
+    }
+    
     // Verify the value exists before deleting
     const valueRef = doc(db, COLLECTIONS.LABS, labId, 'values', valueId);
     const valueDoc = await getDoc(valueRef);
     
     if (!valueDoc.exists()) {
       console.warn(`[deleteLabValue] Value ${valueId} not found in lab ${labId} - may have already been deleted`);
+      // Check if this might be a lab document ID being used as a value ID
+      if (valueId === labId) {
+        console.log(`[deleteLabValue] valueId matches labId - clearing currentValue instead`);
+        await updateDoc(labRef, {
+          currentValue: null,
+          updatedAt: serverTimestamp()
+        });
+        return;
+      }
       return; // Don't throw - value may have already been deleted
     }
 
@@ -682,6 +704,19 @@ export const vitalService = {
       throw new Error(`Permission denied: You don't have permission to delete this value. Vital belongs to user ${vitalData.patientId}, but you are ${currentUser.uid}`);
     }
 
+    // Check if valueId is actually the vital document ID (fallback value with no subcollection)
+    // This happens when transform functions use vital.id as the data point ID
+    if (valueId === vitalId) {
+      console.log(`[deleteVitalValue] valueId matches vitalId - this is a fallback value. Clearing currentValue instead.`);
+      // This is a fallback value (vital document used as data point), just clear currentValue
+      await updateDoc(vitalRef, {
+        currentValue: null,
+        updatedAt: serverTimestamp()
+      });
+      console.log(`[deleteVitalValue] ✓ Cleared currentValue for vital ${vitalId} (fallback value deleted)`);
+      return;
+    }
+    
     // Verify the path is correct before deletion
     const valueRef = doc(db, COLLECTIONS.VITALS, vitalId, 'values', valueId);
     const expectedPath = `${COLLECTIONS.VITALS}/${vitalId}/values/${valueId}`;
@@ -701,6 +736,15 @@ export const vitalService = {
     
     if (!valueDoc.exists()) {
       console.warn(`[deleteVitalValue] Value ${valueId} not found in vital ${vitalId} - may have already been deleted`);
+      // Check if this might be a vital document ID being used as a value ID
+      if (valueId === vitalId) {
+        console.log(`[deleteVitalValue] valueId matches vitalId - clearing currentValue instead`);
+        await updateDoc(vitalRef, {
+          currentValue: null,
+          updatedAt: serverTimestamp()
+        });
+        return;
+      }
       return; // Don't throw - value may have already been deleted
     }
     
