@@ -1075,12 +1075,17 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                                   console.warn(`Error checking/deleting orphaned lab ${labDocId}:`, cleanupError);
                                                                 }
                                                                 
+                                                                // Reload health data to ensure UI matches database state
+                                                                await reloadHealthData();
+                                                                
+                                                                // Reload health data to ensure UI matches database state
+                                                                // Use a small delay to ensure Firestore has processed the deletion
+                                                                setTimeout(async () => {
+                                                                  await reloadHealthData();
+                                                                }, 500);
+                                                                
                                                                 // Show success banner
                                                                 showSuccess(`${labName} reading deleted successfully`);
-                                                                
-                                                                // Don't reload immediately - optimistic update already removed it from UI
-                                                                // Reloading too quickly can cause the value to reappear if Firestore hasn't fully propagated the deletion
-                                                                // The optimistic update is sufficient - data will sync on next natural reload
                                                               } catch (error) {
                                                                 console.error('Error deleting lab:', error);
                                                                 // Revert optimistic update on error only
@@ -2557,11 +2562,23 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                                       
                                                                       await vitalService.deleteVitalValue(vitalDocId, vitalValueId);
                                                                       
+                                                                      // Check if vital is now orphaned (no values left) and clean it up
+                                                                      try {
+                                                                        const remainingValues = await vitalService.getVitalValues(vitalDocId);
+                                                                        if (!remainingValues || remainingValues.length === 0) {
+                                                                          console.log(`Vital ${vitalDocId} is now orphaned (no values), deleting...`);
+                                                                          await vitalService.deleteVital(vitalDocId);
+                                                                          console.log(`Deleted orphaned vital ${vitalDocId}`);
+                                                                        }
+                                                                      } catch (cleanupError) {
+                                                                        console.warn(`Error checking/deleting orphaned vital ${vitalDocId}:`, cleanupError);
+                                                                      }
+                                                                      
+                                                                      // Reload health data to ensure UI matches database state
+                                                                      await reloadHealthData();
+                                                                      
                                                                       // Show success banner
                                                                       showSuccess(`${displayName} reading deleted successfully`);
-                                                                      
-                                                                      // Don't reload immediately - optimistic update already removed it
-                                                                      // Reloading too quickly can cause the value to reappear
                                                                     } catch (error) {
                                                                       console.error('Error deleting vital:', error);
                                                                       // Revert optimistic update on error

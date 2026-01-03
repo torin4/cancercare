@@ -300,7 +300,49 @@ export const labService = {
 
   // Delete individual lab value (from subcollection if used)
   async deleteLabValue(labId, valueId) {
-    await deleteDoc(doc(db, COLLECTIONS.LABS, labId, 'values', valueId));
+    // Import auth to verify current user
+    const { auth } = await import('./config');
+    const currentUser = auth.currentUser;
+    
+    if (!currentUser) {
+      throw new Error('User not authenticated. Please sign in and try again.');
+    }
+
+    // Verify the lab exists and user owns it
+    const labRef = doc(db, COLLECTIONS.LABS, labId);
+    const labDoc = await getDoc(labRef);
+    
+    if (!labDoc.exists()) {
+      throw new Error('Lab document not found');
+    }
+
+    const labData = labDoc.data();
+    if (!labData.patientId) {
+      throw new Error('Lab document missing patientId');
+    }
+
+    // Verify the current user owns this lab
+    if (labData.patientId !== currentUser.uid) {
+      console.error('Permission denied: Lab ownership mismatch', {
+        labId,
+        labPatientId: labData.patientId,
+        currentUserId: currentUser.uid
+      });
+      throw new Error(`Permission denied: You don't have permission to delete this value. Lab belongs to user ${labData.patientId}, but you are ${currentUser.uid}`);
+    }
+
+    // Verify the value exists before deleting
+    const valueRef = doc(db, COLLECTIONS.LABS, labId, 'values', valueId);
+    const valueDoc = await getDoc(valueRef);
+    
+    if (!valueDoc.exists()) {
+      console.warn(`[deleteLabValue] Value ${valueId} not found in lab ${labId} - may have already been deleted`);
+      return; // Don't throw - value may have already been deleted
+    }
+
+    // Delete the value
+    await deleteDoc(valueRef);
+    console.log(`[deleteLabValue] ✓ Deleted value ${valueId} from lab ${labId}`);
   },
 
   // Delete all labs of a specific type for a patient
@@ -579,6 +621,37 @@ export const vitalService = {
   // IMPORTANT: This only deletes a value from the specific vital document's subcollection
   // The path structure (vitals/{vitalId}/values/{valueId}) ensures isolation
   async deleteVitalValue(vitalId, valueId) {
+    // Import auth to verify current user
+    const { auth } = await import('./config');
+    const currentUser = auth.currentUser;
+    
+    if (!currentUser) {
+      throw new Error('User not authenticated. Please sign in and try again.');
+    }
+
+    // Verify the vital exists and user owns it
+    const vitalRef = doc(db, COLLECTIONS.VITALS, vitalId);
+    const vitalDoc = await getDoc(vitalRef);
+    
+    if (!vitalDoc.exists()) {
+      throw new Error('Vital document not found');
+    }
+
+    const vitalData = vitalDoc.data();
+    if (!vitalData.patientId) {
+      throw new Error('Vital document missing patientId');
+    }
+
+    // Verify the current user owns this vital
+    if (vitalData.patientId !== currentUser.uid) {
+      console.error('Permission denied: Vital ownership mismatch', {
+        vitalId,
+        vitalPatientId: vitalData.patientId,
+        currentUserId: currentUser.uid
+      });
+      throw new Error(`Permission denied: You don't have permission to delete this value. Vital belongs to user ${vitalData.patientId}, but you are ${currentUser.uid}`);
+    }
+
     // Verify the path is correct before deletion
     const valueRef = doc(db, COLLECTIONS.VITALS, vitalId, 'values', valueId);
     const expectedPath = `${COLLECTIONS.VITALS}/${vitalId}/values/${valueId}`;
@@ -591,6 +664,14 @@ export const vitalService = {
         valueId
       });
       throw new Error(`Cannot delete value: path verification failed. This value may belong to a different vital document.`);
+    }
+
+    // Verify the value exists before deleting
+    const valueDoc = await getDoc(valueRef);
+    
+    if (!valueDoc.exists()) {
+      console.warn(`[deleteVitalValue] Value ${valueId} not found in vital ${vitalId} - may have already been deleted`);
+      return; // Don't throw - value may have already been deleted
     }
     
     await deleteDoc(valueRef);
