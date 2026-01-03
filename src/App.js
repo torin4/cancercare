@@ -869,8 +869,9 @@ export default function CancerCareApp() {
   // Handle sign out
   // Profile tab handlers moved to ProfileTab component
 
-  // Show loading screen while checking auth or loading health data
-  if (authLoading || (user && healthLoading)) {
+  // Show loading screen ONLY during initial authentication check (app startup)
+  // Do NOT show when health data is reloading - let individual screens handle their own loading states
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-medical-neutral-50 flex items-center justify-center">
         <div className="text-center">
@@ -878,7 +879,7 @@ export default function CancerCareApp() {
             <Activity className="w-8 h-8 text-medical-primary-600 animate-pulse" />
           </div>
           <h1 className="text-2xl font-bold text-medical-neutral-900 mb-2">CancerCare</h1>
-          <p className="text-medical-neutral-600">Loading your health data...</p>
+          <p className="text-medical-neutral-600">Loading...</p>
         </div>
       </div>
     );
