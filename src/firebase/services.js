@@ -308,33 +308,22 @@ export const labService = {
       throw new Error('User not authenticated. Please sign in and try again.');
     }
 
-    // Verify the lab exists and user owns it
-    const labRef = doc(db, COLLECTIONS.LABS, labId);
-    const labDoc = await getDoc(labRef);
-    
-    if (!labDoc.exists()) {
-      throw new Error('Lab document not found');
-    }
-
-    const labData = labDoc.data();
-    if (!labData.patientId) {
-      throw new Error('Lab document missing patientId');
-    }
-
-    // Verify the current user owns this lab
-    if (labData.patientId !== currentUser.uid) {
-      console.error('Permission denied: Lab ownership mismatch', {
-        labId,
-        labPatientId: labData.patientId,
-        currentUserId: currentUser.uid
-      });
-      throw new Error(`Permission denied: You don't have permission to delete this value. Lab belongs to user ${labData.patientId}, but you are ${currentUser.uid}`);
-    }
-
     // Check if valueId is actually the lab document ID (fallback value with no subcollection)
     // This happens when transform functions use lab.id as the data point ID
     if (valueId === labId) {
       console.log(`[deleteLabValue] valueId matches labId - this is a fallback value. Clearing currentValue instead.`);
+      const labRef = doc(db, COLLECTIONS.LABS, labId);
+      const labDoc = await getDoc(labRef);
+      
+      if (!labDoc.exists()) {
+        throw new Error('Lab document not found');
+      }
+
+      const labData = labDoc.data();
+      if (labData.patientId !== currentUser.uid) {
+        throw new Error(`Permission denied: You don't have permission to delete this value.`);
+      }
+      
       // This is a fallback value (lab document used as data point), just clear currentValue
       await updateDoc(labRef, {
         currentValue: null,
@@ -343,57 +332,122 @@ export const labService = {
       console.log(`[deleteLabValue] ✓ Cleared currentValue for lab ${labId} (fallback value deleted)`);
       return;
     }
+
+    // First, try to find the value in the provided labId
+    let valueRef = doc(db, COLLECTIONS.LABS, labId, 'values', valueId);
+    let valueDoc = await getDoc(valueRef);
+    let actualLabId = labId;
     
-    // Verify the value exists before deleting
-    const valueRef = doc(db, COLLECTIONS.LABS, labId, 'values', valueId);
-    const valueDoc = await getDoc(valueRef);
-    
+    // If value not found in provided labId, search through all labs with same type
+    // This handles the case where multiple lab documents have the same labType
     if (!valueDoc.exists()) {
-      console.warn(`[deleteLabValue] Value ${valueId} not found in lab ${labId} - may have already been deleted`);
-      // Check if this might be a lab document ID being used as a value ID
-      if (valueId === labId) {
-        console.log(`[deleteLabValue] valueId matches labId - clearing currentValue instead`);
-        await updateDoc(labRef, {
-          currentValue: null,
-          updatedAt: serverTimestamp()
-        });
-        return;
+      console.log(`[deleteLabValue] Value ${valueId} not found in lab ${labId}, searching through all labs...`);
+      
+      // Get the lab document to find its labType
+      const labRef = doc(db, COLLECTIONS.LABS, labId);
+      const labDoc = await getDoc(labRef);
+      
+      if (!labDoc.exists()) {
+        throw new Error('Lab document not found');
       }
-      return; // Don't throw - value may have already been deleted
+
+      const labData = labDoc.data();
+      if (labData.patientId !== currentUser.uid) {
+        throw new Error(`Permission denied: You don't have permission to delete this value.`);
+      }
+      
+      const labType = labData.labType;
+      
+      // Find all labs with the same type for this user
+      const q = query(
+        collection(db, COLLECTIONS.LABS),
+        where('patientId', '==', currentUser.uid),
+        where('labType', '==', labType)
+      );
+      const allLabsSnapshot = await getDocs(q);
+      
+      // Search through all labs with same type to find which one contains this value
+      for (const labDocSnap of allLabsSnapshot.docs) {
+        const testLabId = labDocSnap.id;
+        const testValueRef = doc(db, COLLECTIONS.LABS, testLabId, 'values', valueId);
+        const testValueDoc = await getDoc(testValueRef);
+        
+        if (testValueDoc.exists()) {
+          console.log(`[deleteLabValue] Found value ${valueId} in lab ${testLabId} (not the provided lab ${labId})`);
+          actualLabId = testLabId;
+          valueRef = testValueRef;
+          valueDoc = testValueDoc;
+          break;
+        }
+      }
+      
+      // If still not found, it may have already been deleted
+      if (!valueDoc.exists()) {
+        console.warn(`[deleteLabValue] Value ${valueId} not found in any lab with type ${labType} - may have already been deleted`);
+        return; // Don't throw - value may have already been deleted
+      }
+    } else {
+      // Value found in provided labId, verify ownership
+      const labRef = doc(db, COLLECTIONS.LABS, labId);
+      const labDoc = await getDoc(labRef);
+      
+      if (!labDoc.exists()) {
+        throw new Error('Lab document not found');
+      }
+
+      const labData = labDoc.data();
+      if (!labData.patientId) {
+        throw new Error('Lab document missing patientId');
+      }
+
+      // Verify the current user owns this lab
+      if (labData.patientId !== currentUser.uid) {
+        console.error('Permission denied: Lab ownership mismatch', {
+          labId,
+          labPatientId: labData.patientId,
+          currentUserId: currentUser.uid
+        });
+        throw new Error(`Permission denied: You don't have permission to delete this value. Lab belongs to user ${labData.patientId}, but you are ${currentUser.uid}`);
+      }
     }
 
     // Log before deletion
     const valueData = valueDoc.data();
+    const actualLabRef = doc(db, COLLECTIONS.LABS, actualLabId);
+    const actualLabDoc = await getDoc(actualLabRef);
+    const actualLabData = actualLabDoc.data();
+    
     console.log(`[deleteLabValue] DELETING value:`, {
-      labId,
+      providedLabId: labId,
+      actualLabId: actualLabId,
       valueId,
       value: valueData.value,
       date: valueData.date,
-      labCurrentValue: labData.currentValue
+      labCurrentValue: actualLabData.currentValue
     });
     
     // Delete the value
     await deleteDoc(valueRef);
-    console.log(`[deleteLabValue] ✓ Deleted value ${valueId} from lab ${labId}`);
+    console.log(`[deleteLabValue] ✓ Deleted value ${valueId} from lab ${actualLabId}`);
     
     // Check if this was the last value - if so, clear currentValue to prevent it from reappearing
-    const remainingValues = await getDocs(query(collection(db, COLLECTIONS.LABS, labId, 'values')));
-    console.log(`[deleteLabValue] Remaining values count: ${remainingValues.size} for lab ${labId}`);
+    const remainingValues = await getDocs(query(collection(db, COLLECTIONS.LABS, actualLabId, 'values')));
+    console.log(`[deleteLabValue] Remaining values count: ${remainingValues.size} for lab ${actualLabId}`);
     
     if (remainingValues.empty) {
       // Clear currentValue so transform functions don't use it as a fallback
-      console.log(`[deleteLabValue] Clearing currentValue for lab ${labId} (no values remaining)`);
-      await updateDoc(labRef, {
+      console.log(`[deleteLabValue] Clearing currentValue for lab ${actualLabId} (no values remaining)`);
+      await updateDoc(actualLabRef, {
         currentValue: null,
         updatedAt: serverTimestamp()
       });
       
       // Verify it was cleared
-      const updatedLabDoc = await getDoc(labRef);
+      const updatedLabDoc = await getDoc(actualLabRef);
       const updatedLabData = updatedLabDoc.data();
-      console.log(`[deleteLabValue] ✓ Cleared currentValue for lab ${labId}. New currentValue:`, updatedLabData.currentValue);
+      console.log(`[deleteLabValue] ✓ Cleared currentValue for lab ${actualLabId}. New currentValue:`, updatedLabData.currentValue);
     } else {
-      console.log(`[deleteLabValue] Lab ${labId} still has ${remainingValues.size} value(s), keeping currentValue`);
+      console.log(`[deleteLabValue] Lab ${actualLabId} still has ${remainingValues.size} value(s), keeping currentValue`);
     }
   },
 
