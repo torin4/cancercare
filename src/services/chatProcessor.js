@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { labService, vitalService, medicationService, symptomService } from '../firebase/services';
 import { getSavedTrials } from '../services/clinicalTrials/clinicalTrialsService';
+import { getNotebookEntries } from './notebookService';
 import { parseLocalDate } from '../utils/helpers';
 
 const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY || process.env.GEMINI_API_KEY);
@@ -12,9 +13,10 @@ const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY || pro
  * @param {Array} conversationHistory - Previous conversation messages
  * @param {Object} trialContext - Optional trial context (when asking about a specific trial)
  * @param {Object} healthContext - Optional health context (labs, vitals, symptoms)
+ * @param {Object} notebookContext - Optional notebook context (timeline entries, journal notes, documents)
  * @param {Object} patientProfile - Patient demographics (age, gender, weight) for normal range adjustments
  */
-export async function processChatMessage(message, userId, conversationHistory = [], trialContext = null, healthContext = null, patientProfile = null) {
+export async function processChatMessage(message, userId, conversationHistory = [], trialContext = null, healthContext = null, notebookContext = null, patientProfile = null) {
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
@@ -541,6 +543,111 @@ When answering questions about the user's health data, you should:
 ═══════════════════════════════════════════════════════════════════════════════`;
     }
 
+    // Build notebook context section if provided
+    let notebookContextSection = '';
+    if (notebookContext) {
+      // Helper function to format date as YYYY-MM-DD
+      const formatDateString = (date) => {
+        if (!date) return null;
+        try {
+          if (date instanceof Date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          }
+          if (typeof date === 'string') {
+            if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+              return date;
+            }
+            const d = new Date(date);
+            if (!isNaN(d.getTime())) {
+              const year = d.getFullYear();
+              const month = String(d.getMonth() + 1).padStart(2, '0');
+              const day = String(d.getDate()).padStart(2, '0');
+              return `${year}-${month}-${day}`;
+            }
+          }
+          return null;
+        } catch (e) {
+          return null;
+        }
+      };
+
+      const entries = notebookContext.entries || [];
+      const entriesCount = entries.length;
+      
+      if (entriesCount > 0) {
+        // Format entries by date (newest first, already sorted)
+        const formattedEntries = entries.map(entry => {
+          const dateStr = formatDateString(entry.date) || entry.dateKey || 'Unknown date';
+          
+          const parts = [];
+          
+          // Notes section
+          if (entry.notes && entry.notes.length > 0) {
+            const noteList = entry.notes.map(note => {
+              const sourceLabel = note.sourceName || (note.source === 'journal' ? 'Journal Entry' : note.source === 'document' ? 'Document Note' : note.source === 'symptom' ? 'Symptom Note' : 'Note');
+              return `"${note.content}" (From: ${sourceLabel})`;
+            }).join('; ');
+            parts.push(`- Notes: ${noteList}`);
+          }
+          
+          // Documents section
+          if (entry.documents && entry.documents.length > 0) {
+            const docList = entry.documents.map(doc => {
+              const dataPointText = doc.dataPointCount > 0 ? ` (${doc.dataPointCount} data point${doc.dataPointCount !== 1 ? 's' : ''} extracted)` : '';
+              return `${doc.name} (${doc.type}${dataPointText})`;
+            }).join(', ');
+            parts.push(`- Documents: ${docList}`);
+          }
+          
+          // Symptoms section
+          if (entry.symptoms && entry.symptoms.length > 0) {
+            const symptomList = entry.symptoms.map(symptom => {
+              const severityText = symptom.severity ? ` (${symptom.severity})` : '';
+              return `${symptom.type}${severityText}`;
+            }).join(', ');
+            parts.push(`- Symptoms: ${symptomList}`);
+          }
+          
+          return `${dateStr}:\n${parts.length > 0 ? parts.join('\n') : '  (No entries for this date)'}`;
+        }).join('\n\n');
+        
+        notebookContextSection = `
+
+═══════════════════════════════════════════════════════════════════════════════
+NOTEBOOK CONTEXT: The user is asking about their health history/timeline
+═══════════════════════════════════════════════════════════════════════════════
+
+HEALTH JOURNAL ENTRIES (${entriesCount} date${entriesCount !== 1 ? 's' : ''} with entries, organized by date, newest first):
+
+${formattedEntries}
+
+When answering questions about the user's health history, you should:
+1. Reference specific dates and what happened on those dates
+2. Connect related information (e.g., documents uploaded on a date, symptoms logged, journal notes)
+3. Provide chronological context when discussing trends or patterns
+4. Use the date-based organization to explain the timeline of events
+5. Reference journal notes, document notes, and symptom descriptions when relevant
+6. Keep responses VERY CONCISE - aim for 1-2 short paragraphs maximum (3-5 sentences total). Be direct and to the point.
+7. Use MARKDOWN formatting: **bold** for dates and key terms, bullet points for lists
+8. When referring to dates, use the EXACT date format shown (YYYY-MM-DD)
+
+═══════════════════════════════════════════════════════════════════════════════`;
+      } else {
+        notebookContextSection = `
+
+═══════════════════════════════════════════════════════════════════════════════
+NOTEBOOK CONTEXT: The user is asking about their health history/timeline
+═══════════════════════════════════════════════════════════════════════════════
+
+No journal entries found yet. The user can start building their health journal by uploading documents, logging symptoms, or adding journal notes.
+
+═══════════════════════════════════════════════════════════════════════════════`;
+      }
+    }
+
     // Build prompt for extraction
     // Determine user role for personalized responses
     const isPatient = patientProfile?.isPatient !== false; // Default to true if not set
@@ -552,12 +659,13 @@ When answering questions about the user's health data, you should:
 
 ${userRoleContext}
 
-TASK: Analyze the user's message and extract any medical values they mentioned.${trialContext ? ' The user is asking about a specific clinical trial - provide detailed information about the trial, its drugs, phase, and eligibility.' : ''}${healthContext ? ' The user is asking about their health data - analyze their labs, vitals, and symptoms to provide insights and answer questions.' : ''}
+TASK: Analyze the user's message and extract any medical values they mentioned.${trialContext ? ' The user is asking about a specific clinical trial - provide detailed information about the trial, its drugs, phase, and eligibility.' : ''}${healthContext ? ' The user is asking about their health data - analyze their labs, vitals, and symptoms to provide insights and answer questions.' : ''}${notebookContext ? ' The user is asking about their health history/timeline - reference the journal entries, documents, notes, and symptoms organized by date.' : ''}
 
 USER MESSAGE: "${message}"
 ${patientDemographicsSection}
 ${trialContextSection}
 ${healthContextSection}
+${notebookContextSection}
 
 Extract any medical data and return a JSON object with this structure:
 

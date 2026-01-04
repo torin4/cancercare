@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2 } from 'lucide-react';
+import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
@@ -7,10 +7,11 @@ import { useHealthContext } from '../../contexts/HealthContext';
 import { useBanner } from '../../contexts/BannerContext';
 import { messageService, labService, vitalService, symptomService } from '../../firebase/services';
 import { getSavedTrials } from '../../services/clinicalTrials/clinicalTrialsService';
+import { getNotebookEntries } from '../../services/notebookService';
 import { processChatMessage, generateChatExtractionSummary } from '../../services/chatProcessor';
 import { processDocument, generateExtractionSummary } from '../../services/documentProcessor';
 import { uploadDocument } from '../../firebase/storage';
-import { chatSuggestions, trialSuggestions } from '../../constants/chatSuggestions';
+import { generalSuggestions, trialSuggestions, healthSuggestions, timelineSuggestions } from '../../constants/chatSuggestions';
 import DocumentUploadOnboarding from '../DocumentUploadOnboarding';
 import UploadProgressOverlay from '../UploadProgressOverlay';
 
@@ -31,7 +32,17 @@ export default function ChatTab({ onTabChange }) {
 
       if (isPatient) {
         // For patients, use "I" and "my"
-        return text
+        // First handle special cases where [patient] should become "my" (possessive)
+        let personalized = text
+          .replace(/\[patient\] doctor/gi, 'my doctor')
+          .replace(/\[Patient\] doctor/gi, 'my doctor')
+          .replace(/\[patient\] diagnosis/gi, 'my diagnosis')
+          .replace(/\[Patient\] diagnosis/gi, 'my diagnosis')
+          .replace(/\[patient\] condition/gi, 'my condition')
+          .replace(/\[Patient\] condition/gi, 'my condition');
+        
+        // Then replace remaining [patient] with "I" (subject)
+        personalized = personalized
           .replace(/\[patient\]/gi, 'I')
           .replace(/\[Patient\]/gi, 'I')
           .replace(/\bthe patient\b/gi, 'I')
@@ -39,20 +50,25 @@ export default function ChatTab({ onTabChange }) {
           .replace(/\btheir\b/gi, 'my')
           .replace(/\bTheir\b/gi, 'My')
           .replace(/\bthey\b/gi, 'I')
-          .replace(/\bThey\b/gi, 'I');
+          .replace(/\bThey\b/gi, 'I')
+          .replace(/\[condition\]/gi, 'my condition');
+        
+        return personalized;
       } else {
-        // For caregivers, use patient name or "the patient"
-        // Handle [patient] placeholder first
-        let personalized = text.replace(/\[patient\]/gi, patientName);
-        personalized = personalized.replace(/\[Patient\]/gi, patientName);
-
-        // Then replace first-person references
-        personalized = personalized.replace(/\bI had\b/gi, `${patientName} had`);
-        personalized = personalized.replace(/\bI started\b/gi, `${patientName} started`);
-        personalized = personalized.replace(/\bI'm\b/gi, `${patientName} is`);
-        personalized = personalized.replace(/\bI \b/gi, `${patientName} `);
-        personalized = personalized.replace(/\bmy \b/gi, `${patientName}'s `);
-        personalized = personalized.replace(/\bMy \b/gi, `${patientName}'s `);
+        // For caregivers, the question is asked BY the caregiver (use "I"), but about the PATIENT
+        // First handle possessive cases where we want patient name + 's
+        let personalized = text
+          .replace(/\[patient\] doctor/gi, `${patientName}'s doctor`)
+          .replace(/\[Patient\] doctor/gi, `${patientName}'s doctor`)
+          .replace(/\[patient\] diagnosis/gi, `${patientName}'s diagnosis`)
+          .replace(/\[Patient\] diagnosis/gi, `${patientName}'s diagnosis`)
+          .replace(/\[patient\] condition/gi, `${patientName}'s condition`)
+          .replace(/\[Patient\] condition/gi, `${patientName}'s condition`);
+        
+        // Then replace [patient] as subject with "I" (caregiver is asking)
+        personalized = personalized.replace(/\[patient\]/gi, 'I');
+        personalized = personalized.replace(/\[Patient\]/gi, 'I');
+        personalized = personalized.replace(/\[condition\]/gi, `${patientName}'s condition`);
 
         return personalized;
       }
@@ -66,29 +82,153 @@ export default function ChatTab({ onTabChange }) {
         // Patient mode - keep as is (first person)
         return text;
       } else {
-        // Caregiver mode - make third person
+        // Caregiver mode - personalize possessive forms, but keep "I" for questions the caregiver asks
         return text
-          .replace(/^Log a symptom$/i, `Log ${patientName}'s symptom`)
-          .replace(/^Add lab value$/i, `Add ${patientName}'s lab value`)
-          .replace(/^Add vital sign$/i, `Add ${patientName}'s vital sign`)
-          .replace(/^Add medication$/i, `Add ${patientName}'s medication`)
-          .replace(/What does my (.*) mean\?$/i, `What does ${patientName}'s $1 mean?`)
-          .replace(/Explain my (.*)/i, `Explain ${patientName}'s $1`)
-          .replace(/How is my (.*)/i, `How is ${patientName}'s $1`)
-          .replace(/What are common (.*)/i, 'What are common $1') // Keep generic
-          .replace(/Explain my symptoms/i, `Explain ${patientName}'s symptoms`)
-          .replace(/What should I ask (.*)/i, `What should ${patientName} ask $1`)
-          .replace(/Analyze my (.*)/i, `Analyze ${patientName}'s $1`)
-          .replace(/What do my (.*)/i, `What do ${patientName}'s $1`);
+          .replace(/Tell me about my (.*)/i, `Tell me about ${patientName}'s $1`)
+          .replace(/my doctor/gi, `${patientName}'s doctor`)
+          .replace(/my diagnosis/gi, `${patientName}'s diagnosis`)
+          .replace(/my condition/gi, `${patientName}'s condition`)
+          .replace(/What should I expect (.*)/i, `What should ${patientName} expect $1`)
+          .replace(/What (.*) are available/i, `What $1 are available`); // Keep generic for "what X are available"
+        // Note: "What questions should I ask" stays as "I" because caregiver is asking
       }
     };
 
-    return chatSuggestions.map(suggestion => ({
+    return generalSuggestions.map(suggestion => ({
       ...suggestion,
       populateText: personalizeText(suggestion.populateText || suggestion.text),
       text: personalizeButtonLabel(suggestion.text) // Personalize button text too!
     }));
   }, [patientProfile?.isPatient, patientProfile?.firstName, patientProfile?.name]); // Use specific fields from patientProfile
+
+  // Get personalized health suggestions
+  const personalizedHealthSuggestions = React.useMemo(() => {
+    const isPatient = patientProfile?.isPatient !== false;
+    const patientName = patientProfile?.firstName || patientProfile?.name?.split(' ')[0] || 'the patient';
+
+    const personalizeText = (text) => {
+      if (!text) return text;
+      if (isPatient) {
+        return text
+          .replace(/\[patient\]/gi, 'I')
+          .replace(/\[Patient\]/gi, 'I')
+          .replace(/\bthe patient\b/gi, 'I')
+          .replace(/\btheir\b/gi, 'my')
+          .replace(/\bthey\b/gi, 'I');
+      } else {
+        // For caregivers, keep "I" (caregiver is asking), but replace patient references
+        // First handle possessive cases
+        let personalized = text
+          .replace(/\[patient\] (latest lab results|health data|treatment|symptoms|vitals)/gi, `${patientName}'s $1`)
+          .replace(/\[Patient\] (latest lab results|health data|treatment|symptoms|vitals)/gi, `${patientName}'s $1`);
+        
+        // Then replace [patient] with patientName for other cases
+        personalized = personalized.replace(/\[patient\]/gi, patientName);
+        personalized = personalized.replace(/\[Patient\]/gi, patientName);
+        
+        // DON'T replace "I" - caregiver is asking (first person)
+        // DON'T replace "my" - it should already be handled in populateText as patientName's
+        
+        return personalized;
+      }
+    };
+
+    const personalizeButtonLabel = (text) => {
+      if (!text || isPatient) return text;
+      return text
+        .replace(/Explain my (.*)/i, `Explain ${patientName}'s $1`)
+        .replace(/What does my (.*)/i, `What does ${patientName}'s $1`)
+        .replace(/Analyze my (.*)/i, `Analyze ${patientName}'s $1`)
+        .replace(/How is my (.*)/i, `How is ${patientName}'s $1`)
+        .replace(/What do my (.*)/i, `What do ${patientName}'s $1`)
+        .replace(/Explain my (.*)/i, `Explain ${patientName}'s $1`);
+    };
+
+    return healthSuggestions.map(suggestion => ({
+      ...suggestion,
+      populateText: personalizeText(suggestion.populateText || suggestion.text),
+      text: personalizeButtonLabel(suggestion.text)
+    }));
+  }, [patientProfile?.isPatient, patientProfile?.firstName, patientProfile?.name]);
+
+  // Get personalized trial suggestions
+  const personalizedTrialSuggestions = React.useMemo(() => {
+    const isPatient = patientProfile?.isPatient !== false;
+    const patientName = patientProfile?.firstName || patientProfile?.name?.split(' ')[0] || 'the patient';
+
+    const personalizeText = (text) => {
+      if (!text) return text;
+      if (isPatient) {
+        // Patient mode - keep as is (first person)
+        return text;
+      } else {
+        // Caregiver mode - replace "I" with patientName, "my" with patientName's
+        let personalized = text.replace(/\bAm I\b/gi, `Is ${patientName}`);
+        personalized = personalized.replace(/\bam I\b/gi, `is ${patientName}`);
+        personalized = personalized.replace(/\bI\b/g, patientName);
+        personalized = personalized.replace(/\bmy\b/gi, `${patientName}'s`);
+        return personalized;
+      }
+    };
+
+    const personalizeButtonLabel = (text) => {
+      if (!text || isPatient) return text;
+      // Caregiver mode - replace "I" with patientName
+      return text.replace(/\bAm I\b/gi, `Is ${patientName}`);
+    };
+
+    return trialSuggestions.map(suggestion => ({
+      ...suggestion,
+      populateText: personalizeText(suggestion.populateText || suggestion.text),
+      text: personalizeButtonLabel(suggestion.text)
+    }));
+  }, [patientProfile?.isPatient, patientProfile?.firstName, patientProfile?.name]);
+
+  // Get personalized timeline suggestions
+  const personalizedTimelineSuggestions = React.useMemo(() => {
+    const isPatient = patientProfile?.isPatient !== false;
+    const patientName = patientProfile?.firstName || patientProfile?.name?.split(' ')[0] || 'the patient';
+
+    const personalizeText = (text) => {
+      if (!text) return text;
+      if (isPatient) {
+        return text
+          .replace(/\[patient\]/gi, 'I')
+          .replace(/\[Patient\]/gi, 'I')
+          .replace(/\[date\]/gi, 'January 3rd')
+          .replace(/\bthe patient\b/gi, 'I')
+          .replace(/\btheir\b/gi, 'my')
+          .replace(/\bthey\b/gi, 'I');
+      } else {
+        // For caregivers, replace patient references with patientName, but keep structure
+        let personalized = text.replace(/\[patient\]/gi, patientName);
+        personalized = personalized.replace(/\[Patient\]/gi, patientName);
+        personalized = personalized.replace(/\[date\]/gi, 'January 3rd');
+        // For timeline questions, "I" becomes patientName (third person)
+        personalized = personalized.replace(/\bI \b/gi, `${patientName} `);
+        personalized = personalized.replace(/\bmy \b/gi, `${patientName}'s `);
+        personalized = personalized.replace(/\bdo I\b/gi, `does ${patientName}`);
+        personalized = personalized.replace(/\bdoes I\b/gi, `does ${patientName}`);
+        personalized = personalized.replace(/\bdid I\b/gi, `did ${patientName}`);
+        return personalized;
+      }
+    };
+
+    const personalizeButtonLabel = (text) => {
+      if (!text || isPatient) return text;
+      return text
+        .replace(/Tell me about my (.*)/i, `Tell me about ${patientName}'s $1`)
+        .replace(/Show me my (.*)/i, `Show me ${patientName}'s $1`)
+        .replace(/What notes do I have/i, `What notes does ${patientName} have`)
+        .replace(/What documents did I upload/i, `What documents did ${patientName} upload`);
+    };
+
+    return timelineSuggestions.map(suggestion => ({
+      ...suggestion,
+      populateText: personalizeText(suggestion.populateText || suggestion.text),
+      text: personalizeButtonLabel(suggestion.text)
+    }));
+  }, [patientProfile?.isPatient, patientProfile?.firstName, patientProfile?.name]);
 
   // Chat state
   const [messages, setMessages] = useState([]);
@@ -98,6 +238,7 @@ export default function ChatTab({ onTabChange }) {
   const [inputText, setInputText] = useState('');
   const [currentTrialContext, setCurrentTrialContext] = useState(null);
   const [currentHealthContext, setCurrentHealthContext] = useState(null);
+  const [currentNotebookContext, setCurrentNotebookContext] = useState(null);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
   const [profileImage, setProfileImage] = useState(null);
   const [suggestionsKey, setSuggestionsKey] = useState(0); // Force re-render when role changes
@@ -256,6 +397,7 @@ export default function ChatTab({ onTabChange }) {
                 [],
                 null,
                 null,
+                null,
                 patientProfile
               );
 
@@ -318,7 +460,7 @@ export default function ChatTab({ onTabChange }) {
   useEffect(() => {
     // Force re-render by updating key whenever suggestions change
     setSuggestionsKey(prev => prev + 1);
-  }, [personalizedSuggestions]); // Depend on personalizedSuggestions directly
+  }, [personalizedSuggestions, personalizedHealthSuggestions, personalizedTimelineSuggestions]); // Depend on all personalized suggestions
 
   // Cycle suggestions when entering chat
   useEffect(() => {
@@ -461,6 +603,22 @@ export default function ChatTab({ onTabChange }) {
         }
       }
 
+      // Auto-load notebook context if user asks about history/timeline but context isn't set
+      // Detect if user is ADDING data (not asking about it) - these patterns indicate the user is providing new data
+      const isAddingData = /(my (ca-125|hemoglobin|wbc|platelets|blood pressure|heart rate|temperature|temp|weight|bp|hr) (was|is)|i (had|have|started|am taking|took)|i'm (experiencing|taking)|my (symptom|symptoms)|started taking|taking [a-z]+ (mg|ml|units?)|log|add|record)/i.test(userMessage);
+      const requiresNotebookData = !currentNotebookContext && !isAddingData && /(history|timeline|journal|notebook|what happened|on (date|day|december|january|february|march|april|may|june|july|august|september|october|november)|tell me about (date|day|december|january|february|march|april|may|june|july|august|september|october|november)|my history|health journal|journal entries|notes|documents from|symptoms from)/i.test(userMessage);
+      
+      let notebookContextToUse = currentNotebookContext;
+      if (requiresNotebookData && user) {
+        try {
+          const entries = await getNotebookEntries(user.uid, { limit: 50 });
+          notebookContextToUse = { entries };
+          setCurrentNotebookContext(notebookContextToUse);
+        } catch (error) {
+          console.error('Error loading notebook entries for context:', error);
+        }
+      }
+
       // Auto-load trial context if user asks about trials but context isn't set
       const requiresTrialData = !currentTrialContext && /(saved trial|saved trials|my trial|my trials|clinical trial|clinical trials|trial i saved|trials i saved|what trials|which trials|show me trials|tell me about trials|ask about trial)/i.test(userMessage);
       
@@ -522,6 +680,7 @@ export default function ChatTab({ onTabChange }) {
         })),
         currentTrialContext, // Pass trial context if available
         healthContextToUse, // Pass health context (auto-loaded if needed)
+        notebookContextToUse, // Pass notebook context (auto-loaded if needed)
         patientProfile // Pass patient profile for demographic-based normal ranges
       );
 
@@ -1057,37 +1216,151 @@ export default function ChatTab({ onTabChange }) {
           </div>
         )}
 
+        {/* Notebook Context Indicator */}
+        {currentNotebookContext && (
+          <div className="p-2.5 sm:p-3 bg-yellow-50 border-b border-yellow-200 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+              <span className="text-yellow-600 text-xs sm:text-sm font-medium flex-shrink-0">Discussing:</span>
+              <span className="text-yellow-800 text-xs sm:text-sm truncate">Your Health History & Timeline</span>
+            </div>
+            <button
+              onClick={() => {
+                setCurrentNotebookContext(null);
+                setMessages(prev => [...prev, {
+                  type: 'ai',
+                  text: 'History/timeline context cleared. You can now ask general questions or ask about different topics.'
+                }]);
+              }}
+              className="text-yellow-600 hover:text-yellow-700 text-xs sm:text-sm underline flex-shrink-0 min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+
+        {/* Context Selector */}
+        <div className="px-3 sm:px-4 py-2.5 sm:py-3 bg-medical-neutral-50 border-t border-medical-neutral-200">
+          <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}>
+            <button
+              onClick={async () => {
+                if (!user) return;
+                try {
+                  // Clear other contexts
+                  setCurrentTrialContext(null);
+                  setCurrentNotebookContext(null);
+                  
+                  // Load health context
+                  const labs = await labService.getLabs(user.uid);
+                  const vitals = await vitalService.getVitals(user.uid);
+                  const symptoms = await symptomService.getSymptoms(user.uid);
+                  
+                  const labsWithValues = await Promise.all(labs.map(async (lab) => {
+                    if (lab.id) {
+                      const values = await labService.getLabValues(lab.id);
+                      return { ...lab, values: values || [] };
+                    }
+                    return lab;
+                  }));
+                  
+                  const vitalsWithValues = await Promise.all(vitals.map(async (vital) => {
+                    if (vital.id) {
+                      const values = await vitalService.getVitalValues(vital.id);
+                      return { ...vital, values: values || [] };
+                    }
+                    return vital;
+                  }));
+                  
+                  setCurrentHealthContext({
+                    labs: labsWithValues,
+                    vitals: vitalsWithValues,
+                    symptoms: symptoms
+                  });
+                } catch (error) {
+                  console.error('Error loading health context:', error);
+                  showError('Error loading health data');
+                }
+              }}
+              className={`px-3 py-2 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 flex items-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation ${
+                currentHealthContext && !currentTrialContext && !currentNotebookContext
+                  ? 'bg-medical-primary-500 text-white'
+                  : 'bg-white border border-medical-neutral-300 text-medical-neutral-700 hover:bg-medical-primary-50 hover:border-medical-primary-300'
+              }`}
+            >
+              <BarChart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              Health Data
+            </button>
+            
+            <button
+              onClick={async () => {
+                if (!user) return;
+                try {
+                  // Clear other contexts
+                  setCurrentHealthContext(null);
+                  setCurrentTrialContext(null);
+                  
+                  // Load notebook context
+                  const entries = await getNotebookEntries(user.uid, { limit: 50 });
+                  setCurrentNotebookContext({ entries });
+                } catch (error) {
+                  console.error('Error loading notebook context:', error);
+                  showError('Error loading timeline');
+                }
+              }}
+              className={`px-3 py-2 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 flex items-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation ${
+                currentNotebookContext && !currentHealthContext && !currentTrialContext
+                  ? 'bg-yellow-500 text-white'
+                  : 'bg-white border border-medical-neutral-300 text-medical-neutral-700 hover:bg-yellow-50 hover:border-yellow-300'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              Timeline
+            </button>
+          </div>
+        </div>
+
         {/* Chat Suggestions */}
         <div
           className="px-3 sm:px-4 py-2.5 sm:py-3 bg-medical-neutral-50 border-t border-medical-neutral-200"
         >
           <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}>
-            {(currentTrialContext ? trialSuggestions : personalizedSuggestions).map((suggestion, idx) => {
-              // Store populateText in a const to ensure we capture the current value
-              const currentPopulateText = suggestion.populateText || suggestion.text;
+            {(() => {
+              // Determine which suggestions to show based on active context
+              let suggestionsToShow = personalizedSuggestions;
+              if (currentTrialContext) {
+                suggestionsToShow = personalizedTrialSuggestions;
+              } else if (currentHealthContext && !currentTrialContext && !currentNotebookContext) {
+                suggestionsToShow = personalizedHealthSuggestions;
+              } else if (currentNotebookContext && !currentHealthContext && !currentTrialContext) {
+                suggestionsToShow = personalizedTimelineSuggestions;
+              }
+              
+              return suggestionsToShow.map((suggestion, idx) => {
+                // Store populateText in a const to ensure we capture the current value
+                const currentPopulateText = suggestion.populateText || suggestion.text;
 
-              // Create a unique key that includes a hash of the populateText to force re-render
-              const textHash = currentPopulateText.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-              const suggestionKey = `suggestion-${suggestionsKey}-${patientProfile?.isPatient}-${idx}-${textHash}`;
+                // Create a unique key that includes a hash of the populateText to force re-render
+                const textHash = currentPopulateText.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                const suggestionKey = `suggestion-${suggestionsKey}-${patientProfile?.isPatient}-${idx}-${textHash}`;
 
-              return (
-                <button
-                  key={suggestionKey}
-                  onClick={() => {
-                    setInputText(currentPopulateText);
-                    // Focus on input after setting text
-                    setTimeout(() => {
-                      const input = document.querySelector('input[type="text"]');
-                      if (input) input.focus();
-                    }, 0);
-                  }}
-                  className={`${suggestion.color} text-white px-3 py-2 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap hover:opacity-100 opacity-90 transition-opacity flex-shrink-0 flex items-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-100`}
-                >
-                  {suggestion.icon && <suggestion.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                  {suggestion.text}
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={suggestionKey}
+                    onClick={() => {
+                      setInputText(currentPopulateText);
+                      // Focus on input after setting text
+                      setTimeout(() => {
+                        const input = document.querySelector('input[type="text"]');
+                        if (input) input.focus();
+                      }, 0);
+                    }}
+                    className={`${suggestion.color} text-white px-3 py-2 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap hover:opacity-100 opacity-90 transition-opacity flex-shrink-0 flex items-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-100`}
+                  >
+                    {suggestion.icon && <suggestion.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                    {suggestion.text}
+                  </button>
+                );
+              });
+            })()}
           </div>
         </div>
 

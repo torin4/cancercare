@@ -168,7 +168,7 @@ module.exports = async (req, res) => {
               Accept: 'application/json',
               'User-Agent': req.headers['user-agent'] || 'CancerCareProxy/1.0'
             },
-            timeout: 30000 // Longer timeout for multiple pages
+            timeout: 60000 // Increased timeout to 60 seconds (ClinicalTrials.gov can be slow)
           });
           
           const d = response.data || {};
