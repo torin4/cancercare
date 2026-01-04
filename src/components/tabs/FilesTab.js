@@ -18,6 +18,7 @@ import RescanDocumentModal from '../modals/RescanDocumentModal';
 import NotebookTimeline from '../NotebookTimeline';
 import AddJournalNoteModal from '../modals/AddJournalNoteModal';
 import EditJournalNoteModal from '../modals/EditJournalNoteModal';
+import DocumentMetadataModal from '../modals/DocumentMetadataModal';
 
 export default function FilesTab({ onTabChange }) {
   // Use contexts for shared state
@@ -1256,87 +1257,11 @@ export default function FilesTab({ onTabChange }) {
       />
 
       {/* Document Metadata Modal */}
-      {showDocumentMetadata && (
-        <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-fade-scale">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900">Document Metadata</h3>
-              <button
-                onClick={() => setShowDocumentMetadata(null)}
-                className="p-1.5 rounded-full hover:bg-gray-100 transition"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase mb-1">File Name</p>
-                <p className="text-sm text-gray-900">{showDocumentMetadata.fileName || showDocumentMetadata.name || 'Unknown'}</p>
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Document Type</p>
-                <p className="text-sm text-gray-900">{showDocumentMetadata.documentType || showDocumentMetadata.type || 'Unknown'}</p>
-              </div>
-
-              {showDocumentMetadata.dataPointCount !== undefined && showDocumentMetadata.dataPointCount !== null && (
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Extracted Data Points</p>
-                  <p className="text-sm text-gray-900 font-semibold">{showDocumentMetadata.dataPointCount} data point{showDocumentMetadata.dataPointCount !== 1 ? 's' : ''}</p>
-                </div>
-              )}
-
-              {showDocumentMetadata.fileSize && (
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase mb-1">File Size</p>
-                  <p className="text-sm text-gray-900">
-                    {showDocumentMetadata.fileSize < 1024 
-                      ? `${showDocumentMetadata.fileSize} bytes`
-                      : showDocumentMetadata.fileSize < 1024 * 1024
-                      ? `${(showDocumentMetadata.fileSize / 1024).toFixed(2)} KB`
-                      : `${(showDocumentMetadata.fileSize / (1024 * 1024)).toFixed(2)} MB`}
-                  </p>
-                </div>
-              )}
-
-              {showDocumentMetadata.fileType && (
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase mb-1">File Type</p>
-                  <p className="text-sm text-gray-900">{showDocumentMetadata.fileType}</p>
-                </div>
-              )}
-
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Upload Date</p>
-                <p className="text-sm text-gray-900">
-                  {parseLocalDate(showDocumentMetadata.date).toLocaleDateString('en-US', { 
-                    month: 'long', 
-                    day: 'numeric', 
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </p>
-              </div>
-
-              {showDocumentMetadata.note && (
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Note</p>
-                  <p className="text-sm text-gray-900 italic">{showDocumentMetadata.note}</p>
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={() => setShowDocumentMetadata(null)}
-              className="mt-6 w-full py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+      <DocumentMetadataModal
+        show={!!showDocumentMetadata}
+        document={showDocumentMetadata}
+        onClose={() => setShowDocumentMetadata(null)}
+      />
 
       <AddJournalNoteModal
         show={showAddJournalNote}
