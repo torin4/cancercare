@@ -118,6 +118,7 @@ import { DesignTokens, Layouts, combineClasses } from '../design/designTokens';
 - **Color**: `text-medical-neutral-900` - `DesignTokens.typography.h3.color`
 
 ### Body Text
+- **Extra Small**: `text-xs` - `DesignTokens.typography.body.xs`
 - **Small**: `text-xs sm:text-sm` - `DesignTokens.typography.body.sm`
 - **Base**: `text-sm sm:text-base` - `DesignTokens.typography.body.base`
 - **Large**: `text-base sm:text-lg` - `DesignTokens.typography.body.lg`

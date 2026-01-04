@@ -43,8 +43,8 @@ export default function Banner({ message, type = 'success', duration = 4000, onC
     ? DesignTokens.components.alert.text.success 
     : DesignTokens.components.alert.text.error;
   const iconColor = isSuccess 
-    ? 'text-green-600' 
-    : 'text-red-600';
+    ? DesignTokens.components.status.normal.icon 
+    : DesignTokens.components.status.high.icon;
 
   return (
     <div

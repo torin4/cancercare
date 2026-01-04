@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, AlertTriangle, XCircle, Star, Search as SearchIcon, MapPin, Globe, X, AlertCircle, MessageSquare, Bookmark, FlaskConical, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, Search as SearchIcon, MapPin, Globe, X, AlertCircle, MessageSquare, Bookmark, FlaskConical, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { auth } from '../firebase/config';
 import { patientService, genomicProfileService, clinicalTrialsService, trialLocationService } from '../firebase/services';
@@ -157,9 +157,21 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
       if (!userId) return;
 
       const trials = await clinicalTrialsService.getSavedTrials(userId);
-      setSavedTrials(trials);
+      // Sort by match percentage (highest first), then by savedAt (most recent first) for ties
+      const sortedTrials = trials.sort((a, b) => {
+        const aMatch = a.matchResult?.matchPercentage || 0;
+        const bMatch = b.matchResult?.matchPercentage || 0;
+        if (bMatch !== aMatch) {
+          return bMatch - aMatch; // Higher match percentage first
+        }
+        // If match percentages are equal, sort by savedAt (most recent first)
+        const aTime = a.savedAt?.toMillis?.() || a.savedAt?.seconds * 1000 || a.savedAt || 0;
+        const bTime = b.savedAt?.toMillis?.() || b.savedAt?.seconds * 1000 || b.savedAt || 0;
+        return bTime - aTime;
+      });
+      setSavedTrials(sortedTrials);
       // Update saved trial IDs set
-      const savedIds = new Set(trials.map(t => t.trialId || t.id));
+      const savedIds = new Set(sortedTrials.map(t => t.trialId || t.id));
       setSavedTrialIds(savedIds);
     } catch (error) {
       // Check if it's an index error
@@ -332,24 +344,17 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
     }
   };
 
-  const handleToggleFavorite = async (trialDocId, currentStatus) => {
-    try {
-      await clinicalTrialsService.toggleTrialFavorite(trialDocId, !currentStatus);
-      loadSavedTrials();
-    } catch (error) {
-    }
-  };
 
   const getEligibilityBadge = (level) => {
     switch (level) {
       case 'highly_eligible':
-        return <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-medical-accent-100 text-medical-accent-700 rounded-full text-xs sm:text-sm font-medium flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="whitespace-nowrap">Highly Eligible</span></span>;
+        return <span className={combineClasses('px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-medium flex items-center gap-1', 'bg-medical-accent-100 text-medical-accent-700')}><CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="whitespace-nowrap">Highly Eligible</span></span>;
       case 'potentially_eligible':
-        return <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs sm:text-sm font-medium flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="whitespace-nowrap">Potentially Eligible</span></span>;
+        return <span className={combineClasses('px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-medium flex items-center gap-1', DesignTokens.components.status.low.bg, DesignTokens.components.alert.text.warning)}><AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="whitespace-nowrap">Potentially Eligible</span></span>;
       case 'unlikely_eligible':
-        return <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-red-100 text-red-700 rounded-full text-xs sm:text-sm font-medium flex items-center gap-1"><XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="whitespace-nowrap">Unlikely Eligible</span></span>;
+        return <span className={combineClasses('px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-medium flex items-center gap-1', DesignTokens.components.status.high.bg, DesignTokens.components.alert.text.error)}><XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="whitespace-nowrap">Unlikely Eligible</span></span>;
       default:
-        return <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-gray-100 text-gray-700 rounded-full text-xs sm:text-sm font-medium">Unknown</span>;
+        return <span className={combineClasses('px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-medium', DesignTokens.colors.neutral[100], DesignTokens.colors.neutral.text[700])}>Unknown</span>;
     }
   };
 
@@ -448,15 +453,6 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             )}
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-            {isSaved && (
-              <button
-                onClick={() => handleToggleFavorite(trial.id, trial.isFavorite)}
-                className="p-1.5 sm:p-1.5 hover:bg-medical-neutral-100 rounded-lg transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
-                title={trial.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-              >
-                <Star className={`w-4 h-4 sm:w-5 sm:h-5 ${trial.isFavorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
-              </button>
-            )}
             {!isSaved && !savedTrialIds.has(trial.id) ? (
               <button
                 onClick={() => handleSaveTrial(trial)}
@@ -482,10 +478,10 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             ) : (
               <button
                 onClick={() => handleRemoveTrial(trial.id)}
-                className="p-1.5 sm:p-1.5 hover:bg-red-50 rounded-lg transition relative group min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
+                className={combineClasses('p-1.5 sm:p-1.5 rounded-lg transition relative group min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70', `hover:${DesignTokens.components.status.high.bg}`)}
                 title="Remove from saved"
               >
-                <Bookmark className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 fill-red-600" />
+                <Bookmark className={combineClasses('w-4 h-4 sm:w-5 sm:h-5', DesignTokens.components.status.high.text, DesignTokens.components.status.high.text.replace('text-', 'fill-'))} />
                 <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-medical-neutral-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 hidden sm:block">
                   Remove from saved
                 </span>
@@ -562,9 +558,9 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
 
         {/* Issues */}
         {trial.matchResult && trial.matchResult.issues && trial.matchResult.issues.length > 0 && (
-          <div className="mb-2 sm:mb-3 p-2.5 sm:p-3 bg-yellow-50 rounded-lg">
-            <p className="font-medium text-yellow-800 text-xs sm:text-sm mb-1.5 sm:mb-2">Considerations:</p>
-            <ul className="text-xs sm:text-sm text-yellow-700 space-y-0.5 sm:space-y-1">
+          <div className={combineClasses('mb-2 sm:mb-3 p-2.5 sm:p-3 rounded-lg', DesignTokens.components.status.low.bg, DesignTokens.borders.radius.md)}>
+            <p className={combineClasses('font-medium text-xs sm:text-sm mb-1.5 sm:mb-2', DesignTokens.components.alert.text.warning)}>Considerations:</p>
+            <ul className={combineClasses('text-xs sm:text-sm space-y-0.5 sm:space-y-1', DesignTokens.components.alert.text.warning)}>
               {trial.matchResult.issues.map((issue, idx) => (
                 <li key={idx}>• {issue.detail}</li>
               ))}
@@ -599,7 +595,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                   }
                 }
               }}
-              className="flex-1 border-2 border-medical-primary-500 text-medical-primary-600 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg hover:bg-medical-primary-50 transition text-xs sm:text-sm font-medium flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70"
+              className={combineClasses(DesignTokens.components.button.outline.primary, DesignTokens.spacing.button.mobile, 'flex-1 text-xs sm:text-sm font-medium gap-1.5 sm:gap-2')}
             >
               <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>View Details</span>
@@ -609,7 +605,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                 onClick={() => {
                   onTrialSelected(trial);
                 }}
-                className="flex-1 border-2 border-medical-accent-500 text-medical-accent-600 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg hover:bg-medical-accent-50 transition text-xs sm:text-sm font-medium flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70"
+                className={combineClasses(DesignTokens.components.button.outline.accent, DesignTokens.spacing.button.mobile, 'flex-1 text-xs sm:text-sm font-medium gap-1.5 sm:gap-2')}
               >
                 <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span className="hidden sm:inline">Ask About This Trial</span>
@@ -620,7 +616,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
               href={trial.url || (trial.id ? `https://clinicaltrials.gov/study/${trial.id}` : '#')}
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden sm:flex flex-1 border-2 border-medical-neutral-500 text-medical-neutral-700 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg hover:bg-medical-neutral-50 transition text-xs sm:text-sm font-medium items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70"
+              className={combineClasses(DesignTokens.components.button.outline.neutral, DesignTokens.spacing.button.mobile, 'hidden sm:flex flex-1 text-xs sm:text-sm font-medium gap-1.5 sm:gap-2')}
             >
               <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>View on ClinicalTrials.gov</span>
@@ -630,7 +626,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             href={trial.url || (trial.id ? `https://clinicaltrials.gov/study/${trial.id}` : '#')}
             target="_blank"
             rel="noopener noreferrer"
-            className="sm:hidden w-full border-2 border-medical-neutral-500 text-medical-neutral-700 px-3 py-2 rounded-lg hover:bg-medical-neutral-50 transition text-xs font-medium text-center flex items-center justify-center gap-1.5 min-h-[44px] touch-manipulation active:opacity-70"
+            className={combineClasses(DesignTokens.components.button.outline.neutral, 'sm:hidden w-full px-3 py-2 text-xs font-medium text-center gap-1.5')}
           >
             <Globe className="w-3.5 h-3.5" />
             <span>View on CT.gov</span>
@@ -736,7 +732,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             {searchResults.length > 0 && (
               <button
                 onClick={handleClearSearch}
-                className="border-2 border-medical-neutral-500 text-medical-neutral-700 px-3 sm:px-4 py-2.5 sm:py-3.5 rounded-lg hover:bg-medical-neutral-50 transition font-medium text-sm sm:text-base md:text-lg flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] touch-manipulation active:opacity-70"
+                className={combineClasses(DesignTokens.components.button.outline.neutral, DesignTokens.spacing.button.full, 'text-sm sm:text-base md:text-lg min-w-[44px]')}
                 title="Clear search results"
               >
                 <X className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -810,7 +806,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                 <AlertTriangle className={combineClasses(DesignTokens.icons.standard.size.full, 'flex-shrink-0')} /> {error}
               </p>
               {searchSources && searchSources.length > 0 && (
-                <p className={combineClasses(DesignTokens.typography.body.sm, 'text-red-600 mt-2')}>
+                <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.components.alert.text.error, 'mt-2')}>
                   Sources attempted: {searchSources.join(', ')}
                 </p>
               )}
@@ -838,7 +834,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
               <p className={combineClasses(DesignTokens.components.alert.text.warning, 'font-medium flex items-center', DesignTokens.spacing.gap.sm, 'mb-2', DesignTokens.typography.body.base)}>
                 <AlertTriangle className={combineClasses(DesignTokens.icons.standard.size.full, 'flex-shrink-0')} /> Index Required
               </p>
-              <p className="text-xs sm:text-sm text-yellow-700 mb-2">
+              <p className={combineClasses('text-xs sm:text-sm mb-2', DesignTokens.components.alert.text.warning)}>
                 {error.includes('https://') 
                   ? 'A Firestore index is required. Click the link below to create it:'
                   : 'A Firestore index is required. Please create an index for matchedTrials (patientId + savedAt) in Firebase Console.'}
@@ -853,7 +849,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                   Click here to create the required index →
                 </a>
               )}
-              <p className="text-xs text-yellow-600 mt-2">
+              <p className={combineClasses('text-xs mt-2', DesignTokens.components.status.low.text)}>
                 Once the index is created (usually takes 1-2 minutes), refresh this page.
               </p>
             </div>
@@ -1083,7 +1079,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                     onTrialSelected(selectedTrial);
                     setSelectedTrial(null);
                   }}
-                  className="flex-1 border-2 border-medical-accent-500 text-medical-accent-600 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg hover:bg-medical-accent-50 transition-all duration-200 font-semibold flex items-center justify-center gap-1.5 sm:gap-2 text-sm sm:text-base min-h-[44px] touch-manipulation active:opacity-70"
+                  className={combineClasses(DesignTokens.components.button.outline.accent, DesignTokens.spacing.button.desktop, 'flex-1 font-semibold gap-1.5 sm:gap-2 text-sm sm:text-base', DesignTokens.transitions.all)}
                 >
                   <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span className="hidden sm:inline">Ask About This Trial</span>
@@ -1094,7 +1090,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                 href={selectedTrial.url || (selectedTrial.id ? `https://clinicaltrials.gov/study/${selectedTrial.id}` : '#')}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 border-2 border-medical-neutral-500 text-medical-neutral-700 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg hover:bg-medical-neutral-50 transition-all duration-200 text-center font-semibold flex items-center justify-center gap-1.5 sm:gap-2 text-sm sm:text-base min-h-[44px] touch-manipulation active:opacity-70"
+                className={combineClasses(DesignTokens.components.button.outline.neutral, DesignTokens.spacing.button.desktop, 'flex-1 text-center font-semibold gap-1.5 sm:gap-2 text-sm sm:text-base', DesignTokens.transitions.all)}
               >
                 <Globe className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">View on ClinicalTrials.gov</span>
@@ -1157,7 +1153,10 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                     value={localTrialLocation.country}
                     onChange={(e) => setLocalTrialLocation({ ...localTrialLocation, country: e.target.value })}
                     disabled={localTrialLocation.includeAllLocations}
-                    className="w-full border border-medical-neutral-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent disabled:bg-medical-neutral-100 transition-all duration-200"
+                    className={combineClasses(
+                      'w-full border border-medical-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all duration-200',
+                      'disabled:bg-medical-neutral-100 disabled:cursor-not-allowed'
+                    )}
                   >
                     {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>

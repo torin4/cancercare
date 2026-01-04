@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { User, ChevronRight, Search } from 'lucide-react';
+import { DesignTokens, combineClasses } from '../design/designTokens';
 
 // Map of common histologic subtypes / diagnoses by main cancer category
 // Includes most common subtypes and an "Other (specify)" option for custom entries
@@ -261,12 +262,12 @@ export default function Onboarding({ onComplete }) {
         {/* Progress Bar with Step Indicator */}
         <div className="px-8 pt-6 pb-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-600">Step {step} of {totalSteps}</span>
-            <span className="text-sm font-medium text-gray-600">{Math.round(progressPercentage)}%</span>
+            <span className={combineClasses('text-sm font-medium', DesignTokens.colors.neutral.text[600])}>Step {step} of {totalSteps}</span>
+            <span className={combineClasses('text-sm font-medium', DesignTokens.colors.neutral.text[600])}>{Math.round(progressPercentage)}%</span>
           </div>
-          <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+          <div className={combineClasses('w-full h-2 rounded-full overflow-hidden', DesignTokens.colors.neutral[100])}>
             <div 
-              className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500 ease-out rounded-full"
+              className={combineClasses('h-full transition-all duration-500 ease-out rounded-full bg-gradient-to-r', 'from-medical-primary-500', 'to-medical-primary-600')}
               style={{ width: `${progressPercentage}%` }}
             />
           </div>
@@ -283,8 +284,8 @@ export default function Onboarding({ onComplete }) {
                   <User className="w-6 h-6 text-medical-primary-600" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Who is using this app?</h2>
-                  <p className="text-sm text-gray-600">This helps us personalize your experience.</p>
+                  <h2 className={combineClasses('text-xl font-bold', DesignTokens.colors.neutral.text[900])}>Who is using this app?</h2>
+                  <p className={combineClasses('text-sm', DesignTokens.colors.neutral.text[600])}>This helps us personalize your experience.</p>
                 </div>
               </div>
 
@@ -294,22 +295,22 @@ export default function Onboarding({ onComplete }) {
                   className={`w-full p-6 rounded-xl border-2 transition-all text-left ${
                     formData.isPatient === true
                       ? 'border-medical-primary-500 bg-medical-primary-50'
-                      : 'border-gray-200 bg-white hover:border-medical-primary-200'
+                      : combineClasses(DesignTokens.colors.neutral.border[200], 'bg-white', 'hover:border-medical-primary-200')
                   }`}
                 >
                   <div className="flex items-center gap-4">
                     <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
                       formData.isPatient === true
                         ? 'border-medical-primary-500 bg-medical-primary-500'
-                        : 'border-gray-300'
+                        : DesignTokens.colors.neutral.border[300]
                     }`}>
                       {formData.isPatient === true && (
                         <div className="w-3 h-3 rounded-full bg-white" />
                       )}
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900">I am the patient</h3>
-                      <p className="text-sm text-gray-600 mt-1">I'm managing my own cancer care</p>
+                      <h3 className={combineClasses('font-semibold', DesignTokens.colors.neutral.text[900])}>I am the patient</h3>
+                      <p className={combineClasses('text-sm mt-1', DesignTokens.colors.neutral.text[600])}>I'm managing my own cancer care</p>
                     </div>
                   </div>
                 </button>
@@ -319,22 +320,22 @@ export default function Onboarding({ onComplete }) {
                   className={`w-full p-6 rounded-xl border-2 transition-all text-left ${
                     formData.isPatient === false
                       ? 'border-medical-primary-500 bg-medical-primary-50'
-                      : 'border-gray-200 bg-white hover:border-medical-primary-200'
+                      : combineClasses(DesignTokens.colors.neutral.border[200], 'bg-white', 'hover:border-medical-primary-200')
                   }`}
                 >
                   <div className="flex items-center gap-4">
                     <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
                       formData.isPatient === false
                         ? 'border-medical-primary-500 bg-medical-primary-500'
-                        : 'border-gray-300'
+                        : DesignTokens.colors.neutral.border[300]
                     }`}>
                       {formData.isPatient === false && (
                         <div className="w-3 h-3 rounded-full bg-white" />
                       )}
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900">I am a caregiver</h3>
-                      <p className="text-sm text-gray-600 mt-1">I'm helping manage someone else's cancer care</p>
+                      <h3 className={combineClasses('font-semibold', DesignTokens.colors.neutral.text[900])}>I am a caregiver</h3>
+                      <p className={combineClasses('text-sm mt-1', DesignTokens.colors.neutral.text[600])}>I'm helping manage someone else's cancer care</p>
                     </div>
                   </div>
                 </button>
@@ -350,44 +351,44 @@ export default function Onboarding({ onComplete }) {
                   <User className="w-6 h-6 text-medical-primary-600" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Patient Information</h2>
-                  <p className="text-sm text-gray-600">Required: name, date of birth, height, weight. Country optional.</p>
+                  <h2 className={combineClasses('text-xl font-bold', DesignTokens.colors.neutral.text[900])}>Patient Information</h2>
+                  <p className={combineClasses('text-sm', DesignTokens.colors.neutral.text[600])}>Required: name, date of birth, height, weight. Country optional.</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1.5">First Name *</label>
+                    <label htmlFor="firstName" className={combineClasses('block text-sm font-medium mb-1.5', DesignTokens.colors.neutral.text[700])}>First Name *</label>
                     <input 
                       id="firstName"
                       type="text" 
                       value={formData.firstName} 
                       onChange={(e) => updateField('firstName', e.target.value)} 
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all" 
+                      className={combineClasses(DesignTokens.components.input.base, 'bg-white')} 
                       placeholder="Enter first name"
                       aria-required="true"
                     />
                   </div>
                   <div>
-                    <label htmlFor="middleName" className="block text-sm font-medium text-gray-700 mb-1.5">Middle Name</label>
+                    <label htmlFor="middleName" className={combineClasses('block text-sm font-medium mb-1.5', DesignTokens.colors.neutral.text[700])}>Middle Name</label>
                     <input 
                       id="middleName"
                       type="text" 
                       value={formData.middleName} 
                       onChange={(e) => updateField('middleName', e.target.value)} 
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all" 
+                      className={combineClasses(DesignTokens.components.input.base, 'bg-white')} 
                       placeholder="Enter middle name (optional)"
                     />
                   </div>
                 <div>
-                    <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1.5">Last Name *</label>
+                    <label htmlFor="lastName" className={combineClasses('block text-sm font-medium mb-1.5', DesignTokens.colors.neutral.text[700])}>Last Name *</label>
                     <input 
                       id="lastName"
                       type="text" 
                       value={formData.lastName} 
                       onChange={(e) => updateField('lastName', e.target.value)} 
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all" 
+                      className={combineClasses(DesignTokens.components.input.base, 'bg-white')} 
                       placeholder="Enter last name"
                       aria-required="true"
                     />
@@ -396,23 +397,23 @@ export default function Onboarding({ onComplete }) {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 mb-1.5">Date of Birth *</label>
+                    <label htmlFor="dateOfBirth" className={combineClasses('block text-sm font-medium mb-1.5', DesignTokens.colors.neutral.text[700])}>Date of Birth *</label>
                     <input 
                       id="dateOfBirth"
                       type="date" 
                       value={formData.dateOfBirth} 
                       onChange={(e) => updateField('dateOfBirth', e.target.value)} 
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all" 
+                      className={combineClasses(DesignTokens.components.input.base, 'bg-white')} 
                       aria-required="true"
                     />
                   </div>
                   <div>
-                    <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1.5">Country</label>
+                    <label htmlFor="country" className={combineClasses('block text-sm font-medium mb-1.5', DesignTokens.colors.neutral.text[700])}>Country</label>
                     <select 
                       id="country"
                       value={formData.country} 
                       onChange={(e) => updateField('country', e.target.value)} 
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all"
+                      className={combineClasses(DesignTokens.components.input.base, 'bg-white')}
                     >
                       <option value="">Select country</option>
                       {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -422,25 +423,25 @@ export default function Onboarding({ onComplete }) {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label htmlFor="height" className="block text-sm font-medium text-gray-700 mb-1.5">Height (cm) *</label>
+                    <label htmlFor="height" className={combineClasses('block text-sm font-medium mb-1.5', DesignTokens.colors.neutral.text[700])}>Height (cm) *</label>
                     <input 
                       id="height"
                       type="number" 
                       value={formData.height} 
                       onChange={(e) => updateField('height', e.target.value)} 
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all" 
+                      className={combineClasses(DesignTokens.components.input.base, 'bg-white')} 
                       placeholder="e.g., 170"
                       aria-required="true"
                     />
                   </div>
                   <div>
-                    <label htmlFor="weight" className="block text-sm font-medium text-gray-700 mb-1.5">Weight (kg) *</label>
+                    <label htmlFor="weight" className={combineClasses('block text-sm font-medium mb-1.5', DesignTokens.colors.neutral.text[700])}>Weight (kg) *</label>
                     <input 
                       id="weight"
                       type="number" 
                       value={formData.weight} 
                       onChange={(e) => updateField('weight', e.target.value)} 
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all" 
+                      className={combineClasses(DesignTokens.components.input.base, 'bg-white')} 
                       placeholder="e.g., 70"
                       aria-required="true"
                     />
@@ -448,12 +449,12 @@ export default function Onboarding({ onComplete }) {
                 </div>
 
                 <div>
-                  <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-1.5">Gender *</label>
+                  <label htmlFor="gender" className={combineClasses('block text-sm font-medium mb-1.5', DesignTokens.colors.neutral.text[700])}>Gender *</label>
                   <select 
                     id="gender"
                     value={formData.gender} 
                     onChange={(e) => updateField('gender', e.target.value)} 
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all"
+                    className={combineClasses(DesignTokens.components.input.base, 'bg-white')}
                   >
                     <option value="">Select gender</option>
                     <option value="Male">Male</option>
@@ -472,37 +473,37 @@ export default function Onboarding({ onComplete }) {
                     </div>
                     <div className="space-y-4">
                       <div>
-                        <label htmlFor="caregiverName" className="block text-sm font-medium text-gray-700 mb-1.5">Your Name *</label>
+                        <label htmlFor="caregiverName" className={combineClasses('block text-sm font-medium mb-1.5', DesignTokens.colors.neutral.text[700])}>Your Name *</label>
                         <input 
                           id="caregiverName"
                           type="text" 
                           value={formData.caregiverName} 
                           onChange={(e) => updateField('caregiverName', e.target.value)} 
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all" 
+                          className={combineClasses(DesignTokens.components.input.base, 'bg-white')} 
                           placeholder="Enter your name"
                           aria-required="true"
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label htmlFor="caregiverPhone" className="block text-sm font-medium text-gray-700 mb-1.5">Your Phone</label>
+                          <label htmlFor="caregiverPhone" className={combineClasses('block text-sm font-medium mb-1.5', DesignTokens.colors.neutral.text[700])}>Your Phone</label>
                           <input 
                             id="caregiverPhone"
                             type="tel" 
                             value={formData.caregiverPhone} 
                             onChange={(e) => updateField('caregiverPhone', e.target.value)} 
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all" 
+                            className={combineClasses(DesignTokens.components.input.base, 'bg-white')} 
                             placeholder="e.g., (555) 123-4567"
                           />
                         </div>
                         <div>
-                          <label htmlFor="caregiverEmail" className="block text-sm font-medium text-gray-700 mb-1.5">Your Email</label>
+                          <label htmlFor="caregiverEmail" className={combineClasses('block text-sm font-medium mb-1.5', DesignTokens.colors.neutral.text[700])}>Your Email</label>
                           <input 
                             id="caregiverEmail"
                             type="email" 
                             value={formData.caregiverEmail} 
                             onChange={(e) => updateField('caregiverEmail', e.target.value)} 
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all" 
+                            className={combineClasses(DesignTokens.components.input.base, 'bg-white')} 
                             placeholder="e.g., your@email.com"
                           />
                         </div>
@@ -529,7 +530,7 @@ export default function Onboarding({ onComplete }) {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Cancer Type *</label>
+                  <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Cancer Type *</label>
                   <select value={formData.cancerType} onChange={(e) => { 
                     updateField('cancerType', e.target.value); 
                     updateField('diagnosis', e.target.value);
@@ -557,7 +558,7 @@ export default function Onboarding({ onComplete }) {
                 {/* Cancer Subtype Selection */}
                 {formData.cancerType && (CANCER_SUBTYPES[formData.cancerType] || []).length > 0 && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Cancer Subtype (optional)</label>
+                    <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Cancer Subtype (optional)</label>
                     <select 
                       value={formData.subtype === 'Other (specify)' ? 'Other (specify)' : formData.subtype} 
                       onChange={(e) => {
@@ -593,20 +594,20 @@ export default function Onboarding({ onComplete }) {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Stage *</label>
+                    <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Stage *</label>
                     <select value={formData.stage} onChange={(e) => updateField('stage', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900">
                       <option value="">Select stage</option>
                       {STAGE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Diagnosis *</label>
+                    <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Date of Diagnosis *</label>
                     <input type="date" value={formData.diagnosisDate} onChange={(e) => updateField('diagnosisDate', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Treatment Status *</label>
+                  <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Treatment Status *</label>
                   <select
                     value={formData.treatmentLine === 'Other (specify)' ? 'Other (specify)' : formData.treatmentLine}
                     onChange={(e) => {
@@ -639,14 +640,14 @@ export default function Onboarding({ onComplete }) {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">ECOG Performance *</label>
+                    <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>ECOG Performance *</label>
                     <select value={formData.performanceStatus} onChange={(e) => updateField('performanceStatus', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900">
                       <option value="">Select ECOG</option>
                       {PERFORMANCE_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Disease Status *</label>
+                    <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Disease Status *</label>
                     <select value={formData.diseaseStatus} onChange={(e) => updateField('diseaseStatus', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900">
                       <option value="">Select status</option>
                       {DISEASE_STATUS_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
@@ -655,7 +656,7 @@ export default function Onboarding({ onComplete }) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Baseline CA-125 (optional)</label>
+                  <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Baseline CA-125 (optional)</label>
                   <input type="number" step="any" value={formData.baselineCa125} onChange={(e) => updateField('baselineCa125', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900" />
                 </div>
               </div>

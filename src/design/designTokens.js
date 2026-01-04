@@ -181,6 +181,7 @@ export const DesignTokens = {
     
     // Body Text
     body: {
+      xs: 'text-xs',
       sm: 'text-xs sm:text-sm',
       base: 'text-sm sm:text-base',
       lg: 'text-base sm:text-lg',
@@ -287,6 +288,11 @@ export const DesignTokens = {
       primary: 'bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition-colors font-medium min-h-[44px] touch-manipulation active:opacity-70',
       secondary: 'bg-medical-primary-50 text-medical-primary-600 rounded-lg hover:bg-medical-primary-100 transition font-medium border border-medical-primary-200 min-h-[44px] touch-manipulation active:opacity-70',
       iconButton: 'bg-medical-primary-50 text-medical-primary-600 px-3 sm:px-6 py-2.5 rounded-lg hover:bg-medical-primary-100 transition font-medium flex items-center gap-2 shadow-sm border border-medical-primary-200 min-h-[44px] touch-manipulation active:opacity-70 flex-shrink-0',
+      outline: {
+        primary: 'border-2 border-medical-primary-500 text-medical-primary-600 rounded-lg hover:bg-medical-primary-50 transition font-medium min-h-[44px] touch-manipulation active:opacity-70 flex items-center justify-center gap-2',
+        accent: 'border-2 border-medical-accent-500 text-medical-accent-600 rounded-lg hover:bg-medical-accent-50 transition font-medium min-h-[44px] touch-manipulation active:opacity-70 flex items-center justify-center gap-2',
+        neutral: 'border-2 border-medical-neutral-500 text-medical-neutral-700 rounded-lg hover:bg-medical-neutral-50 transition font-medium min-h-[44px] touch-manipulation active:opacity-70 flex items-center justify-center gap-2',
+      },
     },
     
     // Card

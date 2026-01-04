@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Activity, TrendingUp, Upload, AlertCircle, ClipboardList, Info, Dna, Bookmark, Star, ChevronRight, Search, MessageSquare, X, Heart, Loader2, BarChart, Home } from 'lucide-react';
+import { Activity, TrendingUp, Upload, AlertCircle, ClipboardList, Info, Dna, Bookmark, ChevronRight, Search, MessageSquare, X, Heart, Loader2, BarChart, Home } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
@@ -758,9 +758,6 @@ setIsUploading(false);
                           <span className="text-xs text-medical-neutral-600 font-medium">
                             Match: {trial.matchResult.matchPercentage}%
                           </span>
-                          {trial.isFavorite && (
-                            <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
-                          )}
                         </div>
                       )}
                     </div>

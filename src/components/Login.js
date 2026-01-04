@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '../firebase/config';
 import { Activity, Mail, Lock, AlertCircle } from 'lucide-react';
+import { DesignTokens, combineClasses } from '../design/designTokens';
 
 export default function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
@@ -61,9 +62,9 @@ export default function Login({ onLoginSuccess }) {
 
         {/* Error Message */}
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-red-700">{error}</p>
+          <div className={combineClasses('mb-4 p-3 rounded-lg flex items-start gap-2', DesignTokens.components.alert.error, DesignTokens.borders.radius.md)}>
+            <AlertCircle className={combineClasses('w-5 h-5 flex-shrink-0 mt-0.5', DesignTokens.components.alert.text.error.replace('text-', 'text-').replace('800', '600'))} />
+            <p className={combineClasses('text-sm', DesignTokens.components.alert.text.error)}>{error}</p>
           </div>
         )}
 
@@ -81,7 +82,7 @@ export default function Login({ onLoginSuccess }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full pl-10 pr-4 py-2.5 border border-medical-neutral-300 rounded-lg focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all duration-200"
+                className={combineClasses(DesignTokens.components.input.base, 'pl-10')}
                 placeholder="your@email.com"
                 disabled={loading}
               />
@@ -101,7 +102,7 @@ export default function Login({ onLoginSuccess }) {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full pl-10 pr-4 py-2.5 border border-medical-neutral-300 rounded-lg focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all duration-200"
+                className={combineClasses(DesignTokens.components.input.base, 'pl-10')}
                 placeholder="••••••••"
                 disabled={loading}
               />
@@ -117,7 +118,7 @@ export default function Login({ onLoginSuccess }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-medical-primary-500 text-white py-2.5 rounded-lg font-medium hover:bg-medical-primary-600 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            className={combineClasses(DesignTokens.components.button.primary, 'w-full shadow-sm')}
           >
             {loading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
           </button>
@@ -126,10 +127,10 @@ export default function Login({ onLoginSuccess }) {
         {/* Divider */}
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
+            <div className={combineClasses('w-full border-t', DesignTokens.colors.neutral.border[200])}></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">Or continue with</span>
+            <span className={combineClasses('px-2 bg-white', DesignTokens.colors.neutral.text[500])}>Or continue with</span>
           </div>
         </div>
 
@@ -138,7 +139,7 @@ export default function Login({ onLoginSuccess }) {
           type="button"
           onClick={handleGoogleSignIn}
           disabled={loading}
-          className="w-full flex items-center justify-center gap-3 bg-white border-2 border-gray-300 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-50 hover:border-gray-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className={combineClasses('w-full flex items-center justify-center gap-3 bg-white border-2 py-2.5 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed', DesignTokens.colors.neutral.border[200], DesignTokens.colors.neutral.text[700], `hover:${DesignTokens.colors.neutral[50]}`, `hover:${DesignTokens.colors.neutral.border[300]}`)}
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path

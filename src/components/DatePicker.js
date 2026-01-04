@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { DesignTokens, Layouts, combineClasses } from '../design/designTokens';
 
 export default function DatePicker({ value, onChange, max, min, className = '', placeholder = 'YYYY-MM-DD', showClear = false, disabled = false }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -270,7 +271,7 @@ export default function DatePicker({ value, onChange, max, min, className = '', 
   };
 
   return (
-    <div ref={pickerRef} className={`relative flex items-center gap-2 ${className}`}>
+    <div ref={pickerRef} className={combineClasses('relative flex items-center', DesignTokens.spacing.gap.sm, className)}>
       <div className="relative flex-1">
         <div className="relative">
           <input
@@ -284,22 +285,21 @@ export default function DatePicker({ value, onChange, max, min, className = '', 
             title="Enter date in YYYY-MM-DD format (e.g., 2025-12-25)"
             maxLength={10}
             pattern="\d{4}-\d{2}-\d{2}"
-            className={`w-full border border-gray-300 rounded-lg px-3 py-2.5 pr-10 text-sm bg-white text-left focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-gray-400 transition-colors ${
-              disabled ? 'bg-gray-100 cursor-not-allowed' : ''
-            } ${
-              !value ? 'text-gray-500' : 'text-gray-900'
-            }`}
+            className={combineClasses(
+              DesignTokens.components.input.base,
+              'pr-10 text-left',
+              disabled ? DesignTokens.components.input.disabled : '',
+              !value ? DesignTokens.colors.neutral.text[500] : DesignTokens.colors.neutral.text[900]
+            )}
           />
           <button
             type="button"
             onClick={() => !disabled && setIsOpen(!isOpen)}
             disabled={disabled}
-            className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-gray-100 rounded-lg transition-colors touch-manipulation ${
-              disabled ? 'cursor-not-allowed opacity-50' : ''
-            }`}
+            className={combineClasses('absolute right-2 top-1/2 -translate-y-1/2', DesignTokens.spacing.iconContainer.mobile, `hover:${DesignTokens.colors.neutral[100]}`, DesignTokens.borders.radius.sm, DesignTokens.transitions.default, 'touch-manipulation', disabled ? 'cursor-not-allowed opacity-50' : '')}
             aria-label="Open calendar"
           >
-            <Calendar className="w-4 h-4 text-gray-400" />
+            <Calendar className={combineClasses(DesignTokens.icons.standard.size.mobile, DesignTokens.colors.neutral.text[300])} />
           </button>
         </div>
       </div>
@@ -307,10 +307,10 @@ export default function DatePicker({ value, onChange, max, min, className = '', 
         <button
           type="button"
           onClick={handleClear}
-          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors touch-manipulation flex-shrink-0"
+          className={combineClasses(DesignTokens.spacing.iconContainer.mobile, DesignTokens.colors.neutral.text[300], `hover:${DesignTokens.colors.neutral.text[600]}`, `hover:${DesignTokens.colors.neutral[100]}`, DesignTokens.borders.radius.sm, DesignTokens.transitions.default, 'touch-manipulation flex-shrink-0')}
           aria-label="Clear date"
         >
-          <X className="w-4 h-4" />
+          <X className={DesignTokens.icons.standard.size.mobile} />
         </button>
       )}
 
@@ -329,7 +329,7 @@ export default function DatePicker({ value, onChange, max, min, className = '', 
               typeof window !== 'undefined' && window.innerWidth < 640 
                 ? 'fixed left-4 right-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto z-[9999]' 
                 : 'fixed z-[9999]'
-            } bg-white border border-gray-200 rounded-lg shadow-2xl p-4 animate-fade-scale ${
+            } ${combineClasses('bg-white', DesignTokens.borders.width.default, DesignTokens.colors.neutral.border[200], DesignTokens.borders.radius.sm, 'shadow-2xl', DesignTokens.spacing.card.mobile, 'animate-fade-scale')} ${
               typeof window !== 'undefined' && window.innerWidth < 640 
                 ? 'w-full' 
                 : 'w-72'
@@ -344,37 +344,37 @@ export default function DatePicker({ value, onChange, max, min, className = '', 
             }
           >
           {/* Header */}
-          <div className="flex items-center justify-between mb-4">
+          <div className={combineClasses('flex items-center justify-between', Layouts.section)}>
             <button
               type="button"
               onClick={handlePrevMonth}
-              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors touch-manipulation"
+              className={combineClasses(DesignTokens.spacing.iconContainer.mobile, `hover:${DesignTokens.colors.neutral[100]}`, DesignTokens.borders.radius.sm, DesignTokens.transitions.default, 'touch-manipulation')}
               aria-label="Previous month"
             >
-              <ChevronLeft className="w-4 h-4 text-gray-600" />
+              <ChevronLeft className={combineClasses(DesignTokens.icons.standard.size.mobile, DesignTokens.colors.neutral.text[600])} />
             </button>
-            <h3 className="font-semibold text-gray-900 text-sm">{monthName}</h3>
+            <h3 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[900])}>{monthName}</h3>
             <button
               type="button"
               onClick={handleNextMonth}
-              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors touch-manipulation"
+              className={combineClasses(DesignTokens.spacing.iconContainer.mobile, `hover:${DesignTokens.colors.neutral[100]}`, DesignTokens.borders.radius.sm, DesignTokens.transitions.default, 'touch-manipulation')}
               aria-label="Next month"
             >
-              <ChevronRight className="w-4 h-4 text-gray-600" />
+              <ChevronRight className={combineClasses(DesignTokens.icons.standard.size.mobile, DesignTokens.colors.neutral.text[600])} />
             </button>
           </div>
 
           {/* Day labels */}
-          <div className="grid grid-cols-7 gap-1 mb-2">
+          <div className={combineClasses('grid grid-cols-7', DesignTokens.spacing.gap.xs, 'mb-2')}>
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-              <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">
+              <div key={day} className={combineClasses('text-center text-xs font-medium py-1', DesignTokens.colors.neutral.text[500])}>
                 {day}
               </div>
             ))}
           </div>
 
           {/* Calendar grid */}
-          <div className="grid grid-cols-7 gap-1">
+          <div className={combineClasses('grid grid-cols-7', DesignTokens.spacing.gap.xs)}>
             {days.map((day, idx) => {
               if (day === null) {
                 return <div key={`empty-${idx}`} className="aspect-square" />;
@@ -390,17 +390,16 @@ export default function DatePicker({ value, onChange, max, min, className = '', 
                   type="button"
                   onClick={() => !disabled && handleDateSelect(day)}
                   disabled={disabled}
-                  className={`
-                    aspect-square flex items-center justify-center text-sm rounded-lg transition-all touch-manipulation
-                    ${disabled 
-                      ? 'text-gray-300 cursor-not-allowed' 
+                  className={combineClasses(
+                    'aspect-square flex items-center justify-center text-sm rounded-lg transition-all touch-manipulation',
+                    disabled 
+                      ? combineClasses(DesignTokens.colors.neutral.text[300], 'cursor-not-allowed')
                       : selected
-                        ? 'bg-blue-600 text-white font-semibold'
+                        ? combineClasses(DesignTokens.colors.primary[600], 'text-white font-semibold')
                         : today
-                          ? 'bg-blue-50 text-blue-600 font-semibold hover:bg-blue-100'
-                          : 'text-gray-700 hover:bg-gray-100'
-                    }
-                  `}
+                          ? combineClasses('bg-blue-50', DesignTokens.colors.primary.text[600], 'font-semibold hover:bg-blue-100')
+                          : combineClasses(DesignTokens.colors.neutral.text[700], `hover:${DesignTokens.colors.neutral[100]}`)
+                  )}
                 >
                   {day}
                 </button>
@@ -412,7 +411,7 @@ export default function DatePicker({ value, onChange, max, min, className = '', 
           <button
             type="button"
             onClick={handleToday}
-            className="w-full mt-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors touch-manipulation"
+            className={combineClasses('w-full mt-3 py-2', DesignTokens.typography.body.base, 'font-medium', DesignTokens.colors.primary.text[600], 'hover:bg-blue-50', DesignTokens.borders.radius.sm, DesignTokens.transitions.default, 'touch-manipulation')}
           >
             Today
           </button>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FileText, Activity, Calendar, FileIcon, ChevronDown, ChevronUp, Eye, Plus, Trash2, Edit2 } from 'lucide-react';
 import { formatDateString } from '../utils/helpers';
+import { DesignTokens, combineClasses } from '../design/designTokens';
 
 /**
  * NotebookTimeline Component
@@ -149,11 +150,12 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
                                 return (
                                   <div
                                     key={note.id}
-                                    className={`rounded-lg p-3 border relative group ${
+                                    className={combineClasses(
+                                      'rounded-lg p-3 border relative group',
                                       isJournalNote
-                                        ? 'bg-yellow-50 border-yellow-200'
-                                        : 'bg-medical-accent-50 border-medical-accent-100'
-                                    }`}
+                                        ? combineClasses(DesignTokens.components.status.low.bg, DesignTokens.components.status.low.border)
+                                        : combineClasses('bg-medical-accent-50', 'border-medical-accent-100')
+                                    )}
                                   >
                                     <p className="text-sm text-medical-neutral-800">{note.content}</p>
                                   <div className="flex items-center justify-between mt-1">
@@ -180,7 +182,7 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
                                               e.stopPropagation();
                                               onDeleteNote(note.sourceId);
                                             }}
-                                            className="text-red-600 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-colors"
+                                            className={combineClasses(DesignTokens.components.status.high.text, `hover:${DesignTokens.components.alert.text.error}`, `hover:${DesignTokens.components.status.high.bg}`, 'p-1.5 rounded', DesignTokens.transitions.default)}
                                             title="Delete note"
                                           >
                                             <Trash2 className="w-4 h-4" />
@@ -220,10 +222,10 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
                               {entry.documents.map((doc) => (
                                 <div
                                   key={doc.id}
-                                  className="flex items-center justify-between bg-blue-50 rounded-lg p-3 border border-blue-100"
+                                  className={combineClasses('flex items-center justify-between rounded-lg p-3 border', 'bg-blue-50', 'border-blue-100')}
                                 >
                                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                                    <FileIcon className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                                    <FileIcon className={combineClasses('w-4 h-4 flex-shrink-0', DesignTokens.colors.primary.text[600])} />
                                     <div className="flex-1 min-w-0">
                                       <p className="text-sm font-medium text-medical-neutral-900 truncate">
                                         {doc.name}
@@ -239,7 +241,7 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
                                       href={doc.fileUrl}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="text-blue-600 hover:text-blue-700 flex-shrink-0 ml-2"
+                                      className={combineClasses(DesignTokens.colors.primary.text[600], `hover:${DesignTokens.colors.primary.text[700]}`, 'flex-shrink-0 ml-2', DesignTokens.transitions.default)}
                                       onClick={(e) => e.stopPropagation()}
                                     >
                                       <Eye className="w-4 h-4" />
@@ -261,18 +263,19 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
                               {entry.symptoms.map((symptom) => (
                                 <div
                                   key={symptom.id}
-                                  className="bg-orange-50 rounded-lg p-3 border border-orange-100"
+                                  className={combineClasses('bg-orange-50 rounded-lg p-3 border border-orange-100')}
                                 >
                                   <div className="flex items-center gap-2">
                                     <Activity className="w-4 h-4 text-orange-600" />
                                     <p className="text-sm font-medium text-medical-neutral-900">
                                       {symptom.type}
                                     </p>
-                                    <span className={`text-xs px-2 py-0.5 rounded ${
-                                      symptom.severity === 'Severe' ? 'bg-red-100 text-red-700' :
-                                      symptom.severity === 'Moderate' ? 'bg-orange-100 text-orange-700' :
-                                      'bg-yellow-100 text-yellow-700'
-                                    }`}>
+                                    <span className={combineClasses(
+                                      'text-xs px-2 py-0.5 rounded',
+                                      symptom.severity === 'Severe' ? combineClasses(DesignTokens.components.status.high.bg, DesignTokens.components.alert.text.error) :
+                                      symptom.severity === 'Moderate' ? combineClasses('bg-orange-100', 'text-orange-700') :
+                                      combineClasses(DesignTokens.components.status.low.bg, DesignTokens.components.alert.text.warning)
+                                    )}>
                                       {symptom.severity}
                                     </span>
                                   </div>

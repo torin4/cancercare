@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Activity, Dna, FileText, X, CheckCircle, ChevronRight, AlertTriangle, Camera, Trash2 } from 'lucide-react';
 import { useHealthContext } from '../contexts/HealthContext';
 import DatePicker from './DatePicker';
+import { DesignTokens, combineClasses } from '../design/designTokens';
 
 const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true }) => {
   const { hasRealLabData, hasRealVitalData } = useHealthContext();
@@ -205,48 +206,50 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end md:items-center justify-center p-0 md:p-4 z-50">
-      <div className="bg-white w-full h-full md:h-auto md:rounded-xl md:max-w-4xl md:max-h-[90vh] overflow-y-auto animate-slide-up">
-        {/* Progress Bar */}
-        <div className="px-6 pt-6 pb-4 bg-white border-b border-gray-200">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-600">Step {currentStep} of {totalSteps}</span>
-            <span className="text-sm font-medium text-gray-600">{Math.round(progressPercentage)}%</span>
-          </div>
-          <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+    <div className={DesignTokens.components.modal.backdrop}>
+      <div className={combineClasses('bg-white w-full h-full md:h-auto md:rounded-xl md:max-w-4xl md:max-h-[90vh] overflow-y-auto animate-slide-up')}>
+        {/* Header with integrated progress */}
+        <div className={combineClasses('sticky top-0 bg-white', DesignTokens.borders.divider)}>
+          {/* Subtle progress bar at top */}
+          <div className={combineClasses('w-full h-1', DesignTokens.colors.neutral[100])}>
             <div 
-              className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500 ease-out rounded-full"
+              className={combineClasses('h-full bg-gradient-to-r from-medical-primary-500 to-medical-primary-600 transition-all duration-500 ease-out')}
               style={{ width: `${progressPercentage}%` }}
             />
           </div>
-        </div>
-
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">{isOnboarding ? 'Upload Your First File' : 'File Upload'}</h2>
-            <p className="text-sm text-gray-600 mt-1">
-              {currentStep === 1 && (isOnboarding ? 'Choose the type of file you\'d like to upload' : 'Select document type')}
-              {currentStep === 2 && 'When was this document created or when were these tests performed?'}
-              {currentStep === 3 && 'Add any context about this document (optional)'}
-              {currentStep === 4 && 'Add photos or files. You can take multiple photos or select from your gallery.'}
-            </p>
+          
+          {/* Header content */}
+          <div className={combineClasses('px-6 py-4 flex items-start justify-between gap-4')}>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, DesignTokens.colors.neutral.text[900])}>{isOnboarding ? 'Upload Your First File' : 'File Upload'}</h2>
+                <span className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.neutral.text[500], 'flex-shrink-0')}>
+                  Step {currentStep} of {totalSteps}
+                </span>
+              </div>
+              <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[600])}>
+                {currentStep === 1 && (isOnboarding ? 'Choose the type of file you\'d like to upload' : 'Select document type')}
+                {currentStep === 2 && 'When was this document created or when were these tests performed?'}
+                {currentStep === 3 && 'Add any context about this document (optional)'}
+                {currentStep === 4 && 'Add photos or files. You can take multiple photos or select from your gallery.'}
+              </p>
+            </div>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onClose();
+              }}
+              className={combineClasses(DesignTokens.components.modal.closeButton, 'flex-shrink-0')}
+              type="button"
+            >
+              <X className={combineClasses(DesignTokens.icons.standard.size.full)} />
+            </button>
           </div>
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onClose();
-            }}
-            className="text-gray-400 hover:text-gray-600 transition"
-            type="button"
-          >
-            <X className="w-6 h-6" />
-          </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-4">
+        <div className={combineClasses(DesignTokens.spacing.card.desktop, 'space-y-4')}>
           {currentStep === 1 && (
             // Document type selection
             documentTypes.map((type) => {
@@ -290,55 +293,61 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
               <div
                 key={type.id}
                 onClick={() => setSelectedType(type.id)}
-                className={`border-2 rounded-lg p-5 cursor-pointer transition-all ${
+                className={combineClasses(
+                  DesignTokens.borders.width.thick,
+                  DesignTokens.borders.radius.md,
+                  DesignTokens.spacing.card.full,
+                  'cursor-pointer',
+                  DesignTokens.transitions.all,
                   isSelected
-                    ? `${colorClasses.selectedBorder} ${colorClasses.selectedBg} shadow-md`
-                    : `${colorClasses.border} ${hoverClasses} hover:shadow-sm`
-                }`}
+                    ? combineClasses(colorClasses.selectedBorder, colorClasses.selectedBg, DesignTokens.shadows.md)
+                    : combineClasses(colorClasses.border, hoverClasses, DesignTokens.shadows.hover)
+                )}
               >
-                <div className="flex items-start gap-4">
+                {/* Header with Icon, Title, Description */}
+                <div className="flex items-start gap-4 mb-3">
                   {/* Icon */}
-                  <div className={`${colorClasses.bg} p-3 rounded-lg`}>
-                    <Icon className={`w-8 h-8 ${colorClasses.icon}`} />
+                  <div className={combineClasses(colorClasses.bg, DesignTokens.spacing.iconContainer.full, DesignTokens.borders.radius.md, 'flex-shrink-0')}>
+                    <Icon className={combineClasses(DesignTokens.icons.standard.size.mobile, colorClasses.icon)} />
                   </div>
 
-                  {/* Content */}
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-900">{type.title}</h3>
-                        <p className="text-sm text-gray-600 mt-1">{type.description}</p>
+                  {/* Title and Description */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <h3 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[900])}>{type.title}</h3>
+                        <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[600], 'mt-1')}>{type.description}</p>
                       </div>
                       {isSelected && (
-                        <CheckCircle className="w-6 h-6 text-medical-primary-600 flex-shrink-0" />
+                        <CheckCircle className={combineClasses(DesignTokens.icons.standard.size.lg, DesignTokens.colors.primary.text[600], 'flex-shrink-0')} />
                       )}
                     </div>
-
-                    {/* Examples */}
-                    <div className="mt-3">
-                      <p className="text-xs font-semibold text-gray-700 mb-2">Examples:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {type.examples.map((example, idx) => (
-                          <span
-                            key={idx}
-                            className={`text-xs px-2 py-1 rounded-full ${colorClasses.badge}`}
-                          >
-                            {example}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Help Text */}
-                    {isSelected && (
-                      <div className={`mt-3 p-3 ${colorClasses.bg} rounded-lg border ${colorClasses.border}`}>
-                        <p className="text-sm text-gray-700">
-                          <strong>What we'll do:</strong> {type.helpText}
-                        </p>
-                      </div>
-                    )}
                   </div>
                 </div>
+
+                {/* Examples - Full Width */}
+                <div className="w-full mt-3">
+                  <p className={combineClasses(DesignTokens.typography.body.xs, 'font-semibold', DesignTokens.colors.neutral.text[700], 'mb-2')}>Examples:</p>
+                  <div className={combineClasses('flex flex-wrap', DesignTokens.spacing.gap.sm)}>
+                    {type.examples.map((example, idx) => (
+                      <span
+                        key={idx}
+                        className={combineClasses(DesignTokens.typography.body.xs, 'px-2 py-1', DesignTokens.borders.radius.full, colorClasses.badge)}
+                      >
+                        {example}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Help Text */}
+                {isSelected && (
+                  <div className={combineClasses('mt-3', DesignTokens.spacing.card.mobile, colorClasses.bg, DesignTokens.borders.radius.md, DesignTokens.borders.width.default, colorClasses.border)}>
+                    <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[700])}>
+                      <strong>What we'll do:</strong> {type.helpText}
+                    </p>
+                  </div>
+                )}
               </div>
             );
           })
@@ -347,22 +356,25 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
           {currentStep === 2 && (
             // Date input step
             <div className="space-y-4">
-              <div className={`rounded-lg p-4 border ${
+              <div className={combineClasses(
+                DesignTokens.borders.radius.md,
+                DesignTokens.spacing.card.mobile,
+                DesignTokens.borders.width.default,
                 selectedType === 'genomic-profile'
                   ? 'bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200'
                   : selectedType === 'blood-test'
                   ? 'bg-blue-50 border-blue-200'
                   : 'bg-green-50 border-green-200'
-              }`}>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Document Date</h3>
-                <p className="text-sm text-gray-700 mb-4">
+              )}>
+                <h3 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[900], 'mb-2')}>Document Date</h3>
+                <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[700], 'mb-4')}>
                   When was this document created or when were these tests performed? This helps us accurately track your health data over time.
                 </p>
                 
                 {/* Warning for multiple dates */}
-                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className={combineClasses('mb-4', DesignTokens.spacing.card.mobile, 'bg-amber-50', DesignTokens.borders.width.default, 'border-amber-200', DesignTokens.borders.radius.md)}>
                   <div className="flex items-start gap-2">
-                    <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <AlertTriangle className={combineClasses(DesignTokens.icons.standard.size.mobile, 'text-amber-600 flex-shrink-0 mt-0.5')} />
                     <div className="flex-1">
                       <p className="text-xs font-semibold text-amber-900 mb-1">
                         Important: Single Date Only
@@ -377,8 +389,8 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                 
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Document Date <span className="text-gray-500 text-xs">(optional)</span>
+                    <label className={combineClasses('block', DesignTokens.typography.body.sm, 'font-medium', DesignTokens.colors.neutral.text[700], 'mb-2')}>
+                      Document Date <span className={combineClasses(DesignTokens.colors.neutral.text[500], 'text-xs')}>(optional)</span>
                     </label>
                     <DatePicker
                       value={documentDate}
@@ -387,7 +399,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                       placeholder="YYYY-MM-DD"
                       showClear={true}
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.neutral.text[500], 'mt-1')}>
                       If you don't know the date or your document has multiple dates, you can skip and we'll try to extract it from the document.
                     </p>
                   </div>
@@ -399,15 +411,18 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
           {currentStep === 3 && (
             // Note input step
             <div className="space-y-4">
-              <div className={`rounded-lg p-4 border ${
+              <div className={combineClasses(
+                DesignTokens.borders.radius.md,
+                DesignTokens.spacing.card.mobile,
+                DesignTokens.borders.width.default,
                 selectedType === 'genomic-profile'
                   ? 'bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200'
                   : selectedType === 'blood-test'
                   ? 'bg-blue-50 border-blue-200'
                   : 'bg-green-50 border-green-200'
-              }`}>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Add Context Note</h3>
-                <p className="text-sm text-gray-700 mb-4">
+              )}>
+                <h3 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[900], 'mb-2')}>Add Context Note</h3>
+                <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[700], 'mb-4')}>
                   {selectedType === 'blood-test' 
                     ? 'Add any context about this lab report that might be helpful for understanding the values (e.g., "Before starting treatment", "After cycle 2", "Post-surgery"). This note will be attached to all lab and vital values extracted from this document.'
                     : selectedType === 'genomic-profile'
@@ -415,13 +430,17 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                     : 'Add any context about this document that might be helpful (e.g., "Before treatment", "Follow-up visit", "Emergency department"). This note will help the AI provide more contextualized insights when analyzing your medical records.'
                   }
                 </p>
-                <div className={`rounded-lg p-3 mb-4 border ${
+                <div className={combineClasses(
+                  DesignTokens.borders.radius.md,
+                  DesignTokens.spacing.card.mobile,
+                  'mb-4',
+                  DesignTokens.borders.width.default,
                   selectedType === 'genomic-profile'
                     ? 'bg-purple-100 border-purple-300'
                     : selectedType === 'blood-test'
                     ? 'bg-blue-100 border-blue-300'
                     : 'bg-green-100 border-green-300'
-                }`}>
+                )}>
                   <p className={`text-xs font-medium mb-1 ${
                     selectedType === 'genomic-profile'
                       ? 'text-purple-800'
@@ -441,36 +460,36 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                 </div>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Context Note <span className="text-gray-500 text-xs">(optional)</span>
+                    <label className={combineClasses('block', DesignTokens.typography.body.sm, 'font-medium', DesignTokens.colors.neutral.text[700], 'mb-2')}>
+                      Context Note <span className={combineClasses(DesignTokens.colors.neutral.text[500], 'text-xs')}>(optional)</span>
                     </label>
                     <textarea
                       value={documentNote}
                       onChange={(e) => setDocumentNote(e.target.value)}
                       placeholder="e.g., Before starting treatment, After cycle 2, Post-surgery..."
                       rows={3}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      className={combineClasses(DesignTokens.components.input.base, DesignTokens.components.input.textarea)}
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.neutral.text[500], 'mt-1')}>
                       This note will be saved with the document and all extracted values, helping the AI provide better context-aware responses.
                     </p>
                   </div>
                   
                   {/* Only extract existing metrics checkbox - only show for blood-test type and if user has existing metrics */}
                   {selectedType === 'blood-test' && (hasRealLabData || hasRealVitalData) && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className={combineClasses('mt-4 pt-4', DesignTokens.borders.divider)}>
                       <label className="flex items-start gap-3 cursor-pointer group">
                         <input
                           type="checkbox"
                           checked={onlyExistingMetrics}
                           onChange={(e) => setOnlyExistingMetrics(e.target.checked)}
-                          className="mt-1 w-4 h-4 text-medical-primary-600 border-gray-300 rounded focus:ring-medical-primary-500 cursor-pointer"
+                          className={combineClasses('mt-1', DesignTokens.components.input.checkbox)}
                         />
                         <div className="flex-1">
-                          <div className="text-sm font-medium text-gray-900 group-hover:text-gray-700">
+                          <div className={combineClasses(DesignTokens.typography.body.sm, 'font-medium', DesignTokens.colors.neutral.text[900], 'group-hover:text-medical-neutral-700')}>
                             Only extract data for metrics that already exist
                           </div>
-                          <p className="text-xs text-gray-600 mt-1">
+                          <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.neutral.text[600], 'mt-1')}>
                             When enabled, only labs and vitals that you've already added to your Health tab will be extracted. New metrics will be skipped.
                           </p>
                         </div>
@@ -482,32 +501,64 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
             </div>
           )}
 
-          {currentStep === 4 && (
+          {currentStep === 4 && (() => {
+            // Get the selected document type and its color
+            const selectedDocType = documentTypes.find(type => type.id === selectedType);
+            const docColor = selectedDocType?.color || 'blue';
+            
+            // Theme-based button classes
+            const themeButtonClasses = {
+              blue: {
+                primary: 'bg-medical-primary-500 text-white hover:bg-medical-primary-600',
+                secondary: 'bg-medical-primary-50 text-medical-primary-600 hover:bg-medical-primary-100 border border-medical-primary-200'
+              },
+              purple: {
+                primary: 'bg-purple-500 text-white hover:bg-purple-600',
+                secondary: 'bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-200'
+              },
+              green: {
+                primary: 'bg-medical-accent-500 text-white hover:bg-medical-accent-600',
+                secondary: 'bg-medical-accent-50 text-medical-accent-600 hover:bg-medical-accent-100 border border-medical-accent-200'
+              }
+            }[docColor];
+            
+            return (
             // File selection step
             <div className="space-y-4">
-              <div className={`rounded-lg p-4 border ${
+              <div className={combineClasses(
+                DesignTokens.borders.radius.md,
+                DesignTokens.spacing.card.mobile,
+                DesignTokens.borders.width.default,
                 selectedType === 'genomic-profile'
                   ? 'bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200'
                   : selectedType === 'blood-test'
                   ? 'bg-blue-50 border-blue-200'
                   : 'bg-green-50 border-green-200'
-              }`}>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Photos or Files</h3>
+              )}>
+                <h3 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[900], 'mb-4')}>Add Photos or Files</h3>
                 
                 {/* Action buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 mb-4">
                   <button
                     onClick={() => openFilePicker(true)}
-                    className="flex-1 px-4 py-3 bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition flex items-center justify-center gap-2 font-medium"
+                    className={combineClasses(
+                      'rounded-lg transition-colors font-medium min-h-[44px] touch-manipulation active:opacity-70',
+                      themeButtonClasses.primary,
+                      'flex-1 flex items-center justify-center gap-2'
+                    )}
                   >
-                    <Camera className="w-5 h-5" />
+                    <Camera className={combineClasses(DesignTokens.icons.standard.size.mobile)} />
                     Take Photo
                   </button>
                   <button
                     onClick={() => openFilePicker(false)}
-                    className="flex-1 px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition flex items-center justify-center gap-2 font-medium"
+                    className={combineClasses(
+                      'rounded-lg transition font-medium min-h-[44px] touch-manipulation active:opacity-70',
+                      themeButtonClasses.secondary,
+                      'flex-1 flex items-center justify-center gap-2'
+                    )}
                   >
-                    <Upload className="w-5 h-5" />
+                    <Upload className={combineClasses(DesignTokens.icons.standard.size.mobile)} />
                     Choose from Gallery
                   </button>
                 </div>
@@ -515,16 +566,16 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                 {/* Selected files list */}
                 {selectedFiles.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-sm font-medium text-gray-700">
+                    <p className={combineClasses(DesignTokens.typography.body.sm, 'font-medium', DesignTokens.colors.neutral.text[700])}>
                       Selected Files ({selectedFiles.length})
                     </p>
                     <div className="space-y-2 max-h-64 overflow-y-auto">
                       {selectedFiles.map((file, index) => (
                         <div
                           key={index}
-                          className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg"
+                          className={combineClasses('flex items-center', DesignTokens.spacing.gap.md, DesignTokens.spacing.card.mobile, 'bg-white', DesignTokens.borders.width.default, DesignTokens.colors.neutral.border[200], DesignTokens.borders.radius.md)}
                         >
-                          <div className="flex-shrink-0 w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
+                          <div className={combineClasses('flex-shrink-0 w-12 h-12 rounded flex items-center justify-center', DesignTokens.colors.neutral[100])}>
                             {file.type.startsWith('image/') && filePreviews[index] ? (
                               <img
                                 src={filePreviews[index]}
@@ -532,21 +583,21 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                                 className="w-full h-full object-cover rounded"
                               />
                             ) : (
-                              <FileText className="w-6 h-6 text-gray-400" />
+                              <FileText className={combineClasses('w-6 h-6', DesignTokens.colors.neutral.text[300])} />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
-                            <p className="text-xs text-gray-500">
+                            <p className={combineClasses(DesignTokens.typography.body.sm, 'font-medium', DesignTokens.colors.neutral.text[900], 'truncate')}>{file.name}</p>
+                            <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.neutral.text[500])}>
                               {(file.size / 1024).toFixed(1)} KB
                             </p>
                           </div>
                           <button
                             onClick={() => removeFile(index)}
-                            className="flex-shrink-0 p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                            className={combineClasses('flex-shrink-0', DesignTokens.spacing.iconButton.sm, 'text-red-600 hover:bg-red-50', DesignTokens.borders.radius.md, DesignTokens.transitions.default)}
                             title="Remove file"
                           >
-                            <Trash2 className="w-5 h-5" />
+                            <Trash2 className={combineClasses(DesignTokens.icons.standard.size.mobile)} />
                           </button>
                         </div>
                       ))}
@@ -555,38 +606,40 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                 )}
 
                 {selectedFiles.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    <Upload className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                  <div className={combineClasses('text-center py-8', DesignTokens.colors.neutral.text[500])}>
+                    <Upload className={combineClasses('w-12 h-12 mx-auto mb-2', DesignTokens.colors.neutral.text[300])} />
                     <p className="text-sm">No files selected yet</p>
                     <p className="text-xs mt-1">Take a photo or choose from your gallery</p>
                   </div>
                 )}
               </div>
             </div>
-          )}
+            );
+          })()}
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div className={combineClasses('sticky bottom-0', DesignTokens.components.modal.footer, 'flex items-center justify-between')}>
           {currentStep === 1 && (
             <>
               <button
                 onClick={onClose}
-                className="text-gray-600 hover:text-gray-900 font-medium transition"
+                className={combineClasses(DesignTokens.colors.neutral.text[600], 'hover:text-medical-neutral-900', 'font-medium', DesignTokens.transitions.default, 'flex items-center gap-2', DesignTokens.spacing.button.full, 'py-2.5')}
               >
                 Cancel
               </button>
               <button
                 onClick={handleContinueFromStep1}
                 disabled={!selectedType}
-                className={`px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 ${
-                  selectedType
-                    ? 'bg-medical-primary-500 text-white hover:bg-medical-primary-600'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
+                className={combineClasses(
+                  DesignTokens.components.button.primary,
+                  DesignTokens.spacing.button.full,
+                  'py-2.5 flex items-center gap-2',
+                  !selectedType && 'disabled:opacity-50 disabled:cursor-not-allowed'
+                )}
               >
                 Continue
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className={combineClasses(DesignTokens.icons.standard.size.mobile)} />
               </button>
             </>
           )}
@@ -595,17 +648,17 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
             <>
               <button
                 onClick={handleBack}
-                className="text-gray-600 hover:text-gray-900 font-medium transition flex items-center gap-2"
+                className={combineClasses(DesignTokens.colors.neutral.text[600], 'hover:text-medical-neutral-900', 'font-medium', DesignTokens.transitions.default, 'flex items-center gap-2', DesignTokens.spacing.button.full, 'py-2.5')}
               >
-                <ChevronRight className="w-4 h-4 rotate-180" />
+                <ChevronRight className={combineClasses(DesignTokens.icons.standard.size.xs, 'rotate-180')} />
                 Back
               </button>
               <button
                 onClick={documentDate && documentDate.trim() !== '' ? handleContinueWithDate : handleSkipDate}
-                className="px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 bg-medical-primary-500 text-white hover:bg-medical-primary-600"
+                className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 flex items-center gap-2')}
               >
                 {documentDate && documentDate.trim() !== '' ? 'Continue' : 'Skip without date'}
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className={combineClasses(DesignTokens.icons.standard.size.mobile)} />
               </button>
             </>
           )}
@@ -614,17 +667,17 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
             <>
               <button
                 onClick={handleBack}
-                className="text-gray-600 hover:text-gray-900 font-medium transition flex items-center gap-2"
+                className={combineClasses(DesignTokens.colors.neutral.text[600], 'hover:text-medical-neutral-900', 'font-medium', DesignTokens.transitions.default, 'flex items-center gap-2', DesignTokens.spacing.button.full, 'py-2.5')}
               >
-                <ChevronRight className="w-4 h-4 rotate-180" />
+                <ChevronRight className={combineClasses(DesignTokens.icons.standard.size.xs, 'rotate-180')} />
                 Back
               </button>
               <button
                 onClick={documentNote && documentNote.trim() !== '' ? handleContinueWithNote : handleSkipNote}
-                className="px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 bg-medical-primary-500 text-white hover:bg-medical-primary-600"
+                className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 flex items-center gap-2')}
               >
                 Continue
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className={combineClasses(DesignTokens.icons.standard.size.mobile)} />
               </button>
             </>
           )}
@@ -633,22 +686,23 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
             <>
               <button
                 onClick={handleBack}
-                className="text-gray-600 hover:text-gray-900 font-medium transition flex items-center gap-2"
+                className={combineClasses(DesignTokens.colors.neutral.text[600], 'hover:text-medical-neutral-900', 'font-medium', DesignTokens.transitions.default, 'flex items-center gap-2', DesignTokens.spacing.button.full, 'py-2.5')}
               >
-                <ChevronRight className="w-4 h-4 rotate-180" />
+                <ChevronRight className={combineClasses(DesignTokens.icons.standard.size.xs, 'rotate-180')} />
                 Back
               </button>
               <button
                 onClick={handleUploadAll}
                 disabled={selectedFiles.length === 0}
-                className={`px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 ${
-                  selectedFiles.length > 0
-                    ? 'bg-medical-primary-500 text-white hover:bg-medical-primary-600'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
+                className={combineClasses(
+                  DesignTokens.components.button.primary,
+                  DesignTokens.spacing.button.full,
+                  'py-2.5 flex items-center gap-2',
+                  selectedFiles.length === 0 && 'disabled:opacity-50 disabled:cursor-not-allowed'
+                )}
               >
                 Upload {selectedFiles.length > 0 ? `${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''}` : 'Files'}
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className={combineClasses(DesignTokens.icons.standard.size.mobile)} />
               </button>
             </>
           )}
