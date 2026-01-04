@@ -274,7 +274,7 @@ export const DesignTokens = {
     
     // Tab Navigation
     tabs: {
-      container: 'flex gap-1 sm:gap-4 mb-4 sm:mb-6 border-b border-medical-neutral-200 overflow-x-auto',
+      container: 'flex gap-1 sm:gap-4 mb-4 sm:mb-6 overflow-x-auto',
       button: {
         base: 'pb-3 px-2 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70 whitespace-nowrap flex-shrink-0',
         active: 'text-medical-primary-600 border-b-2 border-medical-primary-600',
@@ -292,7 +292,105 @@ export const DesignTokens = {
     // Card
     card: {
       container: 'bg-white rounded-lg shadow p-3 sm:p-4 md:p-5 border border-medical-neutral-200',
+      hover: 'hover:shadow-md transition-shadow',
+      interactive: 'cursor-pointer hover:border-medical-neutral-300',
     },
+    
+    // Modal
+    modal: {
+      backdrop: 'fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50',
+      container: 'bg-white w-full h-full md:h-auto md:rounded-xl md:max-w-md md:max-h-[90vh] overflow-hidden flex flex-col animate-slide-up',
+      header: 'flex-shrink-0 bg-white border-b p-4 flex items-center justify-between',
+      title: 'text-lg font-semibold text-gray-900',
+      closeButton: 'text-gray-400 hover:text-gray-600 transition',
+      body: 'flex-1 overflow-y-auto p-4 sm:p-6',
+      footer: 'flex-shrink-0 border-t p-4 bg-white',
+    },
+    
+    // Form Inputs
+    input: {
+      base: 'w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500 transition-all duration-200',
+      disabled: 'bg-gray-100 cursor-not-allowed',
+      textarea: 'resize-none',
+      withIcon: 'pl-10',
+    },
+    
+    // Loading States
+    loading: {
+      overlay: 'fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50',
+      container: 'bg-white rounded-2xl p-8 max-w-sm w-full mx-4 shadow-2xl',
+      spinner: 'w-16 h-16 bg-medical-primary-100 rounded-full flex items-center justify-center mx-auto mb-4',
+      spinnerIcon: 'w-8 h-8 text-medical-primary-600 animate-spin',
+      title: 'text-xl font-bold text-gray-900 mb-2',
+      message: 'text-gray-600',
+    },
+    
+    // Empty States
+    emptyState: {
+      container: 'bg-white rounded-lg sm:rounded-xl p-4 sm:p-6 md:p-8 text-center',
+      iconContainer: 'w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4',
+      icon: 'w-6 h-6 sm:w-8 sm:h-8 text-gray-400',
+      title: 'text-base sm:text-lg font-semibold text-medical-neutral-900 mb-1.5 sm:mb-2',
+      message: 'text-xs sm:text-sm text-medical-neutral-600 mb-4 sm:mb-6',
+      actions: 'flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center',
+    },
+    
+    // Alert/Banner Patterns
+    alert: {
+      success: 'bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4',
+      error: 'bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4',
+      warning: 'bg-yellow-50 border border-yellow-200 rounded-lg p-3 sm:p-4',
+      info: 'bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4',
+      text: {
+        success: 'text-green-800',
+        error: 'text-red-800',
+        warning: 'text-yellow-800',
+        info: 'text-blue-800',
+      },
+    },
+    
+    // Chat Message Bubbles
+    chat: {
+      userBubble: 'bg-medical-primary-500 text-white rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5',
+      aiBubble: 'bg-white border border-medical-neutral-200 text-medical-neutral-900 rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5',
+      analysisBubble: 'bg-medical-secondary-50 border border-medical-secondary-200 text-medical-neutral-800 rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5',
+      avatar: 'w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-medical-primary-500 to-medical-accent-500 flex items-center justify-center shadow-sm',
+    },
+    
+    // Status Indicators
+    status: {
+      normal: {
+        bg: 'bg-green-50',
+        text: 'text-green-600',
+        border: 'border-green-200',
+        icon: 'text-green-600',
+      },
+      high: {
+        bg: 'bg-red-50',
+        text: 'text-red-600',
+        border: 'border-red-200',
+        icon: 'text-red-600',
+      },
+      low: {
+        bg: 'bg-yellow-50',
+        text: 'text-yellow-600',
+        border: 'border-yellow-200',
+        icon: 'text-yellow-600',
+      },
+    },
+  },
+  
+  // ============================================
+  // Z-INDEX LAYERS
+  // ============================================
+  zIndex: {
+    base: 0,
+    dropdown: 10,
+    sticky: 20,
+    overlay: 30,
+    modal: 50,
+    tooltip: 70,
+    notification: 100,
   },
 
   // ============================================
