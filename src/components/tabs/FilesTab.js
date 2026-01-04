@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical, Loader2, BookOpen, FileText, MessageSquare } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
@@ -56,6 +56,17 @@ export default function FilesTab({ onTabChange }) {
 
   // Tab state for Documents vs Notes view
   const [activeSubTab, setActiveSubTab] = useState('documents'); // 'documents' or 'notes'
+
+  // Track if component is mounted to prevent setState after unmount
+  const isMountedRef = useRef(true);
+
+  // Initialize mounted ref
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Notebook state
   const [notebookEntries, setNotebookEntries] = useState([]);
@@ -169,14 +180,22 @@ export default function FilesTab({ onTabChange }) {
     const loadNotebookEntries = async () => {
       if (!user?.uid) return;
 
-      try {
+      if (isMountedRef.current) {
         setIsLoadingNotebook(true);
+      }
+      try {
         const entries = await getNotebookEntries(user.uid, { limit: 50 });
-        setNotebookEntries(entries);
+        if (isMountedRef.current) {
+          setNotebookEntries(entries);
+        }
       } catch (error) {
-        showError('Failed to load notebook entries');
+        if (isMountedRef.current) {
+          showError('Failed to load notebook entries');
+        }
       } finally {
-        setIsLoadingNotebook(false);
+        if (isMountedRef.current) {
+          setIsLoadingNotebook(false);
+        }
       }
     };
 
@@ -187,13 +206,19 @@ export default function FilesTab({ onTabChange }) {
   const reloadNotebookEntries = async () => {
     if (!user?.uid) return;
 
-    try {
+    if (isMountedRef.current) {
       setIsLoadingNotebook(true);
+    }
+    try {
       const entries = await getNotebookEntries(user.uid, { limit: 50 });
-      setNotebookEntries(entries);
+      if (isMountedRef.current) {
+        setNotebookEntries(entries);
+      }
     } catch (error) {
     } finally {
-      setIsLoadingNotebook(false);
+      if (isMountedRef.current) {
+        setIsLoadingNotebook(false);
+      }
     }
   };
 
@@ -957,7 +982,7 @@ export default function FilesTab({ onTabChange }) {
               <div className="bg-gray-100 p-1.5 sm:p-2 rounded-lg">
                 <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
               </div>
-              Medical Journal
+              Medical Notebook
             </h3>
             <button
               onClick={() => {

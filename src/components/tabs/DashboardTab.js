@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Activity, TrendingUp, Upload, AlertCircle, ClipboardList, Info, Dna, Bookmark, Star, ChevronRight, Search, MessageSquare, X, Heart, Loader2, BarChart, Home } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
@@ -57,11 +57,18 @@ export default function DashboardTab({ onTabChange }) {
     tags: []
   });
 
+  // Track if component is mounted to prevent setState after unmount
+  const isMountedRef = useRef(true);
+
   // Load saved trials when component mounts
   useEffect(() => {
+    isMountedRef.current = true;
+    
     const loadSavedTrials = async () => {
       if (user?.uid) {
-        setLoadingSavedTrials(true);
+        if (isMountedRef.current) {
+          setLoadingSavedTrials(true);
+        }
         try {
           const trials = await getSavedTrials(user.uid);
           // Sort by match percentage (highest first) and limit to top 5
@@ -69,49 +76,27 @@ export default function DashboardTab({ onTabChange }) {
             .filter(trial => trial.matchResult?.matchPercentage)
             .sort((a, b) => (b.matchResult?.matchPercentage || 0) - (a.matchResult?.matchPercentage || 0))
             .slice(0, 5);
-          setSavedTrials(sortedTrials);
+          if (isMountedRef.current) {
+            setSavedTrials(sortedTrials);
+          }
         } catch (error) {
-          setSavedTrials([]);
+          if (isMountedRef.current) {
+            setSavedTrials([]);
+          }
         } finally {
-          setLoadingSavedTrials(false);
+          if (isMountedRef.current) {
+            setLoadingSavedTrials(false);
+          }
         }
       }
     };
+    
     loadSavedTrials();
-  }, [user]);
-
-  // Reset all modals when component unmounts (user navigates away)
-  useEffect(() => {
+    
     return () => {
-      // Cleanup: reset all modals and form states when navigating away
-      setShowAddSymptomModal(false);
-      setShowAddLabModal(false);
-      setShowAddVitalModal(false);
-      setShowDocumentOnboarding(false);
-      setSymptomForm({
-        name: '',
-        severity: '',
-        date: getTodayLocalDate(),
-        time: new Date().toTimeString().slice(0, 5),
-        notes: '',
-        customSymptomName: '',
-        tags: []
-      });
-      setNewVital({
-        vitalType: '',
-        value: '',
-        systolic: '',
-        diastolic: '',
-        dateTime: new Date().toISOString().slice(0, 16),
-        notes: '',
-        customLabel: '',
-        customUnit: '',
-        customNormalRange: ''
-      });
-      setPendingDocumentDate(null);
-      setPendingDocumentNote(null);
+      isMountedRef.current = false;
     };
-  }, []);
+  }, [user]);
 
   // Helper function to open document onboarding
   const openDocumentOnboarding = (docType = null, method = 'picker') => {

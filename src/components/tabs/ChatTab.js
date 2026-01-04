@@ -372,8 +372,13 @@ export default function ChatTab({ onTabChange }) {
     }
   }, [user, chatHistoryLoaded]);
 
+  // Track processing state to prevent race conditions
+  const isProcessingPendingRef = useRef(false);
+
   // Process pending Quick Log message
   useEffect(() => {
+    if (isProcessingPendingRef.current) return;
+    
     const pendingMessageStr = sessionStorage.getItem('pendingQuickLogMessage');
     if (pendingMessageStr && user) {
       try {
@@ -382,6 +387,9 @@ export default function ChatTab({ onTabChange }) {
           sessionStorage.removeItem('pendingQuickLogMessage');
           // Process the message
           const processPendingMessage = async () => {
+            if (isProcessingPendingRef.current) return;
+            isProcessingPendingRef.current = true;
+            
             const userMessage = pendingMessage.text;
             
             // Add user message immediately
@@ -434,6 +442,7 @@ export default function ChatTab({ onTabChange }) {
 
               // Clear loading state
               setIsBotProcessing(false);
+              isProcessingPendingRef.current = false;
               
               // Reload health data if values were extracted
               if (result.extractedData) {
@@ -443,6 +452,7 @@ export default function ChatTab({ onTabChange }) {
               
               // Clear loading state
               setIsBotProcessing(false);
+              isProcessingPendingRef.current = false;
               
               const errorMsg = {
                 type: 'ai',
@@ -456,6 +466,7 @@ export default function ChatTab({ onTabChange }) {
           setTimeout(processPendingMessage, 200);
         }
       } catch (error) {
+        isProcessingPendingRef.current = false;
         sessionStorage.removeItem('pendingQuickLogMessage');
       }
     }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Camera, User, Calendar, MapPin, TrendingUp, Activity, Edit2, Dna, Upload, AlertCircle, Users, Phone, Plus, Settings, Link2, Loader2, Unlink, LogOut, Trash2, Sliders, Shield, HeartHandshake, Copy } from 'lucide-react';
 import { signOut, linkWithPopup, unlink, GoogleAuthProvider, deleteUser } from 'firebase/auth';
 import { auth } from '../../firebase/config';
@@ -50,6 +50,16 @@ export default function ProfileTab({ onTabChange }) {
     baselineCa125: ''
   });
   const [genomicExpanded, setGenomicExpanded] = useState(false);
+  
+  // Track if component is mounted to prevent setState after unmount
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
   
   // Check if we should expand genomic profile (e.g., after genomic upload)
   useEffect(() => {
@@ -214,22 +224,28 @@ export default function ProfileTab({ onTabChange }) {
   const handleDeleteData = async (type) => {
     if (!user) return;
 
-    try {
+    if (isMountedRef.current) {
       setIsDeleting(true);
+    }
 
+    try {
       if (type === 'data') {
         await accountService.clearHealthData(user.uid);
         await deleteUserDirectory(user.uid);
         // Explicitly clear genomic profile from UI state
-        setGenomicProfile(null);
-        await reloadHealthData();
-        showSuccess('Your health data has been successfully cleared.');
-        setShowDeletionConfirm(false);
+        if (isMountedRef.current) {
+          setGenomicProfile(null);
+          await reloadHealthData();
+          showSuccess('Your health data has been successfully cleared.');
+          setShowDeletionConfirm(false);
+        }
       } else if (type === 'account') {
         const currentUser = auth.currentUser;
         if (!currentUser) {
-          showError('No user found. Please log in and try again.');
-          setIsDeleting(false);
+          if (isMountedRef.current) {
+            showError('No user found. Please log in and try again.');
+            setIsDeleting(false);
+          }
           return;
         }
 
@@ -240,31 +256,38 @@ export default function ProfileTab({ onTabChange }) {
           await deleteUserDirectory(userId);
           await deleteUser(currentUser);
           await signOut(auth);
-          setUser(null);
-          setCurrentStatus({
-            diagnosis: '',
-            diagnosisDate: '',
-            treatmentLine: '',
-            currentRegimen: '',
-            performanceStatus: '',
-            diseaseStatus: '',
-            baselineCa125: '',
-            stage: '',
-            subtype: ''
-          });
-          setShowDeletionConfirm(false);
-          showSuccess('Your account and all associated data have been permanently deleted.');
+          // Only setState if still mounted (though user will be logged out)
+          if (isMountedRef.current) {
+            setUser(null);
+            setCurrentStatus({
+              diagnosis: '',
+              diagnosisDate: '',
+              treatmentLine: '',
+              currentRegimen: '',
+              performanceStatus: '',
+              diseaseStatus: '',
+              baselineCa125: '',
+              stage: '',
+              subtype: ''
+            });
+            setShowDeletionConfirm(false);
+            showSuccess('Your account and all associated data have been permanently deleted.');
+          }
         } catch (authError) {
           if (authError.code === 'auth/requires-recent-login') {
-            showError('For security, account deletion requires a recent login. Please log out and log back in, then try again.');
-            setIsDeleting(false);
-            setShowDeletionConfirm(false);
+            if (isMountedRef.current) {
+              showError('For security, account deletion requires a recent login. Please log out and log back in, then try again.');
+              setIsDeleting(false);
+              setShowDeletionConfirm(false);
+            }
             return;
           }
           if (authError.code && !authError.code.includes('requires-recent-login')) {
             try {
               await signOut(auth);
-              setUser(null);
+              if (isMountedRef.current) {
+                setUser(null);
+              }
             } catch (signOutError) {
             }
           }
@@ -272,9 +295,13 @@ export default function ProfileTab({ onTabChange }) {
         }
       }
     } catch (error) {
-      showError('An error occurred during deletion. Please try again.');
+      if (isMountedRef.current) {
+        showError('An error occurred during deletion. Please try again.');
+      }
     } finally {
-      setIsDeleting(false);
+      if (isMountedRef.current) {
+        setIsDeleting(false);
+      }
     }
   };
 
