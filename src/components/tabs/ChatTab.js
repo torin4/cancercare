@@ -431,9 +431,27 @@ export default function ChatTab({ onTabChange }) {
           const labs = await labService.getLabs(user.uid);
           const vitals = await vitalService.getVitals(user.uid);
           const symptoms = await symptomService.getSymptoms(user.uid);
+          
+          // Load ALL values for each lab and vital (with dates and notes)
+          const labsWithValues = await Promise.all(labs.map(async (lab) => {
+            if (lab.id) {
+              const values = await labService.getLabValues(lab.id);
+              return { ...lab, values: values || [] };
+            }
+            return lab;
+          }));
+          
+          const vitalsWithValues = await Promise.all(vitals.map(async (vital) => {
+            if (vital.id) {
+              const values = await vitalService.getVitalValues(vital.id);
+              return { ...vital, values: values || [] };
+            }
+            return vital;
+          }));
+          
           healthContextToUse = {
-            labs: labs,
-            vitals: vitals,
+            labs: labsWithValues,
+            vitals: vitalsWithValues,
             symptoms: symptoms
           };
           // Optionally set it for future messages
@@ -855,9 +873,27 @@ export default function ChatTab({ onTabChange }) {
                                            const labs = await labService.getLabs(user.uid);
                                            const vitals = await vitalService.getVitals(user.uid);
                                            const symptoms = await symptomService.getSymptoms(user.uid);
+                                           
+                                           // Load ALL values for each lab and vital (with dates and notes)
+                                           const labsWithValues = await Promise.all(labs.map(async (lab) => {
+                                             if (lab.id) {
+                                               const values = await labService.getLabValues(lab.id);
+                                               return { ...lab, values: values || [] };
+                                             }
+                                             return lab;
+                                           }));
+                                           
+                                           const vitalsWithValues = await Promise.all(vitals.map(async (vital) => {
+                                             if (vital.id) {
+                                               const values = await vitalService.getVitalValues(vital.id);
+                                               return { ...vital, values: values || [] };
+                                             }
+                                             return vital;
+                                           }));
+                                           
                                            healthContext = {
-                                             labs: labs,
-                                             vitals: vitals,
+                                             labs: labsWithValues,
+                                             vitals: vitalsWithValues,
                                              symptoms: symptoms
                                            };
                                            setCurrentHealthContext(healthContext);

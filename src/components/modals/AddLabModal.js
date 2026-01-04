@@ -246,7 +246,7 @@ export default function AddLabModal({
                   {
                     label: 'Inflammation',
                     options: [
-                      { name: 'CRP', range: '<3', unit: 'mg/L' },
+                      { name: 'CRP', range: '<0.3', unit: 'mg/dL' },
                       { name: 'ESR', range: '0-20', unit: 'mm/hr' },
                       { name: 'Ferritin', range: '15-200', unit: 'ng/mL' }
                     ]

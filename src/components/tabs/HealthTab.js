@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, BarChart, Heart, Thermometer, Pill, Plus, Upload, Edit2, X, TrendingUp, TrendingDown, Minus, Activity, Info, Calendar, Clock, Check, AlertCircle, Trash2, MoreVertical, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Eye, EyeOff } from 'lucide-react';
+import { MessageSquare, BarChart, Heart, Thermometer, Pill, Plus, Upload, Edit2, X, TrendingUp, TrendingDown, Minus, Activity, Info, Calendar, Clock, Check, AlertCircle, Trash2, MoreVertical, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Eye, EyeOff, Star } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
 import { useBanner } from '../../contexts/BannerContext';
-import { labService, vitalService, symptomService, medicationService } from '../../firebase/services';
+import { labService, vitalService, symptomService, medicationService, patientService } from '../../firebase/services';
 import { getLabStatus, getVitalStatus, getWeightNormalRange } from '../../utils/healthUtils';
 import { normalizeLabName, getLabDisplayName, labValueDescriptions, normalizeVitalName, getVitalDisplayName, vitalDescriptions, categorizeLabs } from '../../utils/normalizationUtils';
 import { categoryIcons, categoryDescriptions } from '../../constants/categories';
@@ -24,13 +24,14 @@ import { uploadDocument } from '../../firebase/storage';
 
 export default function HealthTab({ onTabChange, initialSection = null }) {
   const { user } = useAuth();
-  const { hasUploadedDocument, patientProfile } = usePatientContext();
+  const { hasUploadedDocument, patientProfile, refreshPatient } = usePatientContext();
   const { labsData, setLabsData, vitalsData, setVitalsData, hasRealLabData, hasRealVitalData, reloadHealthData } = useHealthContext();
   const { showSuccess, showError } = useBanner();
 
   // Tab-specific state
   const [healthSection, setHealthSection] = useState(initialSection || 'labs');
   const [selectedDataPoint, setSelectedDataPoint] = useState(null); // Track which data point tooltip is open
+  const [hoveredDataPoint, setHoveredDataPoint] = useState(null); // Track which data point is being hovered
   
   // Close tooltip when clicking outside
   useEffect(() => {
@@ -62,6 +63,15 @@ export default function HealthTab({ onTabChange, initialSection = null }) {
       setHealthSection(initialSection);
     }
   }, [initialSection]);
+
+  // Check for healthSection from sessionStorage (set by DashboardTab View All buttons)
+  useEffect(() => {
+    const healthSectionFromStorage = sessionStorage.getItem('healthSection');
+    if (healthSectionFromStorage && ['labs', 'vitals', 'symptoms', 'medications'].includes(healthSectionFromStorage)) {
+      setHealthSection(healthSectionFromStorage);
+      sessionStorage.removeItem('healthSection');
+    }
+  }, []);
   
   const [selectedLab, setSelectedLab] = useState('ca125');
   const [selectedDate, setSelectedDate] = useState(null);
@@ -127,12 +137,96 @@ export default function HealthTab({ onTabChange, initialSection = null }) {
   const [editingLab, setEditingLab] = useState(null);
   const [editingLabKey, setEditingLabKey] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Delete Permanently' });
+  const [metricSelectionMode, setMetricSelectionMode] = useState(false);
+  const [selectedMetrics, setSelectedMetrics] = useState(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [favoriteMetrics, setFavoriteMetrics] = useState({ labs: [], vitals: [] });
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
   const [documentOnboardingMethod, setDocumentOnboardingMethod] = useState('picker');
 
   const allLabData = labsData;
   const allVitalsData = vitalsData;
+
+  // Load favorites from patient profile
+  useEffect(() => {
+    if (patientProfile) {
+      setFavoriteMetrics(patientProfile.favoriteMetrics || { labs: [], vitals: [] });
+    }
+  }, [patientProfile]);
+
+  // Helper function to check if a lab is empty (defined at component level so toggleFavorite can use it)
+  const isLabEmptyHelper = (lab) => {
+    if (!lab) return true;
+    if (!lab.data || !Array.isArray(lab.data) || lab.data.length === 0) {
+      return true; // No data at all
+    }
+    
+    const labDocIds = lab.labDocumentIds || [lab.id];
+    const allDataIdsAreFallback = lab.data.every(d => labDocIds.includes(d.id));
+    
+    const hasValidValues = lab.data.some(d => {
+      const value = d.value;
+      if (value == null || value === undefined || value === '') return false;
+      const valueStr = String(value).trim().toLowerCase();
+      if (valueStr === '-' || valueStr === '—' || valueStr === 'n/a' || valueStr === 'na' || 
+          valueStr === '未測定' || valueStr === '測定なし' || valueStr === '--') {
+        return false;
+      }
+      if (lab.isNumeric && isNaN(parseFloat(value))) {
+        return false;
+      }
+      return true;
+    });
+    
+    return allDataIdsAreFallback || !hasValidValues;
+  };
+
+  // Toggle favorite metric
+  const toggleFavorite = async (metricKey, type) => {
+    if (!user?.uid) return;
+
+    const newFavorites = { ...favoriteMetrics };
+    const typeArray = newFavorites[type] || [];
+
+    if (typeArray.includes(metricKey)) {
+      // Remove from favorites
+      newFavorites[type] = typeArray.filter(key => key !== metricKey);
+    } else {
+      // For labs, check valid favorites (ones that exist and have data)
+      // For vitals, use the raw count
+      let validFavoritesCount = typeArray.length;
+      if (type === 'labs') {
+        // Count only valid labs (ones that exist and are not empty)
+        validFavoritesCount = typeArray.filter(key => {
+          const lab = allLabData[key];
+          return lab && !isLabEmptyHelper(lab);
+        }).length;
+      }
+
+      // Check if already at limit of 4 valid favorites for this type
+      if (validFavoritesCount >= 4) {
+        const typeLabel = type === 'labs' ? 'labs' : 'vitals';
+        showError(`You can only select up to 4 favorite ${typeLabel}. Please remove one before adding another.`);
+        return;
+      }
+      // Add to favorites
+      newFavorites[type] = [...typeArray, metricKey];
+    }
+
+    setFavoriteMetrics(newFavorites);
+
+    try {
+      await patientService.updateFavoriteMetrics(user.uid, newFavorites);
+      // Refresh patient profile to ensure context is updated
+      await refreshPatient();
+      showSuccess(typeArray.includes(metricKey) ? 'Removed from favorites' : 'Added to favorites');
+    } catch (error) {
+      console.error('Error updating favorites:', error);
+      // Revert on error
+      setFavoriteMetrics(favoriteMetrics);
+      showError('Failed to update favorites');
+    }
+  };
 
   // Get current lab for display
   const currentLab = allLabData[selectedLab] || Object.values(allLabData).find(lab => lab.isNumeric) || Object.values(allLabData)[0] || {
@@ -377,10 +471,27 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
       const vitals = await vitalService.getVitals(user.uid);
       const symptomData = await symptomService.getSymptoms(user.uid);
       
+      // Load ALL values for each lab and vital (with dates and notes)
+      const labsWithValues = await Promise.all(labs.map(async (lab) => {
+        if (lab.id) {
+          const values = await labService.getLabValues(lab.id);
+          return { ...lab, values: values || [] };
+        }
+        return lab;
+      }));
+      
+      const vitalsWithValues = await Promise.all(vitals.map(async (vital) => {
+        if (vital.id) {
+          const values = await vitalService.getVitalValues(vital.id);
+          return { ...vital, values: values || [] };
+        }
+        return vital;
+      }));
+      
       // Store in sessionStorage for ChatTab to access
       sessionStorage.setItem('currentHealthContext', JSON.stringify({
-        labs: labs,
-        vitals: vitals,
+        labs: labsWithValues,
+        vitals: vitalsWithValues,
         symptoms: symptomData
       }));
       
@@ -901,6 +1012,8 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                         };
 
                                         const isSelected = selectedDataPoint === `${selectedLab}-${d.id}`;
+                                        const pointKey = `${selectedLab}-${d.id}`;
+                                        const isHovered = hoveredDataPoint === pointKey;
                                         
                                         return (
                                           <div
@@ -909,8 +1022,11 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                             style={{
                                               left: `${x}%`,
                                               bottom: `${y}%`,
-                                              transform: 'translate(-50%, 50%)'
+                                              transform: 'translate(-50%, 50%)',
+                                              zIndex: isSelected ? 30 : (isHovered ? 25 : 10)
                                             }}
+                                            onMouseEnter={() => setHoveredDataPoint(pointKey)}
+                                            onMouseLeave={() => setHoveredDataPoint(null)}
                                           >
                                             {/* Touch/Click area - larger on mobile */}
                                             <div 
@@ -969,12 +1085,13 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                               } ${
                                                 x < 10 ? 'left-0' : x > 90 ? 'right-0' : 'left-1/2 transform -translate-x-1/2'
                                               }`}
-                                              style={{ zIndex: 50 }}
+                                              style={{ zIndex: 30 }}
                                             >
                                               <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl whitespace-nowrap tooltip-container">
                                                 <div className="flex items-center justify-between gap-3">
                                                   <div>
                                                 <div className="font-bold text-sm">{d.value} {currentLab.unit}</div>
+                                                <div className="text-xs text-gray-400 mt-0.5">{d.date}</div>
                                                   </div>
                                                   {d.id && (
                                                     <div className="flex items-center gap-2">
@@ -1130,13 +1247,76 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                 })()}
                               </div>
 
-                              {/* X-axis labels */}
-                              <div className="flex justify-between border-t border-gray-300 pt-2 text-xs text-gray-600">
-                                {currentLab.data.map((d, i) => (
-                                  <span key={i} className="hidden sm:inline">{d.date}</span>
-                                ))}
-                                <span className="sm:hidden">{currentLab.data[0].date}</span>
-                                <span className="sm:hidden">{currentLab.data[currentLab.data.length - 1].date}</span>
+                              {/* X-axis labels - show unique month/year only, aligned with data points */}
+                              <div className="relative border-t border-gray-300 pt-2 text-xs text-gray-600" style={{ height: '20px' }}>
+                                {(() => {
+                                  if (!currentLab.data || currentLab.data.length === 0) {
+                                    return <span>No data</span>;
+                                  }
+
+                                  const seenMonthYears = new Set();
+                                  const monthLabels = [];
+                                  const monthYearData = []; // Store { label, index, position }
+                                  const dataLength = currentLab.data.length;
+
+                                  currentLab.data.forEach((d, i) => {
+                                    let dateObj = d.dateOriginal;
+                                    if (!dateObj && d.timestamp) {
+                                      dateObj = new Date(d.timestamp);
+                                    }
+                                    if (dateObj instanceof Date && !isNaN(dateObj.getTime())) {
+                                      const monthYear = dateObj.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                                      if (!seenMonthYears.has(monthYear)) {
+                                        seenMonthYears.add(monthYear);
+                                        const leftPercent = (i / Math.max(dataLength - 1, 1)) * 100;
+                                        monthYearData.push({ label: monthYear, index: i, position: leftPercent });
+                                        // Calculate position based on data point index
+                                        monthLabels.push(
+                                          <span
+                                            key={i}
+                                            className="absolute hidden sm:inline whitespace-nowrap"
+                                            style={{ left: `${leftPercent}%`, transform: 'translateX(-50%)' }}
+                                          >
+                                            {monthYear}
+                                          </span>
+                                        );
+                                      }
+                                    }
+                                  });
+
+                                  // For mobile: show first, middle (if 3+), and last (max 3 labels)
+                                  let mobileLabels = [];
+                                  if (monthYearData.length > 0) {
+                                    if (monthYearData.length === 1) {
+                                      mobileLabels = [monthYearData[0]];
+                                    } else if (monthYearData.length === 2) {
+                                      mobileLabels = [monthYearData[0], monthYearData[1]];
+                                    } else {
+                                      // Show first, middle, and last
+                                      const midIndex = Math.floor(monthYearData.length / 2);
+                                      mobileLabels = [
+                                        monthYearData[0],
+                                        monthYearData[midIndex],
+                                        monthYearData[monthYearData.length - 1]
+                                      ];
+                                    }
+                                  }
+
+                                  return (
+                                    <>
+                                      {monthLabels}
+                                      {mobileLabels.map((item, idx) => (
+                                        <span
+                                          key={`mobile-${item.index}`}
+                                          className="absolute sm:hidden whitespace-nowrap"
+                                          style={{ left: `${item.position}%`, transform: 'translateX(-50%)' }}
+                                        >
+                                          {item.label}
+                                        </span>
+                                      ))}
+                                    </>
+                                  );
+                                })()}
                               </div>
                             </div>
                           </div>
@@ -1176,14 +1356,38 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                 <div
                                       key={key}
                                   className={`relative bg-white rounded-lg shadow-sm p-4 border-2 transition-all cursor-pointer ${
-                                    selectedLab === key
+                                    metricSelectionMode && selectedMetrics.has(key)
+                                      ? 'border-blue-500 bg-blue-50'
+                                      : selectedLab === key && !metricSelectionMode
                                       ? 'border-medical-primary-500 bg-medical-primary-50'
                                       : 'border-medical-neutral-200 hover:border-medical-neutral-300 hover:shadow-md'
                                   }`}
-                                  onClick={() => setSelectedLab(key)}
+                                  onClick={() => {
+                                    if (metricSelectionMode) {
+                                      const newSelected = new Set(selectedMetrics);
+                                      if (newSelected.has(key)) {
+                                        newSelected.delete(key);
+                                      } else {
+                                        newSelected.add(key);
+                                      }
+                                      setSelectedMetrics(newSelected);
+                                    } else {
+                                      setSelectedLab(key);
+                                    }
+                                  }}
                                 >
+                                  {metricSelectionMode && (
+                                    <div className="absolute top-3 left-3">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedMetrics.has(key)}
+                                        onChange={() => {}}
+                                        className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 pointer-events-none"
+                                      />
+                                    </div>
+                                  )}
 
-                                  <div className="flex items-start justify-between mb-2">
+                                  <div className={`flex items-start justify-between mb-2 ${metricSelectionMode ? 'ml-8' : ''}`}>
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2 mb-1">
                                         <p className="text-sm font-semibold text-medical-neutral-900">
@@ -1194,6 +1398,16 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                             </span>
                                           )}
                                         </p>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleFavorite(key, 'labs');
+                                          }}
+                                          className="text-yellow-500 hover:text-yellow-600 transition-colors"
+                                          title={favoriteMetrics.labs?.includes(key) ? "Remove from favorites" : "Add to favorites"}
+                                        >
+                                          <Star className={`w-3.5 h-3.5 ${favoriteMetrics.labs?.includes(key) ? 'fill-yellow-500' : ''}`} />
+                                        </button>
                                         {labDescription && (
                                           <button
                                             onClick={(e) => {
@@ -1350,11 +1564,49 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                               return (
                                 <div
                                   key={key}
-                                  className="relative bg-white rounded-lg shadow-sm p-4 border border-medical-neutral-200 hover:shadow-md transition-all"
+                                  className={`relative bg-white rounded-lg shadow-sm p-4 border-2 transition-all cursor-pointer ${
+                                    metricSelectionMode && selectedMetrics.has(key)
+                                      ? 'border-blue-500 bg-blue-50'
+                                      : 'border-medical-neutral-200 hover:border-medical-neutral-300 hover:shadow-md'
+                                  }`}
+                                  onClick={() => {
+                                    if (metricSelectionMode) {
+                                      const newSelected = new Set(selectedMetrics);
+                                      if (newSelected.has(key)) {
+                                        newSelected.delete(key);
+                                      } else {
+                                        newSelected.add(key);
+                                      }
+                                      setSelectedMetrics(newSelected);
+                                    }
+                                  }}
                                 >
-                                  <div className="flex items-start justify-between">
+                                  {metricSelectionMode && (
+                                    <div className="absolute top-3 left-3">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedMetrics.has(key)}
+                                        onChange={() => {}}
+                                        className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 pointer-events-none"
+                                      />
+                                    </div>
+                                  )}
+
+                                  <div className={`flex items-start justify-between ${metricSelectionMode ? 'ml-8' : ''}`}>
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-semibold text-medical-neutral-900 mb-1">{displayName}</p>
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <p className="text-sm font-semibold text-medical-neutral-900">{displayName}</p>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleFavorite(key, 'labs');
+                                          }}
+                                          className="text-yellow-500 hover:text-yellow-600 transition-colors"
+                                          title={favoriteMetrics.labs?.includes(key) ? "Remove from favorites" : "Add to favorites"}
+                                        >
+                                          <Star className={`w-3.5 h-3.5 ${favoriteMetrics.labs?.includes(key) ? 'fill-yellow-500' : ''}`} />
+                                        </button>
+                                      </div>
                                       {lab.current ? (
                                         <>
                                           <p className="text-base font-bold text-medical-neutral-900">{lab.current}</p>
@@ -1487,6 +1739,17 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                             'Custom Values',
                             'Others'
                           ];
+
+                          // Helper function to get category for a lab key
+                          const getLabCategory = (labKey) => {
+                            // Check categorizedLabs to find where this lab actually is
+                            for (const [category, labs] of Object.entries(categorizedLabs)) {
+                              if (labs.some(([key]) => key === labKey)) {
+                                return category;
+                              }
+                            }
+                            return null;
+                          };
 
                           // Helper function to check if a lab is empty (same logic as filter)
                           const isLabEmpty = (lab) => {
@@ -1653,101 +1916,124 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
 
                           return (
                             <div className="space-y-4 mt-6">
-                              {/* Upload Lab Report and Add Lab Metric Buttons */}
-                              <div className="flex justify-end gap-3 mb-2">
-                          <button
-                                  onClick={() => simulateDocumentUpload('lab')}
-                                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
-                          >
-                                  <Upload className="w-4 h-4" />
-                                  <span className="text-sm font-medium">Upload Lab Report</span>
-                          </button>
-                          <button
-                                  onClick={() => setShowAddLab(true)}
-                                  className="flex items-center gap-2 text-medical-primary-600 hover:text-medical-primary-700 transition-colors"
-                          >
-                                  <Plus className="w-4 h-4" />
-                                  <span className="text-sm font-medium">Add Lab Metric</span>
-                          </button>
-                              </div>
-                              
-                              {/* Search Bar and Hide Empty Metrics Toggle */}
+                              {/* Search Bar and 3-dot Menu */}
                               <div className="mb-4 space-y-3">
-                                <div className="relative">
-                                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Search className="h-5 w-5 text-gray-400" />
+                                <div className="flex gap-2 items-center">
+                                  <div className="relative flex-1">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                      <Search className="h-5 w-5 text-gray-400" />
+                                    </div>
+                                    <input
+                                      type="text"
+                                      value={labSearchQuery}
+                                      onChange={(e) => setLabSearchQuery(e.target.value)}
+                                      placeholder="Search labs by name..."
+                                      className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-medical-primary-500 focus:border-medical-primary-500 text-sm"
+                                    />
+                                    {labSearchQuery && (
+                                      <button
+                                        onClick={() => setLabSearchQuery('')}
+                                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                                      >
+                                        <X className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                                      </button>
+                                    )}
                                   </div>
-                                  <input
-                                    type="text"
-                                    value={labSearchQuery}
-                                    onChange={(e) => setLabSearchQuery(e.target.value)}
-                                    placeholder="Search labs by name..."
-                                    className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-medical-primary-500 focus:border-medical-primary-500 text-sm"
-                                  />
-                                  {labSearchQuery && (
+
+                                  {/* 3-dot menu */}
+                                  <div className="relative">
                                     <button
-                                      onClick={() => setLabSearchQuery('')}
-                                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                                      onClick={() => setOpenEmptyMetricsMenu(!openEmptyMetricsMenu)}
+                                      className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                                      aria-label="Lab options"
                                     >
-                                      <X className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                                      <MoreVertical className="w-5 h-5" />
                                     </button>
-                                  )}
-                                </div>
-                                
-                                {/* Empty Metrics Options - only show if there are empty metrics */}
-                                {(() => {
-                                  // Find all empty labs
-                                  const emptyLabs = Object.entries(allLabData).filter(([key, lab]) => isLabEmpty(lab));
-                                  
-                                  if (emptyLabs.length === 0) {
-                                    return null; // Don't show options if no empty metrics
-                                  }
-                                  
-                                  return (
-                                    <div className="flex items-center justify-end">
-                                      <div className="relative">
-                                        <button
-                                          onClick={() => setOpenEmptyMetricsMenu(!openEmptyMetricsMenu)}
-                                          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                                          aria-label="Empty metrics options"
-                                        >
-                                          <MoreVertical className="w-5 h-5" />
-                                        </button>
-                                        
-                                        {openEmptyMetricsMenu && (
+
+                                    {openEmptyMetricsMenu && (() => {
+                                      const emptyLabs = Object.entries(allLabData).filter(([key, lab]) => isLabEmpty(lab));
+
+                                      return (
                                           <>
                                             <div
                                               className="fixed inset-0 z-40"
                                               onClick={() => setOpenEmptyMetricsMenu(false)}
                                             />
                                             <div className="absolute right-0 top-10 z-[100] bg-white rounded-lg shadow-lg border border-gray-200 py-2 min-w-[240px]">
-                                              {/* Hide Empty Metrics Toggle */}
-                                              <label className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors">
-                                                <input
-                                                  type="checkbox"
-                                                  checked={hideEmptyMetrics}
-                                                  onChange={(e) => {
-                                                    setHideEmptyMetrics(e.target.checked);
-                                                    setOpenEmptyMetricsMenu(false);
-                                                  }}
-                                                  className="w-4 h-4 text-medical-primary-600 border-gray-300 rounded focus:ring-medical-primary-500 focus:ring-2 cursor-pointer"
-                                                />
-                                                <div className="flex items-center gap-2 flex-1">
-                                                  {hideEmptyMetrics ? (
-                                                    <EyeOff className="w-4 h-4 text-gray-600" />
-                                                  ) : (
-                                                    <Eye className="w-4 h-4 text-gray-400" />
-                                                  )}
-                                                  <span className="text-sm text-gray-700">
-                                                    Hide metrics with no values
-                                                  </span>
-                                                </div>
-                                              </label>
-                                              
-                                              <div className="border-t border-gray-200 my-1"></div>
-                                              
-                                              {/* Delete Empty Metrics Button */}
+                                              {/* Upload Lab Report Button */}
                                               <button
+                                                onClick={() => {
+                                                  setOpenEmptyMetricsMenu(false);
+                                                  openDocumentOnboarding('lab-report');
+                                                }}
+                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors min-h-[44px] touch-manipulation active:opacity-70"
+                                              >
+                                                <Upload className="w-4 h-4" />
+                                                Upload Lab Report
+                                              </button>
+
+                                              {/* Add Lab Metric Button */}
+                                              <button
+                                                onClick={() => {
+                                                  setOpenEmptyMetricsMenu(false);
+                                                  setShowAddLab(true);
+                                                }}
+                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors min-h-[44px] touch-manipulation active:opacity-70"
+                                              >
+                                                <Plus className="w-4 h-4" />
+                                                Add Lab Metric
+                                              </button>
+
+                                              <div className="border-t border-gray-200 my-1"></div>
+
+                                              {/* Select to Delete Metrics Button */}
+                                              <button
+                                                onClick={() => {
+                                                  setOpenEmptyMetricsMenu(false);
+                                                  setMetricSelectionMode(true);
+                                                  setSelectedMetrics(new Set());
+                                                  // Expand all categories
+                                                  const allExpanded = {};
+                                                  Object.keys(expandedCategories).forEach(cat => {
+                                                    allExpanded[cat] = true;
+                                                  });
+                                                  setExpandedCategories(allExpanded);
+                                                }}
+                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors min-h-[44px] touch-manipulation active:opacity-70"
+                                              >
+                                                <Check className="w-4 h-4" />
+                                                Select metrics to delete
+                                              </button>
+
+                                              {emptyLabs.length > 0 && (
+                                                <>
+                                                  <div className="border-t border-gray-200 my-1"></div>
+
+                                                  {/* Hide Empty Metrics Toggle */}
+                                                  <label className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors">
+                                                    <input
+                                                      type="checkbox"
+                                                      checked={hideEmptyMetrics}
+                                                      onChange={(e) => {
+                                                        setHideEmptyMetrics(e.target.checked);
+                                                        setOpenEmptyMetricsMenu(false);
+                                                      }}
+                                                      className="w-4 h-4 text-medical-primary-600 border-gray-300 rounded focus:ring-medical-primary-500 focus:ring-2 cursor-pointer"
+                                                    />
+                                                    <div className="flex items-center gap-2 flex-1">
+                                                      {hideEmptyMetrics ? (
+                                                        <EyeOff className="w-4 h-4 text-gray-600" />
+                                                      ) : (
+                                                        <Eye className="w-4 h-4 text-gray-400" />
+                                                      )}
+                                                      <span className="text-sm text-gray-700">
+                                                        Hide metrics with no values
+                                                      </span>
+                                                    </div>
+                                                  </label>
+
+                                                  {/* Delete Empty Metrics Button */}
+                                                  <button
                                                 onClick={async () => {
                                                   setOpenEmptyMetricsMenu(false);
                                                   
@@ -1809,19 +2095,115 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                   </>
                                                 )}
                                               </button>
+                                                </>
+                                              )}
                                             </div>
                                           </>
-                                        )}
-                                      </div>
-                                    </div>
-                                  );
-                                })()}
+                                      );
+                                    })()}
+                                  </div>
+                                </div>
                               </div>
                               
+                              {/* Selection Mode Banner */}
+                              {metricSelectionMode && (
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <h4 className="text-sm font-semibold text-gray-900">
+                                        Select metrics to delete ({selectedMetrics.size} selected)
+                                      </h4>
+                                      <p className="text-xs text-gray-600 mt-1">Click on metric cards to select them</p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => {
+                                          setMetricSelectionMode(false);
+                                          setSelectedMetrics(new Set());
+                                          // Reset to default: all categories collapsed
+                                          setExpandedCategories({
+                                            'Disease-Specific Markers': false,
+                                            'Liver Function': false,
+                                            'Kidney Function': false,
+                                            'Blood Counts': false,
+                                            'Thyroid Function': false,
+                                            'Cardiac Markers': false,
+                                            'Inflammation': false,
+                                            'Electrolytes': false,
+                                            'Coagulation': false,
+                                            'Custom Values': false,
+                                            'Others': false
+                                          });
+                                        }}
+                                        className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
+                                      >
+                                        Cancel
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          if (selectedMetrics.size === 0) {
+                                            showError('Please select at least one metric to delete');
+                                            return;
+                                          }
+
+                                          const selectedKeys = Array.from(selectedMetrics);
+                                          const selectedNames = selectedKeys.map(key => getLabDisplayName(allLabData[key]?.name || key));
+
+                                          setDeleteConfirm({
+                                            show: true,
+                                            title: `Delete ${selectedMetrics.size} Selected Metric${selectedMetrics.size !== 1 ? 's' : ''}?`,
+                                            message: `This will permanently delete: ${selectedNames.slice(0, 3).join(', ')}${selectedMetrics.size > 3 ? ` and ${selectedMetrics.size - 3} more` : ''}.`,
+                                            itemName: `${selectedMetrics.size} metric${selectedMetrics.size !== 1 ? 's' : ''}`,
+                                            confirmText: 'Yes, Delete',
+                                            onConfirm: async () => {
+                                              try {
+                                                // Delete all selected metrics
+                                                for (const labType of selectedKeys) {
+                                                  await labService.deleteAllLabsByType(user.uid, labType);
+                                                }
+
+                                                // Reload data
+                                                await reloadHealthData();
+
+                                                // Exit selection mode and reset to default: all categories collapsed
+                                                setMetricSelectionMode(false);
+                                                setSelectedMetrics(new Set());
+                                                setExpandedCategories({
+                                                  'Disease-Specific Markers': false,
+                                                  'Liver Function': false,
+                                                  'Kidney Function': false,
+                                                  'Blood Counts': false,
+                                                  'Thyroid Function': false,
+                                                  'Cardiac Markers': false,
+                                                  'Inflammation': false,
+                                                  'Electrolytes': false,
+                                                  'Coagulation': false,
+                                                  'Custom Values': false,
+                                                  'Others': false
+                                                });
+
+                                                showSuccess(`Deleted ${selectedKeys.length} metric${selectedKeys.length !== 1 ? 's' : ''}`);
+                                              } catch (error) {
+                                                console.error('Error deleting selected metrics:', error);
+                                                showError('Failed to delete selected metrics');
+                                              }
+                                            }
+                                          });
+                                        }}
+                                        disabled={selectedMetrics.size === 0}
+                                        className="px-3 py-1.5 text-sm text-white bg-red-600 rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        Delete ({selectedMetrics.size})
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
                               {/* Total metrics count - aligned left above first card */}
-                              {totalLabCount > 0 && (
+                              {totalLabCount > 0 && !metricSelectionMode && (
                                 <p className="text-sm text-medical-neutral-600 mb-2 text-left">
-                                  {labSearchQuery 
+                                  {labSearchQuery
                                     ? `${totalLabCount} metric${totalLabCount !== 1 ? 's' : ''} found`
                                     : `${totalLabCount} metric${totalLabCount !== 1 ? 's' : ''} tracked`}
                                 </p>
@@ -1831,6 +2213,63 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                   No labs found matching "{labSearchQuery}"
                                 </p>
                               )}
+                              
+                              {/* Favorite Labs Section - Only show if there are favorites and not in search mode */}
+                              {!labSearchQuery && favoriteMetrics.labs && favoriteMetrics.labs.length > 0 && (() => {
+                                const favoriteLabItems = favoriteMetrics.labs
+                                  .filter(key => allLabData[key] && !isLabEmpty(allLabData[key]))
+                                  .map(key => ({
+                                    key,
+                                    lab: allLabData[key],
+                                    category: getLabCategory(key),
+                                    displayName: getLabDisplayName(allLabData[key]?.name || key)
+                                  }))
+                                  .filter(item => item.category); // Only show if category was found
+
+                                if (favoriteLabItems.length === 0) return null;
+
+                                return (
+                                  <div className="mb-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                                      <h3 className="text-sm font-semibold text-medical-neutral-700">Favorite Labs</h3>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                      {favoriteLabItems.map(({ key, category, displayName }) => (
+                                        <button
+                                          key={key}
+                                          onClick={() => {
+                                            // Expand the category and scroll to it
+                                            setExpandedCategories(prev => {
+                                              const allClosed = Object.keys(prev).reduce((acc, cat) => {
+                                                acc[cat] = false;
+                                                return acc;
+                                              }, {});
+                                              return {
+                                                ...allClosed,
+                                                [category]: true
+                                              };
+                                            });
+                                            // Scroll to the category after a brief delay to allow expansion
+                                            setTimeout(() => {
+                                              const categoryElement = document.querySelector(`[data-category="${category}"]`);
+                                              if (categoryElement) {
+                                                categoryElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                              }
+                                            }, 100);
+                                          }}
+                                          className="px-3 py-1.5 bg-yellow-50 border border-yellow-200 text-medical-neutral-900 rounded-lg hover:bg-yellow-100 hover:border-yellow-300 transition-colors text-sm font-medium flex items-center gap-1.5 min-h-[44px] touch-manipulation active:opacity-70"
+                                        >
+                                          <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
+                                          <span>{displayName}</span>
+                                          <ChevronRight className="w-3 h-3 text-medical-neutral-400" />
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                              
                               {categoryOrder.map(category => {
                                 const labsInCategory = filteredCategorizedLabs[category];
                                 if (!labsInCategory || labsInCategory.length === 0) return null;
@@ -1842,14 +2281,24 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                 return (
                                   <div
                                     key={category}
+                                    data-category={category}
                                     className="bg-white rounded-xl shadow-sm border border-medical-neutral-200 overflow-visible transition-all hover:shadow-md"
                                   >
                                     {/* Category Header - Clickable to expand/collapse */}
                                     <button
-                                      onClick={() => setExpandedCategories(prev => ({
-                                        ...prev,
-                                        [category]: !prev[category]
-                                      }))}
+                                      onClick={() => setExpandedCategories(prev => {
+                                        const isCurrentlyExpanded = prev[category];
+                                        // Close all categories
+                                        const allClosed = Object.keys(prev).reduce((acc, key) => {
+                                          acc[key] = false;
+                                          return acc;
+                                        }, {});
+                                        // Toggle the clicked category
+                                        return {
+                                          ...allClosed,
+                                          [category]: !isCurrentlyExpanded
+                                        };
+                                      })}
                                       className="w-full p-3 sm:p-5 flex items-center justify-between hover:bg-medical-neutral-50 transition-colors min-h-[44px] touch-manipulation active:opacity-70"
                                     >
                                       <div className="flex items-center gap-4 flex-1">
@@ -1938,6 +2387,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                             <h2 className="text-base sm:text-lg font-semibold text-gray-900">Vital Signs</h2>
                             <div className="flex items-center gap-2 w-full sm:w-auto">
                               {Object.keys(allVitalsData).length > 0 ? (
+                            <>
                             <select
                               value={selectedVital}
                               onChange={(e) => setSelectedVital(e.target.value)}
@@ -1989,6 +2439,14 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                       ));
                                   })()}
                             </select>
+                            <button
+                              onClick={() => toggleFavorite(selectedVital, 'vitals')}
+                              className="text-yellow-500 hover:text-yellow-600 transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                              title={favoriteMetrics.vitals?.includes(selectedVital) ? "Remove from favorites" : "Add to favorites"}
+                            >
+                              <Star className={`w-4 h-4 ${favoriteMetrics.vitals?.includes(selectedVital) ? 'fill-yellow-500' : ''}`} />
+                            </button>
+                            </>
                               ) : (
                                 <div className="text-sm text-gray-500">No vitals available</div>
                               )}
@@ -2554,6 +3012,9 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                 gray: 'bg-gray-100 text-gray-700'
                                               };
 
+                                              const isVitalSelected = selectedDataPoint === `${selectedVital}-${d.id}`;
+                                              const vitalPointKey = `${selectedVital}-${d.id}`;
+                                              const isVitalHovered = hoveredDataPoint === vitalPointKey;
                                               return (
                                                 <div
                                                   key={i}
@@ -2561,8 +3022,11 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                   style={{
                                                     left: `${x}%`,
                                                     bottom: `${y}%`,
-                                                    transform: 'translate(-50%, 50%)'
+                                                    transform: 'translate(-50%, 50%)',
+                                                    zIndex: isVitalSelected ? 20 : (isVitalHovered ? 25 : 10)
                                                   }}
+                                                  onMouseEnter={() => setHoveredDataPoint(vitalPointKey)}
+                                                  onMouseLeave={() => setHoveredDataPoint(null)}
                                                 >
                                                   {/* Touch/Click area - larger on mobile */}
                                                   <div 
@@ -2621,7 +3085,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                     } ${
                                                       x < 10 ? 'left-0' : x > 90 ? 'right-0' : 'left-1/2 transform -translate-x-1/2'
                                                     }`}
-                                                    style={{ zIndex: 50 }}
+                                                    style={{ zIndex: 30 }}
                                                   >
                                                     <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl whitespace-nowrap tooltip-container">
                                                       <div className="flex items-center justify-between gap-3">
@@ -2629,6 +3093,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                       <div className="font-bold text-sm">
                                                         {displayValue} {currentVital.unit}
                                                       </div>
+                                                      <div className="text-xs text-gray-400 mt-0.5">{d.date}</div>
                                                         </div>
                                                         {d.id && (
                                                           <div className="flex items-center gap-2">
@@ -2826,13 +3291,76 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                       })()}
                                     </div>
 
-                                    {/* X-axis labels */}
-                                    <div className="flex justify-between border-t border-gray-300 pt-2 text-xs text-gray-600">
-                                      {currentVital.data.map((d, i) => (
-                                        <span key={i} className="hidden sm:inline">{d.date}</span>
-                                      ))}
-                                      <span className="sm:hidden">{currentVital.data[0]?.date}</span>
-                                      <span className="sm:hidden">{currentVital.data[currentVital.data.length - 1]?.date}</span>
+                                    {/* X-axis labels - show unique month/year only, aligned with data points */}
+                                    <div className="relative border-t border-gray-300 pt-2 text-xs text-gray-600" style={{ height: '20px' }}>
+                                      {(() => {
+                                        if (!currentVital.data || currentVital.data.length === 0) {
+                                          return <span>No data</span>;
+                                        }
+
+                                        const seenMonthYears = new Set();
+                                        const monthLabels = [];
+                                        const monthYearData = []; // Store { label, index, position }
+                                        const dataLength = currentVital.data.length;
+
+                                        currentVital.data.forEach((d, i) => {
+                                          let dateObj = d.dateOriginal;
+                                          if (!dateObj && d.timestamp) {
+                                            dateObj = new Date(d.timestamp);
+                                          }
+                                          if (dateObj instanceof Date && !isNaN(dateObj.getTime())) {
+                                            const monthYear = dateObj.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                                            if (!seenMonthYears.has(monthYear)) {
+                                              seenMonthYears.add(monthYear);
+                                              const leftPercent = (i / Math.max(dataLength - 1, 1)) * 100;
+                                              monthYearData.push({ label: monthYear, index: i, position: leftPercent });
+                                              // Calculate position based on data point index
+                                              monthLabels.push(
+                                                <span
+                                                  key={i}
+                                                  className="absolute hidden sm:inline whitespace-nowrap"
+                                                  style={{ left: `${leftPercent}%`, transform: 'translateX(-50%)' }}
+                                                >
+                                                  {monthYear}
+                                                </span>
+                                              );
+                                            }
+                                          }
+                                        });
+
+                                        // For mobile: show first, middle (if 3+), and last (max 3 labels)
+                                        let mobileLabels = [];
+                                        if (monthYearData.length > 0) {
+                                          if (monthYearData.length === 1) {
+                                            mobileLabels = [monthYearData[0]];
+                                          } else if (monthYearData.length === 2) {
+                                            mobileLabels = [monthYearData[0], monthYearData[1]];
+                                          } else {
+                                            // Show first, middle, and last
+                                            const midIndex = Math.floor(monthYearData.length / 2);
+                                            mobileLabels = [
+                                              monthYearData[0],
+                                              monthYearData[midIndex],
+                                              monthYearData[monthYearData.length - 1]
+                                            ];
+                                          }
+                                        }
+
+                                        return (
+                                          <>
+                                            {monthLabels}
+                                            {mobileLabels.map((item, idx) => (
+                                              <span
+                                                key={`mobile-${item.index}`}
+                                                className="absolute sm:hidden"
+                                                style={{ left: `${item.position}%`, transform: 'translateX(-50%)' }}
+                                              >
+                                                {item.label}
+                                              </span>
+                                            ))}
+                                          </>
+                                        );
+                                      })()}
                                     </div>
                                   </div>
                                 </div>
@@ -2929,6 +3457,16 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                             </span>
                                           )}
                                         </p>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleFavorite(key, 'vitals');
+                                          }}
+                                          className="text-yellow-500 hover:text-yellow-600 transition-colors"
+                                          title={favoriteMetrics.vitals?.includes(key) ? "Remove from favorites" : "Add to favorites"}
+                                        >
+                                          <Star className={`w-3.5 h-3.5 ${favoriteMetrics.vitals?.includes(key) ? 'fill-yellow-500' : ''}`} />
+                                        </button>
                                       </div>
                                       <div className="flex items-baseline gap-2">
                                         <p className="text-xl font-bold text-medical-neutral-900">{vital.current}</p>

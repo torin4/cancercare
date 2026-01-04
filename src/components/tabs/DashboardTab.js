@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Activity, TrendingUp, Upload, AlertCircle, ClipboardList, Info, Dna, Bookmark, Star, ChevronRight, Search, MessageSquare, X, Heart, Loader2 } from 'lucide-react';
+import { Zap, Activity, TrendingUp, Upload, AlertCircle, ClipboardList, Info, Dna, Bookmark, Star, ChevronRight, Search, MessageSquare, X, Heart, Loader2, BarChart } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
@@ -8,6 +8,7 @@ import { getSavedTrials } from '../../services/clinicalTrials/clinicalTrialsServ
 import { parseMutation, getTodayLocalDate } from '../../utils/helpers';
 import { formatLabel } from '../../utils/formatters';
 import { normalizeLabName, getLabDisplayName, labValueDescriptions, normalizeVitalName, getVitalDisplayName, vitalDescriptions, labKeyMap } from '../../utils/normalizationUtils';
+import { getLabStatus, getVitalStatus } from '../../utils/healthUtils';
 import { processDocument, generateChatSummary } from '../../services/documentProcessor';
 import { uploadDocument } from '../../firebase/storage';
 import AddSymptomModal from '../modals/AddSymptomModal';
@@ -413,217 +414,256 @@ setIsUploading(false);
           </div>
         )}
 
-        {/* Most Important Labs & Vitals - Single Row */}
+        {/* Key Metrics - Only show if there are favorites */}
         {hasRealLabData || hasRealVitalData ? (() => {
-          // Get most important labs (prioritize by relevance score, then by critical list)
-          const importantLabKeys = Object.keys(labsData)
-            .filter(key => {
-              const lab = labsData[key];
-              return lab && ((lab.data && lab.data.length > 0) || lab.current) && lab.relevanceScore >= 1;
-            })
-            .sort((a, b) => {
-              const labA = labsData[a];
-              const labB = labsData[b];
-              // Sort by relevance score (higher first), then by critical list order
-              if (labB.relevanceScore !== labA.relevanceScore) {
-                return labB.relevanceScore - labA.relevanceScore;
+          // Check if user has favorited any metrics
+          const favoriteLabs = patientProfile?.favoriteMetrics?.labs || [];
+          const favoriteVitals = patientProfile?.favoriteMetrics?.vitals || [];
+          const hasFavorites = favoriteLabs.length > 0 || favoriteVitals.length > 0;
+
+          // Helper function to render a metric item
+          const renderMetricItem = (item, itemType) => {
+            const data = item.data;
+            let latestValue = (data.data && data.data.length > 0)
+              ? data.data[data.data.length - 1]?.value
+              : data.current;
+            
+            // Calculate proper status using healthUtils functions
+            let statusInfo = { status: 'normal', color: 'green', label: 'Normal' };
+            const numValue = typeof latestValue === 'string' && latestValue.includes('/') 
+              ? latestValue 
+              : parseFloat(latestValue);
+            
+            if (itemType === 'lab' && !isNaN(numValue) && data.normalRange) {
+              statusInfo = getLabStatus(numValue, data.normalRange);
+            } else if (itemType === 'vital' && data.normalRange) {
+              const vitalKey = normalizeVitalName(item.key) || item.key;
+              statusInfo = getVitalStatus(latestValue, data.normalRange, vitalKey);
+            } else {
+              // Fallback to data.status if available
+              const dataStatus = data.status || 'normal';
+              if (dataStatus === 'warning') {
+                statusInfo = { status: 'warning', color: 'yellow', label: 'Above normal' };
+              } else if (dataStatus === 'danger') {
+                statusInfo = { status: 'danger', color: 'red', label: 'High' };
               }
-              const criticalOrder = ['ca125', 'cea', 'wbc', 'hemoglobin', 'platelets', 'creatinine', 'alt', 'ast', 'albumin', 'ldh'];
-              const idxA = criticalOrder.indexOf(a.toLowerCase());
-              const idxB = criticalOrder.indexOf(b.toLowerCase());
-              if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-              if (idxA !== -1) return -1;
-              if (idxB !== -1) return 1;
-              return 0;
-            })
-            .slice(0, 4); // Top 4 labs
+            }
+            
+            // Get description using normalized system (for labs and vitals)
+            let description = '';
+            let displayName = data.name;
+            if (itemType === 'lab') {
+              const canonicalKey = normalizeLabName(data.name || item.key);
+              if (canonicalKey && labValueDescriptions[canonicalKey]) {
+                description = labValueDescriptions[canonicalKey];
+                displayName = getLabDisplayName(data.name || item.key);
+              }
+            } else if (itemType === 'vital') {
+              const canonicalKey = normalizeVitalName(data.name || item.key);
+              if (canonicalKey && vitalDescriptions[canonicalKey]) {
+                description = vitalDescriptions[canonicalKey];
+                displayName = getVitalDisplayName(data.name || item.key);
+              }
+            }
+            
+            // Determine color classes based on status
+            const statusColorClass = 
+              statusInfo.color === 'red' ? 'text-red-500' :
+              statusInfo.color === 'yellow' ? 'text-orange-500' :
+              statusInfo.color === 'green' ? 'text-green-500' :
+              'text-medical-accent-500';
+            
+            const statusTextColorClass = 
+              statusInfo.color === 'red' ? 'text-red-600' :
+              statusInfo.color === 'yellow' ? 'text-orange-600' :
+              statusInfo.color === 'green' ? 'text-green-600' :
+              'text-medical-neutral-600';
+            
+            return (
+              <div key={`${itemType}-${item.key}`} className="text-center p-3 sm:p-4 bg-white rounded-lg border border-medical-neutral-200 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-center gap-1.5 mb-2">
+                  <span className="text-xs font-medium text-medical-neutral-700">{displayName}</span>
+                  <div className="flex items-center gap-1">
+                    <Activity className={`w-3.5 h-3.5 ${statusColorClass}`} />
+                    {description && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLabTooltip({
+                            labName: displayName,
+                            description: description
+                          });
+                        }}
+                        className="p-1.5 -m-1.5 text-medical-primary-500 hover:text-medical-primary-700 active:text-medical-primary-800 transition-colors touch-manipulation min-w-[32px] min-h-[32px] flex items-center justify-center"
+                        title="Learn more about this value"
+                        aria-label="Learn more about this value"
+                      >
+                        <Info className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p className="text-lg sm:text-xl font-bold text-medical-neutral-900">{latestValue}{data.unit ? ` ${data.unit}` : ''}</p>
+                <p className={`text-xs mt-1 font-medium ${statusTextColorClass}`}>
+                  {statusInfo.label}
+                </p>
+              </div>
+            );
+          };
 
-          // Get most important vitals (weight, blood pressure, temperature, heart rate)
-          const importantVitalKeys = Object.keys(vitalsData)
-            .filter(key => {
-              const vital = vitalsData[key];
-              return vital && ((vital.data && vital.data.length > 0) || vital.current);
-            })
-            .filter(key => ['weight', 'bp', 'bloodpressure', 'temperature', 'temp', 'heartrate', 'hr', 'pulse'].includes(key.toLowerCase()))
-            .slice(0, 4); // Top 4 vitals
-
-          const allImportantItems = [
-            ...importantLabKeys.map(key => ({ type: 'lab', key, data: labsData[key] })),
-            ...importantVitalKeys.map(key => ({ type: 'vital', key, data: vitalsData[key] }))
-          ].slice(0, 4); // Max 4 items in the row
-
-          // If no important items found, try to show any available data
-          if (allImportantItems.length === 0) {
-            // Fallback: show any labs or vitals with data
-            const anyLabKeys = Object.keys(labsData)
+          // Prepare Key Labs - show favorites if they exist, otherwise show defaults
+          const getKeyLabItems = () => {
+            if (!hasRealLabData) return null;
+            
+            // If there are favorite labs, use those
+            if (favoriteLabs.length > 0) {
+              const favoriteLabItems = favoriteLabs
+                .filter(key => labsData[key] && ((labsData[key].data && labsData[key].data.length > 0) || labsData[key].current))
+                .map(key => ({ type: 'lab', key, data: labsData[key] }))
+                .slice(0, 4);
+              if (favoriteLabItems.length > 0) return favoriteLabItems;
+            }
+            
+            // Otherwise, use default important labs
+            const keyLabKeys = Object.keys(labsData)
               .filter(key => {
                 const lab = labsData[key];
-                return lab && ((lab.data && lab.data.length > 0) || lab.current);
+                return lab && ((lab.data && lab.data.length > 0) || lab.current) && lab.relevanceScore >= 1;
               })
-              .slice(0, 3);
+              .sort((a, b) => {
+                const labA = labsData[a];
+                const labB = labsData[b];
+                if (labB.relevanceScore !== labA.relevanceScore) {
+                  return labB.relevanceScore - labA.relevanceScore;
+                }
+                const criticalOrder = ['ca125', 'cea', 'wbc', 'hemoglobin', 'platelets', 'creatinine', 'alt', 'ast', 'albumin', 'ldh'];
+                const idxA = criticalOrder.indexOf(a.toLowerCase());
+                const idxB = criticalOrder.indexOf(b.toLowerCase());
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                return 0;
+              })
+              .slice(0, 4);
+
+            const displayLabKeys = keyLabKeys.length > 0 
+              ? keyLabKeys
+              : Object.keys(labsData)
+                  .filter(key => {
+                    const lab = labsData[key];
+                    return lab && ((lab.data && lab.data.length > 0) || lab.current);
+                  })
+                  .slice(0, 4);
+
+            if (displayLabKeys.length === 0) return null;
+            return displayLabKeys.map(key => ({ type: 'lab', key, data: labsData[key] }));
+          };
+
+          // Prepare Key Vitals - show favorites if they exist, otherwise show defaults
+          const getKeyVitalItems = () => {
+            if (!hasRealVitalData) return null;
             
-            const anyVitalKeys = Object.keys(vitalsData)
+            // If there are favorite vitals, use those
+            if (favoriteVitals.length > 0) {
+              const favoriteVitalItems = favoriteVitals
+                .filter(key => {
+                  const vital = vitalsData[key];
+                  if (!vital) return false;
+                  const hasData = vital.data && Array.isArray(vital.data) && vital.data.length > 0;
+                  const hasCurrent = vital.current !== null && vital.current !== undefined && vital.current !== '';
+                  return hasData || hasCurrent;
+                })
+                .map(key => ({ type: 'vital', key, data: vitalsData[key] }))
+                .slice(0, 4);
+              if (favoriteVitalItems.length > 0) return favoriteVitalItems;
+            }
+            
+            // Otherwise, use default important vitals
+            const keyVitalKeys = Object.keys(vitalsData)
               .filter(key => {
                 const vital = vitalsData[key];
                 return vital && ((vital.data && vital.data.length > 0) || vital.current);
               })
-              .slice(0, 2);
-            
-            const fallbackItems = [
-              ...anyLabKeys.map(key => ({ type: 'lab', key, data: labsData[key] })),
-              ...anyVitalKeys.map(key => ({ type: 'vital', key, data: vitalsData[key] }))
-            ].slice(0, 5);
-            
-            if (fallbackItems.length === 0) return null;
-            
-            // Use fallback items
-            return (
-              <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-medical-primary-200 shadow-sm">
-                <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
-                  <div className="bg-medical-primary-50 p-2 rounded-lg">
-                    <ClipboardList className="w-5 h-5 text-medical-primary-600" />
-                  </div>
-                  Key Metrics
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                  {fallbackItems.map((item) => {
-                    const data = item.data;
-                    let latestValue = (data.data && data.data.length > 0)
-                      ? data.data[data.data.length - 1]?.value
-                      : data.current;
-                    const status = data.status || 'normal';
-                    
-                    // Get description using normalized system (for labs and vitals)
-                    let description = '';
-                    let displayName = data.name;
-                    if (item.type === 'lab') {
-                      const canonicalKey = normalizeLabName(data.name || item.key);
-                      if (canonicalKey && labValueDescriptions[canonicalKey]) {
-                        description = labValueDescriptions[canonicalKey];
-                        displayName = getLabDisplayName(data.name || item.key);
-                      }
-                    } else if (item.type === 'vital') {
-                      const canonicalKey = normalizeVitalName(data.name || item.key);
-                      if (canonicalKey && vitalDescriptions[canonicalKey]) {
-                        description = vitalDescriptions[canonicalKey];
-                        displayName = getVitalDisplayName(data.name || item.key);
-                      }
-                    }
-                    
-                    return (
-                      <div key={`${item.type}-${item.key}`} className="text-center p-3 sm:p-4 bg-white rounded-lg border border-medical-neutral-200 shadow-sm hover:shadow-md transition-shadow flex-1">
-                        <div className="flex items-center justify-center gap-1.5 mb-2">
-                          <span className="text-xs font-medium text-medical-neutral-700">{displayName}</span>
-                          <div className="flex items-center gap-1">
-                            <Activity className={`w-3.5 h-3.5 ${status === 'warning' ? 'text-orange-500' : status === 'danger' ? 'text-red-500' : 'text-medical-accent-500'}`} />
-                            {description && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setLabTooltip({
-                                    labName: displayName,
-                                    description: description
-                                  });
-                                }}
-                                className="p-1.5 -m-1.5 text-medical-primary-500 hover:text-medical-primary-700 active:text-medical-primary-800 transition-colors touch-manipulation min-w-[32px] min-h-[32px] flex items-center justify-center"
-                                title="Learn more about this value"
-                                aria-label="Learn more about this value"
-                              >
-                                <Info className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                        </div>
-                        </div>
-                        <p className="text-lg sm:text-xl font-bold text-medical-neutral-900">{latestValue}{data.unit ? ` ${data.unit}` : ''}</p>
-                        {status !== 'normal' && (
-                          <p className={`text-xs mt-1 font-medium ${status === 'warning' ? 'text-orange-600' : 'text-red-600'}`}>
-                            {status === 'warning' ? 'Above normal' : 'High'}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          }
+              .filter(key => ['weight', 'bp', 'bloodpressure', 'temperature', 'temp', 'heartrate', 'hr', 'pulse'].includes(key.toLowerCase()))
+              .slice(0, 4);
+
+            const displayVitalKeys = keyVitalKeys.length > 0
+              ? keyVitalKeys
+              : Object.keys(vitalsData)
+                  .filter(key => {
+                    const vital = vitalsData[key];
+                    return vital && ((vital.data && vital.data.length > 0) || vital.current);
+                  })
+                  .slice(0, 4);
+
+            if (displayVitalKeys.length === 0) return null;
+            return displayVitalKeys.map(key => ({ type: 'vital', key, data: vitalsData[key] }));
+          };
+
+          const keyLabItems = getKeyLabItems();
+          const keyVitalItems = getKeyVitalItems();
+          const showKeyLabs = keyLabItems !== null;
+          const showKeyVitals = keyVitalItems !== null;
 
           return (
-            <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-medical-primary-200 shadow-sm">
-              <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
-                <div className="bg-medical-primary-50 p-2 rounded-lg">
-                  <ClipboardList className="w-5 h-5 text-medical-primary-600" />
-                </div>
-                Key Metrics
-              </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {allImportantItems.map((item) => {
-                  const data = item.data;
-                  // Get latest value - labs and vitals both have data array or current
-                  let latestValue;
-                  if (item.type === 'lab') {
-                    latestValue = (data.data && data.data.length > 0)
-                      ? data.data[data.data.length - 1]?.value
-                      : data.current;
-                  } else {
-                    // Vitals structure
-                    latestValue = (data.data && data.data.length > 0)
-                      ? data.data[data.data.length - 1]?.value
-                      : data.current;
-                  }
-                  const status = data.status || 'normal';
-                  
-                  // Get description using normalized system (for labs and vitals)
-                  let description = '';
-                  let displayName = data.name;
-                  if (item.type === 'lab') {
-                    const canonicalKey = normalizeLabName(data.name || item.key);
-                    if (canonicalKey && labValueDescriptions[canonicalKey]) {
-                      description = labValueDescriptions[canonicalKey];
-                      displayName = getLabDisplayName(data.name || item.key);
-                    }
-                  } else if (item.type === 'vital') {
-                    const canonicalKey = normalizeVitalName(data.name || item.key);
-                    if (canonicalKey && vitalDescriptions[canonicalKey]) {
-                      description = vitalDescriptions[canonicalKey];
-                      displayName = getVitalDisplayName(data.name || item.key);
-                    }
-                  }
-                  
-                  return (
-                    <div key={`${item.type}-${item.key}`} className="text-center p-3 sm:p-4 bg-white rounded-lg border border-medical-neutral-200 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="flex items-center justify-center gap-1.5 mb-2">
-                        <span className="text-xs font-medium text-medical-neutral-700">{displayName}</span>
-                        <div className="flex items-center gap-1">
-                          <Activity className={`w-3.5 h-3.5 ${status === 'warning' ? 'text-orange-500' : status === 'danger' ? 'text-red-500' : 'text-medical-accent-500'}`} />
-                          {description && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setLabTooltip({
-                                  labName: displayName,
-                                  description: description
-                                });
-                              }}
-                              className="text-medical-primary-500 hover:text-medical-primary-700 transition-colors"
-                              title="Learn more about this value"
-                            >
-                              <Info className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+            <>
+              {/* Key Labs and Key Vitals Cards - Side by side on desktop, stacked on mobile */}
+              {(showKeyLabs || showKeyVitals) && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                  {/* Key Labs Card */}
+                  {showKeyLabs && (
+                    <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-medical-primary-200 shadow-sm">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 flex items-center gap-2">
+                          <div className="bg-medical-primary-50 p-2 rounded-lg">
+                            <BarChart className="w-5 h-5 text-medical-primary-600" />
+                          </div>
+                          Key Labs
+                        </h3>
+                        <button
+                          onClick={() => {
+                            sessionStorage.setItem('healthSection', 'labs');
+                            onTabChange('health');
+                          }}
+                          className="text-sm font-medium text-medical-primary-600 hover:text-medical-primary-700 active:text-medical-primary-800 transition-colors touch-manipulation flex items-center gap-1"
+                        >
+                          View All <ChevronRight className="w-4 h-4" />
+                        </button>
                       </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                        {keyLabItems.map((item) => renderMetricItem(item, 'lab'))}
                       </div>
-                      <p className="text-lg sm:text-xl font-bold text-medical-neutral-900">{latestValue}{data.unit ? ` ${data.unit}` : ''}</p>
-                      {status !== 'normal' && (
-                        <p className={`text-xs mt-1 font-medium ${status === 'warning' ? 'text-orange-600' : 'text-red-600'}`}>
-                          {status === 'warning' ? 'Above normal' : 'High'}
-                        </p>
-                      )}
                     </div>
-                  );
-                })}
-              </div>
-            </div>
+                  )}
+
+                  {/* Key Vitals Card */}
+                  {showKeyVitals && (
+                    <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-medical-primary-200 shadow-sm">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 flex items-center gap-2">
+                          <div className="bg-medical-primary-50 p-2 rounded-lg">
+                            <Heart className="w-5 h-5 text-medical-primary-600" />
+                          </div>
+                          Key Vitals
+                        </h3>
+                        <button
+                          onClick={() => {
+                            sessionStorage.setItem('healthSection', 'vitals');
+                            onTabChange('health');
+                          }}
+                          className="text-sm font-medium text-medical-primary-600 hover:text-medical-primary-700 active:text-medical-primary-800 transition-colors touch-manipulation flex items-center gap-1"
+                        >
+                          View All <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                        {keyVitalItems.map((item) => renderMetricItem(item, 'vital'))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           );
         })() : (
           <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center border-2 border-medical-primary-200 shadow-sm">
@@ -660,14 +700,14 @@ setIsUploading(false);
         {/* Two Column Layout on larger screens */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* Genomic Profile Card */}
-          <div className="w-full bg-white rounded-lg shadow-sm p-4 sm:p-5 md:p-6 border-2 border-purple-200 lg:col-span-2">
+          <div className="w-full bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-purple-200 shadow-sm lg:col-span-2">
             {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 && (
               <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-2.5 rounded-lg">
-                    <Dna className="w-6 h-6 text-purple-600" />
+                <div className="flex items-center gap-2">
+                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-2 rounded-lg">
+                    <Dna className="w-5 h-5 text-purple-600" />
                   </div>
-                  <h2 className="font-semibold text-gray-800 text-base sm:text-lg">Genomic Profile</h2>
+                  <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900">Genomic Profile</h3>
                 </div>
               </div>
             )}

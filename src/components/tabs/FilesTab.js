@@ -29,6 +29,7 @@ export default function FilesTab({ onTabChange }) {
   const [hasUploadedDocument, setHasUploadedDocument] = useState(false);
   const [pendingDocumentDate, setPendingDocumentDate] = useState(null);
   const [pendingDocumentNote, setPendingDocumentNote] = useState(null);
+  const [pendingOnlyExistingMetrics, setPendingOnlyExistingMetrics] = useState(false);
   const [editingDocumentNote, setEditingDocumentNote] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
@@ -206,7 +207,7 @@ export default function FilesTab({ onTabChange }) {
     input.click();
   };
 
-  const handleMultipleFileUpload = async (files, docType, providedDate = null, providedNote = null) => {
+  const handleMultipleFileUpload = async (files, docType, providedDate = null, providedNote = null, onlyExistingMetrics = false) => {
     if (!user || !files || files.length === 0) {
       showError('Please log in to upload files');
       return;
@@ -229,14 +230,15 @@ export default function FilesTab({ onTabChange }) {
           setUploadProgress(`Processing file ${fileNumber} of ${totalFiles}: ${file.name}`);
           setAiStatus(null);
           
-          // Process each file with the shared date and note
+          // Process each file with the shared date, note, and onlyExistingMetrics flag
           await handleRealFileUpload(
             file, 
             docType, 
             providedDate, 
             providedNote,
             fileNumber,
-            totalFiles
+            totalFiles,
+            onlyExistingMetrics
           );
           
           successCount++;
@@ -277,7 +279,7 @@ export default function FilesTab({ onTabChange }) {
     }
   };
 
-  const handleRealFileUpload = async (file, docType, providedDateOverride = null, providedNoteOverride = null, currentFileNumber = null, totalFiles = null) => {
+  const handleRealFileUpload = async (file, docType, providedDateOverride = null, providedNoteOverride = null, currentFileNumber = null, totalFiles = null, onlyExistingMetricsOverride = null) => {
     addDebugLog(`handleRealFileUpload: ${file?.name || 'unknown'}`, 'info');
     console.log('[FilesTab] handleRealFileUpload called:', { 
       fileName: file?.name, 
@@ -316,13 +318,15 @@ export default function FilesTab({ onTabChange }) {
       console.log('[FilesTab] Starting to read document');
       setUploadProgress(`${fileProgressPrefix}Reading document...`);
 
-      // Get document date and note (user-provided or null)
+      // Get document date, note, and onlyExistingMetrics (user-provided or null)
       // Use override parameters if provided (from onUploadClick), otherwise use state
       const providedDate = providedDateOverride !== null ? providedDateOverride : pendingDocumentDate;
       const providedNote = providedNoteOverride !== null ? providedNoteOverride : pendingDocumentNote;
-      // Clear pending date and note after use
+      const onlyExistingMetrics = onlyExistingMetricsOverride !== null ? onlyExistingMetricsOverride : pendingOnlyExistingMetrics;
+      // Clear pending values after use
       setPendingDocumentDate(null);
       setPendingDocumentNote(null);
+      setPendingOnlyExistingMetrics(false);
 
       // Step 1: Process document with AI to extract medical data
       setUploadProgress(`${fileProgressPrefix}Analyzing document with AI...`);
@@ -340,7 +344,8 @@ export default function FilesTab({ onTabChange }) {
           if (status) {
             setAiStatus(status);
           }
-        }
+        },
+        onlyExistingMetrics
       );
       
       setAiStatus(null); // Clear AI status after analysis
@@ -811,12 +816,13 @@ export default function FilesTab({ onTabChange }) {
         <DocumentUploadOnboarding
           isOnboarding={!hasUploadedDocument}
           onClose={() => setShowDocumentOnboarding(false)}
-          onUploadClick={async (documentType, documentDate = null, documentNote = null, fileOrFiles = null) => {
+          onUploadClick={async (documentType, documentDate = null, documentNote = null, fileOrFiles = null, onlyExistingMetrics = false) => {
             addDebugLog(`onUploadClick: ${documentType}, hasFile: ${!!fileOrFiles}`, 'info');
             console.log('[FilesTab] onUploadClick called:', { 
               documentType, 
               documentDate, 
               documentNote, 
+              onlyExistingMetrics,
               hasFile: !!fileOrFiles, 
               isArray: Array.isArray(fileOrFiles),
               fileCount: Array.isArray(fileOrFiles) ? fileOrFiles.length : (fileOrFiles ? 1 : 0)
@@ -831,11 +837,12 @@ export default function FilesTab({ onTabChange }) {
                 ? documentNote.trim() 
                 : (documentNote || null);
               
-              addDebugLog(`Normalized: date=${normalizedDate}, note=${normalizedNote ? 'yes' : 'no'}`, 'info');
-              console.log('[FilesTab] Normalized date/note:', { normalizedDate, normalizedNote });
+              addDebugLog(`Normalized: date=${normalizedDate}, note=${normalizedNote ? 'yes' : 'no'}, onlyExisting=${onlyExistingMetrics}`, 'info');
+              console.log('[FilesTab] Normalized date/note/onlyExisting:', { normalizedDate, normalizedNote, onlyExistingMetrics });
               
               setPendingDocumentDate(normalizedDate);
               setPendingDocumentNote(normalizedNote);
+              setPendingOnlyExistingMetrics(onlyExistingMetrics);
               
               // Close modal first to show upload progress
               addDebugLog('Closing modal...', 'info');
@@ -855,12 +862,12 @@ export default function FilesTab({ onTabChange }) {
                   // Multiple files - process sequentially
                   addDebugLog(`Processing ${fileOrFiles.length} files`, 'info');
                   console.log('[FilesTab] Processing multiple files:', fileOrFiles.length);
-                  await handleMultipleFileUpload(fileOrFiles, documentType, normalizedDate, normalizedNote);
+                  await handleMultipleFileUpload(fileOrFiles, documentType, normalizedDate, normalizedNote, onlyExistingMetrics);
                 } else {
                   // Single file - use existing handler
                   addDebugLog(`Processing: ${fileOrFiles.name} (${(fileOrFiles.size / 1024).toFixed(0)}KB)`, 'info');
                   console.log('[FilesTab] Processing single file:', fileOrFiles.name, fileOrFiles.type, fileOrFiles.size);
-                  await handleRealFileUpload(fileOrFiles, documentType, normalizedDate, normalizedNote);
+                  await handleRealFileUpload(fileOrFiles, documentType, normalizedDate, normalizedNote, null, null, onlyExistingMetrics);
                 }
               } else {
                 // Otherwise, open file picker (fallback)

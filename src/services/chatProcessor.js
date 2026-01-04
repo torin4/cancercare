@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { labService, vitalService, medicationService, symptomService } from '../firebase/services';
 import { getSavedTrials } from '../services/clinicalTrials/clinicalTrialsService';
+import { parseLocalDate } from '../utils/helpers';
 
 const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY || process.env.GEMINI_API_KEY);
 
@@ -354,104 +355,152 @@ When answering questions about this trial, you should:
         // Continue without document dates - will fall back to value dates
       }
 
-      // Format labs data - show summary with latest values, dates, and notes
+      // Format labs data - show ALL historical values with dates and notes
       // PRIORITY: Use document date if value has documentId, otherwise use value date
       const labsCount = healthContext.labs ? healthContext.labs.length : 0;
       const labsSummary = labsCount > 0
         ? healthContext.labs.map(lab => {
-            const latestValue = lab.values && lab.values.length > 0 
-              ? lab.values[lab.values.length - 1] 
-              : null;
-            const valueStr = latestValue ? `${latestValue.value} ${lab.unit || ''}` : lab.currentValue || 'N/A';
+            const values = lab.values && Array.isArray(lab.values) && lab.values.length > 0
+              ? lab.values
+              : [];
             
-            // Get date: prefer document date/range if value has documentId, otherwise use value date
-            let dateStr = null;
-            if (latestValue?.documentId) {
-              // Check if document has a date range (multi-date document)
-              if (documentDateRangeMap[latestValue.documentId]) {
-                const range = documentDateRangeMap[latestValue.documentId];
-                dateStr = `${range.minDate} to ${range.maxDate}`;
-                console.log(`[chatProcessor] Using document date range ${dateStr} for lab ${lab.label} (documentId: ${latestValue.documentId})`);
-              } else if (documentDateMap[latestValue.documentId]) {
-                // Use document date entered during upload
-                dateStr = documentDateMap[latestValue.documentId];
-                console.log(`[chatProcessor] Using document date ${dateStr} for lab ${lab.label} (documentId: ${latestValue.documentId})`);
-              } else if (latestValue?.date) {
+            if (values.length === 0) {
+              // No values, just show current if available
+              return `${lab.label || lab.labType}: ${lab.currentValue || 'N/A'} ${lab.unit || ''} (no historical data)`;
+            }
+            
+            // Format ALL values with dates and notes (sorted by date, newest first)
+            const sortedValues = [...values].sort((a, b) => {
+              const dateA = a.date?.toDate ? a.date.toDate().getTime() : (a.date ? new Date(a.date).getTime() : 0);
+              const dateB = b.date?.toDate ? b.date.toDate().getTime() : (b.date ? new Date(b.date).getTime() : 0);
+              return dateB - dateA; // Newest first
+            });
+            
+            const formattedValues = sortedValues.map((value) => {
+              const valueStr = `${value.value} ${lab.unit || ''}`;
+              
+              // Get date: prefer document date/range if value has documentId, otherwise use value date
+              let dateStr = null;
+              if (value?.documentId) {
+                // Check if document has a date range (multi-date document)
+                if (documentDateRangeMap[value.documentId]) {
+                  const range = documentDateRangeMap[value.documentId];
+                  dateStr = `${range.minDate} to ${range.maxDate}`;
+                } else if (documentDateMap[value.documentId]) {
+                  // Use document date entered during upload
+                  dateStr = documentDateMap[value.documentId];
+                } else if (value?.date) {
+                  // Fall back to value date
+                  dateStr = formatDateString(value.date);
+                }
+              } else if (value?.date) {
                 // Fall back to value date
-                dateStr = formatDateString(latestValue.date);
+                dateStr = formatDateString(value.date);
               }
-            } else if (latestValue?.date) {
-              // Fall back to value date
-              dateStr = formatDateString(latestValue.date);
-            } else if (lab.createdAt) {
-              // Last resort: use lab creation date
-              dateStr = formatDateString(lab.createdAt);
-            }
+              
+              const dateDisplay = dateStr ? ` on ${dateStr}` : '';
+              
+              // Format note: extract just the context part if it's in "Extracted from document. Context: {note}" format
+              let noteStr = '';
+              if (value?.notes && value.notes !== 'Extracted from document') {
+                // If note contains "Context: ", extract just the context part for cleaner display
+                if (value.notes.includes('Context: ')) {
+                  const contextPart = value.notes.split('Context: ')[1];
+                  noteStr = ` (Note: ${contextPart})`;
+                } else {
+                  noteStr = ` (Note: ${value.notes})`;
+                }
+              }
+              
+              return `${valueStr}${dateDisplay}${noteStr}`;
+            }).join('; ');
             
-            const dateDisplay = dateStr ? ` on ${dateStr}` : '';
-            // Format note: extract just the context part if it's in "Extracted from document. Context: {note}" format
-            let noteStr = '';
-            if (latestValue?.notes && latestValue.notes !== 'Extracted from document') {
-              // If note contains "Context: ", extract just the context part for cleaner display
-              if (latestValue.notes.includes('Context: ')) {
-                const contextPart = latestValue.notes.split('Context: ')[1];
-                noteStr = ` (Note: ${contextPart})`;
-              } else {
-                noteStr = ` (Note: ${latestValue.notes})`;
-              }
-            }
-            return `${lab.label || lab.labType}: ${valueStr}${dateDisplay} (${lab.status || 'unknown'})${noteStr}`;
-          }).join(', ')
+            // Include normal range and status if available
+            const normalRangeStr = lab.normalRange ? ` (Normal range: ${lab.normalRange})` : '';
+            const statusStr = lab.status ? ` [Status: ${lab.status}]` : '';
+            
+            return `${lab.label || lab.labType}: ${formattedValues}${normalRangeStr}${statusStr}`;
+          }).join('\n')
         : 'No lab data available';
 
-      // Format vitals data - show summary with latest values, dates, and notes
+      // Format vitals data - show ALL historical values with dates and notes
       // PRIORITY: Use document date if value has documentId, otherwise use value date
       const vitalsCount = healthContext.vitals ? healthContext.vitals.length : 0;
       const vitalsSummary = vitalsCount > 0
         ? healthContext.vitals.map(vital => {
-            const latestValue = vital.values && vital.values.length > 0 
-              ? vital.values[vital.values.length - 1] 
-              : null;
-            const valueStr = latestValue ? latestValue.value : vital.currentValue || 'N/A';
+            const values = vital.values && Array.isArray(vital.values) && vital.values.length > 0
+              ? vital.values
+              : [];
             
-            // Get date: prefer document date/range if value has documentId, otherwise use value date
-            let dateStr = null;
-            if (latestValue?.documentId) {
-              // Check if document has a date range (multi-date document)
-              if (documentDateRangeMap[latestValue.documentId]) {
-                const range = documentDateRangeMap[latestValue.documentId];
-                dateStr = `${range.minDate} to ${range.maxDate}`;
-                console.log(`[chatProcessor] Using document date range ${dateStr} for vital ${vital.label} (documentId: ${latestValue.documentId})`);
-              } else if (documentDateMap[latestValue.documentId]) {
-                // Use document date entered during upload
-                dateStr = documentDateMap[latestValue.documentId];
-                console.log(`[chatProcessor] Using document date ${dateStr} for vital ${vital.label} (documentId: ${latestValue.documentId})`);
-              } else if (latestValue?.date) {
-                // Fall back to value date
-                dateStr = formatDateString(latestValue.date);
-              }
-            } else if (latestValue?.date) {
-              // Fall back to value date
-              dateStr = formatDateString(latestValue.date);
-            } else if (vital.createdAt) {
-              // Last resort: use vital creation date
-              dateStr = formatDateString(vital.createdAt);
+            if (values.length === 0) {
+              // No values, just show current if available
+              return `${vital.label || vital.vitalType}: ${vital.currentValue || 'N/A'} ${vital.unit || ''} (no historical data)`;
             }
             
-            const dateDisplay = dateStr ? ` on ${dateStr}` : '';
-            // Format note: extract just the context part if it's in "Extracted from document. Context: {note}" format
-            let noteStr = '';
-            if (latestValue?.notes && latestValue.notes !== 'Extracted from document') {
-              // If note contains "Context: ", extract just the context part for cleaner display
-              if (latestValue.notes.includes('Context: ')) {
-                const contextPart = latestValue.notes.split('Context: ')[1];
-                noteStr = ` (Note: ${contextPart})`;
+            // Format ALL values with dates and notes (sorted by date, newest first)
+            const sortedValues = [...values].sort((a, b) => {
+              const dateA = a.date?.toDate ? a.date.toDate().getTime() : (a.date ? new Date(a.date).getTime() : 0);
+              const dateB = b.date?.toDate ? b.date.toDate().getTime() : (b.date ? new Date(b.date).getTime() : 0);
+              return dateB - dateA; // Newest first
+            });
+            
+            const formattedValues = sortedValues.map((value) => {
+              // Handle blood pressure specially (systolic/diastolic)
+              let valueStr = '';
+              if (vital.vitalType === 'bp' || vital.vitalType === 'bloodpressure') {
+                if (value.systolic && value.diastolic) {
+                  valueStr = `${value.systolic}/${value.diastolic}`;
+                } else if (value.value) {
+                  valueStr = value.value;
+                } else {
+                  valueStr = 'N/A';
+                }
               } else {
-                noteStr = ` (Note: ${latestValue.notes})`;
+                valueStr = value.value || 'N/A';
               }
-            }
-            return `${vital.label || vital.vitalType}: ${valueStr}${dateDisplay} ${vital.unit || ''}${noteStr}`;
-          }).join(', ')
+              valueStr += ` ${vital.unit || ''}`;
+              
+              // Get date: prefer document date/range if value has documentId, otherwise use value date
+              let dateStr = null;
+              if (value?.documentId) {
+                // Check if document has a date range (multi-date document)
+                if (documentDateRangeMap[value.documentId]) {
+                  const range = documentDateRangeMap[value.documentId];
+                  dateStr = `${range.minDate} to ${range.maxDate}`;
+                } else if (documentDateMap[value.documentId]) {
+                  // Use document date entered during upload
+                  dateStr = documentDateMap[value.documentId];
+                } else if (value?.date) {
+                  // Fall back to value date
+                  dateStr = formatDateString(value.date);
+                }
+              } else if (value?.date) {
+                // Fall back to value date
+                dateStr = formatDateString(value.date);
+              }
+              
+              const dateDisplay = dateStr ? ` on ${dateStr}` : '';
+              
+              // Format note: extract just the context part if it's in "Extracted from document. Context: {note}" format
+              let noteStr = '';
+              if (value?.notes && value.notes !== 'Extracted from document') {
+                // If note contains "Context: ", extract just the context part for cleaner display
+                if (value.notes.includes('Context: ')) {
+                  const contextPart = value.notes.split('Context: ')[1];
+                  noteStr = ` (Note: ${contextPart})`;
+                } else {
+                  noteStr = ` (Note: ${value.notes})`;
+                }
+              }
+              
+              return `${valueStr}${dateDisplay}${noteStr}`;
+            }).join('; ');
+            
+            // Include normal range if available
+            const normalRangeStr = vital.normalRange ? ` (Normal range: ${vital.normalRange})` : '';
+            
+            return `${vital.label || vital.vitalType}: ${formattedValues}${normalRangeStr}`;
+          }).join('\n')
         : 'No vital signs data available';
 
       // Format symptoms data - show count and recent ones only
@@ -468,9 +517,11 @@ When answering questions about this trial, you should:
 HEALTH CONTEXT: The user is asking about their health data (labs, vitals, symptoms)
 ═══════════════════════════════════════════════════════════════════════════════
 
-LAB VALUES (${labsCount} tracked): ${labsSummary}
+LAB VALUES (${labsCount} tracked):
+${labsSummary}
 
-VITAL SIGNS (${vitalsCount} tracked): ${vitalsSummary}
+VITAL SIGNS (${vitalsCount} tracked):
+${vitalsSummary}
 
 SYMPTOMS (${symptomsCount} total, recent: ${recentSymptoms})
 
@@ -635,6 +686,13 @@ async function saveExtractedData(extractedData, userId) {
     // Save Labs
     if (extractedData.labs?.length > 0) {
       for (const lab of extractedData.labs) {
+        // Parse and validate date - use current date as fallback if invalid
+        let labDate = parseLocalDate(lab.date);
+        if (!labDate || isNaN(labDate.getTime())) {
+          console.warn(`Invalid date for lab ${lab.label}: ${lab.date}, using current date`);
+          labDate = new Date();
+        }
+
         const labId = await labService.saveLab({
           patientId: userId,
           labType: lab.labType,
@@ -642,12 +700,12 @@ async function saveExtractedData(extractedData, userId) {
           currentValue: lab.value,
           unit: lab.unit,
           normalRange: lab.normalRange,
-          createdAt: new Date(lab.date)
+          createdAt: labDate
         });
 
         await labService.addLabValue(labId, {
           value: lab.value,
-          date: new Date(lab.date),
+          date: labDate,
           notes: 'Added via chat'
         });
 
@@ -658,6 +716,13 @@ async function saveExtractedData(extractedData, userId) {
     // Save Vitals
     if (extractedData.vitals?.length > 0) {
       for (const vital of extractedData.vitals) {
+        // Parse and validate date - use current date as fallback if invalid
+        let vitalDate = parseLocalDate(vital.date);
+        if (!vitalDate || isNaN(vitalDate.getTime())) {
+          console.warn(`Invalid date for vital ${vital.label}: ${vital.date}, using current date`);
+          vitalDate = new Date();
+        }
+
         const vitalId = await vitalService.saveVital({
           patientId: userId,
           vitalType: vital.vitalType,
@@ -665,12 +730,12 @@ async function saveExtractedData(extractedData, userId) {
           currentValue: vital.value,
           unit: vital.unit,
           normalRange: vital.normalRange,
-          createdAt: new Date(vital.date)
+          createdAt: vitalDate
         });
 
         await vitalService.addVitalValue(vitalId, {
           value: vital.value,
-          date: new Date(vital.date),
+          date: vitalDate,
           notes: 'Added via chat'
         });
 

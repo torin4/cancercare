@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Activity, Dna, FileText, X, CheckCircle, ChevronRight, AlertTriangle, Camera, Trash2 } from 'lucide-react';
+import { useHealthContext } from '../contexts/HealthContext';
 import DatePicker from './DatePicker';
 
 const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true }) => {
+  const { hasRealLabData, hasRealVitalData } = useHealthContext();
   const [selectedType, setSelectedType] = useState(null);
   const [documentDate, setDocumentDate] = useState('');
   const [documentNote, setDocumentNote] = useState('');
+  const [onlyExistingMetrics, setOnlyExistingMetrics] = useState(false);
   const [currentStep, setCurrentStep] = useState(1); // 1 = document type, 2 = date, 3 = notes, 4 = files
   const [selectedFiles, setSelectedFiles] = useState([]); // Track selected files
   const [filePreviews, setFilePreviews] = useState({}); // Track preview URLs for images
@@ -185,9 +188,9 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
     // Pass all files to onUploadClick
     try {
       if (selectedFiles.length === 1) {
-        await onUploadClick(selectedType, normalizedDate, normalizedNote, selectedFiles[0]);
+        await onUploadClick(selectedType, normalizedDate, normalizedNote, selectedFiles[0], onlyExistingMetrics);
       } else {
-        await onUploadClick(selectedType, normalizedDate, normalizedNote, selectedFiles);
+        await onUploadClick(selectedType, normalizedDate, normalizedNote, selectedFiles, onlyExistingMetrics);
       }
     } catch (error) {
       console.error('[DocumentUploadOnboarding] Error in onUploadClick:', error);
@@ -456,6 +459,28 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                       This note will be saved with the document and all extracted values, helping the AI provide better context-aware responses.
                     </p>
                   </div>
+                  
+                  {/* Only extract existing metrics checkbox - only show for blood-test type and if user has existing metrics */}
+                  {selectedType === 'blood-test' && (hasRealLabData || hasRealVitalData) && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={onlyExistingMetrics}
+                          onChange={(e) => setOnlyExistingMetrics(e.target.checked)}
+                          className="mt-1 w-4 h-4 text-medical-primary-600 border-gray-300 rounded focus:ring-medical-primary-500 cursor-pointer"
+                        />
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-gray-900 group-hover:text-gray-700">
+                            Only extract data for metrics that already exist
+                          </div>
+                          <p className="text-xs text-gray-600 mt-1">
+                            When enabled, only labs and vitals that you've already added to your Health tab will be extracted. New metrics will be skipped.
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -22,7 +22,7 @@ const genAI = new GoogleGenerativeAI(apiKey || '');
  * @param {string|null} documentDate - Optional date provided by user (YYYY-MM-DD format)
  * @param {Function|null} onProgress - Optional callback for progress updates (message, aiStatus)
  */
-export async function processDocument(file, userId, patientProfile = null, documentDate = null, documentNote = null, documentId = null, onProgress = null) {
+export async function processDocument(file, userId, patientProfile = null, documentDate = null, documentNote = null, documentId = null, onProgress = null, onlyExistingMetrics = false) {
   try {
     // Convert file to base64 for Gemini API
     const base64Data = await fileToBase64(file);
@@ -54,7 +54,7 @@ export async function processDocument(file, userId, patientProfile = null, docum
     // If no date found, extractedDate remains null (will default to today in uploadDocument)
 
     // Step 3: Save extracted data to Firestore
-    const savedData = await saveExtractedData(extractedData, userId, documentDate, documentNote, documentId);
+    const savedData = await saveExtractedData(extractedData, userId, documentDate, documentNote, documentId, onlyExistingMetrics);
 
     // Count total data points extracted (metric + value = 1 data point)
     const dataPointCount = countDataPoints(savedData);
@@ -595,8 +595,8 @@ GENERAL RULES:
 
 /**
  * Adjust normal range based on unit to handle unit mismatches
- * For example, CRP normal ranges are often in mg/L but values may be in mg/dL
- * @param {string} normalRange - The normal range string (e.g., "0-3", "<3")
+ * For example, CRP standard is mg/dL (normal <0.3 mg/dL), but some documents may use mg/L
+ * @param {string} normalRange - The normal range string (e.g., "<0.3", "<3")
  * @param {string} unit - The unit of the value (e.g., "mg/dL", "mg/L")
  * @param {string} labType - The lab type (e.g., "crp")
  * @returns {string} - Adjusted normal range
@@ -675,7 +675,7 @@ function adjustNormalRangeForUnit(normalRange, unit, labType) {
  * @param {string} userId - User ID
  * @param {string|null} documentDate - Optional date provided by user (YYYY-MM-DD format)
  */
-async function saveExtractedData(extractedData, userId, documentDate = null, documentNote = null, documentId = null) {
+async function saveExtractedData(extractedData, userId, documentDate = null, documentNote = null, documentId = null, onlyExistingMetrics = false) {
   const startTime = Date.now();
   const savedData = {
     labs: [],
@@ -684,16 +684,30 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
     genomic: null
   };
 
-  console.log(`[saveExtractedData] 🚀 Starting data extraction save process`, {
-    documentId: documentId || 'NEW UPLOAD',
-    userId,
-    hasLabs: !!(extractedData.data?.labs?.length),
-    hasVitals: !!(extractedData.data?.vitals?.length),
-    hasGenomic: !!extractedData.data?.genomic,
-    hasMedications: !!(extractedData.data?.medications?.length)
-  });
+    console.log(`[saveExtractedData] 🚀 Starting data extraction save process`, {
+      documentId: documentId || 'NEW UPLOAD',
+      userId,
+      hasLabs: !!(extractedData.data?.labs?.length),
+      hasVitals: !!(extractedData.data?.vitals?.length),
+      hasGenomic: !!extractedData.data?.genomic,
+      hasMedications: !!(extractedData.data?.medications?.length),
+      onlyExistingMetrics
+    });
 
-  try {
+    try {
+      // If onlyExistingMetrics is enabled, get existing labs and vitals to filter against
+      let existingLabTypes = new Set();
+      let existingVitalTypes = new Set();
+      
+      if (onlyExistingMetrics) {
+        const existingLabs = await labService.getLabs(userId);
+        const existingVitals = await vitalService.getVitals(userId);
+        
+        existingLabTypes = new Set(existingLabs.map(lab => (lab.labType || 'other').toLowerCase()));
+        existingVitalTypes = new Set(existingVitals.map(vital => (vital.vitalType || 'other').toLowerCase()));
+        
+        console.log(`[saveExtractedData] 🔍 Filtering mode enabled: ${existingLabTypes.size} existing labs, ${existingVitalTypes.size} existing vitals`);
+      }
     // If reprocessing (documentId provided), delete ALL existing values from this document first
     // This prevents duplicates when reprocessing the same document
     if (documentId) {
@@ -737,6 +751,15 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
       const uniqueLabs = [];
       
       for (const lab of extractedData.data.labs) {
+        // If onlyExistingMetrics is enabled, skip labs that don't already exist
+        if (onlyExistingMetrics) {
+          const labTypeKey = (lab.labType || 'other').toLowerCase();
+          if (!existingLabTypes.has(labTypeKey)) {
+            console.log(`[saveExtractedData] Skipping lab that doesn't exist: ${lab.label || lab.labType} (onlyExistingMetrics=true)`);
+            continue;
+          }
+        }
+        
         // Validate that lab has a meaningful value (not empty, "-", "N/A", etc.)
         const value = lab.value;
         if (value === null || value === undefined) {
@@ -889,6 +912,15 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
       const uniqueVitals = [];
       
       for (const vital of extractedData.data.vitals) {
+        // If onlyExistingMetrics is enabled, skip vitals that don't already exist
+        if (onlyExistingMetrics) {
+          const vitalTypeKey = (vital.vitalType || 'other').toLowerCase();
+          if (!existingVitalTypes.has(vitalTypeKey)) {
+            console.log(`[saveExtractedData] Skipping vital that doesn't exist: ${vital.label || vital.vitalType} (onlyExistingMetrics=true)`);
+            continue;
+          }
+        }
+        
         // Validate that vital has a meaningful value (not empty, "-", "N/A", etc.)
         const value = vital.value;
         if (value === null || value === undefined) {

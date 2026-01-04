@@ -69,6 +69,15 @@ export const patientService = {
       ...updates,
       updatedAt: serverTimestamp()
     });
+  },
+
+  // Update favorite metrics
+  async updateFavoriteMetrics(patientId, favoriteMetrics) {
+    const docRef = doc(db, COLLECTIONS.PATIENTS, patientId);
+    await updateDoc(docRef, {
+      favoriteMetrics,
+      updatedAt: serverTimestamp()
+    });
   }
 };
 
