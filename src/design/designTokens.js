@@ -297,9 +297,20 @@ export const DesignTokens = {
     
     // Card
     card: {
-      container: 'bg-white rounded-lg shadow p-3 sm:p-4 md:p-5 border border-medical-neutral-200',
+      // Primary cards (top level)
+      container: 'bg-white rounded-lg sm:rounded-xl shadow-sm p-4 sm:p-5 border-2 border-medical-neutral-200',
+      containerLarge: 'bg-white rounded-lg sm:rounded-xl shadow-sm p-4 sm:p-5 md:p-6 border-2 border-medical-neutral-200',
       hover: 'hover:shadow-md transition-shadow',
       interactive: 'cursor-pointer hover:border-medical-neutral-300',
+      // Colored border variants
+      withColoredBorder: (borderColor) => `bg-white rounded-lg sm:rounded-xl shadow-sm p-4 sm:p-5 border-2 ${borderColor}`,
+      withColoredBorderLarge: (borderColor) => `bg-white rounded-lg sm:rounded-xl shadow-sm p-4 sm:p-5 md:p-6 border-2 ${borderColor}`,
+      // Nested cards (within other cards - lighter styling)
+      nested: 'bg-white rounded-lg p-3 border border-medical-neutral-200',
+      nestedLarge: 'bg-white rounded-lg p-4 border border-medical-neutral-200',
+      nestedWithShadow: 'bg-white rounded-lg shadow p-3 sm:p-4 border border-medical-neutral-200',
+      nestedSubtle: 'bg-medical-neutral-50 rounded-lg p-2.5 sm:p-3 border border-medical-neutral-200',
+      nestedSubtleLarge: 'bg-medical-neutral-50 rounded-lg p-4 border border-medical-neutral-200',
     },
     
     // Modal

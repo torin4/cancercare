@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Activity, TrendingUp, Upload, AlertCircle, ClipboardList, Info, Dna, Bookmark, ChevronRight, Search, MessageSquare, X, Heart, Loader2, BarChart, Home } from 'lucide-react';
+import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
@@ -293,8 +294,8 @@ setIsUploading(false);
               <div className="w-16 h-16 bg-medical-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Loader2 className="w-8 h-8 text-medical-primary-600 animate-spin" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Loading Health Data</h3>
-              <p className="text-gray-600">Processing labs and vitals...</p>
+              <h3 className={combineClasses('text-xl font-bold mb-2', DesignTokens.colors.neutral.text[900])}>Loading Health Data</h3>
+              <p className={combineClasses(DesignTokens.colors.neutral.text[600])}>Processing labs and vitals...</p>
             </div>
           </div>
         </div>
@@ -313,7 +314,7 @@ setIsUploading(false);
 
         {/* Dynamic CA-125 Alert */}
         {ca125Alert && (
-          <div className={`bg-white rounded-lg sm:rounded-xl border-2 p-4 sm:p-5 shadow-sm ${
+          <div className={`bg-white rounded-lg sm:rounded-xl border-2 p-4 sm:p-5 shadow-sm mb-4 sm:mb-6 ${
             ca125Alert.type === 'up' 
               ? 'border-amber-300 bg-amber-50' 
               : 'border-medical-accent-300 bg-medical-accent-50'
@@ -404,15 +405,15 @@ setIsUploading(false);
             
             // Determine color classes based on status
             const statusColorClass = 
-              statusInfo.color === 'red' ? 'text-red-500' :
-              statusInfo.color === 'yellow' ? 'text-orange-500' :
-              statusInfo.color === 'green' ? 'text-green-500' :
+              statusInfo.color === 'red' ? DesignTokens.components.status.high.icon :
+              statusInfo.color === 'yellow' ? DesignTokens.components.status.low.icon :
+              statusInfo.color === 'green' ? DesignTokens.components.status.normal.icon :
               'text-medical-accent-500';
             
             const statusTextColorClass = 
-              statusInfo.color === 'red' ? 'text-red-600' :
-              statusInfo.color === 'yellow' ? 'text-orange-600' :
-              statusInfo.color === 'green' ? 'text-green-600' :
+              statusInfo.color === 'red' ? DesignTokens.components.alert.text.error :
+              statusInfo.color === 'yellow' ? DesignTokens.components.alert.text.warning :
+              statusInfo.color === 'green' ? DesignTokens.components.status.normal.text :
               'text-medical-neutral-600';
             
             return (
@@ -545,7 +546,7 @@ setIsUploading(false);
             <>
               {/* Key Labs and Key Vitals Cards - Side by side on desktop, stacked on mobile */}
               {(showKeyLabs || showKeyVitals) && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
                   {/* Key Labs Card */}
                   {showKeyLabs && (
                     <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-medical-primary-200 shadow-sm">
@@ -602,7 +603,7 @@ setIsUploading(false);
             </>
           );
         })() : (
-          <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center border-2 border-medical-primary-200 shadow-sm">
+          <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center border-2 border-medical-primary-200 shadow-sm mb-4 sm:mb-6">
             <div className="w-16 h-16 bg-medical-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <ClipboardList className="w-8 h-8 text-medical-primary-600" />
             </div>
@@ -634,7 +635,7 @@ setIsUploading(false);
         )}
 
         {/* Two Column Layout on larger screens */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
           {/* Genomic Profile Card */}
           <div className="w-full bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-purple-200 shadow-sm lg:col-span-2">
             {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 && (
@@ -655,7 +656,7 @@ setIsUploading(false);
             )}
             {genomicProfile && ((genomicProfile.mutations && genomicProfile.mutations.length > 0) || (genomicProfile.cnvs && genomicProfile.cnvs.length > 0)) ? (
               <>
-                <div className="bg-white rounded-lg p-3 mb-3">
+                <div className={combineClasses(DesignTokens.components.card.nested, 'mb-3')}>
                   <div className="flex flex-wrap gap-2">
                     {genomicProfile.mutations && genomicProfile.mutations.slice(0, 5).map((mutation, idx) => (
                       <span key={idx} className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
@@ -671,12 +672,12 @@ setIsUploading(false);
                       );
                     })}
                     {genomicProfile.tmb && (
-                      <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                      <span className={combineClasses('px-3 py-1 rounded-full text-xs font-medium', DesignTokens.colors.primary[100], DesignTokens.colors.primary.text[700])}>
                         TMB: {genomicProfile.tmb}
                       </span>
                     )}
                     {genomicProfile.msi && (
-                      <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                      <span className={combineClasses('px-3 py-1 rounded-full text-xs font-medium', DesignTokens.components.status.normal.bg, DesignTokens.components.status.normal.text)}>
                         MSI: {genomicProfile.msi}
                       </span>
                     )}
@@ -711,7 +712,7 @@ setIsUploading(false);
         </div>
 
         {/* Saved Trials */}
-        <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-medical-accent-200 shadow-sm">
+        <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-medical-accent-200 shadow-sm mt-4 sm:mt-6">
           {!loadingSavedTrials && savedTrials.length > 0 && (
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 flex items-center gap-2">

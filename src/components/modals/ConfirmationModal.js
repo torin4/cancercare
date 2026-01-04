@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, AlertCircle, Activity, RefreshCw } from 'lucide-react';
+import { DesignTokens, combineClasses } from '../../design/designTokens';
 
 export default function ConfirmationModal({
   show,
@@ -11,9 +12,9 @@ export default function ConfirmationModal({
   cancelText = 'Cancel',
   isProcessing = false,
   icon: Icon = RefreshCw,
-  iconColor = 'text-blue-600',
-  iconBgColor = 'bg-blue-100',
-  confirmButtonColor = 'bg-blue-600 hover:bg-blue-700'
+  iconColor = DesignTokens.colors.primary.text[600],
+  iconBgColor = DesignTokens.colors.primary[100],
+  confirmButtonColor = `${DesignTokens.colors.primary[600]} ${DesignTokens.colors.primary[700].replace('bg-', 'hover:bg-')}`
 }) {
   if (!show) return null;
 
@@ -24,11 +25,11 @@ export default function ConfirmationModal({
           <Icon className={iconColor} size={24} />
         </div>
 
-        <h3 className="text-lg font-bold text-gray-900 text-center mb-2">
+        <h3 className={combineClasses('text-lg font-bold text-center mb-2', DesignTokens.colors.neutral.text[900])}>
           {title}
         </h3>
 
-        <p className="text-sm text-gray-600 text-center mb-6">
+        <p className={combineClasses('text-sm text-center mb-6', DesignTokens.colors.neutral.text[600])}>
           {message}
         </p>
 
@@ -36,7 +37,7 @@ export default function ConfirmationModal({
           <button
             onClick={onConfirm}
             disabled={isProcessing}
-            className={`w-full py-3 rounded-xl font-bold text-white transition-all shadow-lg flex items-center justify-center gap-2 ${isProcessing ? 'bg-gray-400' : `${confirmButtonColor} active:scale-[0.98]`}`}
+            className={combineClasses('w-full py-3 rounded-xl font-bold text-white transition-all shadow-lg flex items-center justify-center gap-2', isProcessing ? DesignTokens.colors.neutral[300] : `${confirmButtonColor} active:scale-[0.98]`)}
           >
             {isProcessing ? (
               <>
@@ -50,7 +51,7 @@ export default function ConfirmationModal({
           <button
             onClick={onClose}
             disabled={isProcessing}
-            className="w-full py-3 rounded-xl font-bold text-gray-700 hover:bg-gray-100 transition flex items-center justify-center gap-2"
+            className={combineClasses('w-full py-3 rounded-xl font-bold transition flex items-center justify-center gap-2', DesignTokens.colors.neutral.text[700], DesignTokens.colors.neutral[100].replace('bg-', 'hover:bg-'))}
           >
             <X className="w-4 h-4" />
             {cancelText}

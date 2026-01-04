@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { DesignTokens, combineClasses } from '../design/designTokens';
 
 export default function UploadProgressOverlay({ show, uploadProgress, aiStatus }) {
   const [progressPercentage, setProgressPercentage] = useState(0);
@@ -70,59 +71,98 @@ export default function UploadProgressOverlay({ show, uploadProgress, aiStatus }
           {/* Progress Bar */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xl font-bold text-gray-900">
+              <h3 className={combineClasses('text-xl font-bold', DesignTokens.colors.neutral.text[900])}>
                 {uploadProgress.includes('[File') 
                   ? uploadProgress.match(/\[File \d+\/\d+\]/)?.[0] || 'Processing Documents'
                   : 'Processing Document'}
               </h3>
-              <span className="text-sm font-medium text-gray-600">{Math.round(smoothProgress)}%</span>
+              <span className={combineClasses('text-sm font-medium', DesignTokens.colors.neutral.text[600])}>{Math.round(smoothProgress)}%</span>
             </div>
-            <div className="w-full bg-gray-200 h-3 rounded-full overflow-hidden">
+            <div className={combineClasses('w-full h-3 rounded-full overflow-hidden', DesignTokens.colors.neutral[200])}>
               <div 
-                className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-300 ease-out rounded-full"
+                className={combineClasses('h-full transition-all duration-300 ease-out rounded-full bg-gradient-to-r', 'from-medical-primary-500', 'to-medical-primary-600')}
                 style={{ width: `${smoothProgress}%` }}
               />
             </div>
           </div>
 
           {/* Progress text */}
-          <p className="text-gray-600 mb-4 text-lg font-medium">{uploadProgress}</p>
+          <p className={combineClasses('mb-4 text-lg font-medium', DesignTokens.colors.neutral.text[600])}>{uploadProgress}</p>
           
           {/* AI Status - Real-time processing info */}
           {aiStatus && (uploadProgress.includes('Analyzing') || uploadProgress.includes('Re-processing')) && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800 font-medium flex items-center gap-2">
-                <span className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
+            <div className={combineClasses('mb-4 p-3 rounded-lg', DesignTokens.colors.primary[50], DesignTokens.borders.width.default, DesignTokens.colors.primary.border[200])}>
+              <p className={combineClasses('text-sm font-medium flex items-center gap-2', DesignTokens.colors.primary.text[700])}>
+                <span className={combineClasses('w-2 h-2 rounded-full animate-pulse', DesignTokens.colors.primary[600])}></span>
                 {aiStatus}
               </p>
             </div>
           )}
 
           {/* Progress steps */}
-          <div className="space-y-2 text-left bg-gray-50 rounded-lg p-4">
+          <div className={combineClasses('space-y-2 text-left rounded-lg p-4', DesignTokens.colors.neutral[50])}>
             <div className="flex items-center gap-3 text-sm">
-              <div className={`w-2 h-2 rounded-full ${uploadProgress.includes('Reading') ? 'bg-blue-600 animate-pulse' : uploadProgress.includes('Analyzing') || uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? 'bg-green-600' : 'bg-gray-300'}`}></div>
-              <span className={uploadProgress.includes('Reading') || uploadProgress.includes('Analyzing') || uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? 'text-gray-900' : 'text-gray-500'}>Reading document</span>
+              <div className={combineClasses(
+                'w-2 h-2 rounded-full',
+                uploadProgress.includes('Reading') ? combineClasses('animate-pulse', DesignTokens.colors.primary[600]) :
+                uploadProgress.includes('Analyzing') || uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? 'bg-green-600' :
+                DesignTokens.colors.neutral[300]
+              )}></div>
+              <span className={combineClasses(
+                'text-sm',
+                uploadProgress.includes('Reading') || uploadProgress.includes('Analyzing') || uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? DesignTokens.colors.neutral.text[900] : DesignTokens.colors.neutral.text[500]
+              )}>Reading document</span>
             </div>
             <div className="flex items-center gap-3 text-sm">
-              <div className={`w-2 h-2 rounded-full ${uploadProgress.includes('Analyzing') ? 'bg-blue-600 animate-pulse' : uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? 'bg-green-600' : 'bg-gray-300'}`}></div>
-              <span className={uploadProgress.includes('Analyzing') || uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? 'text-gray-900' : 'text-gray-500'}>Analyzing with AI</span>
+              <div className={combineClasses(
+                'w-2 h-2 rounded-full',
+                uploadProgress.includes('Analyzing') ? combineClasses('animate-pulse', DesignTokens.colors.primary[600]) :
+                uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? 'bg-green-600' :
+                DesignTokens.colors.neutral[300]
+              )}></div>
+              <span className={combineClasses(
+                'text-sm',
+                uploadProgress.includes('Analyzing') || uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? DesignTokens.colors.neutral.text[900] : DesignTokens.colors.neutral.text[500]
+              )}>Analyzing with AI</span>
             </div>
             <div className="flex items-center gap-3 text-sm">
-              <div className={`w-2 h-2 rounded-full ${uploadProgress.includes('Uploading') ? 'bg-blue-600 animate-pulse' : uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? 'bg-green-600' : 'bg-gray-300'}`}></div>
-              <span className={uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? 'text-gray-900' : 'text-gray-500'}>Uploading to storage</span>
+              <div className={combineClasses(
+                'w-2 h-2 rounded-full',
+                uploadProgress.includes('Uploading') ? combineClasses('animate-pulse', DesignTokens.colors.primary[600]) :
+                uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? 'bg-green-600' :
+                DesignTokens.colors.neutral[300]
+              )}></div>
+              <span className={combineClasses(
+                'text-sm',
+                uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? DesignTokens.colors.neutral.text[900] : DesignTokens.colors.neutral.text[500]
+              )}>Uploading to storage</span>
             </div>
             <div className="flex items-center gap-3 text-sm">
-              <div className={`w-2 h-2 rounded-full ${uploadProgress.includes('Saving') ? 'bg-blue-600 animate-pulse' : uploadProgress.includes('Refreshing') ? 'bg-green-600' : 'bg-gray-300'}`}></div>
-              <span className={uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? 'text-gray-900' : 'text-gray-500'}>Saving extracted data</span>
+              <div className={combineClasses(
+                'w-2 h-2 rounded-full',
+                uploadProgress.includes('Saving') ? combineClasses('animate-pulse', DesignTokens.colors.primary[600]) :
+                uploadProgress.includes('Refreshing') ? 'bg-green-600' :
+                DesignTokens.colors.neutral[300]
+              )}></div>
+              <span className={combineClasses(
+                'text-sm',
+                uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? DesignTokens.colors.neutral.text[900] : DesignTokens.colors.neutral.text[500]
+              )}>Saving extracted data</span>
             </div>
             <div className="flex items-center gap-3 text-sm">
-              <div className={`w-2 h-2 rounded-full ${uploadProgress.includes('Refreshing') ? 'bg-blue-600 animate-pulse' : 'bg-gray-300'}`}></div>
-              <span className={uploadProgress.includes('Refreshing') ? 'text-gray-900' : 'text-gray-500'}>Updating dashboard</span>
+              <div className={combineClasses(
+                'w-2 h-2 rounded-full',
+                uploadProgress.includes('Refreshing') ? combineClasses('animate-pulse', DesignTokens.colors.primary[600]) :
+                DesignTokens.colors.neutral[300]
+              )}></div>
+              <span className={combineClasses(
+                'text-sm',
+                uploadProgress.includes('Refreshing') ? DesignTokens.colors.neutral.text[900] : DesignTokens.colors.neutral.text[500]
+              )}>Updating dashboard</span>
             </div>
           </div>
 
-          <p className="text-xs text-gray-500 mt-4">
+          <p className={combineClasses('text-xs mt-4', DesignTokens.colors.neutral.text[500])}>
             Please don't close this window
           </p>
         </div>

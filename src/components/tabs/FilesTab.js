@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical, Loader2, BookOpen, FileText, MessageSquare } from 'lucide-react';
+import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
@@ -581,8 +582,8 @@ export default function FilesTab({ onTabChange }) {
     switch (type) {
       case 'Lab':
         return {
-          bgColor: 'bg-blue-100',
-          iconColor: 'text-blue-600',
+          bgColor: DesignTokens.colors.primary[100],
+          iconColor: DesignTokens.colors.primary.text[600],
           icon: (
             <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
@@ -603,8 +604,8 @@ export default function FilesTab({ onTabChange }) {
         };
       case 'Report':
         return {
-          bgColor: 'bg-green-100',
-          iconColor: 'text-green-600',
+          bgColor: DesignTokens.components.status.normal.bg,
+          iconColor: DesignTokens.components.status.normal.text,
           icon: (
             <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -625,8 +626,8 @@ export default function FilesTab({ onTabChange }) {
         };
       default:
         return {
-          bgColor: 'bg-gray-100',
-          iconColor: 'text-gray-600',
+          bgColor: DesignTokens.colors.neutral[100],
+          iconColor: DesignTokens.colors.neutral.text[600],
           icon: (
             <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -647,8 +648,8 @@ export default function FilesTab({ onTabChange }) {
               <div className="w-16 h-16 bg-medical-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Loader2 className="w-8 h-8 text-medical-primary-600 animate-spin" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Loading Documents</h3>
-              <p className="text-gray-600">Calculating date ranges...</p>
+              <h3 className={combineClasses('text-xl font-bold mb-2', DesignTokens.colors.neutral.text[900])}>Loading Documents</h3>
+              <p className={combineClasses(DesignTokens.colors.neutral.text[600])}>Calculating date ranges...</p>
             </div>
           </div>
         </div>
@@ -679,9 +680,9 @@ export default function FilesTab({ onTabChange }) {
           <div className="space-y-1 font-mono">
             {debugLogs.map((log, idx) => (
               <div key={idx} className={`text-xs break-words ${
-                log.type === 'error' ? 'text-red-400' : 
-                log.type === 'success' ? 'text-green-400' : 
-                log.type === 'warning' ? 'text-yellow-400' : 
+                log.type === 'error' ? DesignTokens.components.alert.text.error.replace('600', '400') : 
+                log.type === 'success' ? DesignTokens.components.status.normal.text.replace('600', '400') : 
+                log.type === 'warning' ? DesignTokens.components.alert.text.warning.replace('700', '400') : 
                 'text-white/90'
               }`}>
                 <span className="text-white/50 text-[10px]">{log.timestamp}</span> {log.message}
@@ -742,12 +743,12 @@ export default function FilesTab({ onTabChange }) {
 
       {/* Documents Tab Content */}
       {activeSubTab === 'documents' && (
-      <div className="bg-white rounded-lg shadow p-3 sm:p-4 md:p-5 border border-medical-neutral-200">
+      <div className={combineClasses(DesignTokens.components.card.nestedWithShadow, 'md:p-5')}>
         {documents.length > 0 && (
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <h3 className="text-sm sm:text-base md:text-lg font-semibold text-medical-neutral-900 flex items-center gap-2">
-            <div className="bg-gray-100 p-1.5 sm:p-2 rounded-lg">
-              <FolderOpen className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+            <div className={combineClasses('p-1.5 sm:p-2 rounded-lg', DesignTokens.colors.neutral[100])}>
+              <FolderOpen className={combineClasses('w-4 h-4 sm:w-5 sm:h-5', DesignTokens.colors.neutral.text[600])} />
             </div>
             Medical Documents
           </h3>
@@ -762,8 +763,8 @@ export default function FilesTab({ onTabChange }) {
         )}
         {documents.length === 0 ? (
           <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-6 md:p-8 text-center">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
-              <FolderOpen className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
+            <div className={combineClasses('w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4', DesignTokens.colors.neutral[100])}>
+              <FolderOpen className={combineClasses('w-6 h-6 sm:w-8 sm:h-8', DesignTokens.colors.neutral.text[300])} />
             </div>
             <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-1.5 sm:mb-2">No documents uploaded yet</h3>
             <p className="text-xs sm:text-sm text-medical-neutral-600 mb-4 sm:mb-6">Upload lab results, imaging scans, clinical reports, or genomic test results</p>
@@ -825,7 +826,7 @@ export default function FilesTab({ onTabChange }) {
               };
 
               return (
-                <div key={doc.id} className="relative flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-2.5 sm:p-3 border rounded-lg hover:bg-gray-50 transition">
+                <div key={doc.id} className={combineClasses('relative flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-2.5 sm:p-3 border rounded-lg transition', `hover:${DesignTokens.colors.neutral[50]}`)}>
                   {/* Menu button - three dots in upper right corner */}
                   <div className="absolute top-2 right-2 z-10">
                     <button
@@ -834,7 +835,7 @@ export default function FilesTab({ onTabChange }) {
                         e.preventDefault();
                         setOpenMenuId(openMenuId === doc.id ? null : doc.id);
                       }}
-                      className="p-1.5 sm:p-1.5 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
+                      className={combineClasses('p-1.5 sm:p-1.5 rounded-full transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70', DesignTokens.colors.neutral.text[500], `hover:${DesignTokens.colors.neutral[100]}`, `hover:${DesignTokens.colors.neutral.text[700]}`)}
                       title="More options"
                     >
                       <MoreVertical className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
@@ -849,11 +850,11 @@ export default function FilesTab({ onTabChange }) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm sm:text-base font-semibold truncate">{fileName}</p>
-                      <p className="text-xs text-gray-700 mt-0.5">{iconConfig.label}</p>
+                      <p className={combineClasses('text-xs mt-0.5', DesignTokens.colors.neutral.text[700])}>{iconConfig.label}</p>
                       {doc.note && (
                         <p className="text-xs sm:text-sm text-medical-primary-600 mt-1 sm:mt-0.5 italic break-words line-clamp-2 sm:line-clamp-none">{doc.note}</p>
                       )}
-                      <p className="text-xs text-gray-500 mt-0.5">
+                      <p className={combineClasses('text-xs mt-0.5', DesignTokens.colors.neutral.text[500])}>
                         {(() => {
                           // Use stored date range from document if available (calculated upfront)
                           if (doc.hasMultipleDates && doc.minDate && doc.maxDate) {
@@ -895,7 +896,7 @@ export default function FilesTab({ onTabChange }) {
                         href={doc.fileUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-3 py-1.5 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded hover:bg-blue-700 transition min-h-[44px] flex items-center justify-center touch-manipulation active:opacity-70 whitespace-nowrap"
+                        className={combineClasses('px-3 py-1.5 text-white text-xs sm:text-sm font-medium rounded transition min-h-[44px] flex items-center justify-center touch-manipulation active:opacity-70 whitespace-nowrap', DesignTokens.colors.primary[600], `hover:${DesignTokens.colors.primary[700]}`)}
                         onClick={(e) => e.stopPropagation()}
                       >
                         View
@@ -915,7 +916,7 @@ export default function FilesTab({ onTabChange }) {
                         }}
                       />
                       {/* Menu items */}
-                      <div className="absolute top-10 right-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
+                      <div className={combineClasses('absolute top-10 right-2 w-48 bg-white rounded-lg shadow-lg py-1 z-30', DesignTokens.borders.width.default, DesignTokens.colors.neutral.border[200])}>
                             {/* Info button */}
                             <button
                               onClick={(e) => {
@@ -923,7 +924,7 @@ export default function FilesTab({ onTabChange }) {
                                 setOpenMenuId(null);
                                 setShowDocumentMetadata(doc);
                               }}
-                              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                              className={combineClasses('w-full px-4 py-2 text-left text-sm flex items-center gap-2', DesignTokens.colors.neutral.text[700], `hover:${DesignTokens.colors.neutral[100]}`)}
                             >
                               <Info className="w-4 h-4" />
                               View Metadata
@@ -936,7 +937,7 @@ export default function FilesTab({ onTabChange }) {
                                 setOpenMenuId(null);
                                 setEditingDocumentNote(doc);
                               }}
-                              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                              className={combineClasses('w-full px-4 py-2 text-left text-sm flex items-center gap-2', DesignTokens.colors.neutral.text[700], `hover:${DesignTokens.colors.neutral[100]}`)}
                             >
                               <Edit2 className="w-4 h-4" />
                               Edit Name, Date & Note
@@ -950,7 +951,7 @@ export default function FilesTab({ onTabChange }) {
                                   setOpenMenuId(null);
                                   setRescanDocument(doc);
                                 }}
-                                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                className={combineClasses('w-full px-4 py-2 text-left text-sm flex items-center gap-2', DesignTokens.colors.neutral.text[700], `hover:${DesignTokens.colors.neutral[100]}`)}
                               >
                                 <RefreshCw className="w-4 h-4" />
                                 Rescan Document
@@ -964,7 +965,7 @@ export default function FilesTab({ onTabChange }) {
                                 setOpenMenuId(null);
                                 handleDelete(e);
                               }}
-                              className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                              className={combineClasses('w-full px-4 py-2 text-left text-sm flex items-center gap-2', DesignTokens.components.status.high.text, `hover:${DesignTokens.components.status.high.bg}`)}
                             >
                               <X className="w-4 h-4" />
                               Delete Document

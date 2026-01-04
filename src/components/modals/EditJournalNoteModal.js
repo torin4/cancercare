@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Calendar } from 'lucide-react';
+import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { journalNoteService } from '../../firebase/services';
 import { useBanner } from '../../contexts/BannerContext';
 import { formatDateString, parseLocalDate } from '../../utils/helpers';
@@ -76,13 +77,13 @@ export default function EditJournalNoteModal({
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4">
       <div className="bg-white w-full h-full md:h-auto md:rounded-xl md:max-w-md md:max-h-[90vh] overflow-hidden flex flex-col animate-slide-up">
         <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-medical-primary-600" />
+          <h3 className={combineClasses('text-lg font-semibold flex items-center gap-2', DesignTokens.colors.neutral.text[900])}>
+            <Calendar className={combineClasses('w-5 h-5', DesignTokens.colors.primary.text[600])} />
             Edit Journal Note
           </h3>
           <button
             onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600 transition"
+            className={combineClasses('transition', DesignTokens.colors.neutral.text[400], DesignTokens.colors.neutral.text[600].replace('text-', 'hover:text-'))}
             type="button"
           >
             <X className="w-6 h-6" />
@@ -90,13 +91,13 @@ export default function EditJournalNoteModal({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className={combineClasses('text-sm', DesignTokens.colors.neutral.text[600])}>
             Edit your journal note. You can change the content and date.
           </p>
 
           {/* Date Input */}
           <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
+            <label className={combineClasses('block text-sm font-semibold mb-2', DesignTokens.colors.neutral.text[900])}>
               Date
             </label>
             <DatePicker
@@ -106,14 +107,14 @@ export default function EditJournalNoteModal({
               placeholder="YYYY-MM-DD"
               className="w-full"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className={combineClasses('text-xs mt-1', DesignTokens.colors.neutral.text[500])}>
               The date this note is associated with
             </p>
           </div>
 
           {/* Note Content */}
           <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
+            <label className={combineClasses('block text-sm font-semibold mb-2', DesignTokens.colors.neutral.text[900])}>
               Note
             </label>
             <textarea
@@ -122,9 +123,9 @@ export default function EditJournalNoteModal({
               placeholder="Enter your note here..."
               rows={6}
               disabled={isSaving}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500 resize-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className={combineClasses('w-full rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500 resize-none disabled:cursor-not-allowed', DesignTokens.components.input.base, DesignTokens.components.input.disabled)}
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className={combineClasses('text-xs mt-1', DesignTokens.colors.neutral.text[500])}>
               {noteContent.length}/2000 characters
             </p>
           </div>
@@ -135,7 +136,7 @@ export default function EditJournalNoteModal({
             <button
               onClick={handleClose}
               disabled={isSaving}
-              className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className={combineClasses('flex-1 py-2.5 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed', DesignTokens.colors.neutral[200], DesignTokens.colors.neutral.text[700], DesignTokens.colors.neutral[300].replace('bg-', 'hover:bg-'))}
             >
               Cancel
             </button>

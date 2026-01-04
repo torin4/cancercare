@@ -468,8 +468,8 @@ export default function Onboarding({ onComplete }) {
                 {!formData.isPatient && (
                   <div className="border-t pt-6 mt-6">
                     <div className="mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Your Information</h3>
-                      <p className="text-sm text-gray-600">Enter your contact information as the caregiver</p>
+                      <h3 className={combineClasses('text-lg font-semibold mb-2', DesignTokens.colors.neutral.text[900])}>Your Information</h3>
+                      <p className={combineClasses('text-sm', DesignTokens.colors.neutral.text[600])}>Enter your contact information as the caregiver</p>
                     </div>
                     <div className="space-y-4">
                       <div>
@@ -523,8 +523,8 @@ export default function Onboarding({ onComplete }) {
                   <Search className="w-6 h-6 text-medical-accent-600" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Diagnosis</h2>
-                  <p className="text-sm text-gray-600">All fields required except Baseline CA-125</p>
+                  <h2 className={combineClasses('text-xl font-bold', DesignTokens.colors.neutral.text[900])}>Diagnosis</h2>
+                  <p className={combineClasses('text-sm', DesignTokens.colors.neutral.text[600])}>All fields required except Baseline CA-125</p>
                 </div>
               </div>
 
@@ -537,7 +537,7 @@ export default function Onboarding({ onComplete }) {
                     // Clear subtype when cancer type changes
                     updateField('subtype', '');
                     setCustomSubtype('');
-                  }} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900">
+                  }} className={combineClasses(DesignTokens.components.input.base, 'bg-white')}>
                     <option value="">Select cancer type</option>
                     {CANCER_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -549,7 +549,7 @@ export default function Onboarding({ onComplete }) {
                         setCustomDiagnosis(e.target.value);
                         updateField('diagnosis', e.target.value);
                       }}
-                      className="w-full mt-2 px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900"
+                      className={combineClasses(DesignTokens.components.input.base, 'bg-white mt-2')}
                       placeholder="Specify cancer type"
                     />
                   )}
@@ -570,7 +570,7 @@ export default function Onboarding({ onComplete }) {
                           setCustomSubtype('');
                         }
                       }} 
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900"
+                      className={combineClasses(DesignTokens.components.input.base, 'bg-white')}
                     >
                       <option value="">Select subtype (optional)</option>
                       {CANCER_SUBTYPES[formData.cancerType].map(s => (
@@ -585,7 +585,7 @@ export default function Onboarding({ onComplete }) {
                           setCustomSubtype(e.target.value);
                           updateField('subtype', e.target.value);
                         }}
-                        className="w-full mt-2 px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900"
+                        className={combineClasses(DesignTokens.components.input.base, 'bg-white mt-2')}
                         placeholder="Specify subtype"
                       />
                     )}
@@ -595,14 +595,14 @@ export default function Onboarding({ onComplete }) {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Stage *</label>
-                    <select value={formData.stage} onChange={(e) => updateField('stage', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900">
+                    <select value={formData.stage} onChange={(e) => updateField('stage', e.target.value)} className={combineClasses(DesignTokens.components.input.base, 'bg-white')}>
                       <option value="">Select stage</option>
                       {STAGE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Date of Diagnosis *</label>
-                    <input type="date" value={formData.diagnosisDate} onChange={(e) => updateField('diagnosisDate', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900" />
+                    <input type="date" value={formData.diagnosisDate} onChange={(e) => updateField('diagnosisDate', e.target.value)} className={combineClasses(DesignTokens.components.input.base, 'bg-white')} />
                   </div>
                 </div>
 
@@ -619,7 +619,7 @@ export default function Onboarding({ onComplete }) {
                         setCustomTreatmentStatus('');
                       }
                     }}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900"
+                    className={combineClasses(DesignTokens.components.input.base, 'bg-white')}
                   >
                     <option value="">Select treatment status</option>
                     {TREATMENT_STATUS_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
@@ -632,7 +632,7 @@ export default function Onboarding({ onComplete }) {
                         setCustomTreatmentStatus(e.target.value);
                         updateField('treatmentLine', e.target.value);
                       }}
-                      className="w-full mt-2 px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900"
+                      className={combineClasses(DesignTokens.components.input.base, 'bg-white mt-2')}
                       placeholder="Specify treatment status"
                     />
                   )}
@@ -641,14 +641,14 @@ export default function Onboarding({ onComplete }) {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>ECOG Performance *</label>
-                    <select value={formData.performanceStatus} onChange={(e) => updateField('performanceStatus', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900">
+                    <select value={formData.performanceStatus} onChange={(e) => updateField('performanceStatus', e.target.value)} className={combineClasses(DesignTokens.components.input.base, 'bg-white')}>
                       <option value="">Select ECOG</option>
                       {PERFORMANCE_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Disease Status *</label>
-                    <select value={formData.diseaseStatus} onChange={(e) => updateField('diseaseStatus', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900">
+                    <select value={formData.diseaseStatus} onChange={(e) => updateField('diseaseStatus', e.target.value)} className={combineClasses(DesignTokens.components.input.base, 'bg-white')}>
                       <option value="">Select status</option>
                       {DISEASE_STATUS_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
@@ -657,7 +657,7 @@ export default function Onboarding({ onComplete }) {
 
                 <div>
                   <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Baseline CA-125 (optional)</label>
-                  <input type="number" step="any" value={formData.baselineCa125} onChange={(e) => updateField('baselineCa125', e.target.value)} className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900" />
+                  <input type="number" step="any" value={formData.baselineCa125} onChange={(e) => updateField('baselineCa125', e.target.value)} className={combineClasses(DesignTokens.components.input.base, 'bg-white')} />
                 </div>
               </div>
             </div>
@@ -665,7 +665,7 @@ export default function Onboarding({ onComplete }) {
 
           {/* Navigation Buttons */}
           <div className="flex justify-between mt-8 pt-6 border-t">
-            <button onClick={handleBack} disabled={step === 0} className="px-6 py-2.5 text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">Back</button>
+            <button onClick={handleBack} disabled={step === 0} className={combineClasses('px-6 py-2.5 font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed', DesignTokens.colors.neutral.text[700], `hover:${DesignTokens.colors.neutral[100]}`)}>Back</button>
 
             {step === 0 ? (
               <button onClick={handleNext} disabled={!isStepValid()} className="px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed">Next <ChevronRight className="w-4 h-4 inline-block ml-2" /></button>
@@ -676,7 +676,7 @@ export default function Onboarding({ onComplete }) {
             )}
           </div>
 
-          <p className="text-xs text-gray-500 text-center mt-4">* Required fields</p>
+          <p className={combineClasses('text-xs text-center mt-4', DesignTokens.colors.neutral.text[500])}>* Required fields</p>
         </div>
       </div>
     </div>

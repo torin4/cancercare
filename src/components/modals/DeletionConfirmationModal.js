@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, AlertCircle, Activity, Trash2 } from 'lucide-react';
+import { DesignTokens, combineClasses } from '../../design/designTokens';
 
 export default function DeletionConfirmationModal({
   show,
@@ -40,25 +41,25 @@ export default function DeletionConfirmationModal({
   return (
     <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl animate-fade-scale">
-        <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4 mx-auto">
-          <AlertCircle className="text-red-600" size={24} />
+        <div className={combineClasses('w-12 h-12 rounded-full flex items-center justify-center mb-4 mx-auto', DesignTokens.components.status.high.bg)}>
+          <AlertCircle className={combineClasses('', DesignTokens.components.status.high.icon)} size={24} />
         </div>
 
-        <h3 className="text-lg font-bold text-gray-900 text-center mb-2">
+        <h3 className={combineClasses('text-lg font-bold text-center mb-2', DesignTokens.colors.neutral.text[900])}>
           {getTitle()}
         </h3>
 
-        <p className="text-sm text-gray-600 text-center mb-6">
+        <p className={combineClasses('text-sm text-center mb-6', DesignTokens.colors.neutral.text[600])}>
           {getMessage()}
           <br />
-          <span className="font-bold text-red-600 mt-2 block">This action is irreversible.</span>
+          <span className={combineClasses('font-bold mt-2 block', DesignTokens.components.alert.text.error)}>This action is irreversible.</span>
         </p>
 
         <div className="flex flex-col gap-3">
           <button
             onClick={onConfirm}
             disabled={isDeleting}
-            className={`w-full py-3 rounded-xl font-bold text-white transition-all shadow-lg flex items-center justify-center gap-2 ${isDeleting ? 'bg-gray-400' : 'bg-red-600 hover:bg-red-700 active:scale-[0.98]'}`}
+            className={combineClasses('w-full py-3 rounded-xl font-bold text-white transition-all shadow-lg flex items-center justify-center gap-2', isDeleting ? DesignTokens.colors.neutral[300] : `${DesignTokens.components.status.high.text.replace('text-', 'bg-').replace('600', '600')} ${DesignTokens.components.status.high.text.replace('text-', 'hover:bg-').replace('600', '700')} active:scale-[0.98]`)}
           >
             {isDeleting ? (
               <>
@@ -75,7 +76,7 @@ export default function DeletionConfirmationModal({
           <button
             onClick={onClose}
             disabled={isDeleting}
-            className="w-full py-3 rounded-xl font-bold text-gray-700 hover:bg-gray-100 transition flex items-center justify-center gap-2"
+            className={combineClasses('w-full py-3 rounded-xl font-bold transition flex items-center justify-center gap-2', DesignTokens.colors.neutral.text[700], DesignTokens.colors.neutral[100].replace('bg-', 'hover:bg-'))}
           >
             <X className="w-4 h-4" />
             Cancel

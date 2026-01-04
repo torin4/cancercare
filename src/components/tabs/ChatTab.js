@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
@@ -998,7 +999,7 @@ export default function ChatTab({ onTabChange }) {
                        
                        return (
                          <div className="mb-4">
-                           <h3 className="text-sm font-semibold text-gray-700 mb-2">
+                           <h3 className={combineClasses('text-sm font-semibold mb-2', DesignTokens.colors.neutral.text[700])}>
                              {isGenomicUpload ? 'Quick Actions' : 'Quick Actions'}
                            </h3>
                            <div className="flex flex-wrap gap-2">
@@ -1017,7 +1018,7 @@ export default function ChatTab({ onTabChange }) {
                                  </button>
                                  <button
                                    onClick={() => onTabChange('trials')}
-                                   className="px-3 py-1.5 bg-green-500 text-white text-xs rounded-full hover:bg-green-600 transition-colors flex items-center gap-1"
+                                   className={combineClasses('px-3 py-1.5 text-white text-xs rounded-full transition-colors flex items-center gap-1', DesignTokens.components.status.normal.text.replace('text-', 'bg-'), `hover:${DesignTokens.components.status.normal.text.replace('text-', 'bg-').replace('600', '700')}`)}
                                  >
                                    <Activity className="w-3 h-3" />
                                    Search Trials
@@ -1027,7 +1028,7 @@ export default function ChatTab({ onTabChange }) {
                                <>
                                  <button
                                    onClick={() => onTabChange('health')}
-                                   className="px-3 py-1.5 bg-blue-500 text-white text-xs rounded-full hover:bg-blue-600 transition-colors flex items-center gap-1"
+                                   className={combineClasses('px-3 py-1.5 text-white text-xs rounded-full transition-colors flex items-center gap-1', DesignTokens.colors.primary[500], `hover:${DesignTokens.colors.primary[600]}`)}
                                  >
                                    <Activity className="w-3 h-3" />
                                    View Health Data
@@ -1096,7 +1097,7 @@ export default function ChatTab({ onTabChange }) {
                                        setInputText(analysisPrompt);
                                        setTimeout(() => handleSendMessage(), 150);
                                      }}
-                                     className="px-3 py-1.5 bg-green-500 text-white text-xs rounded-full hover:bg-green-600 transition-colors flex items-center gap-1"
+                                     className={combineClasses('px-3 py-1.5 text-white text-xs rounded-full transition-colors flex items-center gap-1', DesignTokens.components.status.normal.text.replace('text-', 'bg-'), `hover:${DesignTokens.components.status.normal.text.replace('text-', 'bg-').replace('600', '700')}`)}
                                    >
                                      <Zap className="w-3 h-3" />
                                      Quick Analysis

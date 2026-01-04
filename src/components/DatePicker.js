@@ -82,19 +82,7 @@ export default function DatePicker({ value, onChange, max, min, className = '', 
     }
   }, [isOpen]);
 
-  // Update view date when value changes
-  useEffect(() => {
-    if (value) {
-      const date = new Date(value);
-      if (!isNaN(date.getTime())) {
-        setViewDate(date);
-        setSelectedDate(date);
-      }
-    } else {
-      setSelectedDate(null);
-    }
-  }, [value]);
-
+  // Helper functions
   const formatDate = (date) => {
     if (!date) return '';
     const d = new Date(date);
@@ -113,6 +101,21 @@ export default function DatePicker({ value, onChange, max, min, className = '', 
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
+
+  // Update view date and input value when value changes
+  useEffect(() => {
+    if (value) {
+      const date = new Date(value);
+      if (!isNaN(date.getTime())) {
+        setViewDate(date);
+        setSelectedDate(date);
+        setInputValue(formatInputValue(date));
+      }
+    } else {
+      setSelectedDate(null);
+      setInputValue('');
+    }
+  }, [value]);
 
   const getDaysInMonth = (date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();

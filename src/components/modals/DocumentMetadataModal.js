@@ -1,5 +1,6 @@
 import React from 'react';
 import { X } from 'lucide-react';
+import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { parseLocalDate } from '../../utils/helpers';
 
 export default function DocumentMetadataModal({ show, document, onClose }) {
@@ -15,39 +16,39 @@ export default function DocumentMetadataModal({ show, document, onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-gray-900">Document Metadata</h3>
+          <h3 className={combineClasses('text-lg font-bold', DesignTokens.colors.neutral.text[900])}>Document Metadata</h3>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-gray-100 transition"
+            className={combineClasses('p-1.5 rounded-full transition', DesignTokens.colors.neutral[100].replace('bg-', 'hover:bg-'))}
             aria-label="Close"
             type="button"
           >
-            <X className="w-5 h-5 text-gray-500" />
+            <X className={combineClasses('w-5 h-5', DesignTokens.colors.neutral.text[500])} />
           </button>
         </div>
 
         <div className="space-y-3">
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase mb-1">File Name</p>
-            <p className="text-sm text-gray-900">{document.fileName || document.name || 'Unknown'}</p>
+            <p className={combineClasses('text-xs font-semibold uppercase mb-1', DesignTokens.colors.neutral.text[500])}>File Name</p>
+            <p className={combineClasses('text-sm', DesignTokens.colors.neutral.text[900])}>{document.fileName || document.name || 'Unknown'}</p>
           </div>
 
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Document Type</p>
-            <p className="text-sm text-gray-900">{document.documentType || document.type || 'Unknown'}</p>
+            <p className={combineClasses('text-xs font-semibold uppercase mb-1', DesignTokens.colors.neutral.text[500])}>Document Type</p>
+            <p className={combineClasses('text-sm', DesignTokens.colors.neutral.text[900])}>{document.documentType || document.type || 'Unknown'}</p>
           </div>
 
           {document.dataPointCount !== undefined && document.dataPointCount !== null && (
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Extracted Data Points</p>
-              <p className="text-sm text-gray-900 font-semibold">{document.dataPointCount} data point{document.dataPointCount !== 1 ? 's' : ''}</p>
+              <p className={combineClasses('text-xs font-semibold uppercase mb-1', DesignTokens.colors.neutral.text[500])}>Extracted Data Points</p>
+              <p className={combineClasses('text-sm font-semibold', DesignTokens.colors.neutral.text[900])}>{document.dataPointCount} data point{document.dataPointCount !== 1 ? 's' : ''}</p>
             </div>
           )}
 
           {document.fileSize && (
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase mb-1">File Size</p>
-              <p className="text-sm text-gray-900">
+              <p className={combineClasses('text-xs font-semibold uppercase mb-1', DesignTokens.colors.neutral.text[500])}>File Size</p>
+              <p className={combineClasses('text-sm', DesignTokens.colors.neutral.text[900])}>
                 {document.fileSize < 1024 
                   ? `${document.fileSize} bytes`
                   : document.fileSize < 1024 * 1024
@@ -59,14 +60,14 @@ export default function DocumentMetadataModal({ show, document, onClose }) {
 
           {document.fileType && (
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase mb-1">File Type</p>
-              <p className="text-sm text-gray-900">{document.fileType}</p>
+              <p className={combineClasses('text-xs font-semibold uppercase mb-1', DesignTokens.colors.neutral.text[500])}>File Type</p>
+              <p className={combineClasses('text-sm', DesignTokens.colors.neutral.text[900])}>{document.fileType}</p>
             </div>
           )}
 
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Upload Date</p>
-            <p className="text-sm text-gray-900">
+            <p className={combineClasses('text-xs font-semibold uppercase mb-1', DesignTokens.colors.neutral.text[500])}>Upload Date</p>
+            <p className={combineClasses('text-sm', DesignTokens.colors.neutral.text[900])}>
               {parseLocalDate(document.date).toLocaleDateString('en-US', { 
                 month: 'long', 
                 day: 'numeric', 
@@ -79,15 +80,15 @@ export default function DocumentMetadataModal({ show, document, onClose }) {
 
           {document.note && (
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Note</p>
-              <p className="text-sm text-gray-900 italic">{document.note}</p>
+              <p className={combineClasses('text-xs font-semibold uppercase mb-1', DesignTokens.colors.neutral.text[500])}>Note</p>
+              <p className={combineClasses('text-sm italic', DesignTokens.colors.neutral.text[900])}>{document.note}</p>
             </div>
           )}
         </div>
 
         <button
           onClick={onClose}
-          className="mt-6 w-full py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition"
+          className={combineClasses('mt-6 w-full py-3 rounded-xl font-bold text-white transition', DesignTokens.colors.primary[600], DesignTokens.colors.primary[700].replace('bg-', 'hover:bg-'))}
         >
           Close
         </button>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, User, Calendar, MapPin, TrendingUp, Activity, Edit2, Dna, Upload, AlertCircle, Users, Phone, Plus, Settings, Link2, Loader2, Unlink, LogOut, Trash2, Sliders, Shield, HeartHandshake, Copy } from 'lucide-react';
+import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { signOut, linkWithPopup, unlink, GoogleAuthProvider, deleteUser } from 'firebase/auth';
 import { auth } from '../../firebase/config';
 import { useAuth } from '../../contexts/AuthContext';
@@ -376,26 +377,26 @@ export default function ProfileTab({ onTabChange }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-4 mb-3">
               <div>
-                <h2 className="font-bold text-xl sm:text-2xl md:text-3xl text-gray-900 mb-1">
+                <h2 className={combineClasses('font-bold text-xl sm:text-2xl md:text-3xl mb-1', DesignTokens.colors.neutral.text[900])}>
                   {patientProfile.firstName || patientProfile.lastName 
                     ? `${patientProfile.firstName || ''} ${patientProfile.lastName || ''}`.trim()
                     : patientProfile.name || user?.displayName || 'Patient'}
                 </h2>
                 {patientProfile?.isPatient === false && patientProfile?.caregiverName && (
-                  <p className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+                  <p className={combineClasses('text-sm mb-1 flex items-center gap-1', DesignTokens.colors.neutral.text[600])}>
                     <HeartHandshake className="w-3 h-3" />
                     {getFirstAndLastName(patientProfile.caregiverName)}
                   </p>
                 )}
                 {patientProfile.gender && (
-                  <span className="text-sm text-gray-600">
+                  <span className={combineClasses('text-sm', DesignTokens.colors.neutral.text[600])}>
                     {patientProfile.gender}
                   </span>
                 )}
               </div>
               <button
                 onClick={() => setShowEditInfo(true)}
-                className="p-2 -mr-2 text-blue-600 hover:text-blue-700 active:text-blue-800 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+                className={combineClasses('p-2 -mr-2 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center', DesignTokens.colors.primary.text[600], `hover:${DesignTokens.colors.primary.text[700]}`, `active:${DesignTokens.colors.primary.text[700]}`)}
                 aria-label="Edit patient information"
               >
                 <Edit2 size={20} />
@@ -410,8 +411,8 @@ export default function ProfileTab({ onTabChange }) {
                     <User className="w-4 h-4 text-medical-primary-600" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Age</p>
-                    <p className="font-semibold text-gray-900">{patientProfile.age} years</p>
+                    <p className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>Age</p>
+                    <p className={combineClasses('font-semibold', DesignTokens.colors.neutral.text[900])}>{patientProfile.age} years</p>
                   </div>
                 </div>
               )}
@@ -421,8 +422,8 @@ export default function ProfileTab({ onTabChange }) {
                     <Calendar className="w-4 h-4 text-medical-accent-600" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Date of Birth</p>
-                    <p className="font-semibold text-gray-900">
+                    <p className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>Date of Birth</p>
+                    <p className={combineClasses('font-semibold', DesignTokens.colors.neutral.text[900])}>
                       {new Date(patientProfile.dateOfBirth).toLocaleDateString('en-US', { 
                         year: 'numeric', 
                         month: 'long', 
@@ -438,8 +439,8 @@ export default function ProfileTab({ onTabChange }) {
                     <MapPin className="w-4 h-4 text-medical-secondary-600" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Location</p>
-                    <p className="font-semibold text-gray-900">{patientProfile.country}</p>
+                    <p className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>Location</p>
+                    <p className={combineClasses('font-semibold', DesignTokens.colors.neutral.text[900])}>{patientProfile.country}</p>
                   </div>
                 </div>
               )}
@@ -449,30 +450,30 @@ export default function ProfileTab({ onTabChange }) {
                     <User className="w-4 h-4 text-pink-600" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Gender</p>
-                    <p className="font-semibold text-gray-900">{patientProfile.gender}</p>
+                    <p className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>Gender</p>
+                    <p className={combineClasses('font-semibold', DesignTokens.colors.neutral.text[900])}>{patientProfile.gender}</p>
                   </div>
                 </div>
               )}
               {patientProfile.height && (
                 <div className="flex items-center gap-2 text-sm">
-                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <TrendingUp className="w-4 h-4 text-green-600" />
+                  <div className={combineClasses('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0', DesignTokens.components.status.normal.bg)}>
+                    <TrendingUp className={combineClasses('w-4 h-4', DesignTokens.components.status.normal.text)} />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Height</p>
-                    <p className="font-semibold text-gray-900">{patientProfile.height} cm</p>
+                    <p className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>Height</p>
+                    <p className={combineClasses('font-semibold', DesignTokens.colors.neutral.text[900])}>{patientProfile.height} cm</p>
                   </div>
                 </div>
               )}
               {patientProfile.weight && (
                 <div className="flex items-center gap-2 text-sm">
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Activity className="w-4 h-4 text-blue-600" />
+                  <div className={combineClasses('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0', DesignTokens.colors.primary[100])}>
+                    <Activity className={combineClasses('w-4 h-4', DesignTokens.colors.primary.text[600])} />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Weight</p>
-                    <p className="font-semibold text-gray-900">{patientProfile.weight} kg</p>
+                    <p className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>Weight</p>
+                    <p className={combineClasses('font-semibold', DesignTokens.colors.neutral.text[900])}>{patientProfile.weight} kg</p>
                   </div>
                 </div>
               )}
@@ -482,13 +483,13 @@ export default function ProfileTab({ onTabChange }) {
       </div>
 
       {/* Current Status - Full Width */}
-      <div className="bg-white rounded-lg shadow-sm p-4 sm:p-5 md:p-6 border-2 border-medical-accent-200">
+      <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-4 sm:p-5 md:p-6 border-2 border-medical-accent-200">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="bg-medical-accent-50 p-2.5 rounded-lg">
               <Activity className="w-6 h-6 text-medical-accent-600" />
             </div>
-            <h2 className="font-semibold text-gray-800 text-base sm:text-lg">Current Status</h2>
+            <h2 className={combineClasses('font-semibold text-base sm:text-lg', DesignTokens.colors.neutral.text[800])}>Current Status</h2>
           </div>
           <button
             onClick={() => setShowUpdateStatus(true)}
@@ -500,51 +501,51 @@ export default function ProfileTab({ onTabChange }) {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="flex flex-col">
-            <span className="text-gray-600 mb-1 text-sm">Diagnosis</span>
-            <span className="font-medium text-gray-900">{currentStatus?.diagnosis || patientProfile?.diagnosis || 'No diagnosis yet'}</span>
+            <span className={combineClasses('mb-1 text-sm', DesignTokens.colors.neutral.text[600])}>Diagnosis</span>
+            <span className={combineClasses('font-medium', DesignTokens.colors.neutral.text[900])}>{currentStatus?.diagnosis || patientProfile?.diagnosis || 'No diagnosis yet'}</span>
           </div>
           {(currentStatus?.subtype || patientProfile?.cancerType) && (
             <div className="flex flex-col">
-              <span className="text-gray-600 mb-1 text-sm">Cancer Subtype</span>
-              <span className="font-medium text-gray-900">{currentStatus?.subtype || patientProfile?.cancerType || '—'}</span>
+              <span className={combineClasses('mb-1 text-sm', DesignTokens.colors.neutral.text[600])}>Cancer Subtype</span>
+              <span className={combineClasses('font-medium', DesignTokens.colors.neutral.text[900])}>{currentStatus?.subtype || patientProfile?.cancerType || '—'}</span>
             </div>
           )}
           {(currentStatus?.stage || patientProfile?.stage) && (
             <div className="flex flex-col">
-              <span className="text-gray-600 mb-1 text-sm">Stage</span>
-              <span className="font-medium text-gray-900">{currentStatus?.stage || patientProfile?.stage || '—'}</span>
+              <span className={combineClasses('mb-1 text-sm', DesignTokens.colors.neutral.text[600])}>Stage</span>
+              <span className={combineClasses('font-medium', DesignTokens.colors.neutral.text[900])}>{currentStatus?.stage || patientProfile?.stage || '—'}</span>
             </div>
           )}
           <div className="flex flex-col">
-            <span className="text-gray-600 mb-1 text-sm">Treatment Status</span>
-            <span className="font-medium text-gray-900">{currentStatus?.treatmentLine || currentStatus?.currentRegimen || '—'}</span>
+            <span className={combineClasses('mb-1 text-sm', DesignTokens.colors.neutral.text[600])}>Treatment Status</span>
+            <span className={combineClasses('font-medium', DesignTokens.colors.neutral.text[900])}>{currentStatus?.treatmentLine || currentStatus?.currentRegimen || '—'}</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-gray-600 mb-1 text-sm">ECOG Performance</span>
-            <span className="font-medium text-gray-900">{currentStatus?.performanceStatus || '—'}</span>
+            <span className={combineClasses('mb-1 text-sm', DesignTokens.colors.neutral.text[600])}>ECOG Performance</span>
+            <span className={combineClasses('font-medium', DesignTokens.colors.neutral.text[900])}>{currentStatus?.performanceStatus || '—'}</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-gray-600 mb-1 text-sm">Disease Status</span>
-            <span className="font-medium text-gray-900">{currentStatus?.diseaseStatus || '—'}</span>
+            <span className={combineClasses('mb-1 text-sm', DesignTokens.colors.neutral.text[600])}>Disease Status</span>
+            <span className={combineClasses('font-medium', DesignTokens.colors.neutral.text[900])}>{currentStatus?.diseaseStatus || '—'}</span>
           </div>
           {currentStatus?.baselineCa125 != null && currentStatus?.baselineCa125 !== '' && (
             <div className="flex flex-col">
-              <span className="text-gray-600 mb-1 text-sm">Baseline CA-125</span>
-              <span className="font-medium text-gray-900">{currentStatus.baselineCa125}</span>
+              <span className={combineClasses('mb-1 text-sm', DesignTokens.colors.neutral.text[600])}>Baseline CA-125</span>
+              <span className={combineClasses('font-medium', DesignTokens.colors.neutral.text[900])}>{currentStatus.baselineCa125}</span>
             </div>
           )}
         </div>
       </div>
 
       {/* Genomic Profile */}
-      <div className="bg-white rounded-lg shadow-sm p-4 sm:p-5 md:p-6 border-2 border-purple-200">
+      <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-4 sm:p-5 md:p-6 border-2 border-purple-200">
         {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 && (
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-2.5 rounded-lg">
                 <Dna className="w-6 h-6 text-purple-600" />
               </div>
-              <h2 className="font-semibold text-gray-800 text-base sm:text-lg">Genomic Profile</h2>
+              <h2 className={combineClasses('font-semibold text-base sm:text-lg', DesignTokens.colors.neutral.text[800])}>Genomic Profile</h2>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -611,7 +612,7 @@ export default function ProfileTab({ onTabChange }) {
 
         {/* Summary View - Always Visible */}
         {genomicProfile && ((genomicProfile.mutations && genomicProfile.mutations.length > 0) || (genomicProfile.cnvs && genomicProfile.cnvs.length > 0)) ? (
-          <div className="bg-white rounded-lg p-3 mb-3">
+          <div className={combineClasses(DesignTokens.components.card.nested, 'mb-3')}>
             <div className="flex flex-wrap gap-2">
               {genomicProfile.mutations && genomicProfile.mutations.slice(0, 5).map((mutation, idx) => (
                 <span key={idx} className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
@@ -627,12 +628,12 @@ export default function ProfileTab({ onTabChange }) {
                 );
               })}
               {genomicProfile.tmb && (
-                <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                <span className={combineClasses('px-3 py-1 rounded-full text-xs font-medium', DesignTokens.colors.primary[100], DesignTokens.colors.primary.text[700])}>
                   TMB: {genomicProfile.tmb}
                 </span>
               )}
               {genomicProfile.msi && (
-                <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                <span className={combineClasses('px-3 py-1 rounded-full text-xs font-medium', DesignTokens.components.status.normal.bg, DesignTokens.components.status.normal.text.replace('600', '800'))}>
                   MSI: {genomicProfile.msi}
                 </span>
               )}
@@ -661,8 +662,8 @@ export default function ProfileTab({ onTabChange }) {
         {genomicExpanded && genomicProfile && ((genomicProfile.mutations && genomicProfile.mutations.length > 0) || (genomicProfile.cnvs && genomicProfile.cnvs.length > 0) || genomicProfile.tmb || genomicProfile.msi || genomicProfile.hrd) && (
           <div className="space-y-3 animate-fade-scale">
             {/* Key Mutations */}
-            <div className="bg-white rounded-lg p-4">
-              <h3 className="font-semibold text-gray-800 mb-3 text-sm flex items-center gap-2">
+            <div className={DesignTokens.components.card.nestedLarge}>
+              <h3 className={combineClasses('font-semibold mb-3 text-sm flex items-center gap-2', DesignTokens.colors.neutral.text[800])}>
                 <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
                 </svg>
@@ -679,37 +680,37 @@ export default function ProfileTab({ onTabChange }) {
                     <div key={idx} className="flex items-start justify-between p-2 bg-purple-50 border border-purple-200 rounded">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className={`font-semibold text-gray-900 text-sm ${IMPORTANT_GENES.includes((mutation.gene||'').toUpperCase()) ? 'text-yellow-700' : ''}`}>{mutation.gene}</span>
+                          <span className={combineClasses('font-semibold text-sm', DesignTokens.colors.neutral.text[900], IMPORTANT_GENES.includes((mutation.gene||'').toUpperCase()) ? 'text-yellow-700' : '')}>{mutation.gene}</span>
                           <span className={`px-2 py-0.5 ${IMPORTANT_GENES.includes((mutation.gene||'').toUpperCase()) ? 'bg-yellow-100 text-yellow-800' : 'bg-purple-100 text-purple-800'} rounded text-xs font-medium`}>
                             {formatLabel(kind || mutation.type || 'Mutation')}
                           </span>
                         </div>
                         {dna && (
-                          <p className="text-xs text-gray-700 mt-1">
+                          <p className={combineClasses('text-xs mt-1', DesignTokens.colors.neutral.text[700])}>
                             <span className="font-medium">DNA:</span> {dna}
                             {vaf !== null && vaf !== undefined && (
-                              <span className="ml-2 text-gray-600">({typeof vaf === 'number' ? vaf.toFixed(1) : vaf}% VAF)</span>
+                              <span className={combineClasses('ml-2', DesignTokens.colors.neutral.text[600])}>({typeof vaf === 'number' ? vaf.toFixed(1) : vaf}% VAF)</span>
                             )}
                           </p>
                         )}
                         {protein && (
-                          <p className="text-xs text-gray-700 mt-1">
+                          <p className={combineClasses('text-xs mt-1', DesignTokens.colors.neutral.text[700])}>
                             <span className="font-medium">Protein:</span> {protein}
                           </p>
                         )}
                         {!dna && !protein && mutation.variant && (
-                          <p className="text-xs text-gray-700 mt-1">
+                          <p className={combineClasses('text-xs mt-1', DesignTokens.colors.neutral.text[700])}>
                             {mutation.variant}
                             {vaf !== null && vaf !== undefined && (
-                              <span className="ml-2 text-gray-600">({typeof vaf === 'number' ? vaf.toFixed(1) : vaf}% VAF)</span>
+                              <span className={combineClasses('ml-2', DesignTokens.colors.neutral.text[600])}>({typeof vaf === 'number' ? vaf.toFixed(1) : vaf}% VAF)</span>
                             )}
                           </p>
                         )}
                         {mutation.significance && (
                           <div className="mt-1">
-                            <p className="text-xs text-gray-600 font-medium">{formatSignificance(mutation.significance)}</p>
+                            <p className={combineClasses('text-xs font-medium', DesignTokens.colors.neutral.text[600])}>{formatSignificance(mutation.significance)}</p>
                             {significanceExplanation(mutation.significance) && (
-                              <p className="text-xs text-gray-500 mt-0.5">{significanceExplanation(mutation.significance)}</p>
+                              <p className={combineClasses('text-xs mt-0.5', DesignTokens.colors.neutral.text[500])}>{significanceExplanation(mutation.significance)}</p>
                             )}
                           </div>
                         )}
@@ -722,8 +723,8 @@ export default function ProfileTab({ onTabChange }) {
 
             {/* Copy Number Variants (CNVs) */}
             {genomicProfile.cnvs && genomicProfile.cnvs.length > 0 && (
-              <div className="bg-white rounded-lg p-4">
-                <h3 className="font-semibold text-gray-800 mb-3 text-sm flex items-center gap-2">
+              <div className={DesignTokens.components.card.nestedLarge}>
+                <h3 className={combineClasses('font-semibold mb-3 text-sm flex items-center gap-2', DesignTokens.colors.neutral.text[800])}>
                   <Copy className="w-4 h-4 text-orange-600" />
                   Copy Number Variants (CNVs)
                 </h3>
@@ -732,7 +733,7 @@ export default function ProfileTab({ onTabChange }) {
                     <div key={idx} className="flex items-start justify-between p-2 bg-orange-50 border border-orange-200 rounded">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className={`font-semibold text-gray-900 text-sm ${IMPORTANT_GENES.includes((cnv.gene||'').toUpperCase()) ? 'text-yellow-700' : ''}`}>
+                          <span className={combineClasses('font-semibold text-sm', DesignTokens.colors.neutral.text[900], IMPORTANT_GENES.includes((cnv.gene||'').toUpperCase()) ? 'text-yellow-700' : '')}>
                             {cnv.gene}
                           </span>
                           <span className="px-2 py-0.5 bg-orange-100 text-orange-800 rounded text-xs font-medium">
@@ -745,12 +746,12 @@ export default function ProfileTab({ onTabChange }) {
                           )}
                         </div>
                         {cnv.copyNumber && (
-                          <p className="text-xs text-gray-700 mt-1">
+                          <p className={combineClasses('text-xs mt-1', DesignTokens.colors.neutral.text[700])}>
                             <span className="font-medium">Copy Number:</span> {cnv.copyNumber}
                           </p>
                         )}
                         {cnv.note && (
-                          <p className="text-xs text-gray-600 mt-1">{cnv.note}</p>
+                          <p className={combineClasses('text-xs mt-1', DesignTokens.colors.neutral.text[600])}>{cnv.note}</p>
                         )}
                         {cnv.gene === 'CCNE1' && (
                           <p className="text-xs text-orange-700 font-medium mt-1 flex items-center gap-1">
@@ -765,8 +766,8 @@ export default function ProfileTab({ onTabChange }) {
             )}
 
             {/* Biomarkers */}
-            <div className="bg-white rounded-lg p-4">
-              <h3 className="font-semibold text-gray-800 mb-3 text-sm flex items-center gap-2">
+            <div className={DesignTokens.components.card.nestedLarge}>
+              <h3 className={combineClasses('font-semibold mb-3 text-sm flex items-center gap-2', DesignTokens.colors.neutral.text[800])}>
                 <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
@@ -775,7 +776,7 @@ export default function ProfileTab({ onTabChange }) {
               <div className="grid grid-cols-2 gap-2">
                 {genomicProfile.hrd && (
                   <div className="p-2 bg-purple-50 border border-purple-200 rounded">
-                    <p className="text-xs text-gray-600 mb-1">HRD Score</p>
+                    <p className={combineClasses('text-xs mb-1', DesignTokens.colors.neutral.text[600])}>HRD Score</p>
                     <p className="text-lg font-bold text-purple-900">{genomicProfile.hrd}</p>
                     <p className="text-xs text-purple-700 font-medium">
                       {genomicProfile.hrd >= 42 ? 'Positive (≥42)' : 'Negative (<42)'}
@@ -784,26 +785,26 @@ export default function ProfileTab({ onTabChange }) {
                 )}
 
                 {genomicProfile.tmb && (
-                  <div className="p-2 bg-blue-50 border border-blue-200 rounded">
-                    <p className="text-xs text-gray-600 mb-1">TMB</p>
-                    <p className="text-lg font-bold text-blue-900">{genomicProfile.tmb}</p>
-                    <p className="text-xs text-blue-700 font-medium">
+                  <div className={combineClasses('p-2 border rounded', DesignTokens.colors.primary[50], DesignTokens.colors.primary.border[200])}>
+                    <p className={combineClasses('text-xs mb-1', DesignTokens.colors.neutral.text[600])}>TMB</p>
+                    <p className={combineClasses('text-lg font-bold', DesignTokens.colors.primary.text[700])}>{genomicProfile.tmb}</p>
+                    <p className={combineClasses('text-xs font-medium', DesignTokens.colors.primary.text[700])}>
                       {parseFloat(genomicProfile.tmb) >= 10 ? 'High (≥10 mut/Mb)' : 'Low (<10 mut/Mb)'}
                     </p>
                   </div>
                 )}
 
                 {genomicProfile.msi && (
-                  <div className="p-2 bg-green-50 border border-green-200 rounded">
-                    <p className="text-xs text-gray-600 mb-1">MSI Status</p>
-                    <p className="text-sm font-bold text-green-900">{genomicProfile.msi}</p>
-                    <p className="text-xs text-green-700 font-medium">Microsatellite status</p>
+                  <div className={combineClasses('p-2 border rounded', DesignTokens.components.status.normal.bg, DesignTokens.components.status.normal.border)}>
+                    <p className={combineClasses('text-xs mb-1', DesignTokens.colors.neutral.text[600])}>MSI Status</p>
+                    <p className={combineClasses('text-sm font-bold', DesignTokens.components.status.normal.text.replace('600', '900'))}>{genomicProfile.msi}</p>
+                    <p className={combineClasses('text-xs font-medium', DesignTokens.components.status.normal.text.replace('600', '700'))}>Microsatellite status</p>
                   </div>
                 )}
 
                 {genomicProfile.pdl1 && (
                   <div className="p-2 bg-teal-50 border border-teal-200 rounded">
-                    <p className="text-xs text-gray-600 mb-1">PD-L1</p>
+                    <p className={combineClasses('text-xs mb-1', DesignTokens.colors.neutral.text[600])}>PD-L1</p>
                     <p className="text-sm font-bold text-teal-900">{genomicProfile.pdl1}</p>
                     <p className="text-xs text-teal-700 font-medium">Expression level</p>
                   </div>
@@ -813,25 +814,25 @@ export default function ProfileTab({ onTabChange }) {
 
             {/* Test Information */}
             {(genomicProfile.testType || genomicProfile.testDate || genomicProfile.sampleType) && (
-              <div className="bg-white rounded-lg p-3">
-                <h3 className="font-semibold text-gray-800 mb-2 text-sm">Test Information</h3>
+              <div className={DesignTokens.components.card.nested}>
+                <h3 className={combineClasses('font-semibold mb-2 text-sm', DesignTokens.colors.neutral.text[800])}>Test Information</h3>
                 <div className="space-y-1 text-xs">
                   {genomicProfile.testType && (
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Test Type:</span>
-                      <span className="font-medium text-gray-900">{genomicProfile.testType}</span>
+                      <span className={DesignTokens.colors.neutral.text[600]}>Test Type:</span>
+                      <span className={combineClasses('font-medium', DesignTokens.colors.neutral.text[900])}>{genomicProfile.testType}</span>
                     </div>
                   )}
                   {genomicProfile.sampleType && (
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Sample:</span>
-                      <span className="font-medium text-gray-900">{genomicProfile.sampleType}</span>
+                      <span className={DesignTokens.colors.neutral.text[600]}>Sample:</span>
+                      <span className={combineClasses('font-medium', DesignTokens.colors.neutral.text[900])}>{genomicProfile.sampleType}</span>
                     </div>
                   )}
                   {genomicProfile.testDate && (
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Test Date:</span>
-                      <span className="font-medium text-gray-900">
+                      <span className={DesignTokens.colors.neutral.text[600]}>Test Date:</span>
+                      <span className={combineClasses('font-medium', DesignTokens.colors.neutral.text[900])}>
                         {genomicProfile.testDate instanceof Date 
                           ? genomicProfile.testDate.toLocaleDateString() 
                           : typeof genomicProfile.testDate === 'string' 
@@ -842,8 +843,8 @@ export default function ProfileTab({ onTabChange }) {
                   )}
                   {genomicProfile.genesAnalyzed && (
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Genes Analyzed:</span>
-                      <span className="font-medium text-gray-900">{genomicProfile.genesAnalyzed}</span>
+                      <span className={DesignTokens.colors.neutral.text[600]}>Genes Analyzed:</span>
+                      <span className={combineClasses('font-medium', DesignTokens.colors.neutral.text[900])}>{genomicProfile.genesAnalyzed}</span>
                     </div>
                   )}
                 </div>
@@ -922,14 +923,14 @@ export default function ProfileTab({ onTabChange }) {
       {/* Medical Team & Emergency Contacts - Side by Side */}
       <div className="flex flex-col sm:flex-row gap-4">
         {/* Medical Team */}
-        <div className="flex-1 bg-white rounded-lg shadow-sm p-4 border-2 border-medical-primary-200">
+        <div className="flex-1 bg-white rounded-lg sm:rounded-xl shadow-sm p-4 border-2 border-medical-primary-200">
           {(patientProfile.oncologist || patientProfile.hospital || patientProfile.clinicalTrialCoordinator || patientProfile.caregiverName) && (
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <div className="bg-medical-primary-50 p-2.5 rounded-lg">
                   <Users className="w-5 h-5 text-medical-primary-600" />
                 </div>
-                <h2 className="font-semibold text-gray-800">Medical Team</h2>
+                <h2 className={combineClasses('font-semibold', DesignTokens.colors.neutral.text[800])}>Medical Team</h2>
               </div>
               <button
                 onClick={() => setShowEditMedicalTeam(true)}
@@ -941,12 +942,12 @@ export default function ProfileTab({ onTabChange }) {
             </div>
           )}
           {(patientProfile.oncologist || patientProfile.hospital || patientProfile.clinicalTrialCoordinator || patientProfile.caregiverName) ? (
-            <div className="text-sm text-gray-700 space-y-2">
+            <div className={combineClasses('text-sm space-y-2', DesignTokens.colors.neutral.text[700])}>
               {patientProfile.oncologist && (
                 <div>
                   <p><strong>Oncologist:</strong> {patientProfile.oncologist}</p>
-                  {patientProfile.oncologistPhone && <p className="text-xs text-gray-600 ml-4">Phone: {patientProfile.oncologistPhone}</p>}
-                  {patientProfile.oncologistEmail && <p className="text-xs text-gray-600 ml-4">Email: {patientProfile.oncologistEmail}</p>}
+                  {patientProfile.oncologistPhone && <p className={combineClasses('text-xs ml-4', DesignTokens.colors.neutral.text[600])}>Phone: {patientProfile.oncologistPhone}</p>}
+                  {patientProfile.oncologistEmail && <p className={combineClasses('text-xs ml-4', DesignTokens.colors.neutral.text[600])}>Email: {patientProfile.oncologistEmail}</p>}
                 </div>
               )}
               {patientProfile.hospital && (
@@ -955,15 +956,15 @@ export default function ProfileTab({ onTabChange }) {
               {patientProfile.clinicalTrialCoordinator && (
                 <div>
                   <p><strong>Clinical Trial Coordinator:</strong> {patientProfile.clinicalTrialCoordinator}</p>
-                  {patientProfile.clinicalTrialCoordinatorPhone && <p className="text-xs text-gray-600 ml-4">Phone: {patientProfile.clinicalTrialCoordinatorPhone}</p>}
-                  {patientProfile.clinicalTrialCoordinatorEmail && <p className="text-xs text-gray-600 ml-4">Email: {patientProfile.clinicalTrialCoordinatorEmail}</p>}
+                  {patientProfile.clinicalTrialCoordinatorPhone && <p className={combineClasses('text-xs ml-4', DesignTokens.colors.neutral.text[600])}>Phone: {patientProfile.clinicalTrialCoordinatorPhone}</p>}
+                  {patientProfile.clinicalTrialCoordinatorEmail && <p className={combineClasses('text-xs ml-4', DesignTokens.colors.neutral.text[600])}>Email: {patientProfile.clinicalTrialCoordinatorEmail}</p>}
                 </div>
               )}
               {patientProfile.caregiverName && (
                 <div>
                   <p><strong>Caregiver:</strong> {patientProfile.caregiverName}</p>
-                  {patientProfile.caregiverPhone && <p className="text-xs text-gray-600 ml-4">Phone: {patientProfile.caregiverPhone}</p>}
-                  {patientProfile.caregiverEmail && <p className="text-xs text-gray-600 ml-4">Email: {patientProfile.caregiverEmail}</p>}
+                  {patientProfile.caregiverPhone && <p className={combineClasses('text-xs ml-4', DesignTokens.colors.neutral.text[600])}>Phone: {patientProfile.caregiverPhone}</p>}
+                  {patientProfile.caregiverEmail && <p className={combineClasses('text-xs ml-4', DesignTokens.colors.neutral.text[600])}>Email: {patientProfile.caregiverEmail}</p>}
                 </div>
               )}
             </div>
@@ -988,14 +989,14 @@ export default function ProfileTab({ onTabChange }) {
         </div>
 
         {/* Emergency Contacts */}
-        <div className="flex-1 bg-white rounded-lg shadow-sm p-4 border-2 border-amber-200">
+        <div className="flex-1 bg-white rounded-lg sm:rounded-xl shadow-sm p-4 border-2 border-amber-200">
           {emergencyContacts.length > 0 && (
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <div className="bg-amber-50 p-2.5 rounded-lg">
                   <Phone className="w-5 h-5 text-amber-600" />
                 </div>
-                <h2 className="font-semibold text-gray-800">Emergency Contacts</h2>
+                <h2 className={combineClasses('font-semibold', DesignTokens.colors.neutral.text[800])}>Emergency Contacts</h2>
               </div>
               <button
                 onClick={async () => { 
@@ -1021,15 +1022,15 @@ export default function ProfileTab({ onTabChange }) {
                   <div key={contact.id} className="bg-amber-50 rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-1">
                       <User size={14} className="text-amber-600" />
-                      <p className="text-xs text-gray-600 font-medium">{contact.relationship}</p>
+                      <p className={combineClasses('text-xs font-medium', DesignTokens.colors.neutral.text[600])}>{contact.relationship}</p>
                     </div>
-                    <p className="text-sm font-semibold text-gray-900">{contact.name}</p>
-                    <p className="text-xs text-gray-600 mt-0.5">{contact.phone}</p>
+                    <p className={combineClasses('text-sm font-semibold', DesignTokens.colors.neutral.text[900])}>{contact.name}</p>
+                    <p className={combineClasses('text-xs mt-0.5', DesignTokens.colors.neutral.text[600])}>{contact.phone}</p>
                     {contact.email && (
-                      <p className="text-xs text-gray-600">{contact.email}</p>
+                      <p className={combineClasses('text-xs', DesignTokens.colors.neutral.text[600])}>{contact.email}</p>
                     )}
                     {contact.address && (
-                      <p className="text-xs text-gray-600">{contact.address}{contact.city ? `, ${contact.city}` : ''}{contact.state ? ` ${contact.state}` : ''}{contact.zip ? ` ${contact.zip}` : ''}</p>
+                      <p className={combineClasses('text-xs', DesignTokens.colors.neutral.text[600])}>{contact.address}{contact.city ? `, ${contact.city}` : ''}{contact.state ? ` ${contact.state}` : ''}{contact.zip ? ` ${contact.zip}` : ''}</p>
                     )}
                   </div>
                 );
@@ -1066,7 +1067,7 @@ export default function ProfileTab({ onTabChange }) {
 
       {/* Settings Section */}
       {user && (
-        <div className="bg-white rounded-lg shadow-sm p-4 sm:p-5 md:p-6 border border-gray-400 mt-4 sm:mt-6">
+        <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-4 sm:p-5 md:p-6 border-2 border-medical-neutral-300 mt-4 sm:mt-6">
           <div className="flex items-center gap-2 mb-6">
             <Settings className="w-5 h-5 text-medical-neutral-600" />
             <h2 className="font-semibold text-medical-neutral-900">Settings</h2>
@@ -1081,7 +1082,7 @@ export default function ProfileTab({ onTabChange }) {
               </h3>
               
               {/* User Role Toggle */}
-              <div className="bg-medical-neutral-50 rounded-lg p-4">
+              <div className={DesignTokens.components.card.nestedSubtleLarge}>
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <p className="text-sm font-medium text-medical-neutral-900 mb-1">
@@ -1150,7 +1151,7 @@ export default function ProfileTab({ onTabChange }) {
               
               <div className="space-y-4">
                 {/* Account Info */}
-                <div className="bg-medical-neutral-50 rounded-lg p-4">
+                <div className={DesignTokens.components.card.nestedSubtleLarge}>
                   <p className="text-xs text-medical-neutral-500 mb-1">Email</p>
                   <p className="text-sm font-medium text-medical-neutral-900">{user.email}</p>
                   {user.providerData && user.providerData.length > 0 && (
@@ -1214,12 +1215,12 @@ export default function ProfileTab({ onTabChange }) {
             {/* Data Management Section */}
             <div className="pt-4 border-t border-medical-neutral-200">
               <h3 className="text-sm font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
-                <Trash2 className="w-4 h-4 text-red-500" />
-                <span className="text-red-600">Data Management</span>
+                <Trash2 className={combineClasses('w-4 h-4', DesignTokens.components.status.high.icon)} />
+                <span className={DesignTokens.components.status.high.text}>Data Management</span>
               </h3>
               
-              <div className="bg-red-50 border border-red-100 rounded-lg p-4 space-y-3">
-                <p className="text-xs text-red-700 font-medium">
+              <div className={combineClasses('border rounded-lg p-4 space-y-3', DesignTokens.components.status.high.bg, DesignTokens.components.status.high.border)}>
+                <p className={combineClasses('text-xs font-medium', DesignTokens.components.alert.text.error)}>
                   Warning: These actions cannot be undone.
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -1229,7 +1230,7 @@ export default function ProfileTab({ onTabChange }) {
                       setShowDeletionConfirm(true);
                     }}
                     disabled={isDeleting}
-                    className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-white border border-red-300 text-red-700 rounded-lg text-sm font-medium hover:bg-red-100 active:bg-red-200 transition touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={combineClasses('flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-white border rounded-lg text-sm font-medium transition touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed', DesignTokens.components.status.high.border.replace('200', '300'), DesignTokens.components.alert.text.error, `hover:${DesignTokens.components.status.high.bg}`, `active:${DesignTokens.components.status.high.bg.replace('50', '100')}`)}
                   >
                     {isDeleting ? (
                       <>
@@ -1249,7 +1250,7 @@ export default function ProfileTab({ onTabChange }) {
                       setShowDeletionConfirm(true);
                     }}
                     disabled={isDeleting}
-                    className="flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 active:bg-red-800 transition touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={combineClasses('flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] text-white rounded-lg text-sm font-medium transition touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed', DesignTokens.components.status.high.text.replace('text-', 'bg-').replace('600', '600'), `hover:${DesignTokens.components.status.high.text.replace('text-', 'bg-').replace('600', '700')}`, 'active:bg-red-800')}
                   >
                     {isDeleting ? (
                       <>

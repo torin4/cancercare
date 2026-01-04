@@ -558,7 +558,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
 
         {/* Issues */}
         {trial.matchResult && trial.matchResult.issues && trial.matchResult.issues.length > 0 && (
-          <div className={combineClasses('mb-2 sm:mb-3 p-2.5 sm:p-3 rounded-lg', DesignTokens.components.status.low.bg, DesignTokens.borders.radius.md)}>
+          <div className={combineClasses('mb-2 sm:mb-3 p-2.5 sm:p-3 rounded-lg', DesignTokens.components.status.low.bg)}>
             <p className={combineClasses('font-medium text-xs sm:text-sm mb-1.5 sm:mb-2', DesignTokens.components.alert.text.warning)}>Considerations:</p>
             <ul className={combineClasses('text-xs sm:text-sm space-y-0.5 sm:space-y-1', DesignTokens.components.alert.text.warning)}>
               {trial.matchResult.issues.map((issue, idx) => (
@@ -570,7 +570,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
 
         {/* Recommendation */}
         {trial.matchResult && trial.matchResult.recommendation && (
-          <div className="mb-3 sm:mb-4 p-2.5 sm:p-3 bg-medical-neutral-50 rounded-lg border border-medical-neutral-200">
+          <div className={combineClasses(DesignTokens.components.card.nestedSubtle, 'mb-3 sm:mb-4')}>
             <p className="text-xs sm:text-sm text-medical-neutral-700">{trial.matchResult.recommendation}</p>
           </div>
         )}
@@ -943,7 +943,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                     <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-medical-accent-600 flex-shrink-0" />
                     Eligibility Criteria
                   </h3>
-                  <div className="bg-medical-neutral-50 rounded-lg p-2.5 sm:p-3 border border-medical-neutral-200">
+                  <div className={DesignTokens.components.card.nestedSubtle}>
                     <div className="text-sm text-medical-neutral-700 leading-relaxed prose prose-sm max-w-none">
                       <ReactMarkdown
                         components={{
@@ -1168,7 +1168,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                 </div>
               </div>
 
-              <div className="bg-medical-neutral-50 rounded-lg p-3">
+              <div className={DesignTokens.components.card.nestedSubtle}>
                 <h5 className="text-sm font-semibold text-medical-neutral-800 mb-2">What databases will be searched?</h5>
                 <div className="space-y-1 text-xs text-medical-neutral-600">
                   <div className="flex items-center gap-2">

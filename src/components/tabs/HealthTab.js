@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, BarChart, Heart, Thermometer, Pill, Plus, Upload, Edit2, X, TrendingUp, TrendingDown, Minus, Activity, Info, Calendar, Clock, Check, AlertCircle, Trash2, MoreVertical, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Eye, EyeOff, Star, ClipboardList } from 'lucide-react';
+import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
@@ -85,6 +86,7 @@ export default function HealthTab({ onTabChange, initialSection = null }) {
   const [pendingDocumentNote, setPendingDocumentNote] = useState(null);
   const [symptomCalendarDate, setSymptomCalendarDate] = useState(new Date());
   const [showAddMedication, setShowAddMedication] = useState(false);
+  const [editingMedication, setEditingMedication] = useState(null);
   const [selectedVital, setSelectedVital] = useState('bp');
   const [showAddVital, setShowAddVital] = useState(false);
   const [showAddVitalValue, setShowAddVitalValue] = useState(false);
@@ -611,13 +613,13 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
 
                         {/* Lab Trend Chart - only show if we have numeric labs */}
                         {Object.values(allLabData).some(lab => lab.isNumeric) && (
-                          <div className="bg-white rounded-xl p-3 sm:p-4 md:p-6 border border-gray-200">
+                          <div className={combineClasses('bg-white rounded-xl p-3 sm:p-4 md:p-6 border', DesignTokens.colors.neutral.border[200])}>
                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-                              <h2 className="text-base sm:text-lg font-semibold text-gray-900">Lab Trends</h2>
+                              <h2 className={combineClasses('text-base sm:text-lg font-semibold', DesignTokens.colors.neutral.text[900])}>Lab Trends</h2>
                               <select
                                 value={selectedLab}
                                 onChange={(e) => setSelectedLab(e.target.value)}
-                                className="text-sm border border-gray-300 rounded-lg px-2 sm:px-3 py-2 sm:py-1.5 focus:ring-2 focus:ring-green-500 min-h-[44px] w-full sm:w-auto touch-manipulation"
+                                className={combineClasses('text-sm border rounded-lg px-2 sm:px-3 py-2 sm:py-1.5 focus:ring-2 focus:ring-green-500 min-h-[44px] w-full sm:w-auto touch-manipulation', DesignTokens.colors.neutral.border[300])}
                               >
                                 {(() => {
                                   // Organize labs by category
@@ -722,15 +724,15 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                             <>
                               <div className="mb-4">
                                 <div className="flex items-baseline gap-2 mb-1">
-                                  <span className="text-2xl sm:text-3xl font-bold text-gray-900">{currentLab.current}</span>
-                                  <span className="text-sm text-gray-600">{currentLab.unit}</span>
+                                  <span className={combineClasses('text-2xl sm:text-3xl font-bold', DesignTokens.colors.neutral.text[900])}>{currentLab.current}</span>
+                                  <span className={combineClasses('text-sm', DesignTokens.colors.neutral.text[600])}>{currentLab.unit}</span>
                                   {(() => {
                                     const labStatus = getLabStatus(currentLab.current, currentLab.normalRange);
                                     const statusColors = {
-                                      green: 'bg-green-100 text-green-700',
-                                      yellow: 'bg-amber-100 text-amber-700',
-                                      red: 'bg-red-100 text-red-700',
-                                      gray: 'bg-gray-100 text-gray-700'
+                                      green: combineClasses(DesignTokens.components.status.normal.bg, DesignTokens.components.status.normal.text),
+                                      yellow: combineClasses('bg-amber-100', 'text-amber-700'),
+                                      red: combineClasses(DesignTokens.components.status.high.bg, DesignTokens.components.alert.text.error),
+                                      gray: combineClasses(DesignTokens.colors.neutral[100], DesignTokens.colors.neutral.text[700])
                                     };
                                     return (
                                       <span className={`ml-auto text-xs px-2 py-1 rounded-full ${statusColors[labStatus.color] || statusColors.gray}`}>
@@ -739,13 +741,13 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                     );
                                   })()}
                                 </div>
-                                <p className="text-xs sm:text-sm text-gray-600">Normal range: {currentLab.normalRange} {currentLab.unit}</p>
+                                <p className={combineClasses('text-xs sm:text-sm', DesignTokens.colors.neutral.text[600])}>Normal range: {currentLab.normalRange} {currentLab.unit}</p>
                               </div>
 
                               {/* Chart - Responsive with Y-axis and hover tooltips */}
                               <div className="flex gap-2 sm:gap-3">
                             {/* Y-axis labels */}
-                            <div className="flex flex-col justify-between text-xs text-gray-600 font-medium py-2" style={{ paddingBottom: '1.5rem' }}>
+                            <div className="flex flex-col justify-between text-xs ${DesignTokens.colors.neutral.text[600]} font-medium py-2" style={{ paddingBottom: '1.5rem' }}>
                               {(() => {
                                 // Filter out non-numeric values and ensure we have valid numbers
                                 const values = currentLab.data
@@ -812,7 +814,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                 {/* Horizontal grid lines */}
                                 <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
                                   {[0, 1, 2, 3, 4].map(i => (
-                                    <div key={i} className="border-t border-gray-200"></div>
+                                    <div key={i} className="border-t ${DesignTokens.colors.neutral.border[200]}"></div>
                                   ))}
                                 </div>
 
@@ -825,7 +827,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
 
                                   if (values.length === 0) {
                                     return (
-                                      <div className="flex items-center justify-center h-full text-gray-400">
+                                      <div className="flex items-center justify-center h-full ${DesignTokens.colors.neutral.text[300]}">
                                         <p>No numeric data available for charting</p>
                                       </div>
                                     );
@@ -1010,7 +1012,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                           green: 'bg-green-100 text-green-700',
                                           yellow: 'bg-amber-100 text-amber-700',
                                           red: 'bg-red-100 text-red-700',
-                                          gray: 'bg-gray-100 text-gray-700'
+                                          gray: '${DesignTokens.colors.neutral[100]} ${DesignTokens.colors.neutral.text[700]}'
                                         };
 
                                         const isSelected = selectedDataPoint === `${selectedLab}-${d.id}`;
@@ -1093,7 +1095,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                 <div className="flex items-center justify-between gap-3">
                                                   <div>
                                                 <div className="font-bold text-sm">{d.value} {currentLab.unit}</div>
-                                                <div className="text-xs text-gray-400 mt-0.5">{d.date}</div>
+                                                <div className="text-xs ${DesignTokens.colors.neutral.text[300]} mt-0.5">{d.date}</div>
                                                   </div>
                                                   {d.id && (
                                                     <div className="flex items-center gap-2">
@@ -1235,7 +1237,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                               </div>
 
                               {/* X-axis labels - show unique month/year only, aligned with data points */}
-                              <div className="relative border-t border-gray-300 pt-2 text-xs text-gray-600" style={{ height: '20px' }}>
+                              <div className="relative border-t ${DesignTokens.colors.neutral.border[300]} pt-2 text-xs ${DesignTokens.colors.neutral.text[600]}" style={{ height: '20px' }}>
                                 {(() => {
                                   if (!currentLab.data || currentLab.data.length === 0) {
                                     return <span>No data</span>;
@@ -1369,7 +1371,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                         type="checkbox"
                                         checked={selectedMetrics.has(key)}
                                         onChange={() => {}}
-                                        className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 pointer-events-none"
+                                        className={combineClasses('w-5 h-5 text-blue-600 rounded focus:ring-blue-500 pointer-events-none', DesignTokens.colors.neutral.border[300])}
                                       />
                                     </div>
                                   )}
@@ -1419,7 +1421,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                           ) : lab.trend === 'down' ? (
                                             <TrendingDown className="w-4 h-4 text-green-500" />
                                           ) : (
-                                            <Minus className="w-4 h-4 text-gray-400" />
+                                            <Minus className={combineClasses('w-4 h-4', DesignTokens.colors.neutral.text[300])} />
                                           )
                                         )}
                                         <p className="text-xs text-medical-neutral-500">{lab.unit}</p>
@@ -1461,7 +1463,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                     setShowAddLabValue(true);
                                                   }
                                                 }}
-                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 min-h-[44px] touch-manipulation active:opacity-70"
+                                                className={combineClasses('w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 min-h-[44px] touch-manipulation active:opacity-70', DesignTokens.colors.neutral.text[700], `hover:${DesignTokens.colors.neutral[100]}`)}
                                               >
                                                 <Plus className="w-4 h-4" />
                                                 Add Value
@@ -1473,7 +1475,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                   setEditingLab(lab);
                                                   setEditingLabKey(key);
                                                 }}
-                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 min-h-[44px] touch-manipulation active:opacity-70"
+                                                className={combineClasses('w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 min-h-[44px] touch-manipulation active:opacity-70', DesignTokens.colors.neutral.text[700], `hover:${DesignTokens.colors.neutral[100]}`)}
                                               >
                                                 <Edit2 className="w-4 h-4" />
                                                 Edit Metric
@@ -1570,7 +1572,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                         type="checkbox"
                                         checked={selectedMetrics.has(key)}
                                         onChange={() => {}}
-                                        className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 pointer-events-none"
+                                        className={combineClasses('w-5 h-5 text-blue-600 rounded focus:ring-blue-500 pointer-events-none', DesignTokens.colors.neutral.border[300])}
                                       />
                                     </div>
                                   )}
@@ -1633,7 +1635,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                     setShowAddLabValue(true);
                                                   }
                                                 }}
-                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 min-h-[44px] touch-manipulation active:opacity-70"
+                                                className={combineClasses('w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 min-h-[44px] touch-manipulation active:opacity-70', DesignTokens.colors.neutral.text[700], `hover:${DesignTokens.colors.neutral[100]}`)}
                                               >
                                                 <Plus className="w-4 h-4" />
                                                 Add Value
@@ -1871,21 +1873,21 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                 <div className="flex gap-2 items-center">
                                   <div className="relative flex-1">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                      <Search className="h-5 w-5 text-gray-400" />
+                                      <Search className="h-5 w-5 ${DesignTokens.colors.neutral.text[300]}" />
                                     </div>
                                     <input
                                       type="text"
                                       value={labSearchQuery}
                                       onChange={(e) => setLabSearchQuery(e.target.value)}
                                       placeholder="Search labs by name..."
-                                      className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-medical-primary-500 focus:border-medical-primary-500 text-sm"
+                                      className="block w-full pl-10 pr-3 py-2.5 border ${DesignTokens.colors.neutral.border[300]} rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-medical-primary-500 focus:border-medical-primary-500 text-sm"
                                     />
                                     {labSearchQuery && (
                                       <button
                                         onClick={() => setLabSearchQuery('')}
                                         className="absolute inset-y-0 right-0 pr-3 flex items-center"
                                       >
-                                        <X className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                                        <X className="h-5 w-5 ${DesignTokens.colors.neutral.text[300]} hover:${DesignTokens.colors.neutral.text[600]}" />
                                       </button>
                                     )}
                                   </div>
@@ -1894,7 +1896,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                   <div className="relative">
                                     <button
                                       onClick={() => setOpenEmptyMetricsMenu(!openEmptyMetricsMenu)}
-                                      className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                                      className="p-2 ${DesignTokens.colors.neutral.text[500]} hover:${DesignTokens.colors.neutral.text[700]} hover:${DesignTokens.colors.neutral[100]} rounded-lg transition-colors"
                                       aria-label="Lab options"
                                     >
                                       <MoreVertical className="w-5 h-5" />
@@ -1909,14 +1911,14 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                               className="fixed inset-0 z-40"
                                               onClick={() => setOpenEmptyMetricsMenu(false)}
                                             />
-                                            <div className="absolute right-0 top-10 z-[100] bg-white rounded-lg shadow-lg border border-gray-200 py-2 min-w-[240px]">
+                                            <div className="absolute right-0 top-10 z-[100] bg-white rounded-lg shadow-lg border ${DesignTokens.colors.neutral.border[200]} py-2 min-w-[240px]">
                                               {/* Upload Lab Report Button */}
                                               <button
                                                 onClick={() => {
                                                   setOpenEmptyMetricsMenu(false);
                                                   openDocumentOnboarding('lab-report');
                                                 }}
-                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors min-h-[44px] touch-manipulation active:opacity-70"
+                                                className="w-full text-left px-4 py-2.5 text-sm ${DesignTokens.colors.neutral.text[700]} hover:${DesignTokens.colors.neutral[50]} flex items-center gap-2 transition-colors min-h-[44px] touch-manipulation active:opacity-70"
                                               >
                                                 <Upload className="w-4 h-4" />
                                                 Upload Lab Report
@@ -1928,13 +1930,13 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                   setOpenEmptyMetricsMenu(false);
                                                   setShowAddLab(true);
                                                 }}
-                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors min-h-[44px] touch-manipulation active:opacity-70"
+                                                className="w-full text-left px-4 py-2.5 text-sm ${DesignTokens.colors.neutral.text[700]} hover:${DesignTokens.colors.neutral[50]} flex items-center gap-2 transition-colors min-h-[44px] touch-manipulation active:opacity-70"
                                               >
                                                 <Plus className="w-4 h-4" />
                                                 Add Lab Metric
                                               </button>
 
-                                              <div className="border-t border-gray-200 my-1"></div>
+                                              <div className="border-t ${DesignTokens.colors.neutral.border[200]} my-1"></div>
 
                                               {/* Select to Delete Metrics Button */}
                                               <button
@@ -1949,7 +1951,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                   });
                                                   setExpandedCategories(allExpanded);
                                                 }}
-                                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors min-h-[44px] touch-manipulation active:opacity-70"
+                                                className="w-full text-left px-4 py-2.5 text-sm ${DesignTokens.colors.neutral.text[700]} hover:${DesignTokens.colors.neutral[50]} flex items-center gap-2 transition-colors min-h-[44px] touch-manipulation active:opacity-70"
                                               >
                                                 <Check className="w-4 h-4" />
                                                 Select metrics to delete
@@ -1957,10 +1959,10 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
 
                                               {emptyLabs.length > 0 && (
                                                 <>
-                                                  <div className="border-t border-gray-200 my-1"></div>
+                                                  <div className="border-t ${DesignTokens.colors.neutral.border[200]} my-1"></div>
 
                                                   {/* Hide Empty Metrics Toggle */}
-                                                  <label className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors">
+                                                  <label className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:${DesignTokens.colors.neutral[50]} transition-colors">
                                                     <input
                                                       type="checkbox"
                                                       checked={hideEmptyMetrics}
@@ -1968,15 +1970,15 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                         setHideEmptyMetrics(e.target.checked);
                                                         setOpenEmptyMetricsMenu(false);
                                                       }}
-                                                      className="w-4 h-4 text-medical-primary-600 border-gray-300 rounded focus:ring-medical-primary-500 focus:ring-2 cursor-pointer"
+                                                      className="w-4 h-4 text-medical-primary-600 ${DesignTokens.colors.neutral.border[300]} rounded focus:ring-medical-primary-500 focus:ring-2 cursor-pointer"
                                                     />
                                                     <div className="flex items-center gap-2 flex-1">
                                                       {hideEmptyMetrics ? (
-                                                        <EyeOff className="w-4 h-4 text-gray-600" />
+                                                        <EyeOff className="w-4 h-4 ${DesignTokens.colors.neutral.text[600]}" />
                                                       ) : (
-                                                        <Eye className="w-4 h-4 text-gray-400" />
+                                                        <Eye className="w-4 h-4 ${DesignTokens.colors.neutral.text[300]}" />
                                                       )}
-                                                      <span className="text-sm text-gray-700">
+                                                      <span className="text-sm ${DesignTokens.colors.neutral.text[700]}">
                                                         Hide metrics with no values
                                                       </span>
                                                     </div>
@@ -2057,10 +2059,10 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                                   <div className="flex items-center justify-between">
                                     <div>
-                                      <h4 className="text-sm font-semibold text-gray-900">
+                                      <h4 className="text-sm font-semibold ${DesignTokens.colors.neutral.text[900]}">
                                         Select metrics to delete ({selectedMetrics.size} selected)
                                       </h4>
-                                      <p className="text-xs text-gray-600 mt-1">Click on metric cards to select them</p>
+                                      <p className="text-xs ${DesignTokens.colors.neutral.text[600]} mt-1">Click on metric cards to select them</p>
                                     </div>
                                     <div className="flex gap-2">
                                       <button
@@ -2082,7 +2084,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                             'Others': false
                                           });
                                         }}
-                                        className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
+                                        className="px-3 py-1.5 text-sm ${DesignTokens.colors.neutral.text[700]} bg-white border ${DesignTokens.colors.neutral.border[300]} rounded hover:${DesignTokens.colors.neutral[50]}"
                                       >
                                         Cancel
                                       </button>
@@ -2155,7 +2157,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                 </p>
                               )}
                               {labSearchQuery && totalLabCount === 0 && (
-                                <p className="text-sm text-gray-500 mb-2 text-left">
+                                <p className="text-sm ${DesignTokens.colors.neutral.text[500]} mb-2 text-left">
                                   No labs found matching "{labSearchQuery}"
                                 </p>
                               )}
@@ -2328,16 +2330,16 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                       <>
 
                         {/* Vital Trend Chart */}
-                        <div className="bg-white rounded-xl p-3 sm:p-4 md:p-6 border border-gray-200">
+                        <div className={combineClasses('bg-white rounded-xl p-3 sm:p-4 md:p-6 border', DesignTokens.colors.neutral.border[200])}>
                           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-                            <h2 className="text-base sm:text-lg font-semibold text-gray-900">Vital Signs</h2>
+                            <h2 className={combineClasses('text-base sm:text-lg font-semibold', DesignTokens.colors.neutral.text[900])}>Vital Signs</h2>
                             <div className="flex items-center gap-2 w-full sm:w-auto">
                               {Object.keys(allVitalsData).length > 0 ? (
                             <>
                             <select
                               value={selectedVital}
                               onChange={(e) => setSelectedVital(e.target.value)}
-                              className="text-sm border border-gray-300 rounded-lg px-2 sm:px-3 py-2 sm:py-1.5 focus:ring-2 focus:ring-green-500 min-h-[44px] w-full sm:w-auto touch-manipulation"
+                              className="text-sm border ${DesignTokens.colors.neutral.border[300]} rounded-lg px-2 sm:px-3 py-2 sm:py-1.5 focus:ring-2 focus:ring-green-500 min-h-[44px] w-full sm:w-auto touch-manipulation"
                             >
                                   {(() => {
                                     // Organize vitals by category
@@ -2394,7 +2396,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                             </button>
                             </>
                               ) : (
-                                <div className="text-sm text-gray-500">No vitals available</div>
+                                <div className="text-sm ${DesignTokens.colors.neutral.text[500]}">No vitals available</div>
                               )}
                             </div>
                           </div>
@@ -2410,7 +2412,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                             
                             if (!currentVital || !currentVital.data || currentVital.data.length === 0) {
                               return (
-                                <div className="text-center py-8 text-gray-500">
+                                <div className="text-center py-8 ${DesignTokens.colors.neutral.text[500]}">
                                   <p>No vital data available for {getVitalDisplayName(selectedVital)}</p>
                                   <button
                                     onClick={() => onTabChange('chat')}
@@ -2426,8 +2428,8 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                               <>
                                 <div className="mb-4">
                                   <div className="flex items-baseline gap-2 mb-1">
-                                    <span className="text-2xl sm:text-3xl font-bold text-gray-900">{currentVital.current}</span>
-                                    <span className="text-sm text-gray-600">{currentVital.unit}</span>
+                                    <span className={combineClasses('text-2xl sm:text-3xl font-bold', DesignTokens.colors.neutral.text[900])}>{currentVital.current}</span>
+                                    <span className={combineClasses('text-sm', DesignTokens.colors.neutral.text[600])}>{currentVital.unit}</span>
                                     {(() => {
                                       const normalRange = currentVital.normalRange || (() => {
                                         const age = patientProfile.age || (patientProfile.dateOfBirth ? Math.floor((new Date() - new Date(patientProfile.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000)) : null);
@@ -2475,7 +2477,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                         green: 'text-green-700',
                                         yellow: 'text-amber-700',
                                         red: 'text-red-700',
-                                        gray: 'text-gray-700'
+                                        gray: '${DesignTokens.colors.neutral.text[700]}'
                                       };
                                       return (
                                         <span className={`ml-auto text-xs ${statusColors[vitalStatus.color] || statusColors.gray}`}>
@@ -2484,7 +2486,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                       );
                                     })()}
                                   </div>
-                                  <p className="text-xs sm:text-sm text-gray-600">
+                                  <p className="text-xs sm:text-sm ${DesignTokens.colors.neutral.text[600]}">
                                     Normal range: {(() => {
                                       const normalRange = currentVital.normalRange || (() => {
                                         // Fallback to default normal ranges if not set
@@ -2537,7 +2539,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                 {/* Chart - Responsive with Y-axis and hover tooltips */}
                                 <div className="flex gap-2 sm:gap-3">
                                   {/* Y-axis labels */}
-                                  <div className="flex flex-col justify-between text-xs text-gray-600 font-medium py-2" style={{ paddingBottom: '1.5rem' }}>
+                                  <div className="flex flex-col justify-between text-xs ${DesignTokens.colors.neutral.text[600]} font-medium py-2" style={{ paddingBottom: '1.5rem' }}>
                                     {(() => {
                                       // Filter out non-numeric values and ensure we have valid numbers
                                       const values = currentVital.data
@@ -2609,7 +2611,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                       {/* Horizontal grid lines */}
                                       <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
                                         {[0, 1, 2, 3, 4].map(i => (
-                                          <div key={i} className="border-t border-gray-200"></div>
+                                          <div key={i} className="border-t ${DesignTokens.colors.neutral.border[200]}"></div>
                                         ))}
                                       </div>
 
@@ -2627,7 +2629,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
 
                                         if (values.length === 0) {
                                           return (
-                                            <div className="flex items-center justify-center h-full text-gray-400">
+                                            <div className="flex items-center justify-center h-full ${DesignTokens.colors.neutral.text[300]}">
                                               <p>No numeric data available for charting</p>
                                             </div>
                                           );
@@ -2955,7 +2957,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                 green: 'bg-green-100 text-green-700',
                                                 yellow: 'bg-amber-100 text-amber-700',
                                                 red: 'bg-red-100 text-red-700',
-                                                gray: 'bg-gray-100 text-gray-700'
+                                                gray: '${DesignTokens.colors.neutral[100]} ${DesignTokens.colors.neutral.text[700]}'
                                               };
 
                                               const isVitalSelected = selectedDataPoint === `${selectedVital}-${d.id}`;
@@ -3039,7 +3041,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                       <div className="font-bold text-sm">
                                                         {displayValue} {currentVital.unit}
                                                       </div>
-                                                      <div className="text-xs text-gray-400 mt-0.5">{d.date}</div>
+                                                      <div className="text-xs ${DesignTokens.colors.neutral.text[300]} mt-0.5">{d.date}</div>
                                                         </div>
                                                         {d.id && (
                                                           <div className="flex items-center gap-2">
@@ -3223,7 +3225,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                     </div>
 
                                     {/* X-axis labels - show unique month/year only, aligned with data points */}
-                                    <div className="relative border-t border-gray-300 pt-2 text-xs text-gray-600" style={{ height: '20px' }}>
+                                    <div className="relative border-t ${DesignTokens.colors.neutral.border[300]} pt-2 text-xs ${DesignTokens.colors.neutral.text[600]}" style={{ height: '20px' }}>
                                       {(() => {
                                         if (!currentVital.data || currentVital.data.length === 0) {
                                           return <span>No data</span>;
@@ -3320,7 +3322,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
 
                         {/* Quick Vital Stats */}
                         <div className="bg-white rounded-lg shadow p-4">
-                          <h3 className="font-semibold text-gray-800 mb-3">All Vitals (Latest)</h3>
+                          <h3 className="font-semibold ${DesignTokens.colors.neutral.text[800]} mb-3">All Vitals (Latest)</h3>
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                             {Object.entries(allVitalsData).map(([key, vital]) => {
                               const displayName = getVitalDisplayName(vital.name || key);
@@ -3409,7 +3411,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                           green: 'text-green-700',
                                           yellow: 'text-amber-700',
                                           red: 'text-red-700',
-                                          gray: 'text-gray-700'
+                                          gray: '${DesignTokens.colors.neutral.text[700]}'
                                         };
                                         return (
                                           <p className={`text-xs ${statusColors[vitalStatus.color] || statusColors.gray} font-medium mt-1`}>
@@ -3468,7 +3470,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                   setShowAddVitalValue(true);
                                                 }
                                               }}
-                                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                              className="w-full text-left px-4 py-2 text-sm ${DesignTokens.colors.neutral.text[700]} hover:${DesignTokens.colors.neutral[100]} flex items-center gap-2"
                                             >
                                               <Plus className="w-4 h-4" />
                                               Add Value
@@ -3614,7 +3616,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                     )}
 
                     {/* Symptom Calendar */}
-                <div className="bg-white rounded-lg shadow p-3 sm:p-4">
+                <div className={DesignTokens.components.card.nestedWithShadow}>
                   {/* Date Pager */}
                   <div className="flex items-center justify-between mb-4 gap-2">
                     <button
@@ -3623,12 +3625,12 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                         prevMonth.setMonth(prevMonth.getMonth() - 1);
                         setSymptomCalendarDate(prevMonth);
                       }}
-                      className="p-2 rounded-lg hover:bg-gray-100 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
+                      className="p-2 rounded-lg hover:${DesignTokens.colors.neutral[100]} transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
                     >
-                      <ChevronLeft className="w-5 h-5 text-gray-600" />
+                      <ChevronLeft className="w-5 h-5 ${DesignTokens.colors.neutral.text[600]}" />
                     </button>
                     <div className="flex flex-col sm:flex-row items-center gap-2 flex-1 min-w-0">
-                      <h3 className="font-semibold text-sm sm:text-base text-gray-800 text-center sm:text-left truncate">
+                      <h3 className="font-semibold text-sm sm:text-base ${DesignTokens.colors.neutral.text[800]} text-center sm:text-left truncate">
                         {symptomCalendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                       </h3>
                       <button
@@ -3650,9 +3652,9 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                         nextMonth.setMonth(nextMonth.getMonth() + 1);
                         setSymptomCalendarDate(nextMonth);
                       }}
-                      className="p-2 rounded-lg hover:bg-gray-100 transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
+                      className="p-2 rounded-lg hover:${DesignTokens.colors.neutral[100]} transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
                     >
-                      <ChevronRight className="w-5 h-5 text-gray-600" />
+                      <ChevronRight className="w-5 h-5 ${DesignTokens.colors.neutral.text[600]}" />
                     </button>
                   </div>
                   <div className="flex items-center justify-between mb-4">
@@ -3671,7 +3673,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                   {/* Calendar Grid */}
                   <div className="grid grid-cols-7 gap-1 mb-2">
                     {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                      <div key={day} className="text-center text-xs font-medium text-gray-500 py-2">
+                      <div key={day} className="text-center text-xs font-medium ${DesignTokens.colors.neutral.text[500]} py-2">
                         {day}
                       </div>
                     ))}
@@ -3759,11 +3761,11 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                             className={`aspect-square rounded-lg flex flex-col items-center justify-center text-sm transition-all relative ${isToday
                               ? 'bg-medical-primary-50 border-2 border-medical-primary-500 font-bold'
                               : hasSymptoms
-                                ? 'hover:bg-gray-100 border border-gray-200'
-                                : 'border border-transparent text-gray-400'
+                                ? 'hover:${DesignTokens.colors.neutral[100]} border ${DesignTokens.colors.neutral.border[200]}'
+                                : 'border border-transparent ${DesignTokens.colors.neutral.text[300]}'
                               } ${selectedDate === dayStr ? 'ring-2 ring-medical-primary-500 bg-medical-primary-50' : ''}`}
                           >
-                            <span className={isToday ? 'text-medical-primary-700' : hasSymptoms ? 'text-gray-900' : ''}>{day}</span>
+                            <span className={isToday ? 'text-medical-primary-700' : hasSymptoms ? '${DesignTokens.colors.neutral.text[900]}' : ''}>{day}</span>
 
                             {/* Symptom dots */}
                             {hasSymptoms && (
@@ -3787,14 +3789,14 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
 
                           {/* Selected Date Details */}
                           {selectedDate && symptomsByDate[selectedDate] && (
-                            <div className="col-span-7 mt-4 bg-gray-50 rounded-lg p-4 animate-fade-scale">
+                            <div className="col-span-7 mt-4 ${DesignTokens.colors.neutral[50]} rounded-lg p-4 animate-fade-scale">
                               <div className="flex items-center justify-between mb-3">
-                                <h4 className="font-semibold text-gray-800">
+                                <h4 className="font-semibold ${DesignTokens.colors.neutral.text[800]}">
                                   {symptomCalendarDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).replace(selectedDate, selectedDate)}
                                 </h4>
                                 <button
                                   onClick={() => setSelectedDate(null)}
-                                  className="text-gray-500 hover:text-gray-700"
+                                  className="${DesignTokens.colors.neutral.text[500]} hover:${DesignTokens.colors.neutral.text[700]}"
                                 >
                                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -3817,7 +3819,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                         <p className="text-sm font-medium truncate">{symptom.type}</p>
                                       </div>
                                       <div className="flex items-center gap-2 flex-shrink-0">
-                                      <span className="text-xs text-gray-600">{symptom.time}</span>
+                                      <span className="text-xs ${DesignTokens.colors.neutral.text[600]}">{symptom.time}</span>
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
@@ -3863,7 +3865,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                             'new-symptom': { label: 'New symptom', color: 'bg-green-100 text-green-700' },
                                             'worsening': { label: 'Worsening', color: 'bg-yellow-100 text-yellow-700' }
                                           };
-                                          const tag = tagLabels[tagId] || { label: tagId, color: 'bg-gray-100 text-gray-700' };
+                                          const tag = tagLabels[tagId] || { label: tagId, color: '${DesignTokens.colors.neutral[100]} ${DesignTokens.colors.neutral.text[700]}' };
                                           return (
                                             <span
                                               key={tagIdx}
@@ -3887,8 +3889,8 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                 </div>
 
                     {/* Legend */}
-                    <div className="bg-white rounded-lg shadow p-3 sm:p-4">
-                      <h4 className="font-semibold text-gray-800 mb-3 text-xs sm:text-sm">Symptom Types</h4>
+                    <div className={DesignTokens.components.card.nestedWithShadow}>
+                      <h4 className="font-semibold ${DesignTokens.colors.neutral.text[800]} mb-3 text-xs sm:text-sm">Symptom Types</h4>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
                         {[
                           { type: 'Fatigue', color: 'bg-blue-500' },
@@ -3896,11 +3898,11 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                           { type: 'Nausea', color: 'bg-green-500' },
                           { type: 'Headache', color: 'bg-purple-500' },
                           { type: 'Dizziness', color: 'bg-yellow-500' },
-                          { type: 'Other', color: 'bg-gray-500' },
+                          { type: 'Other', color: '${DesignTokens.colors.neutral[50]}0' },
                         ].map(item => (
                           <div key={item.type} className="flex items-center gap-2">
                             <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
-                            <span className="text-xs text-gray-700">{item.type}</span>
+                            <span className="text-xs ${DesignTokens.colors.neutral.text[700]}">{item.type}</span>
                           </div>
                         ))}
                       </div>
@@ -3923,7 +3925,10 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                         </p>
                         <div className="flex flex-col sm:flex-row gap-3 justify-center">
                           <button
-                            onClick={() => setShowAddMedication(true)}
+                            onClick={() => {
+                              setEditingMedication(null);
+                              setShowAddMedication(true);
+                            }}
                             className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2 min-h-[44px] touch-manipulation active:opacity-70"
                           >
                             <Edit2 className="w-4 h-4" />
@@ -3942,21 +3947,138 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                   </div>
                 ) : (
               <>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-xs sm:text-sm font-semibold text-blue-900">Medication Adherence</p>
-                      <p className="text-xs text-blue-700 mt-1">
-                        All medications taken on schedule. Next IV infusion scheduled for Jan 5.
-                      </p>
+                {(() => {
+                  // Calculate dynamic medication adherence message
+                  const activeMeds = medications.filter(med => med.active);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  
+                  // Count medications with scheduled times today
+                  const medsWithSchedule = activeMeds.filter(med => 
+                    med.schedule && med.schedule.includes(':')
+                  );
+                  
+                  // Check adherence for today
+                  let takenCount = 0;
+                  let totalDueToday = 0;
+                  
+                  medsWithSchedule.forEach(med => {
+                    const times = med.schedule.split(',').map(t => t.trim());
+                    times.forEach(time => {
+                      if (time.includes(':')) {
+                        totalDueToday++;
+                        if (isMedicationTaken(med.id, time)) {
+                          takenCount++;
+                        }
+                      }
+                    });
+                  });
+                  
+                  // Find next upcoming dose
+                  let nextDose = null;
+                  let nextDoseMed = null;
+                  
+                  activeMeds.forEach(med => {
+                    if (med.nextDose) {
+                      const doseDate = new Date(med.nextDose);
+                      if (doseDate >= today) {
+                        if (!nextDose || doseDate < nextDose) {
+                          nextDose = doseDate;
+                          nextDoseMed = med;
+                        }
+                      }
+                    }
+                  });
+                  
+                  // Generate message
+                  let adherenceMessage = '';
+                  let messageType = 'info'; // info, success, warning
+                  
+                  if (totalDueToday > 0) {
+                    const adherencePercent = Math.round((takenCount / totalDueToday) * 100);
+                    if (adherencePercent === 100) {
+                      adherenceMessage = `All medications taken on schedule today (${takenCount}/${totalDueToday} doses).`;
+                      messageType = 'success';
+                    } else if (adherencePercent >= 75) {
+                      adherenceMessage = `${takenCount} of ${totalDueToday} doses taken today. Keep up the good work!`;
+                      messageType = 'info';
+                    } else {
+                      adherenceMessage = `${totalDueToday - takenCount} dose(s) remaining today.`;
+                      messageType = 'warning';
+                    }
+                  } else {
+                    adherenceMessage = 'No scheduled doses today.';
+                    messageType = 'info';
+                  }
+                  
+                  // Add next dose info if available
+                  if (nextDose && nextDoseMed) {
+                    const nextDoseDate = new Date(nextDose);
+                    const daysUntil = Math.ceil((nextDoseDate - today) / (1000 * 60 * 60 * 24));
+                    let nextDoseText = '';
+                    
+                    if (daysUntil === 0) {
+                      nextDoseText = `Next dose: ${nextDoseMed.name} today`;
+                    } else if (daysUntil === 1) {
+                      nextDoseText = `Next dose: ${nextDoseMed.name} tomorrow`;
+                    } else if (daysUntil <= 7) {
+                      nextDoseText = `Next dose: ${nextDoseMed.name} in ${daysUntil} days`;
+                    } else {
+                      const month = nextDoseDate.toLocaleString('en-US', { month: 'short' });
+                      const day = nextDoseDate.getDate();
+                      nextDoseText = `Next dose: ${nextDoseMed.name} on ${month} ${day}`;
+                    }
+                    
+                    if (adherenceMessage) {
+                      adherenceMessage += ` ${nextDoseText}.`;
+                    } else {
+                      adherenceMessage = nextDoseText + '.';
+                    }
+                  }
+                  
+                  // Determine alert styling based on message type
+                  const alertClasses = {
+                    success: 'bg-green-50 border-green-200',
+                    info: 'bg-blue-50 border-blue-200',
+                    warning: 'bg-yellow-50 border-yellow-200'
+                  };
+                  
+                  const textClasses = {
+                    success: 'text-green-900',
+                    info: 'text-blue-900',
+                    warning: 'text-yellow-900'
+                  };
+                  
+                  const textSecondaryClasses = {
+                    success: 'text-green-700',
+                    info: 'text-blue-700',
+                    warning: 'text-yellow-700'
+                  };
+                  
+                  const iconClasses = {
+                    success: 'text-green-600',
+                    info: 'text-blue-600',
+                    warning: 'text-yellow-600'
+                  };
+                  
+                  return (
+                    <div className={`${alertClasses[messageType]} border rounded-lg p-3 sm:p-4`}>
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className={`w-4 h-4 sm:w-5 sm:h-5 ${iconClasses[messageType]} flex-shrink-0 mt-0.5`} />
+                        <div>
+                          <p className={`text-xs sm:text-sm font-semibold ${textClasses[messageType]}`}>Medication Adherence</p>
+                          <p className={`text-xs ${textSecondaryClasses[messageType]} mt-1`}>
+                            {adherenceMessage || 'Track your medications to monitor adherence.'}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  );
+                })()}
 
                 {/* Active Medications */}
-                <div className="bg-white rounded-lg shadow p-3 sm:p-4">
-                  <h3 className="text-sm sm:text-base font-semibold text-gray-800 mb-3">Active Medications</h3>
+                <div className={DesignTokens.components.card.nestedWithShadow}>
+                  <h3 className={combineClasses('text-sm sm:text-base font-semibold mb-3', DesignTokens.colors.neutral.text[800])}>Active Medications</h3>
                   <div className="space-y-3">
                     {medications.filter(med => med.active).map(med => {
                       const colorClasses = {
@@ -3968,23 +4090,35 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                       };
 
                       return (
-                        <div key={med.id} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition">
+                        <div key={med.id} className={combineClasses('border rounded-lg p-3 hover:shadow-md transition', DesignTokens.colors.neutral.border[200])}>
                           <div className="mb-2">
                             <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
-                              <h4 className="text-sm sm:text-base font-semibold text-gray-900">{med.name}</h4>
-                              <span className={`text-xs px-2 py-0.5 rounded-full border ${colorClasses[med.color]} w-fit`}>
-                                {med.purpose}
-                              </span>
+                              <div className="flex-1 flex items-center gap-2">
+                                <h4 className={combineClasses('text-sm sm:text-base font-semibold', DesignTokens.colors.neutral.text[900])}>{med.name}</h4>
+                                <span className={`text-xs px-2 py-0.5 rounded-full border ${colorClasses[med.color]} w-fit`}>
+                                  {med.purpose}
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setEditingMedication(med);
+                                  setShowAddMedication(true);
+                                }}
+                                className="p-1.5 text-medical-primary-600 hover:bg-medical-primary-50 rounded-lg transition min-w-[32px] min-h-[32px] flex items-center justify-center touch-manipulation"
+                                aria-label="Edit medication"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
                             </div>
-                            <p className="text-xs sm:text-sm text-gray-600">
+                            <p className={combineClasses('text-xs sm:text-sm', DesignTokens.colors.neutral.text[600])}>
                               <span className="font-medium">{med.dosage}</span> • {med.frequency}
                             </p>
                           </div>
 
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-2 pt-2 border-t border-gray-100">
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs text-gray-500 mb-0.5">Next dose</p>
-                              <p className="text-xs sm:text-sm font-medium text-gray-800">
+                              <p className={combineClasses('text-xs mb-0.5', DesignTokens.colors.neutral.text[500])}>Next dose</p>
+                              <p className={combineClasses('text-xs sm:text-sm font-medium', DesignTokens.colors.neutral.text[800])}>
                                 {new Date(med.nextDose).toLocaleString('en-US', {
                                   month: 'short',
                                   day: 'numeric',
@@ -4019,12 +4153,12 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                           </div>
 
                           <div className="mt-2 pt-2 border-t border-gray-100">
-                            <p className="text-xs text-gray-600">
+                            <p className="text-xs ${DesignTokens.colors.neutral.text[600]}">
                               <span className="font-medium">Schedule:</span> {med.schedule}
                             </p>
-                            {med.instructions && (
-                              <p className="text-xs text-gray-600 mt-1">
-                                <span className="font-medium">Instructions:</span> {med.instructions}
+                            {med.notes && (
+                              <p className={combineClasses('text-xs mt-1', DesignTokens.colors.neutral.text[600])}>
+                                <span className="font-medium">Instructions:</span> {med.notes}
                               </p>
                             )}
                           </div>
@@ -4035,8 +4169,8 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                 </div>
 
                 {/* Upcoming Doses */}
-                <div className="bg-white rounded-lg shadow p-3 sm:p-4">
-                  <h3 className="text-sm sm:text-base font-semibold text-gray-800 mb-3">Today's Schedule</h3>
+                <div className={DesignTokens.components.card.nestedWithShadow}>
+                  <h3 className="text-sm sm:text-base font-semibold ${DesignTokens.colors.neutral.text[800]} mb-3">Today's Schedule</h3>
                   <div className="space-y-2">
                     {medications
                       .filter(med => med.active && med.schedule.includes(':'))
@@ -4056,17 +4190,17 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                             onClick={() => !taken && markMedicationTaken(med.id, med.specificTime)}
                             className={`w-full flex items-center gap-2 sm:gap-3 p-3 border-2 rounded-lg transition min-h-[60px] touch-manipulation active:opacity-70 ${taken
                               ? 'border-green-300 bg-green-50 cursor-default'
-                              : 'border-gray-200 hover:border-green-500 hover:bg-green-50'
+                              : '${DesignTokens.colors.neutral.border[200]} hover:border-green-500 hover:bg-green-50'
                               }`}
                           >
-                            <div className="text-xs sm:text-sm font-semibold text-gray-700 w-16 sm:w-20 flex-shrink-0">
+                            <div className="text-xs sm:text-sm font-semibold ${DesignTokens.colors.neutral.text[700]} w-16 sm:w-20 flex-shrink-0">
                               {med.specificTime}
                             </div>
                             <div className="flex-1 text-left min-w-0">
-                              <p className="text-sm font-medium text-gray-900 truncate">{med.name}</p>
-                              <p className="text-xs text-gray-600">{med.dosage}</p>
+                              <p className="text-sm font-medium ${DesignTokens.colors.neutral.text[900]} truncate">{med.name}</p>
+                              <p className="text-xs ${DesignTokens.colors.neutral.text[600]}">{med.dosage}</p>
                             </div>
-                            <div className={`w-6 h-6 flex-shrink-0 rounded-full border-2 flex items-center justify-center ${taken ? 'border-green-500 bg-green-500' : 'border-gray-300'
+                            <div className={`w-6 h-6 flex-shrink-0 rounded-full border-2 flex items-center justify-center ${taken ? 'border-green-500 bg-green-500' : '${DesignTokens.colors.neutral.border[300]}'
                               }`}>
                               {taken && (
                                 <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -4082,7 +4216,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
 
                 <button
                   onClick={() => setShowAddMedication(true)}
-                  className="w-full py-2.5 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:border-blue-500 hover:text-blue-600 transition min-h-[44px] touch-manipulation active:opacity-70"
+                  className="w-full py-2.5 border-2 border-dashed ${DesignTokens.colors.neutral.border[300]} rounded-lg text-sm ${DesignTokens.colors.neutral.text[600]} hover:border-blue-500 hover:text-blue-600 transition min-h-[44px] touch-manipulation active:opacity-70"
                 >
                   + Add Medication
                 </button>
@@ -4102,9 +4236,24 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
 
       <AddMedicationModal
         show={showAddMedication}
-        onClose={() => setShowAddMedication(false)}
+        onClose={() => {
+          setShowAddMedication(false);
+          setEditingMedication(null);
+        }}
         user={user}
-        reloadHealthData={reloadHealthData}
+        editingMedication={editingMedication}
+        onMedicationAdded={async () => {
+          // Reload medications
+          if (user) {
+            try {
+              const meds = await medicationService.getMedications(user.uid);
+              setMedications(meds);
+            } catch (error) {
+              console.error('Error reloading medications:', error);
+            }
+          }
+          setEditingMedication(null);
+        }}
       />
 
       <AddLabModal
