@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { labService, vitalService, medicationService, symptomService } from '../firebase/services';
+import { labService, vitalService, medicationService, symptomService, journalNoteService } from '../firebase/services';
 import { getSavedTrials } from '../services/clinicalTrials/clinicalTrialsService';
 import { getNotebookEntries } from './notebookService';
 import { parseLocalDate } from '../utils/helpers';
@@ -55,7 +55,7 @@ Would you like to search for clinical trials now?`;
 
     // Detect if user is ADDING data (not asking about it)
     // These patterns indicate the user is providing new data to be saved
-    const isAddingData = /(my (ca-125|hemoglobin|wbc|platelets|blood pressure|heart rate|temperature|temp|weight|bp|hr) (was|is)|i (had|have|started|am taking|took)|i'm (experiencing|taking)|my (symptom|symptoms)|started taking|taking [a-z]+ (mg|ml|units?)|log|add|record)/i.test(message);
+    const isAddingData = /(my (ca-125|hemoglobin|wbc|platelets|blood pressure|heart rate|temperature|temp|weight|bp|hr) (was|is)|i (had|have|started|am taking|took)|i'm (experiencing|taking)|my (symptom|symptoms)|started taking|taking [a-z]+ (mg|ml|units?)|log|add|record|note (that|down)|journal|write down)/i.test(message);
     
     // Detect if message requires health data ANALYSIS (asking about existing data, not adding)
     // Only trigger if user is asking questions, not adding data
@@ -703,6 +703,12 @@ Extract any medical data and return a JSON object with this structure:
         "frequency": "Every 3 weeks",
         "action": "started|stopped|adjusted"
       }
+    ],
+    "journalNotes": [
+      {
+        "content": "Today was a good day. Feeling more energy after treatment.",
+        "date": "2024-12-29"
+      }
     ]
   }
 }
@@ -731,6 +737,12 @@ IMPORTANT:
 - You can discuss drugs beyond the information provided - use your knowledge and provide links to authoritative sources (FDA, medical literature, prescribing information)
 - If no medical data is mentioned, just respond conversationally (or about the trial if trial context is provided)
 - If the user asks about analyzing or explaining their health data but there is NO data available or INSUFFICIENT data (e.g., only 1-2 data points when trends require more), acknowledge this clearly in your response and suggest how they can add more data. Be helpful and guide them on what data would be useful.
+- If the user is sharing a personal note, thought, reflection, or journal entry (not structured medical data like labs, vitals, symptoms, or medications), extract it as a journalNote. Examples:
+  * "Note that I'm feeling more energetic today" → journalNote with today's date
+  * "I want to remember that yesterday was a good day" → journalNote with yesterday's date  
+  * "Today I'm grateful for..." → journalNote with today's date
+  * Personal reflections, thoughts, experiences, or general notes should be saved as journalNotes
+  * Only extract as journalNote if it's clearly a personal note/reflection, not structured medical data
 - Return ONLY valid JSON
 
 DATE RECOGNITION EXAMPLES:
@@ -782,7 +794,8 @@ async function saveExtractedData(extractedData, userId) {
     labs: [],
     vitals: [],
     symptoms: [],
-    medications: []
+    medications: [],
+    journalNotes: []
   };
 
   try {
@@ -882,6 +895,26 @@ async function saveExtractedData(extractedData, userId) {
       }
     }
 
+    // Save Journal Notes
+    if (extractedData.journalNotes?.length > 0) {
+      for (const note of extractedData.journalNotes) {
+        // Parse and validate date - use current date as fallback if invalid
+        let noteDate = parseLocalDate(note.date);
+        if (!noteDate || isNaN(noteDate.getTime())) {
+          noteDate = new Date();
+        }
+
+        const noteId = await journalNoteService.addJournalNote({
+          patientId: userId,
+          content: note.content,
+          date: noteDate,
+          source: 'chat'
+        });
+
+        saved.journalNotes.push({ noteId, content: note.content, date: note.date });
+      }
+    }
+
     return saved;
 
   } catch (error) {
@@ -897,8 +930,17 @@ export function generateChatExtractionSummary(extractedData) {
 
   const parts = [];
 
+  if (extractedData.journalNotes?.length > 0) {
+    parts.push(`\n\n✅ Added ${extractedData.journalNotes.length} journal note(s) to your notebook`);
+    extractedData.journalNotes.forEach(note => {
+      const dateStr = note.date ? new Date(note.date).toLocaleDateString() : 'today';
+      const preview = note.content.length > 50 ? note.content.substring(0, 50) + '...' : note.content;
+      parts.push(`• Note for ${dateStr}: ${preview}`);
+    });
+  }
+
   if (extractedData.labs?.length > 0) {
-    parts.push(`\n\nLogged ${extractedData.labs.length} lab value(s):`);
+    parts.push(`\n\n✅ Logged ${extractedData.labs.length} lab value(s):`);
     extractedData.labs.forEach(lab => {
       parts.push(`• ${lab.label}: ${lab.value} ${lab.unit}`);
     });

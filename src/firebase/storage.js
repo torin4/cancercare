@@ -9,6 +9,12 @@ import {
 import { storage } from './config';
 import { documentService } from './services';
 import { parseLocalDate } from '../utils/helpers';
+import { 
+  validateFile, 
+  sanitizeFilename, 
+  logDocumentAccess, 
+  checkUploadRateLimit 
+} from '../services/documentSecurityService';
 
 /**
  * Upload a file to Firebase Storage and save metadata to Firestore
@@ -20,6 +26,18 @@ import { parseLocalDate } from '../utils/helpers';
  */
 export const uploadDocument = async (file, userId, metadata = {}) => {
   try {
+    // SECURITY: Validate file before upload
+    const fileValidation = validateFile(file);
+    if (!fileValidation.valid) {
+      throw new Error(fileValidation.error || 'File validation failed');
+    }
+    
+    // SECURITY: Check rate limiting
+    const rateLimit = checkUploadRateLimit(userId, 50, 60 * 60 * 1000); // 50 uploads per hour
+    if (!rateLimit.allowed) {
+      throw new Error(rateLimit.error || 'Upload rate limit exceeded');
+    }
+    
     // 1. Determine the date for filename (user-provided or AI-extracted, or today)
     const providedDate = (metadata.date && typeof metadata.date === 'string' && metadata.date.trim() !== '') 
       ? metadata.date.trim() 
@@ -31,8 +49,8 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
     // Format date as YYYY-MM-DD for filename
     const dateStr = documentDate.toISOString().split('T')[0]; // YYYY-MM-DD
     
-    // Get file extension from original filename
-    const originalName = file.name || 'document';
+    // SECURITY: Sanitize original filename
+    const originalName = sanitizeFilename(file.name || 'document');
     const fileExtension = originalName.includes('.') 
       ? originalName.substring(originalName.lastIndexOf('.'))
       : '';
@@ -83,6 +101,14 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
 
     const docId = await documentService.saveDocument(documentData);
 
+    // SECURITY: Log document upload for audit trail
+    await logDocumentAccess(userId, docId, 'upload', {
+      fileName: originalName,
+      fileSize: file.size,
+      fileType: file.type,
+      storagePath: storagePath
+    });
+
     return {
       id: docId,
       ...documentData
@@ -109,8 +135,28 @@ export const cleanupDocumentData = async (docId, userId, aggressiveCleanup = fal
   return await comprehensiveCleanup(docId, userId, aggressiveCleanup);
 };
 
-export const deleteDocument = async (docId, storagePath) => {
+export const deleteDocument = async (docId, storagePath, userId = null) => {
   try {
+    // SECURITY: Log document deletion for audit trail (before deletion)
+    if (userId) {
+      try {
+        const { db } = await import('./config');
+        const { doc, getDoc } = await import('firebase/firestore');
+        const docSnapshot = await getDoc(doc(db, 'documents', docId));
+        if (docSnapshot.exists()) {
+          const docData = docSnapshot.data();
+          await logDocumentAccess(userId, docId, 'delete', {
+            fileName: docData.fileName || docData.name,
+            fileSize: docData.fileSize,
+            fileType: docData.fileType
+          });
+        }
+      } catch (logError) {
+        // Don't fail deletion if logging fails
+        console.error('Failed to log document deletion:', logError);
+      }
+    }
+    
     // 1. Delete from Firestore
     await documentService.deleteDocument(docId);
 
@@ -140,14 +186,27 @@ export const listUserFiles = async (userId) => {
 
 /**
  * Download a file (get its URL)
+ * Note: Firebase Storage URLs are already secure and require authentication through storage rules
+ * The URL itself is a signed token that validates access
  *
  * @param {string} storagePath - The path to the file in Storage
- * @returns {Promise<string>} - Download URL
+ * @param {string} userId - User ID for audit logging (optional)
+ * @param {string} documentId - Document ID for audit logging (optional)
+ * @returns {Promise<string>} - Download URL (signed and secure)
  */
-export const getFileUrl = async (storagePath) => {
+export const getFileUrl = async (storagePath, userId = null, documentId = null) => {
   try {
     const storageRef = ref(storage, storagePath);
-    return await getDownloadURL(storageRef);
+    const downloadUrl = await getDownloadURL(storageRef);
+    
+    // SECURITY: Log document access for audit trail
+    if (userId && documentId) {
+      await logDocumentAccess(userId, documentId, 'view', {
+        storagePath: storagePath
+      });
+    }
+    
+    return downloadUrl;
   } catch (error) {
     throw error;
   }
@@ -162,14 +221,22 @@ export const getFileUrl = async (storagePath) => {
  * @param {string} existingUrl - Optional existing download URL to use if available
  * @returns {Promise<Blob>} - File as Blob
  */
-export const downloadFileAsBlob = async (storagePath, existingUrl = null) => {
+export const downloadFileAsBlob = async (storagePath, existingUrl = null, userId = null, documentId = null) => {
   // Get storage reference
   const storageRef = ref(storage, storagePath);
   
   // Get download URL (use existing or get fresh one)
+  // Note: Firebase Storage URLs are signed tokens that require authentication
   let downloadUrl = existingUrl;
   if (!downloadUrl) {
     downloadUrl = await getDownloadURL(storageRef);
+  }
+  
+  // SECURITY: Log document download for audit trail
+  if (userId && documentId) {
+    await logDocumentAccess(userId, documentId, 'download', {
+      storagePath: storagePath
+    });
   }
   
   // Firebase Storage has CORS restrictions, so we need to use a proxy

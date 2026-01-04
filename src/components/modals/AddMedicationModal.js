@@ -267,11 +267,20 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
     }
   };
 
+  if (!show) return null;
+
   return (
-    <div className={combineClasses("fixed inset-0 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4", DesignTokens.components.modal.backdrop)}>
-      <div className={combineClasses("w-full h-full md:h-auto md:rounded-2xl md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up", DesignTokens.components.modal.container)}>
-        <div className={combineClasses("flex-shrink-0 border-b p-4 flex items-center justify-between", DesignTokens.components.modal.container, DesignTokens.colors.neutral.border[200])}>
-          <h3 className={combineClasses('font-bold text-lg', DesignTokens.colors.neutral.text[800])}>{editingMedication ? 'Edit Medication' : 'Add Medication'}</h3>
+    <div 
+      className={DesignTokens.components.modal.backdrop}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div className={DesignTokens.components.modal.container}>
+        <div className={combineClasses(DesignTokens.components.modal.header, DesignTokens.colors.neutral.border[200])}>
+          <h3 className={combineClasses(DesignTokens.components.modal.title, DesignTokens.colors.neutral.text[900])}>{editingMedication ? 'Edit Medication' : 'Add Medication'}</h3>
           <button
             onClick={(e) => {
               e.preventDefault();
@@ -285,7 +294,7 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className={DesignTokens.components.modal.body}>
           <div className="space-y-4">
             <div className={combineClasses('border rounded-lg p-3', DesignTokens.components.alert.info.bg, DesignTokens.components.alert.info.border)}>
               <div className="flex items-start gap-2">
@@ -471,7 +480,7 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
           </div>
         </div>
 
-        <div className={combineClasses('flex-shrink-0 border-t p-4', DesignTokens.components.modal.container, DesignTokens.colors.neutral.border[200])}>
+        <div className={combineClasses(DesignTokens.components.modal.footer, DesignTokens.colors.neutral.border[200])}>
           <div className="flex gap-3">
             <button
               onClick={onClose}

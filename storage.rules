@@ -1,13 +1,54 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    
+    // Helper function to validate file type (only allow medical document types)
+    function isValidMedicalFileType() {
+      return request.resource.contentType.matches('application/pdf') ||
+             request.resource.contentType.matches('image/.*') ||
+             request.resource.contentType.matches('application/msword') ||
+             request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.wordprocessingml.document') ||
+             request.resource.contentType.matches('text/plain');
+    }
+    
+    // Helper function to validate file extension
+    function hasValidExtension() {
+      return request.resource.name.matches('.*\\.(pdf|PDF|jpg|jpeg|JPG|JPEG|png|PNG|gif|doc|DOC|docx|DOCX|txt|TXT)$');
+    }
+    
+    // Helper function to check file size (10MB max, 1KB min)
+    function isValidFileSize() {
+      return request.resource.size > 1024 && // At least 1KB
+             request.resource.size < 10 * 1024 * 1024; // Max 10MB
+    }
+    
+    // Helper function to ensure user owns the path
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+    
     // Documents - users can only access files in their own directory
+    // Enhanced security with file type validation and size limits
     match /documents/{userId}/{allPaths=**} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if request.auth != null &&
-                      request.auth.uid == userId &&
-                      request.resource.size < 10 * 1024 * 1024; // 10MB max file size
-      allow delete: if request.auth != null && request.auth.uid == userId;
+      // Read: Only authenticated owner can read their files
+      allow read: if isOwner(userId);
+      
+      // Write: Only authenticated owner can upload, with strict validation
+      allow write: if isOwner(userId) &&
+                      isValidFileSize() &&
+                      isValidMedicalFileType() &&
+                      hasValidExtension();
+      
+      // Delete: Only authenticated owner can delete their files
+      allow delete: if isOwner(userId);
+      
+      // List: Only authenticated owner can list their files
+      allow list: if isOwner(userId);
+    }
+    
+    // Deny all other paths by default
+    match /{allPaths=**} {
+      allow read, write, delete, list: if false;
     }
   }
 }

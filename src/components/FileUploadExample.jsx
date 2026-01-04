@@ -61,8 +61,14 @@ export default function FileUploadExample() {
   const handleDelete = async (docId, storagePath) => {
     if (!window.confirm('Are you sure you want to delete this file?')) return;
 
+    const userId = auth.currentUser?.uid;
+    if (!userId) {
+      setError('You must be logged in to delete files');
+      return;
+    }
+
     try {
-      await deleteDocument(docId, storagePath);
+      await deleteDocument(docId, storagePath, userId);
       console.log('File deleted successfully');
 
       // Refresh the document list

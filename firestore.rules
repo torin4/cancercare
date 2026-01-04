@@ -80,13 +80,41 @@ service cloud.firestore {
     }
 
     // Documents - users can only access their own documents
+    // Enhanced security: protect sensitive fields and validate metadata
     match /documents/{docId} {
+      // Helper function to validate document metadata structure
+      function hasValidDocumentStructure() {
+        return request.resource.data.keys().hasAll(['patientId', 'fileName', 'fileUrl', 'storagePath']) &&
+               request.resource.data.patientId is string &&
+               request.resource.data.fileName is string &&
+               request.resource.data.fileUrl is string &&
+               request.resource.data.storagePath is string;
+      }
+      
+      // Helper function to prevent modification of critical security fields
+      function cannotModifySecurityFields() {
+        return (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['patientId', 'fileUrl', 'storagePath'])) ||
+               (request.resource.data.patientId == resource.data.patientId &&
+                request.resource.data.fileUrl == resource.data.fileUrl &&
+                request.resource.data.storagePath == resource.data.storagePath);
+      }
+      
+      // Read: Only authenticated owner can read their documents
       allow read: if request.auth != null &&
                      resource.data.patientId == request.auth.uid;
-      allow create: if request.auth != null && hasValidPatientId();
+      
+      // Create: Only authenticated owner can create, with valid structure
+      allow create: if request.auth != null && 
+                       hasValidPatientId() &&
+                       hasValidDocumentStructure();
+      
+      // Update: Only authenticated owner can update, cannot modify security fields
       allow update: if request.auth != null &&
                        resource.data.patientId == request.auth.uid &&
-                       hasValidPatientId();
+                       hasValidPatientId() &&
+                       cannotModifySecurityFields();
+      
+      // Delete: Only authenticated owner can delete
       allow delete: if request.auth != null &&
                        resource.data.patientId == request.auth.uid;
     }

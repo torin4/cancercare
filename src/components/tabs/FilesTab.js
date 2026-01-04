@@ -800,7 +800,7 @@ export default function FilesTab({ onTabChange }) {
                       await cleanupDocumentData(doc.id, user.uid, false);
                       
                       // Then delete the document
-                      await deleteDocument(doc.id, doc.storagePath);
+                      await deleteDocument(doc.id, doc.storagePath, user.uid);
                       
                       // Reload documents
                       const updatedDocs = await documentService.getDocuments(user.uid);
