@@ -298,7 +298,7 @@ export const DesignTokens = {
     
     // Modal
     modal: {
-      backdrop: 'fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50',
+      backdrop: 'fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4',
       container: 'bg-white w-full h-full md:h-auto md:rounded-xl md:max-w-md md:max-h-[90vh] overflow-hidden flex flex-col animate-slide-up',
       header: 'flex-shrink-0 bg-white border-b p-4 flex items-center justify-between',
       title: 'text-lg font-semibold text-gray-900',

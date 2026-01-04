@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle, XCircle, X } from 'lucide-react';
+import { DesignTokens, combineClasses } from '../design/designTokens';
 
 /**
  * Banner component for displaying success and error notifications
@@ -35,41 +36,44 @@ export default function Banner({ message, type = 'success', duration = 4000, onC
   if (!message) return null;
 
   const isSuccess = type === 'success';
-  const bgColor = isSuccess 
-    ? 'bg-green-50 border-green-200' 
-    : 'bg-red-50 border-red-200';
+  const alertClasses = isSuccess 
+    ? DesignTokens.components.alert.success 
+    : DesignTokens.components.alert.error;
   const textColor = isSuccess 
-    ? 'text-green-800' 
-    : 'text-red-800';
+    ? DesignTokens.components.alert.text.success 
+    : DesignTokens.components.alert.text.error;
   const iconColor = isSuccess 
     ? 'text-green-600' 
     : 'text-red-600';
 
   return (
     <div
-      className={`fixed top-0 left-0 right-0 z-[100] transition-transform duration-300 ease-out ${
+      className={combineClasses(
+        'fixed top-0 left-0 right-0 z-[100]',
+        DesignTokens.transitions.slow,
+        'transition-transform duration-300 ease-out',
         isVisible && !isExiting ? 'translate-y-0' : '-translate-y-full'
-      }`}
+      )}
     >
-      <div className={`${bgColor} border-b shadow-lg`}>
+      <div className={combineClasses(alertClasses, 'border-b', DesignTokens.shadows.lg)}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.md, 'flex-1 min-w-0')}>
               {isSuccess ? (
-                <CheckCircle className={`w-5 h-5 ${iconColor} flex-shrink-0`} />
+                <CheckCircle className={combineClasses(DesignTokens.icons.standard.size.full, iconColor, 'flex-shrink-0')} />
               ) : (
-                <XCircle className={`w-5 h-5 ${iconColor} flex-shrink-0`} />
+                <XCircle className={combineClasses(DesignTokens.icons.standard.size.full, iconColor, 'flex-shrink-0')} />
               )}
-              <p className={`text-sm font-medium ${textColor} break-words`}>
+              <p className={combineClasses(DesignTokens.typography.body.base, 'font-medium', textColor, 'break-words')}>
                 {message}
               </p>
             </div>
             <button
               onClick={handleClose}
-              className={`ml-4 flex-shrink-0 ${textColor} hover:opacity-70 transition-opacity`}
+              className={combineClasses('ml-4 flex-shrink-0', textColor, 'hover:opacity-70', DesignTokens.transitions.default)}
               aria-label="Close banner"
             >
-              <X className="w-5 h-5" />
+              <X className={DesignTokens.icons.standard.size.full} />
             </button>
           </div>
         </div>

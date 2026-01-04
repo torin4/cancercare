@@ -5,6 +5,7 @@ import { auth } from '../firebase/config';
 import { patientService, genomicProfileService, clinicalTrialsService, trialLocationService } from '../firebase/services';
 import { useBanner } from '../contexts/BannerContext';
 import { getTrialDetails } from '../services/clinicalTrials/trialSearchService';
+import { DesignTokens, Layouts, combineClasses } from '../design/designTokens';
 
 // Comprehensive list of countries for dropdowns
 const COUNTRIES = [
@@ -427,12 +428,17 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
 
   const renderTrialCard = (trial, isSaved = false) => {
     return (
-      <div key={trial.id} className="bg-white rounded-lg shadow-sm p-3 sm:p-4 md:p-6 mb-3 sm:mb-4 border border-medical-neutral-200 hover:shadow-md transition">
+      <div key={trial.id} className={combineClasses(DesignTokens.components.card.container, DesignTokens.shadows.sm, DesignTokens.spacing.card.full, 'mb-3 sm:mb-4', DesignTokens.components.card.hover)}>
         {/* Header */}
         <div className="flex justify-between items-start mb-2 sm:mb-3 gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-start gap-2 sm:gap-3 flex-wrap">
-              <h3 className="text-sm sm:text-base md:text-lg font-semibold text-medical-neutral-900 mb-1 break-words">{trial.title || trial.titleJa}</h3>
+              <h3 
+                className="text-sm sm:text-base md:text-lg font-semibold text-medical-neutral-900 mb-1 line-clamp-2" 
+                title={trial.title || trial.titleJa || ''}
+              >
+                {trial.title || trial.titleJa}
+              </h3>
               {trial.source && (
                 <span className="text-xs px-2 py-0.5 bg-medical-neutral-100 text-medical-neutral-700 rounded-full flex-shrink-0">{trial.source}</span>
               )}
@@ -635,39 +641,41 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
   };
 
   return (
-    <div className="p-3 sm:p-4 md:p-6">
+    <div className={Layouts.container}>
       {/* Header */}
-      <div className="mb-4 sm:mb-6 flex items-center gap-2 sm:gap-3">
-        <div className="bg-medical-accent-50 p-2 sm:p-2.5 rounded-lg">
-          <FlaskConical className="w-5 h-5 sm:w-6 sm:h-6 text-medical-accent-600" />
+      <div className={Layouts.header}>
+        <div className={combineClasses('bg-medical-accent-50', DesignTokens.spacing.iconContainer.full, DesignTokens.borders.radius.sm)}>
+          <FlaskConical className={combineClasses(DesignTokens.icons.header.size.full, 'text-medical-accent-600')} />
         </div>
         <div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-medical-neutral-900 mb-0.5 sm:mb-1">Clinical Trials</h1>
+          <h1 className={Layouts.headerTitle}>Clinical Trials</h1>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 sm:gap-4 mb-4 sm:mb-6 overflow-x-auto">
+      <div className={Layouts.tabsContainer}>
         <button
           onClick={() => setActiveTab('search')}
-          className={`pb-2 sm:pb-3 px-3 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base min-h-[44px] touch-manipulation active:opacity-70 ${
+          className={combineClasses(
+            DesignTokens.components.tabs.button.base,
             activeTab === 'search'
               ? 'text-medical-accent-600 border-b-2 border-medical-accent-600'
               : 'text-medical-neutral-600 hover:text-medical-accent-600'
-          }`}
+          )}
         >
-          <SearchIcon className="w-4 h-4" />
+          <SearchIcon className={DesignTokens.icons.standard.size.mobile} />
           <span className="whitespace-nowrap">Search Trials</span>
         </button>
         <button
           onClick={() => setActiveTab('saved')}
-          className={`pb-2 sm:pb-3 px-3 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base min-h-[44px] touch-manipulation active:opacity-70 ${
+          className={combineClasses(
+            DesignTokens.components.tabs.button.base,
             activeTab === 'saved'
               ? 'text-medical-accent-600 border-b-2 border-medical-accent-600'
               : 'text-medical-neutral-600 hover:text-medical-accent-600'
-          }`}
+          )}
         >
-          <Bookmark className="w-4 h-4" />
+          <Bookmark className={DesignTokens.icons.standard.size.mobile} />
           <span className="whitespace-nowrap">Saved <span className="hidden sm:inline">Trials</span> ({savedTrials.length})</span>
         </button>
       </div>
@@ -676,9 +684,9 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
       {activeTab === 'search' && (
         <div>
           {/* Search Info */}
-          <div className="border border-medical-accent-200 rounded-lg p-3 sm:p-4 md:p-5 mb-4 sm:mb-6">
-            <h3 className="font-medium text-medical-accent-900 mb-2 text-sm sm:text-base">Search Criteria</h3>
-            <div className="text-xs sm:text-sm text-medical-neutral-700 space-y-1">
+          <div className={combineClasses('border border-medical-accent-200', DesignTokens.borders.radius.sm, DesignTokens.spacing.card.full, Layouts.section)}>
+            <h3 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, 'text-medical-accent-900 mb-2')}>Search Criteria</h3>
+            <div className={combineClasses(DesignTokens.typography.body.sm, 'text-medical-neutral-700 space-y-1')}>
               <p><strong>Diagnosis:</strong> {patientProfile?.diagnosis || 'Not set'}</p>
               <p><strong>Age:</strong> {patientProfile?.age || 'Not set'}</p>
               <p><strong>Gender:</strong> {patientProfile?.gender || 'Not set'}</p>
@@ -713,7 +721,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
           </div>
 
           {/* Search Button and Clear Button */}
-          <div className="flex gap-2 sm:gap-3 mb-4 sm:mb-6">
+          <div className={combineClasses('flex', DesignTokens.spacing.gap.responsive.sm, Layouts.section)}>
             <button
               onClick={handleSearchTrials}
               disabled={searching || !patientProfile?.diagnosis}
@@ -751,7 +759,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                 <div className="mb-2 text-xs sm:text-sm text-medical-neutral-500">{searchProgress}</div>
               )}
 
-              <h2 className="text-base sm:text-lg md:text-xl font-semibold text-medical-neutral-900 mb-3 sm:mb-4">
+              <h2 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, 'text-medical-neutral-900 mb-3 sm:mb-4')}>
                 Found {searchResults.length} Matching Trials
                 {pagination && pagination.totalResults && (
                   <span className="text-xs sm:text-sm md:text-base font-normal text-medical-neutral-600 ml-1 sm:ml-2">
@@ -797,10 +805,12 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
 
           {/* Error Display */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 md:p-5 mb-4 sm:mb-6">
-              <p className="text-red-800 font-medium flex items-center gap-2 text-xs sm:text-sm md:text-base"><AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> {error}</p>
+            <div className={combineClasses(DesignTokens.components.alert.error, DesignTokens.borders.radius.sm, DesignTokens.spacing.card.full, Layouts.section)}>
+              <p className={combineClasses(DesignTokens.components.alert.text.error, 'font-medium flex items-center', DesignTokens.spacing.gap.sm, DesignTokens.typography.body.base)}>
+                <AlertTriangle className={combineClasses(DesignTokens.icons.standard.size.full, 'flex-shrink-0')} /> {error}
+              </p>
               {searchSources && searchSources.length > 0 && (
-                <p className="text-xs sm:text-sm text-red-600 mt-2">
+                <p className={combineClasses(DesignTokens.typography.body.sm, 'text-red-600 mt-2')}>
                   Sources attempted: {searchSources.join(', ')}
                 </p>
               )}
@@ -808,9 +818,9 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
           )}
 
           {!searching && searchResults.length === 0 && !error && (
-            <div className="text-center text-medical-neutral-500 py-8 sm:py-12">
-              <p className="text-sm sm:text-base md:text-lg">Click "Search Clinical Trials" to find matching trials</p>
-              <p className="text-xs sm:text-sm mt-2">Results will appear here after searching</p>
+            <div className={combineClasses(DesignTokens.components.emptyState.container, 'text-medical-neutral-500')}>
+              <p className={combineClasses(DesignTokens.typography.body.lg)}>Click "Search Clinical Trials" to find matching trials</p>
+              <p className={combineClasses(DesignTokens.typography.body.sm, 'mt-2')}>Results will appear here after searching</p>
             </div>
           )}
         </div>
@@ -820,13 +830,13 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
       {activeTab === 'saved' && (
         <div>
             {loading ? (
-            <div className="text-center py-8 sm:py-12">
-              <p className="text-medical-neutral-500 text-sm sm:text-base">Loading saved trials...</p>
+            <div className={combineClasses(DesignTokens.components.emptyState.container)}>
+              <p className={combineClasses('text-medical-neutral-500', DesignTokens.typography.body.base)}>Loading saved trials...</p>
             </div>
           ) : error ? (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
-              <p className="text-yellow-800 font-medium flex items-center gap-2 mb-2 text-sm sm:text-base">
-                <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> Index Required
+            <div className={combineClasses(DesignTokens.components.alert.warning, DesignTokens.borders.radius.sm, DesignTokens.spacing.card.mobile, Layouts.section)}>
+              <p className={combineClasses(DesignTokens.components.alert.text.warning, 'font-medium flex items-center', DesignTokens.spacing.gap.sm, 'mb-2', DesignTokens.typography.body.base)}>
+                <AlertTriangle className={combineClasses(DesignTokens.icons.standard.size.full, 'flex-shrink-0')} /> Index Required
               </p>
               <p className="text-xs sm:text-sm text-yellow-700 mb-2">
                 {error.includes('https://') 
@@ -849,7 +859,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             </div>
           ) : savedTrials.length > 0 ? (
             <div>
-              <h2 className="text-base sm:text-lg md:text-xl font-semibold text-medical-neutral-900 mb-3 sm:mb-4">
+              <h2 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, 'text-medical-neutral-900 mb-3 sm:mb-4')}>
                 Your Saved Trials ({savedTrials.length})
               </h2>
               {savedTrials.map(trial => renderTrialCard(trial, true))}
@@ -865,11 +875,14 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
 
       {/* Trial Detail Modal */}
       {selectedTrial && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-          <div className="bg-white w-full h-full sm:h-auto sm:max-w-3xl sm:rounded-xl sm:max-h-[85vh] flex flex-col animate-slide-up shadow-lg border border-medical-neutral-200">
+        <div className={DesignTokens.components.modal.backdrop}>
+          <div className={combineClasses('bg-white w-full h-full sm:h-auto sm:max-w-3xl sm:rounded-xl sm:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up', DesignTokens.shadows.lg, DesignTokens.borders.card)}>
             {/* Header */}
-            <div className="flex items-center justify-between p-3 sm:p-4 md:p-6 border-b border-medical-neutral-200 flex-shrink-0">
-              <h2 className="text-base sm:text-xl md:text-2xl font-bold text-medical-neutral-900 pr-2 sm:pr-4 break-words">
+            <div className={combineClasses(DesignTokens.components.modal.header, DesignTokens.spacing.card.full)}>
+              <h2 
+                className="text-base sm:text-xl md:text-2xl font-bold text-medical-neutral-900 pr-2 sm:pr-4 line-clamp-2"
+                title={selectedTrial.title || selectedTrial.titleJa || 'Trial Details'}
+              >
                 {selectedTrial.title || selectedTrial.titleJa || 'Trial Details'}
               </h2>
               <button
@@ -882,7 +895,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
+            <div className={combineClasses(DesignTokens.components.modal.body, DesignTokens.spacing.card.full, 'space-y-4 sm:space-y-6')}>
               {selectedTrial.titleJa && selectedTrial.title !== selectedTrial.titleJa && (
                 <div className="bg-medical-accent-50 border border-medical-accent-200 rounded-lg p-2.5 sm:p-3">
                   <p className="text-xs sm:text-sm text-medical-accent-800 break-words">{selectedTrial.titleJa}</p>
@@ -890,7 +903,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
               )}
 
               {/* Summary */}
-              <div className="bg-white rounded-lg border border-medical-neutral-200 p-3 sm:p-4">
+              <div className={combineClasses(DesignTokens.components.card.container, DesignTokens.shadows.sm)}>
                 <h3 className="font-semibold text-medical-neutral-900 mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base">
                   <SearchIcon className="w-4 h-4 sm:w-5 sm:h-5 text-medical-accent-600 flex-shrink-0" />
                   Summary
@@ -909,7 +922,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                       components={{
                         p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
                         ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 space-y-1" {...props} />,
-                        ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2 space-y-1" {...props} />,
+                        ol: ({node, ...props}) => <ol className="list-decimal list-outside mb-2 space-y-1 ml-5" {...props} />,
                         li: ({node, ...props}) => <li className="ml-2" {...props} />,
                         strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
                         em: ({node, ...props}) => <em className="italic" {...props} />,
@@ -929,7 +942,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
 
               {/* Eligibility Criteria */}
               {selectedTrial.eligibility && (
-                <div className="bg-white rounded-lg border border-medical-neutral-200 p-3 sm:p-4">
+                <div className={combineClasses(DesignTokens.components.card.container, DesignTokens.shadows.sm)}>
                   <h3 className="font-semibold text-medical-neutral-900 mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base">
                     <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-medical-accent-600 flex-shrink-0" />
                     Eligibility Criteria
@@ -940,7 +953,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                         components={{
                           p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
                           ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 space-y-1" {...props} />,
-                          ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2 space-y-1" {...props} />,
+                          ol: ({node, ...props}) => <ol className="list-decimal list-outside mb-2 space-y-1 ml-5" {...props} />,
                           li: ({node, ...props}) => <li className="ml-2" {...props} />,
                           strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
                           em: ({node, ...props}) => <em className="italic" {...props} />,
@@ -988,7 +1001,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                 });
 
                 return (
-                  <div className="bg-white rounded-lg border border-medical-neutral-200 p-4">
+                  <div className={combineClasses(DesignTokens.components.card.container, DesignTokens.shadows.sm, 'p-4')}>
                     <h3 className="font-semibold text-medical-neutral-900 mb-3 flex items-center gap-2">
                       <MapPin className="w-5 h-5 text-medical-accent-600" />
                       Study Locations
@@ -1063,7 +1076,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             </div>
 
             {/* Footer Actions */}
-            <div className="border-t border-medical-neutral-200 p-3 sm:p-4 md:p-6 flex flex-col sm:flex-row gap-2 sm:gap-3 flex-shrink-0">
+            <div className={combineClasses(DesignTokens.components.modal.footer, DesignTokens.spacing.card.full, 'flex flex-col sm:flex-row', DesignTokens.spacing.gap.responsive.sm)}>
               {onTrialSelected && (
                 <button
                   onClick={() => {
@@ -1094,19 +1107,19 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
 
       {/* Edit Location Modal */}
       {showEditLocation && localTrialLocation && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-          <div className="bg-white w-full h-full sm:h-auto sm:max-w-lg sm:rounded-xl sm:max-h-[85vh] flex flex-col animate-slide-up">
-            <div className="flex items-center justify-between p-3 sm:p-4 border-b border-medical-neutral-200 flex-shrink-0">
-              <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900">Trial Search Location</h3>
+        <div className={DesignTokens.components.modal.backdrop}>
+          <div className={combineClasses('bg-white w-full h-full sm:h-auto sm:max-w-lg sm:rounded-xl sm:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up')}>
+            <div className={combineClasses(DesignTokens.components.modal.header, DesignTokens.spacing.card.mobile)}>
+              <h3 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, DesignTokens.typography.h3.color)}>Trial Search Location</h3>
               <button
                 onClick={() => setShowEditLocation(false)}
-                className="p-2 hover:bg-medical-neutral-100 rounded-lg transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
+                className={combineClasses(DesignTokens.components.modal.closeButton, 'p-2 rounded-lg', DesignTokens.spacing.touchTarget, 'flex items-center justify-center', DesignTokens.transitions.default)}
               >
-                <X className="w-5 h-5 text-medical-neutral-600" />
+                <X className={combineClasses(DesignTokens.icons.standard.size.full, 'text-medical-neutral-600')} />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
+            <div className={combineClasses(DesignTokens.components.modal.body, DesignTokens.spacing.card.mobile, 'space-y-3 sm:space-y-4')}>
               <div className="bg-medical-accent-50 border border-medical-accent-200 rounded-lg p-3">
                 <div className="flex items-start gap-2">
                   <AlertCircle className="w-5 h-5 text-medical-accent-600 mt-0.5 flex-shrink-0" />
