@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, Save, Calendar } from 'lucide-react';
+import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { labService } from '../../firebase/services';
 
 export default function EditLabModal({
@@ -154,11 +155,11 @@ export default function EditLabModal({
     <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">Edit Metric</h2>
+        <div className={combineClasses('flex items-center justify-between p-6 border-b', DesignTokens.colors.neutral.border[200])}>
+          <h2 className={combineClasses('text-xl font-bold', DesignTokens.colors.neutral.text[900])}>Edit Metric</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className={combineClasses('transition-colors', DesignTokens.colors.neutral.text[400], DesignTokens.colors.neutral.text[600].replace('text-', 'hover:text-'))}
             disabled={isSaving}
           >
             <X className="w-5 h-5" />
@@ -169,14 +170,14 @@ export default function EditLabModal({
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Metric Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
               Metric Name
             </label>
             <input
               type="text"
               value={labName}
               onChange={(e) => setLabName(e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-medical-primary-500 focus:border-medical-primary-500 text-sm"
+              className={combineClasses('w-full px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-medical-primary-500 focus:border-medical-primary-500 text-sm', DesignTokens.components.input.base)}
               placeholder="Enter metric name"
               disabled={isSaving}
             />
@@ -184,14 +185,14 @@ export default function EditLabModal({
 
           {/* Unit */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
               Unit
             </label>
             <input
               type="text"
               value={labUnit}
               onChange={(e) => setLabUnit(e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-medical-primary-500 focus:border-medical-primary-500 text-sm"
+              className={combineClasses('w-full px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-medical-primary-500 focus:border-medical-primary-500 text-sm', DesignTokens.components.input.base)}
               placeholder="Enter unit (e.g., mg/dL, U/mL)"
               disabled={isSaving}
             />
@@ -199,14 +200,14 @@ export default function EditLabModal({
 
           {/* Normal Range */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
               Normal Range
             </label>
             <input
               type="text"
               value={labNormalRange}
               onChange={(e) => setLabNormalRange(e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-medical-primary-500 focus:border-medical-primary-500 text-sm"
+              className={combineClasses('w-full px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-medical-primary-500 focus:border-medical-primary-500 text-sm', DesignTokens.components.input.base)}
               placeholder="Enter normal range (e.g., <0.3, 0-35, 4.5-11.0)"
               disabled={isSaving}
             />
@@ -214,36 +215,36 @@ export default function EditLabModal({
 
           {/* Values List */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
+            <label className={combineClasses('block text-sm font-medium mb-3', DesignTokens.colors.neutral.text[700])}>
               Values ({values.length})
             </label>
             {values.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 border border-gray-200 rounded-lg">
+              <div className={combineClasses('text-center py-8 rounded-lg', DesignTokens.colors.neutral.text[500], DesignTokens.colors.neutral.border[200])}>
                 <p>No values recorded</p>
               </div>
             ) : (
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className={combineClasses('border rounded-lg overflow-hidden', DesignTokens.colors.neutral.border[200])}>
                 <div className="max-h-96 overflow-y-auto">
                   {values.map((value, index) => (
                     <div
                       key={value.id || index}
-                      className="flex items-center justify-between p-4 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors"
+                      className={combineClasses('flex items-center justify-between p-4 last:border-b-0 transition-colors', DesignTokens.colors.neutral.border[100], DesignTokens.colors.neutral[50].replace('bg-', 'hover:bg-'))}
                     >
                       <div className="flex items-center gap-3 flex-1">
-                        <Calendar className="w-4 h-4 text-gray-400" />
+                        <Calendar className={combineClasses('w-4 h-4', DesignTokens.colors.neutral.text[400])} />
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-900">
+                            <span className={combineClasses('font-medium', DesignTokens.colors.neutral.text[900])}>
                               {value.value}
                             </span>
-                            <span className="text-sm text-gray-500">
+                            <span className={combineClasses('text-sm', DesignTokens.colors.neutral.text[500])}>
                               {labUnit || 'units'}
                             </span>
                           </div>
-                          <div className="text-sm text-gray-500 mt-1">
+                          <div className={combineClasses('text-sm mt-1', DesignTokens.colors.neutral.text[500])}>
                             {formatDate(value)}
                             {value.notes && (
-                              <span className="ml-2 text-gray-400">
+                              <span className={combineClasses('ml-2', DesignTokens.colors.neutral.text[400])}>
                                 • {value.notes}
                               </span>
                             )}
@@ -253,7 +254,7 @@ export default function EditLabModal({
                       <button
                         onClick={() => handleDeleteValue(value.id)}
                         disabled={deletingValueId === value.id || isSaving}
-                        className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
+                        className={combineClasses('p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70', DesignTokens.components.alert.text.error, DesignTokens.components.alert.text.error.replace('600', '700').replace('text-', 'hover:text-'), DesignTokens.components.status.high.bg.replace('bg-', 'hover:bg-'))}
                         title="Delete value"
                       >
                         {deletingValueId === value.id ? (
@@ -271,18 +272,18 @@ export default function EditLabModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+        <div className={combineClasses('flex items-center justify-end gap-3 p-6 border-t', DesignTokens.colors.neutral.border[200])}>
           <button
             onClick={onClose}
             disabled={isSaving}
-            className="px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation active:opacity-70"
+            className={combineClasses('px-4 py-2.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation active:opacity-70', DesignTokens.colors.neutral.text[700], DesignTokens.colors.neutral[100].replace('bg-', 'hover:bg-'))}
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={isSaving || !labName.trim()}
-            className="px-4 py-2.5 text-sm font-medium text-white bg-medical-primary-600 hover:bg-medical-primary-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 min-h-[44px] touch-manipulation active:opacity-70"
+            className={combineClasses('px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 min-h-[44px] touch-manipulation active:opacity-70', DesignTokens.colors.primary[600], DesignTokens.colors.primary[700].replace('bg-', 'hover:bg-'))}
           >
             {isSaving ? (
               <>

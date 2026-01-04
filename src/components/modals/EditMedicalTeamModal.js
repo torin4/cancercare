@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, AlertCircle, Check } from 'lucide-react';
+import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { patientService } from '../../firebase/services';
 import { useBanner } from '../../contexts/BannerContext';
 
@@ -96,14 +97,14 @@ export default function EditMedicalTeamModal({
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4">
       <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-lg md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
         <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
-          <h3 className="font-bold text-lg text-gray-800">Edit Medical Team</h3>
+          <h3 className={combineClasses('font-bold text-lg', DesignTokens.colors.neutral.text[800])}>Edit Medical Team</h3>
           <button
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               onClose();
             }}
-            className="text-gray-500 hover:text-gray-700"
+            className={combineClasses('transition', DesignTokens.colors.neutral.text[500], DesignTokens.colors.neutral.text[700].replace('text-', 'hover:text-'))}
             type="button"
           >
             <X size={24} />
@@ -111,12 +112,12 @@ export default function EditMedicalTeamModal({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <div className={combineClasses('border rounded-lg p-3', DesignTokens.colors.primary[50], DesignTokens.colors.primary.border[200])}>
             <div className="flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <AlertCircle className={combineClasses('w-5 h-5 mt-0.5 flex-shrink-0', DesignTokens.colors.primary.text[600])} />
               <div className="flex-1">
-                <p className="text-sm font-medium text-blue-900">Medical Team Information</p>
-                <p className="text-xs text-blue-700 mt-0.5">
+                <p className={combineClasses('text-sm font-medium', DesignTokens.colors.primary.text[700].replace('600', '900'))}>Medical Team Information</p>
+                <p className={combineClasses('text-xs mt-0.5', DesignTokens.colors.primary.text[700])}>
                   Keep your medical team information up to date for better care coordination
                 </p>
               </div>
@@ -125,92 +126,92 @@ export default function EditMedicalTeamModal({
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Oncologist</label>
+              <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Oncologist</label>
               <input
                 type="text"
                 value={patientProfile.oncologist || ''}
                 onChange={(e) => setPatientProfile({ ...patientProfile, oncologist: e.target.value })}
                 placeholder="e.g., Dr. Jane Smith"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Oncologist Phone</label>
+                <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Oncologist Phone</label>
                 <input
                   type="tel"
                   value={patientProfile.oncologistPhone || ''}
                   onChange={(e) => setPatientProfile({ ...patientProfile, oncologistPhone: e.target.value })}
                   placeholder="e.g., (555) 123-4567"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Oncologist Email</label>
+                <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Oncologist Email</label>
                 <input
                   type="email"
                   value={patientProfile.oncologistEmail || ''}
                   onChange={(e) => setPatientProfile({ ...patientProfile, oncologistEmail: e.target.value })}
                   placeholder="e.g., doctor@hospital.com"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Hospital/Clinic</label>
+              <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Hospital/Clinic</label>
               <input
                 type="text"
                 value={patientProfile.hospital || ''}
                 onChange={(e) => setPatientProfile({ ...patientProfile, hospital: e.target.value })}
                 placeholder="e.g., Seattle Cancer Care Alliance"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
               />
             </div>
 
-            <div className="border-t pt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-3">Clinical Trial Coordinator</label>
+            <div className={combineClasses('pt-4', DesignTokens.colors.neutral.border[200].replace('border', 'border-t'))}>
+              <label className={combineClasses('block text-sm font-medium mb-3', DesignTokens.colors.neutral.text[700])}>Clinical Trial Coordinator</label>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Name</label>
                 <input
                   type="text"
                   value={patientProfile.clinicalTrialCoordinator || ''}
                   onChange={(e) => setPatientProfile({ ...patientProfile, clinicalTrialCoordinator: e.target.value })}
                   placeholder="e.g., Jane Smith, RN"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3 mt-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                  <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Phone</label>
                   <input
                     type="tel"
                     value={patientProfile.clinicalTrialCoordinatorPhone || ''}
                     onChange={(e) => setPatientProfile({ ...patientProfile, clinicalTrialCoordinatorPhone: e.target.value })}
                     placeholder="e.g., (555) 123-4567"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Email</label>
                   <input
                     type="email"
                     value={patientProfile.clinicalTrialCoordinatorEmail || ''}
                     onChange={(e) => setPatientProfile({ ...patientProfile, clinicalTrialCoordinatorEmail: e.target.value })}
                     placeholder="e.g., coordinator@trialcenter.com"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
                   />
                 </div>
               </div>
             </div>
 
-            <div className="border-t pt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-3">Caregiver</label>
+            <div className={combineClasses('pt-4', DesignTokens.colors.neutral.border[200].replace('border', 'border-t'))}>
+              <label className={combineClasses('block text-sm font-medium mb-3', DesignTokens.colors.neutral.text[700])}>Caregiver</label>
               
               {emergencyContacts.length > 0 && (
                 <div className="mb-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Select from Emergency Contacts</label>
+                  <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>Select from Emergency Contacts</label>
                   <div className="flex gap-2 mb-2">
                     <button
                       type="button"
@@ -220,11 +221,7 @@ export default function EditMedicalTeamModal({
                           handleEmergencyContactSelect(selectedEmergencyContactId);
                         }
                       }}
-                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition ${
-                        caregiverSource === 'select'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
+                      className={combineClasses('flex-1 px-3 py-2 rounded-lg text-sm font-medium transition', caregiverSource === 'select' ? `${DesignTokens.colors.primary[600]} text-white` : `${DesignTokens.colors.neutral[100]} ${DesignTokens.colors.neutral.text[700]} ${DesignTokens.colors.neutral[200].replace('bg-', 'hover:bg-')}`)}
                     >
                       Select from Contacts
                     </button>
@@ -234,11 +231,7 @@ export default function EditMedicalTeamModal({
                         setCaregiverSource('manual');
                         setSelectedEmergencyContactId('');
                       }}
-                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition ${
-                        caregiverSource === 'manual'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
+                      className={combineClasses('flex-1 px-3 py-2 rounded-lg text-sm font-medium transition', caregiverSource === 'manual' ? `${DesignTokens.colors.primary[600]} text-white` : `${DesignTokens.colors.neutral[100]} ${DesignTokens.colors.neutral.text[700]} ${DesignTokens.colors.neutral[200].replace('bg-', 'hover:bg-')}`)}
                     >
                       Enter Manually
                     </button>
@@ -251,7 +244,7 @@ export default function EditMedicalTeamModal({
                         setSelectedEmergencyContactId(e.target.value);
                         handleEmergencyContactSelect(e.target.value);
                       }}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
                     >
                       <option value="">Select an emergency contact...</option>
                       {emergencyContacts.map((contact) => (
@@ -267,34 +260,34 @@ export default function EditMedicalTeamModal({
               {caregiverSource === 'manual' && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Caregiver Name</label>
+                    <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Caregiver Name</label>
                     <input
                       type="text"
                       value={patientProfile.caregiverName || ''}
                       onChange={(e) => setPatientProfile({ ...patientProfile, caregiverName: e.target.value })}
                       placeholder="e.g., John Doe"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3 mt-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                      <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Phone</label>
                       <input
                         type="tel"
                         value={patientProfile.caregiverPhone || ''}
                         onChange={(e) => setPatientProfile({ ...patientProfile, caregiverPhone: e.target.value })}
                         placeholder="e.g., (555) 123-4567"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                      <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Email</label>
                       <input
                         type="email"
                         value={patientProfile.caregiverEmail || ''}
                         onChange={(e) => setPatientProfile({ ...patientProfile, caregiverEmail: e.target.value })}
                         placeholder="e.g., caregiver@email.com"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
                       />
                     </div>
                   </div>
@@ -304,18 +297,18 @@ export default function EditMedicalTeamModal({
           </div>
         </div>
 
-        <div className="flex-shrink-0 bg-white border-t p-4">
+        <div className={combineClasses('flex-shrink-0 bg-white p-4', DesignTokens.colors.neutral.border[200].replace('border', 'border-t'))}>
           <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition flex items-center justify-center gap-2"
+              className={combineClasses('flex-1 py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2', DesignTokens.colors.neutral[200], DesignTokens.colors.neutral.text[700], DesignTokens.colors.neutral[300].replace('bg-', 'hover:bg-'))}
             >
               <X className="w-4 h-4" />
               Cancel
             </button>
             <button
               onClick={handleSave}
-              className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
+              className={combineClasses('flex-1 text-white py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2', DesignTokens.colors.primary[600], DesignTokens.colors.primary[700].replace('bg-', 'hover:bg-'))}
             >
               <Check className="w-4 h-4" />
               Save Changes

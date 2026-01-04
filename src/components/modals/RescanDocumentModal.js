@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, RefreshCw, Activity, AlertTriangle } from 'lucide-react';
+import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { labService, vitalService } from '../../firebase/services';
 import { formatDateString, parseLocalDate } from '../../utils/helpers';
 import DatePicker from '../DatePicker';
@@ -170,15 +171,15 @@ export default function RescanDocumentModal({
   return (
     <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-fade-scale">
-        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4 mx-auto">
-          <RefreshCw className="text-blue-600" size={24} />
+        <div className={combineClasses('w-12 h-12 rounded-full flex items-center justify-center mb-4 mx-auto', DesignTokens.colors.primary[100])}>
+          <RefreshCw className={combineClasses('', DesignTokens.colors.primary.text[600])} size={24} />
         </div>
 
-        <h3 className="text-lg font-bold text-gray-900 text-center mb-2">
+        <h3 className={combineClasses('text-lg font-bold text-center mb-2', DesignTokens.colors.neutral.text[900])}>
           Rescan {docType} Document?
         </h3>
 
-        <p className="text-sm text-gray-600 text-center mb-6">
+        <p className={combineClasses('text-sm text-center mb-6', DesignTokens.colors.neutral.text[600])}>
           This will re-extract all data from "<span className="font-semibold">{fileName}</span>". You can edit the date and note below.
         </p>
 
@@ -186,20 +187,20 @@ export default function RescanDocumentModal({
         <div className="space-y-4 mb-6">
           {/* Date Input */}
           <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
+            <label className={combineClasses('block text-sm font-semibold mb-2', DesignTokens.colors.neutral.text[900])}>
               Document Date
             </label>
             
             {/* Warning for multiple dates */}
             {hasMultipleDates && (
-              <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className={combineClasses('mb-3 p-3 border rounded-lg', DesignTokens.components.status.low.bg, DesignTokens.components.status.low.border)}>
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <AlertTriangle className={combineClasses('w-5 h-5 flex-shrink-0 mt-0.5', DesignTokens.components.status.low.icon)} />
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-amber-900 mb-1">
+                    <p className={combineClasses('text-sm font-semibold mb-1', DesignTokens.components.status.low.text.replace('600', '900'))}>
                       Multiple Dates Detected
                     </p>
-                    <p className="text-xs text-amber-800 mb-3">
+                    <p className={combineClasses('text-xs mb-3', DesignTokens.components.status.low.text.replace('600', '800'))}>
                       This document contains values with different dates ({dateRange.min && dateRange.max ? `${formatDateString(dateRange.min)} to ${formatDateString(dateRange.max)}` : 'various dates'}). 
                       Entering a date here will <strong>overwrite all values with a single date</strong>.
                     </p>
@@ -209,9 +210,9 @@ export default function RescanDocumentModal({
                         checked={acknowledgeOverwrite}
                         onChange={(e) => setAcknowledgeOverwrite(e.target.checked)}
                         disabled={isProcessing}
-                        className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500 disabled:opacity-50 mt-0.5"
+                        className={combineClasses('w-4 h-4 rounded focus:ring-medical-primary-500 disabled:opacity-50 mt-0.5', DesignTokens.components.status.low.icon, DesignTokens.colors.neutral.border[300])}
                       />
-                      <span className="text-xs text-amber-900">
+                      <span className={combineClasses('text-xs', DesignTokens.components.status.low.text.replace('600', '900'))}>
                         I understand this will overwrite all dates with a single date
                       </span>
                     </label>
@@ -231,7 +232,7 @@ export default function RescanDocumentModal({
               />
             )}
             
-            <p className="text-xs text-gray-500 mt-1">
+            <p className={combineClasses('text-xs mt-1', DesignTokens.colors.neutral.text[500])}>
               {hasMultipleDates && !acknowledgeOverwrite
                 ? 'Check the box above to enable date editing. This will overwrite all values with a single date.'
                 : hasMultipleDates && acknowledgeOverwrite
@@ -242,7 +243,7 @@ export default function RescanDocumentModal({
 
           {/* Note Input */}
           <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
+            <label className={combineClasses('block text-sm font-semibold mb-2', DesignTokens.colors.neutral.text[900])}>
               Document Note
             </label>
             <textarea
@@ -251,9 +252,9 @@ export default function RescanDocumentModal({
               disabled={isProcessing}
               placeholder="Add a note about this document (optional)"
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed text-sm resize-none"
+              className={combineClasses('w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-medical-primary-500 focus:border-medical-primary-500 disabled:cursor-not-allowed text-sm resize-none', DesignTokens.components.input.base, DesignTokens.components.input.textarea, DesignTokens.components.input.disabled)}
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className={combineClasses('text-xs mt-1', DesignTokens.colors.neutral.text[500])}>
               {editedNote.length}/200 characters
             </p>
           </div>
@@ -264,11 +265,7 @@ export default function RescanDocumentModal({
           <button
             onClick={handleConfirm}
             disabled={isProcessing}
-            className={`w-full py-3 rounded-xl font-bold text-white transition-all shadow-lg flex items-center justify-center gap-2 ${
-              isProcessing
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.98]'
-            }`}
+            className={combineClasses('w-full py-3 rounded-xl font-bold text-white transition-all shadow-lg flex items-center justify-center gap-2 active:scale-[0.98]', isProcessing ? `${DesignTokens.colors.neutral[400]} cursor-not-allowed` : `${DesignTokens.colors.primary[600]} ${DesignTokens.colors.primary[700].replace('bg-', 'hover:bg-')}`)}
           >
             {isProcessing ? (
               <>
@@ -285,7 +282,7 @@ export default function RescanDocumentModal({
           <button
             onClick={onClose}
             disabled={isProcessing}
-            className="w-full py-3 rounded-xl font-bold text-gray-700 hover:bg-gray-100 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={combineClasses('w-full py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed', DesignTokens.colors.neutral.text[700], DesignTokens.colors.neutral[100].replace('bg-', 'hover:bg-'))}
           >
             <X className="w-4 h-4" />
             Cancel

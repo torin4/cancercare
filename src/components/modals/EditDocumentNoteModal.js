@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, AlertTriangle } from 'lucide-react';
+import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { documentService, labService, vitalService } from '../../firebase/services';
 import { useBanner } from '../../contexts/BannerContext';
 import { parseLocalDate, formatDateString } from '../../utils/helpers';
@@ -280,26 +281,26 @@ export default function EditDocumentNoteModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4">
-      <div className="bg-white w-full h-full md:h-auto md:rounded-xl md:max-w-md md:max-h-[90vh] overflow-hidden flex flex-col animate-slide-up">
-        <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Edit Document</h3>
+    <div className={combineClasses('fixed inset-0 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4', DesignTokens.components.modal.overlay)}>
+      <div className={combineClasses('w-full h-full md:h-auto md:rounded-xl md:max-w-md md:max-h-[90vh] overflow-hidden flex flex-col animate-slide-up', DesignTokens.components.modal.container)}>
+        <div className={combineClasses('flex-shrink-0 border-b p-4 flex items-center justify-between', DesignTokens.components.modal.header)}>
+          <h3 className={combineClasses('text-lg font-semibold', DesignTokens.colors.neutral.text[900])}>Edit Document</h3>
           <button
             onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600 transition"
+            className={combineClasses('transition', DesignTokens.components.modal.closeButton)}
             type="button"
           >
             <X className="w-6 h-6" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-          <p className="text-sm text-gray-600 mb-4">
+        <div className={combineClasses('flex-1 overflow-y-auto p-4 sm:p-6 space-y-4', DesignTokens.components.modal.body)}>
+          <p className={combineClasses('text-sm mb-4', DesignTokens.colors.neutral.text[600])}>
             Update the document filename, date, and note. The note will be updated for the document and all lab/vital values extracted from it.
           </p>
           
           {/* Filename Input */}
           <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
+            <label className={combineClasses('block text-sm font-semibold mb-2', DesignTokens.colors.neutral.text[900])}>
               File Name
             </label>
             <input
@@ -308,10 +309,10 @@ export default function EditDocumentNoteModal({
               onChange={(e) => setDocumentFileNameEdit(e.target.value)}
               placeholder="Enter file name"
               disabled={isSaving}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className={combineClasses('w-full rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base, isSaving ? DesignTokens.components.input.disabled : '')}
               maxLength={255}
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className={combineClasses('text-xs mt-1', DesignTokens.colors.neutral.text[500])}>
               {documentFileNameEdit.length}/255 characters
             </p>
           </div>
@@ -319,7 +320,7 @@ export default function EditDocumentNoteModal({
           {/* Date Input */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-semibold text-gray-900">
+              <label className={combineClasses('block text-sm font-semibold', DesignTokens.colors.neutral.text[900])}>
                 Document Date
               </label>
               {!hasMultipleDates && (
@@ -329,23 +330,23 @@ export default function EditDocumentNoteModal({
                     checked={keepOriginalDate}
                     onChange={(e) => setKeepOriginalDate(e.target.checked)}
                     disabled={isSaving}
-                    className="w-4 h-4 text-medical-primary-600 border-gray-300 rounded focus:ring-medical-primary-500 disabled:opacity-50"
+                    className={combineClasses('w-4 h-4 rounded focus:ring-medical-primary-500', DesignTokens.colors.primary[600].replace('bg-', 'text-'), DesignTokens.colors.neutral.border[300], isSaving ? 'disabled:opacity-50' : '')}
                   />
-                  <span className="text-xs text-gray-600">Keep original date</span>
+                  <span className={combineClasses('text-xs', DesignTokens.colors.neutral.text[600])}>Keep original date</span>
                 </label>
               )}
             </div>
             
             {/* Warning for multiple dates */}
             {hasMultipleDates && (
-              <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className={combineClasses('mb-3 p-3 rounded-lg', DesignTokens.components.alert.warning.bg, DesignTokens.components.alert.warning.border)}>
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <AlertTriangle className={combineClasses('w-5 h-5 flex-shrink-0 mt-0.5', DesignTokens.components.alert.warning.icon)} />
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-amber-900 mb-1">
+                    <p className={combineClasses('text-sm font-semibold mb-1', DesignTokens.components.alert.warning.text)}>
                       Multiple Dates Detected
                     </p>
-                    <p className="text-xs text-amber-800 mb-3">
+                    <p className={combineClasses('text-xs mb-3', DesignTokens.components.alert.warning.textSecondary)}>
                       This document contains values with different dates ({dateRange.min && dateRange.max ? `${formatDateString(dateRange.min)} to ${formatDateString(dateRange.max)}` : 'various dates'}). 
                       Changing the document date will <strong>overwrite all values with a single date</strong>.
                     </p>
@@ -355,9 +356,9 @@ export default function EditDocumentNoteModal({
                         checked={acknowledgeOverwrite}
                         onChange={(e) => setAcknowledgeOverwrite(e.target.checked)}
                         disabled={isSaving}
-                        className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500 disabled:opacity-50 mt-0.5"
+                        className={combineClasses('w-4 h-4 rounded focus:ring-amber-500 mt-0.5', DesignTokens.colors.accent[600].replace('bg-', 'text-'), DesignTokens.colors.neutral.border[300], isSaving ? 'disabled:opacity-50' : '')}
                       />
-                      <span className="text-xs text-amber-900">
+                      <span className={combineClasses('text-xs', DesignTokens.components.alert.warning.text)}>
                         I understand this will overwrite all dates with a single date
                       </span>
                     </label>
@@ -370,7 +371,7 @@ export default function EditDocumentNoteModal({
                             onClose();
                             onRescanRequest(editingDocumentNote);
                           }}
-                          className="text-xs text-amber-700 hover:text-amber-900 underline font-medium"
+                          className={combineClasses('text-xs underline font-medium transition', DesignTokens.components.alert.warning.textSecondary, DesignTokens.components.alert.warning.text.replace('600', '900').replace('text-', 'hover:text-'))}
                         >
                           Or rescan document to update dates individually →
                         </button>
@@ -393,7 +394,7 @@ export default function EditDocumentNoteModal({
               />
             )}
             
-            <p className="text-xs text-gray-500 mt-1">
+            <p className={combineClasses('text-xs mt-1', DesignTokens.colors.neutral.text[500])}>
               {hasMultipleDates && !acknowledgeOverwrite
                 ? 'Check the box above to enable date editing. This will overwrite all values with a single date.'
                 : hasMultipleDates && acknowledgeOverwrite
@@ -406,7 +407,7 @@ export default function EditDocumentNoteModal({
           
           {/* Note Input */}
           <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
+            <label className={combineClasses('block text-sm font-semibold mb-2', DesignTokens.colors.neutral.text[900])}>
               Document Note
             </label>
             <textarea
@@ -415,26 +416,26 @@ export default function EditDocumentNoteModal({
               placeholder="e.g., Before starting treatment, After cycle 2, Post-surgery..."
               rows={3}
               disabled={isSaving}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500 resize-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className={combineClasses('w-full rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500 resize-none', DesignTokens.components.input.base, DesignTokens.components.input.textarea, isSaving ? DesignTokens.components.input.disabled : '')}
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className={combineClasses('text-xs mt-1', DesignTokens.colors.neutral.text[500])}>
               {documentNoteEdit.length}/200 characters
             </p>
           </div>
         </div>
-        <div className="flex-shrink-0 border-t p-4 bg-white">
+        <div className={combineClasses('flex-shrink-0 border-t p-4', DesignTokens.components.modal.footer)}>
           <div className="flex gap-3">
             <button
               onClick={handleClose}
               disabled={isSaving}
-              className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className={combineClasses('flex-1 py-2.5 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed', DesignTokens.components.button.secondary)}
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="flex-1 bg-medical-primary-500 text-white py-2.5 rounded-lg font-medium hover:bg-medical-primary-600 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={combineClasses('flex-1 text-white py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed', DesignTokens.components.button.primary)}
             >
               {isSaving ? (
                 <>

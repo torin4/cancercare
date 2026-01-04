@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check } from 'lucide-react';
+import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { labService } from '../../firebase/services';
 import { getTodayLocalDate, formatDateString, parseLocalDate } from '../../utils/helpers';
 import { useBanner } from '../../contexts/BannerContext';
@@ -109,10 +110,10 @@ export default function AddLabValueModal({
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4">
       <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
         <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
-          <h3 className="font-bold text-lg text-gray-800">{isEditingLabValue ? 'Edit Metric Value' : `Add ${selectedLabForValue.name} Value`}</h3>
+          <h3 className={combineClasses('font-bold text-lg', DesignTokens.colors.neutral.text[800])}>{isEditingLabValue ? 'Edit Metric Value' : `Add ${selectedLabForValue.name} Value`}</h3>
           <button
             onClick={handleClose}
-            className="text-gray-500 hover:text-gray-700"
+            className={combineClasses('transition', DesignTokens.colors.neutral.text[500], DesignTokens.colors.neutral.text[700].replace('text-', 'hover:text-'))}
             type="button"
           >
             <X size={24} />
@@ -122,8 +123,8 @@ export default function AddLabValueModal({
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Value <span className="text-red-600">*</span>
+              <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
+                Value <span className={combineClasses('', DesignTokens.components.alert.text.error)}>*</span>
               </label>
               <input
                 type="number"
@@ -131,16 +132,16 @@ export default function AddLabValueModal({
                 value={newLabValue.value}
                 onChange={(e) => setNewLabValue({ ...newLabValue, value: e.target.value })}
                 placeholder={`Enter ${selectedLabForValue.name} value`}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={combineClasses('w-full rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
               />
               {selectedLabForValue.unit && (
-                <p className="text-xs text-gray-500 mt-1">Unit: {selectedLabForValue.unit}</p>
+                <p className={combineClasses('text-xs mt-1', DesignTokens.colors.neutral.text[500])}>Unit: {selectedLabForValue.unit}</p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Date <span className="text-red-600">*</span>
+              <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
+                Date <span className={combineClasses('', DesignTokens.components.alert.text.error)}>*</span>
               </label>
               <DatePicker
                 value={newLabValue.date}
@@ -151,15 +152,15 @@ export default function AddLabValueModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Notes <span className="text-gray-500 text-xs">(optional)</span>
+              <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
+                Notes <span className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>(optional)</span>
               </label>
               <textarea
                 rows={3}
                 value={newLabValue.notes}
                 onChange={(e) => setNewLabValue({ ...newLabValue, notes: e.target.value })}
                 placeholder="Add any context about this reading..."
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                className={combineClasses('w-full rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500 resize-none', DesignTokens.components.input.base, DesignTokens.components.input.textarea)}
               />
             </div>
           </div>
@@ -169,14 +170,14 @@ export default function AddLabValueModal({
           <div className="flex gap-3">
             <button
               onClick={handleClose}
-              className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition flex items-center justify-center gap-2"
+              className={combineClasses('flex-1 py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2', DesignTokens.colors.neutral[200], DesignTokens.colors.neutral.text[700], DesignTokens.colors.neutral[300].replace('bg-', 'hover:bg-'))}
             >
               <X className="w-4 h-4" />
               Cancel
             </button>
             <button
               onClick={handleSave}
-              className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
+              className={combineClasses('flex-1 text-white py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2', DesignTokens.colors.primary[600], DesignTokens.colors.primary[700].replace('bg-', 'hover:bg-'))}
             >
               <Check className="w-4 h-4" />
               {isEditingLabValue ? 'Save' : 'Add Value'}

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X, AlertCircle, Activity } from 'lucide-react';
+import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { getTodayLocalDate } from '../../utils/helpers';
 import { symptomService } from '../../firebase/services';
 import { useBanner } from '../../contexts/BannerContext';
@@ -13,6 +14,8 @@ export default function AddSymptomModal({
   user 
 }) {
   const { showSuccess, showError } = useBanner();
+  const [isAllDay, setIsAllDay] = useState(false);
+  
   if (!show) return null;
 
   const handleSave = async () => {
@@ -33,7 +36,9 @@ export default function AddSymptomModal({
 
     try {
       // Combine date and time into a single datetime
-      const dateTime = new Date(`${symptomForm.date}T${symptomForm.time}`);
+      // For all-day entries, use midnight (00:00)
+      const timeValue = isAllDay ? '00:00' : symptomForm.time;
+      const dateTime = new Date(`${symptomForm.date}T${timeValue}`);
       
       await symptomService.addSymptom({
         patientId: user.uid,
@@ -54,6 +59,7 @@ export default function AddSymptomModal({
         customSymptomName: '',
         tags: []
       });
+      setIsAllDay(false);
       showSuccess('Symptom logged successfully!');
       onClose();
       
@@ -71,6 +77,7 @@ export default function AddSymptomModal({
       time: new Date().toTimeString().slice(0, 5),
       notes: ''
     });
+    setIsAllDay(false);
     onClose();
   };
 
@@ -78,14 +85,14 @@ export default function AddSymptomModal({
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4">
       <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
         <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
-          <h3 className="font-bold text-lg text-gray-800">Log Symptom</h3>
+          <h3 className={combineClasses('font-bold text-lg', DesignTokens.colors.neutral.text[800])}>Log Symptom</h3>
           <button
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               handleCancel();
             }}
-            className="text-gray-500 hover:text-gray-700"
+            className={combineClasses('transition', DesignTokens.colors.neutral.text[500], DesignTokens.colors.neutral.text[700].replace('text-', 'hover:text-'))}
             type="button"
           >
             <X size={24} />
@@ -94,12 +101,12 @@ export default function AddSymptomModal({
 
         <div className="flex-1 overflow-y-auto p-4">
           <div className="space-y-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className={combineClasses('border rounded-lg p-3', DesignTokens.colors.primary[50], DesignTokens.colors.primary.border[200])}>
               <div className="flex items-start gap-2">
-                <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <AlertCircle className={combineClasses('w-5 h-5 mt-0.5 flex-shrink-0', DesignTokens.colors.primary.text[600])} />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-blue-900">Quick Symptom Logging</p>
-                  <p className="text-xs text-blue-700 mt-1">
+                  <p className={combineClasses('text-sm font-medium', DesignTokens.colors.primary.text[700].replace('600', '900'))}>Quick Symptom Logging</p>
+                  <p className={combineClasses('text-xs mt-1', DesignTokens.colors.primary.text[700])}>
                     Track your symptoms to help identify patterns and inform your care team.
                   </p>
                 </div>
@@ -107,8 +114,8 @@ export default function AddSymptomModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Symptom Type <span className="text-red-600">*</span>
+              <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
+                Symptom Type <span className={combineClasses('', DesignTokens.components.alert.text.error)}>*</span>
               </label>
               <select 
                 value={symptomForm.name === 'Other' ? 'Other' : symptomForm.name}
@@ -119,7 +126,7 @@ export default function AddSymptomModal({
                     setSymptomForm({...symptomForm, name: e.target.value, customSymptomName: ''});
                   }
                 }}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={combineClasses('w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
               >
                 <option value="">Select symptom type...</option>
                 <option value="Fatigue">Fatigue</option>
@@ -139,78 +146,98 @@ export default function AddSymptomModal({
                   value={symptomForm.customSymptomName || ''}
                   onChange={(e) => setSymptomForm({...symptomForm, customSymptomName: e.target.value})}
                   placeholder="Enter symptom name..."
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mt-2"
+                  className={combineClasses('w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500 mt-2', DesignTokens.components.input.base)}
                 />
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Severity <span className="text-red-600">*</span>
+              <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
+                Severity <span className={combineClasses('', DesignTokens.components.alert.text.error)}>*</span>
               </label>
               <div className="grid grid-cols-3 gap-2">
                 <button 
                   onClick={() => setSymptomForm({...symptomForm, severity: 'mild'})}
-                  className={`border-2 rounded-lg py-3 text-center transition ${symptomForm.severity === 'mild' ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-green-500 hover:bg-green-50'}`}
+                  className={combineClasses('border-2 rounded-lg py-3 text-center transition', symptomForm.severity === 'mild' ? `${DesignTokens.components.status.normal.border.replace('200', '500')} ${DesignTokens.components.status.normal.bg}` : `${DesignTokens.colors.neutral.border[300]} ${DesignTokens.components.status.normal.border.replace('200', '500').replace('border-', 'hover:border-')} ${DesignTokens.components.status.normal.bg.replace('bg-', 'hover:bg-')}`)}
                 >
-                  <div className="w-3 h-3 bg-green-500 rounded-full mx-auto mb-1"></div>
-                  <div className="text-sm font-medium text-gray-700">Mild</div>
+                  <div className={combineClasses('w-3 h-3 rounded-full mx-auto mb-1', DesignTokens.components.status.normal.icon.replace('text-', 'bg-').replace('600', '500'))}></div>
+                  <div className={combineClasses('text-sm font-medium', DesignTokens.colors.neutral.text[700])}>Mild</div>
                 </button>
                 <button 
                   onClick={() => setSymptomForm({...symptomForm, severity: 'moderate'})}
-                  className={`border-2 rounded-lg py-3 text-center transition ${symptomForm.severity === 'moderate' ? 'border-yellow-500 bg-yellow-50' : 'border-gray-300 hover:border-yellow-500 hover:bg-yellow-50'}`}
+                  className={combineClasses('border-2 rounded-lg py-3 text-center transition', symptomForm.severity === 'moderate' ? `${DesignTokens.components.status.low.border.replace('200', '500')} ${DesignTokens.components.status.low.bg}` : `${DesignTokens.colors.neutral.border[300]} ${DesignTokens.components.status.low.border.replace('200', '500').replace('border-', 'hover:border-')} ${DesignTokens.components.status.low.bg.replace('bg-', 'hover:bg-')}`)}
                 >
-                  <div className="w-3 h-3 bg-yellow-500 rounded-full mx-auto mb-1"></div>
-                  <div className="text-sm font-medium text-gray-700">Moderate</div>
+                  <div className={combineClasses('w-3 h-3 rounded-full mx-auto mb-1', DesignTokens.components.status.low.icon.replace('text-', 'bg-').replace('600', '500'))}></div>
+                  <div className={combineClasses('text-sm font-medium', DesignTokens.colors.neutral.text[700])}>Moderate</div>
                 </button>
                 <button 
                   onClick={() => setSymptomForm({...symptomForm, severity: 'severe'})}
-                  className={`border-2 rounded-lg py-3 text-center transition ${symptomForm.severity === 'severe' ? 'border-red-500 bg-red-50' : 'border-gray-300 hover:border-red-500 hover:bg-red-50'}`}
+                  className={combineClasses('border-2 rounded-lg py-3 text-center transition', symptomForm.severity === 'severe' ? `${DesignTokens.components.status.high.border.replace('200', '500')} ${DesignTokens.components.status.high.bg}` : `${DesignTokens.colors.neutral.border[300]} ${DesignTokens.components.status.high.border.replace('200', '500').replace('border-', 'hover:border-')} ${DesignTokens.components.status.high.bg.replace('bg-', 'hover:bg-')}`)}
                 >
-                  <div className="w-3 h-3 bg-red-500 rounded-full mx-auto mb-1"></div>
-                  <div className="text-sm font-medium text-gray-700">Severe</div>
+                  <div className={combineClasses('w-3 h-3 rounded-full mx-auto mb-1', DesignTokens.components.status.high.icon.replace('text-', 'bg-').replace('600', '500'))}></div>
+                  <div className={combineClasses('text-sm font-medium', DesignTokens.colors.neutral.text[700])}>Severe</div>
                 </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                <DatePicker
-                  value={symptomForm.date}
-                  onChange={(e) => setSymptomForm({...symptomForm, date: e.target.value})}
-                  max={getTodayLocalDate()}
-                  placeholder="YYYY-MM-DD"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                <input
-                  type="time"
-                  value={symptomForm.time}
-                  onChange={(e) => setSymptomForm({...symptomForm, time: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Notes <span className="text-gray-500 text-xs">(optional)</span>
+              <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
+                {isAllDay ? 'Date' : 'Date & Time'} <span className={combineClasses('', DesignTokens.components.alert.text.error)}>*</span>
+              </label>
+              
+              <div className="mb-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isAllDay}
+                    onChange={(e) => setIsAllDay(e.target.checked)}
+                    className={combineClasses('w-4 h-4 rounded focus:ring-blue-500', DesignTokens.colors.primary[600].replace('bg-', 'text-'), DesignTokens.colors.neutral.border[300])}
+                  />
+                  <span className={combineClasses('text-sm', DesignTokens.colors.neutral.text[700])}>All Day</span>
+                </label>
+              </div>
+              
+              <div className={isAllDay ? 'grid grid-cols-1' : 'grid grid-cols-2 gap-3'}>
+                <div>
+                  <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Date</label>
+                  <DatePicker
+                    value={symptomForm.date}
+                    onChange={(e) => setSymptomForm({...symptomForm, date: e.target.value})}
+                    max={getTodayLocalDate()}
+                    placeholder="YYYY-MM-DD"
+                  />
+                </div>
+
+                {!isAllDay && (
+                  <div>
+                    <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Time</label>
+                    <input
+                      type="time"
+                      value={symptomForm.time}
+                      onChange={(e) => setSymptomForm({...symptomForm, time: e.target.value})}
+                      className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>
+                Notes <span className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>(optional)</span>
               </label>
               <textarea
                 rows="3"
                 value={symptomForm.notes}
                 onChange={(e) => setSymptomForm({...symptomForm, notes: e.target.value})}
                 placeholder="Additional details about the symptom..."
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500 resize-none', DesignTokens.components.input.base, DesignTokens.components.input.textarea)}
               ></textarea>
             </div>
 
             {/* Quick Action Tags */}
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-xs font-medium text-gray-700 mb-2">Tags (optional):</p>
+            <div className={combineClasses('rounded-lg p-3', DesignTokens.colors.neutral[50])}>
+              <p className={combineClasses('text-xs font-medium mb-2', DesignTokens.colors.neutral.text[700])}>Tags (optional):</p>
               <div className="flex flex-wrap gap-2">
                 {[
                   { id: 'treatment-related', label: 'Related to treatment' },
@@ -240,11 +267,7 @@ export default function AddSymptomModal({
                           });
                         }
                       }}
-                      className={`text-xs rounded-full px-3 py-1.5 transition ${
-                        isSelected
-                          ? 'bg-medical-primary-100 border-2 border-medical-primary-500 text-medical-primary-700 font-medium'
-                          : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'
-                      }`}
+                      className={combineClasses('text-xs rounded-full px-3 py-1.5 transition', isSelected ? `${DesignTokens.colors.primary[100]} border-2 ${DesignTokens.colors.primary.border[600]} ${DesignTokens.colors.primary.text[700]} font-medium` : `${DesignTokens.colors.neutral[50].replace('bg-', 'bg-white')} ${DesignTokens.colors.neutral.border[300]} ${DesignTokens.colors.neutral.text[700]} ${DesignTokens.colors.neutral[100].replace('bg-', 'hover:bg-')}`)}
                     >
                       {tag.label}
                     </button>
@@ -259,14 +282,14 @@ export default function AddSymptomModal({
           <div className="flex gap-3">
             <button
               onClick={handleCancel}
-              className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition flex items-center justify-center gap-2"
+              className={combineClasses('flex-1 py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2', DesignTokens.colors.neutral[200], DesignTokens.colors.neutral.text[700], DesignTokens.colors.neutral[300].replace('bg-', 'hover:bg-'))}
             >
               <X className="w-4 h-4" />
               Cancel
             </button>
             <button
               onClick={handleSave}
-              className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
+              className={combineClasses('flex-1 text-white py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2', DesignTokens.colors.primary[600], DesignTokens.colors.primary[700].replace('bg-', 'hover:bg-'))}
             >
               <Activity className="w-4 h-4" />
               Log Symptom

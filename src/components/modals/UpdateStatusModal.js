@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Check } from 'lucide-react';
+import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { patientService } from '../../firebase/services';
 import { useBanner } from '../../contexts/BannerContext';
 import { CANCER_TYPES, CANCER_SUBTYPES, STAGE_OPTIONS, TREATMENT_STATUS_OPTIONS, PERFORMANCE_OPTIONS, DISEASE_STATUS_OPTIONS } from '../../constants/cancerTypes';
@@ -82,14 +83,14 @@ export default function UpdateStatusModal({
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-0 md:p-4">
       <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
         <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
-          <h3 className="font-bold text-lg text-gray-800">Update Current Status</h3>
+          <h3 className={combineClasses('font-bold text-lg', DesignTokens.colors.neutral.text[800])}>Update Current Status</h3>
           <button
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               onClose();
             }}
-            className="text-gray-500 hover:text-gray-700"
+            className={combineClasses('transition', DesignTokens.colors.neutral.text[500], DesignTokens.colors.neutral.text[700].replace('text-', 'hover:text-'))}
             type="button"
           >
             <X size={24} />
@@ -100,7 +101,7 @@ export default function UpdateStatusModal({
           <div className="space-y-4">
             {/* Cancer Type - matching onboarding */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Cancer Type *</label>
+              <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Cancer Type *</label>
               <select
                 value={currentStatus.diagnosis || ''}
                 onChange={(e) => {
@@ -112,7 +113,7 @@ export default function UpdateStatusModal({
                   });
                   setUpdateStatusSubtypeCustom(false);
                 }}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
               >
                 <option value="">Select cancer type</option>
                 {CANCER_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -122,7 +123,7 @@ export default function UpdateStatusModal({
             {/* Cancer Subtype - matching onboarding */}
             {currentStatus.diagnosis && (CANCER_SUBTYPES[currentStatus.diagnosis] || []).length > 0 && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Cancer Subtype (optional)</label>
+                <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Cancer Subtype (optional)</label>
                 <select
                   value={currentStatus.subtype === 'Other (specify)' ? 'Other (specify)' : (currentStatus.subtype || '')}
                   onChange={(e) => {
@@ -135,7 +136,7 @@ export default function UpdateStatusModal({
                       setUpdateStatusSubtypeCustom(false);
                     }
                   }}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
                 >
                   <option value="">Select subtype (optional)</option>
                   {CANCER_SUBTYPES[currentStatus.diagnosis].map(s => (
@@ -147,7 +148,7 @@ export default function UpdateStatusModal({
                     type="text"
                     value={currentStatus.subtype === 'Other (specify)' ? '' : currentStatus.subtype}
                     onChange={(e) => setCurrentStatus({ ...currentStatus, subtype: e.target.value })}
-                    className="w-full mt-2 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={combineClasses('w-full mt-2 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
                     placeholder="Specify subtype"
                   />
                 )}
@@ -156,11 +157,11 @@ export default function UpdateStatusModal({
 
             {/* Stage - matching onboarding */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Stage *</label>
+              <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Stage *</label>
               <select
                 value={currentStatus.stage || ''}
                 onChange={(e) => setCurrentStatus({...currentStatus, stage: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
               >
                 <option value="">Select stage</option>
                 {STAGE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -169,7 +170,7 @@ export default function UpdateStatusModal({
 
             {/* Diagnosis Date - matching onboarding */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date of Diagnosis *</label>
+              <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Date of Diagnosis *</label>
               <DatePicker
                 value={currentStatus.diagnosisDate || ''}
                 onChange={(e) => setCurrentStatus({...currentStatus, diagnosisDate: e.target.value})}
@@ -180,7 +181,7 @@ export default function UpdateStatusModal({
 
             {/* Treatment Status - matching onboarding */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Treatment Status *</label>
+              <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Treatment Status *</label>
               <select
                 value={currentStatus.treatmentLine === 'Other (specify)' ? 'Other (specify)' : (currentStatus.treatmentLine || '')}
                 onChange={(e) => {
@@ -193,7 +194,7 @@ export default function UpdateStatusModal({
                     setUpdateStatusTreatmentCustom(false);
                   }
                 }}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
               >
                 <option value="">Select treatment status</option>
                 {TREATMENT_STATUS_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
@@ -203,7 +204,7 @@ export default function UpdateStatusModal({
                   type="text"
                   value={currentStatus.treatmentLine === 'Other (specify)' ? '' : currentStatus.treatmentLine}
                   onChange={(e) => setCurrentStatus({ ...currentStatus, treatmentLine: e.target.value })}
-                  className="w-full mt-2 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={combineClasses('w-full mt-2 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
                   placeholder="Specify treatment status"
                 />
               )}
@@ -211,23 +212,23 @@ export default function UpdateStatusModal({
 
             {/* Current Regimen - keep this as it's useful */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Current Regimen</label>
+              <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Current Regimen</label>
               <input
                 type="text"
                 value={currentStatus.currentRegimen || ''}
                 onChange={(e) => setCurrentStatus({...currentStatus, currentRegimen: e.target.value})}
                 placeholder="e.g., Carboplatin + Paclitaxel"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
               />
             </div>
 
             {/* Performance Status - matching onboarding */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">ECOG Performance *</label>
+              <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>ECOG Performance *</label>
               <select
                 value={currentStatus.performanceStatus || ''}
                 onChange={(e) => setCurrentStatus({...currentStatus, performanceStatus: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
               >
                 <option value="">Select ECOG</option>
                 {PERFORMANCE_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
@@ -236,11 +237,11 @@ export default function UpdateStatusModal({
 
             {/* Disease Status - matching onboarding */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Disease Status *</label>
+              <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Disease Status *</label>
               <select
                 value={currentStatus.diseaseStatus || ''}
                 onChange={(e) => setCurrentStatus({...currentStatus, diseaseStatus: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
               >
                 <option value="">Select status</option>
                 {DISEASE_STATUS_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
@@ -249,13 +250,13 @@ export default function UpdateStatusModal({
 
             {/* Baseline CA-125 - matching onboarding */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Baseline CA-125 (optional)</label>
+              <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Baseline CA-125 (optional)</label>
               <input
                 type="number"
                 step="any"
                 value={currentStatus.baselineCa125 || ''}
                 onChange={(e) => setCurrentStatus({...currentStatus, baselineCa125: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
               />
             </div>
           </div>
@@ -265,14 +266,14 @@ export default function UpdateStatusModal({
           <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition flex items-center justify-center gap-2"
+              className={combineClasses('flex-1 py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2', DesignTokens.colors.neutral[200], DesignTokens.colors.neutral.text[700], DesignTokens.colors.neutral[300].replace('bg-', 'hover:bg-'))}
             >
               <X className="w-4 h-4" />
               Cancel
             </button>
             <button
               onClick={handleSave}
-              className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
+              className={combineClasses('flex-1 text-white py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2', DesignTokens.colors.primary[600], DesignTokens.colors.primary[700].replace('bg-', 'hover:bg-'))}
             >
               <Check className="w-4 h-4" />
               Save Changes

@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { X, AlertCircle, Heart } from 'lucide-react';
+import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { vitalService } from '../../firebase/services';
 import { useBanner } from '../../contexts/BannerContext';
 import DateTimePicker from '../DateTimePicker';
+import DatePicker from '../DatePicker';
+import { getTodayLocalDate } from '../../utils/helpers';
 
 export default function AddVitalModal({ 
   show, 
@@ -20,12 +23,17 @@ export default function AddVitalModal({
   getWeightNormalRange
 }) {
   const { showSuccess, showError } = useBanner();
+  const [isAllDay, setIsAllDay] = useState(false);
+  const [dateOnly, setDateOnly] = useState(getTodayLocalDate());
+  
   if (!show) return null;
 
   const handleCancel = () => {
     setIsEditingVital(false);
     setEditingVitalValueId(null);
     setNewVital({ vitalType: '', value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '', customLabel: '', customUnit: '', customNormalRange: '' });
+    setIsAllDay(false);
+    setDateOnly(getTodayLocalDate());
     onClose();
   };
 
@@ -57,9 +65,23 @@ export default function AddVitalModal({
     }
 
     try {
-      const vitalDate = new Date(newVital.dateTime || new Date());
+      let vitalDate;
+      
+      if (isAllDay) {
+        // For all-day entries, use midnight (00:00)
+        if (!dateOnly) {
+          showError('Please select a date.');
+          return;
+        }
+        const [year, month, day] = dateOnly.split('-').map(Number);
+        vitalDate = new Date(year, month - 1, day, 0, 0);
+      } else {
+        // Parse dateTime string (YYYY-MM-DDTHH:mm format) as local time
+        vitalDate = new Date(newVital.dateTime || new Date());
+      }
+      
       if (isNaN(vitalDate.getTime())) {
-        showError('Please enter a valid date and time.');
+        showError('Please enter a valid date.');
         return;
       }
 
@@ -225,6 +247,8 @@ export default function AddVitalModal({
       setIsEditingVital(false);
       setEditingVitalValueId(null);
       setNewVital({ vitalType: '', value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '', customLabel: '', customUnit: '', customNormalRange: '' });
+      setIsAllDay(false);
+      setDateOnly(getTodayLocalDate());
       showSuccess(isEditingVital ? 'Vital reading updated successfully!' : 'Vital reading added successfully!');
       onClose();
     } catch (error) {
@@ -233,13 +257,13 @@ export default function AddVitalModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4">
-      <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
-        <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
-          <h3 className="font-bold text-lg text-gray-800">{isEditingVital ? 'Edit Vital Value' : 'Log Vital Reading'}</h3>
+    <div className={combineClasses("fixed inset-0 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4", DesignTokens.components.modal.backdrop)}>
+      <div className={combineClasses("w-full h-full md:h-auto md:rounded-2xl md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up", DesignTokens.components.modal.container)}>
+        <div className={combineClasses("flex-shrink-0 border-b p-4 flex items-center justify-between", DesignTokens.components.modal.container, DesignTokens.colors.neutral.border[200])}>
+          <h3 className={combineClasses('font-bold text-lg', DesignTokens.colors.neutral.text[800])}>{isEditingVital ? 'Edit Vital Value' : 'Log Vital Reading'}</h3>
           <button
             onClick={handleCancel}
-            className="text-gray-500 hover:text-gray-700"
+            className={combineClasses('transition', DesignTokens.components.modal.closeButton)}
             type="button"
           >
             <X size={24} />
@@ -247,12 +271,12 @@ export default function AddVitalModal({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <div className={combineClasses('border rounded-lg p-3', DesignTokens.components.alert.info.bg, DesignTokens.components.alert.info.border)}>
             <div className="flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <AlertCircle className={combineClasses('w-5 h-5 mt-0.5 flex-shrink-0', DesignTokens.components.alert.text.info.replace('700', '600'))} />
               <div className="flex-1">
-                <p className="text-sm font-medium text-blue-900">Log Vital Reading</p>
-                <p className="text-xs text-blue-700 mt-1">
+                <p className={combineClasses('text-sm font-medium', DesignTokens.components.alert.text.info.replace('700', '900'))}>Log Vital Reading</p>
+                <p className={combineClasses('text-xs mt-1', DesignTokens.components.alert.text.info)}>
                   All vitals are tracked automatically. Select which vital you measured and enter the reading.
                 </p>
               </div>
@@ -260,13 +284,13 @@ export default function AddVitalModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Vital Sign <span className="text-red-600">*</span>
+            <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
+              Vital Sign <span className={combineClasses('', DesignTokens.components.alert.text.error)}>*</span>
             </label>
             <select
               value={newVital.vitalType || ''}
               onChange={(e) => setNewVital({ ...newVital, vitalType: e.target.value, value: '', systolic: '', diastolic: '' })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={combineClasses('w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
             >
               <option value="">Select vital sign...</option>
               {(() => {
@@ -311,40 +335,40 @@ export default function AddVitalModal({
           </div>
 
           {newVital.vitalType === 'custom' ? (
-            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-              <h4 className="font-semibold text-gray-800 text-sm">Custom Vital Details</h4>
+            <div className={combineClasses('rounded-lg p-4 space-y-3', DesignTokens.colors.neutral[50])}>
+              <h4 className={combineClasses('font-semibold text-sm', DesignTokens.colors.neutral.text[800])}>Custom Vital Details</h4>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Vital Name *</label>
+                <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Vital Name *</label>
                 <input
                   type="text"
                   value={newVital.customLabel || ''}
                   onChange={(e) => setNewVital({ ...newVital, customLabel: e.target.value })}
                   placeholder="e.g., Peak Flow, Steps"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Normal Range *</label>
+                  <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Normal Range *</label>
                   <input
                     type="text"
                     value={newVital.customNormalRange || ''}
                     onChange={(e) => setNewVital({ ...newVital, customNormalRange: e.target.value })}
                     placeholder="e.g., >400, 60-100"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Unit *</label>
+                  <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Unit *</label>
                   <input
                     type="text"
                     value={newVital.customUnit || ''}
                     onChange={(e) => setNewVital({ ...newVital, customUnit: e.target.value })}
                     placeholder="e.g., L/min, steps"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
                   />
                 </div>
               </div>
@@ -354,8 +378,8 @@ export default function AddVitalModal({
           {newVital.vitalType && newVital.vitalType !== 'custom' && (
             newVital.vitalType === 'bp' ? (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Reading <span className="text-red-600">*</span>
+                <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
+                  Reading <span className={combineClasses('', DesignTokens.components.alert.text.error)}>*</span>
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <input
@@ -363,22 +387,22 @@ export default function AddVitalModal({
                     placeholder="Systolic"
                     value={newVital.systolic || ''}
                     onChange={(e) => setNewVital({ ...newVital, systolic: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
                   />
                   <input
                     type="number"
                     placeholder="Diastolic"
                     value={newVital.diastolic || ''}
                     onChange={(e) => setNewVital({ ...newVital, diastolic: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">For blood pressure, enter both values</p>
+                <p className={combineClasses('text-xs mt-1', DesignTokens.colors.neutral.text[500])}>For blood pressure, enter both values</p>
               </div>
             ) : (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Reading <span className="text-red-600">*</span>
+                <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
+                  Reading <span className={combineClasses('', DesignTokens.components.alert.text.error)}>*</span>
                 </label>
                 <input
                   type="number"
@@ -386,7 +410,7 @@ export default function AddVitalModal({
                   value={newVital.value || ''}
                   onChange={(e) => setNewVital({ ...newVital, value: e.target.value })}
                   placeholder="Enter reading"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
                 />
               </div>
             )
@@ -394,8 +418,8 @@ export default function AddVitalModal({
 
           {newVital.vitalType === 'custom' && newVital.customLabel && newVital.customNormalRange && newVital.customUnit && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Reading <span className="text-red-600">*</span>
+              <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
+                Reading <span className={combineClasses('', DesignTokens.components.alert.text.error)}>*</span>
               </label>
               <input
                 type="number"
@@ -403,47 +427,80 @@ export default function AddVitalModal({
                 value={newVital.value || ''}
                 onChange={(e) => setNewVital({ ...newVital, value: e.target.value })}
                 placeholder="Enter reading"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
               />
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date & Time</label>
-            <DateTimePicker
-              value={newVital.dateTime || new Date().toISOString().slice(0, 16)}
-              onChange={(e) => setNewVital({ ...newVital, dateTime: e.target.value })}
-              max={new Date().toISOString().slice(0, 16)}
-              placeholder="Select date and time"
-            />
+            <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
+              {isAllDay ? 'Date' : 'Date & Time'} <span className={combineClasses('', DesignTokens.components.alert.text.error)}>*</span>
+            </label>
+            
+            <div className="mb-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isAllDay}
+                  onChange={(e) => {
+                    setIsAllDay(e.target.checked);
+                    if (e.target.checked) {
+                      // When checking all day, set dateOnly from current dateTime or today
+                      const currentDate = newVital.dateTime 
+                        ? newVital.dateTime.split('T')[0]
+                        : getTodayLocalDate();
+                      setDateOnly(currentDate);
+                    }
+                  }}
+                  className={combineClasses('w-4 h-4 rounded focus:ring-blue-500', DesignTokens.colors.primary[600].replace('bg-', 'text-'), DesignTokens.colors.neutral.border[300])}
+                />
+                <span className={combineClasses('text-sm', DesignTokens.colors.neutral.text[700])}>All Day</span>
+              </label>
+            </div>
+            
+            {isAllDay ? (
+              <DatePicker
+                value={dateOnly}
+                onChange={(e) => setDateOnly(e.target.value)}
+                max={getTodayLocalDate()}
+                placeholder="YYYY-MM-DD"
+              />
+            ) : (
+              <DateTimePicker
+                value={newVital.dateTime || new Date().toISOString().slice(0, 16)}
+                onChange={(e) => setNewVital({ ...newVital, dateTime: e.target.value })}
+                max={new Date().toISOString().slice(0, 16)}
+                placeholder="Select date and time"
+              />
+            )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Notes <span className="text-gray-500 text-xs">(optional)</span>
+            <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>
+              Notes <span className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>(optional)</span>
             </label>
             <textarea
               rows="2"
               value={newVital.notes || ''}
               onChange={(e) => setNewVital({ ...newVital, notes: e.target.value })}
               placeholder="e.g., Taken after rest, morning reading"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500 resize-none', DesignTokens.components.input.base, DesignTokens.components.input.textarea)}
             ></textarea>
           </div>
         </div>
 
-        <div className="flex-shrink-0 border-t p-4 bg-white">
+        <div className={combineClasses('flex-shrink-0 border-t p-4', DesignTokens.components.modal.container, DesignTokens.colors.neutral.border[200])}>
           <div className="flex gap-3">
             <button
               onClick={handleCancel}
-              className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition flex items-center justify-center gap-2"
+              className={combineClasses('flex-1 py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2', DesignTokens.components.button.secondary)}
             >
               <X className="w-4 h-4" />
               Cancel
             </button>
             <button
               onClick={handleSave}
-              className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
+              className={combineClasses('flex-1 text-white py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2', DesignTokens.components.button.primary)}
             >
               <Heart className="w-4 h-4" />
               {isEditingVital ? 'Save' : 'Log Reading'}

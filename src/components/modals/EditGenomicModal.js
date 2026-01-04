@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, AlertCircle, Check, Plus, Trash2 } from 'lucide-react';
+import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { genomicProfileService } from '../../firebase/services';
 import { useBanner } from '../../contexts/BannerContext';
 import DatePicker from '../DatePicker';
@@ -60,25 +61,25 @@ export default function EditGenomicModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4">
-      <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-4xl md:max-h-[90vh] overflow-hidden flex flex-col animate-slide-up">
-        <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
-          <h3 className="font-bold text-lg text-gray-800">Edit Genomic Profile</h3>
+    <div className={combineClasses('fixed inset-0 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4', DesignTokens.components.modal.overlay)}>
+      <div className={combineClasses('w-full h-full md:h-auto md:rounded-2xl md:max-w-4xl md:max-h-[90vh] overflow-hidden flex flex-col animate-slide-up', DesignTokens.components.modal.container)}>
+        <div className={combineClasses('flex-shrink-0 border-b p-4 flex items-center justify-between', DesignTokens.components.modal.header)}>
+          <h3 className={combineClasses('font-bold text-lg', DesignTokens.colors.neutral.text[800])}>Edit Genomic Profile</h3>
           <button
             onClick={handleCancel}
-            className="text-gray-500 hover:text-gray-700"
+            className={combineClasses('transition', DesignTokens.components.modal.closeButton)}
           >
             <X size={24} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+        <div className={combineClasses('flex-1 overflow-y-auto p-4 sm:p-6 space-y-6', DesignTokens.components.modal.body)}>
+          <div className={combineClasses('rounded-lg p-3', DesignTokens.components.alert.info.bg, DesignTokens.components.alert.info.border)}>
             <div className="flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
+              <AlertCircle className={combineClasses('w-5 h-5 mt-0.5 flex-shrink-0', DesignTokens.components.alert.info.icon)} />
               <div className="flex-1">
-                <p className="text-sm font-medium text-purple-900">Genomic Testing</p>
-                <p className="text-xs text-purple-700 mt-0.5">
+                <p className={combineClasses('text-sm font-medium', DesignTokens.components.alert.info.text)}>Genomic Testing</p>
+                <p className={combineClasses('text-xs mt-0.5', DesignTokens.components.alert.info.textSecondary)}>
                   Update your genomic test results to help match with relevant clinical trials
                 </p>
               </div>
@@ -87,20 +88,20 @@ export default function EditGenomicModal({
 
           {/* Test Information */}
           <div>
-            <h4 className="font-semibold text-gray-800 mb-3">Test Information</h4>
+            <h4 className={combineClasses('font-semibold mb-3', DesignTokens.colors.neutral.text[800])}>Test Information</h4>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Test Name</label>
+                <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Test Name</label>
                 <input
                   type="text"
                   value={editingGenomicProfile.testName || ''}
                   onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, testName: e.target.value})}
                   placeholder="e.g., FoundationOne CDx, Guardant360"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2', DesignTokens.components.input.base, 'focus:ring-medical-primary-500')}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Test Date</label>
+                <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Test Date</label>
                 <DatePicker
                   value={editingGenomicProfile.testDate || ''}
                   onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, testDate: e.target.value})}
@@ -109,33 +110,33 @@ export default function EditGenomicModal({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Laboratory Name</label>
+                <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Laboratory Name</label>
                 <input
                   type="text"
                   value={editingGenomicProfile.laboratoryName || ''}
                   onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, laboratoryName: e.target.value})}
                   placeholder="e.g., Foundation Medicine"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2', DesignTokens.components.input.base, 'focus:ring-medical-primary-500')}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Specimen Type</label>
+                <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Specimen Type</label>
                 <input
                   type="text"
                   value={editingGenomicProfile.specimenType || ''}
                   onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, specimenType: e.target.value})}
                   placeholder="e.g., FFPE tissue, Blood (ctDNA)"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2', DesignTokens.components.input.base, 'focus:ring-medical-primary-500')}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tumor Purity</label>
+                <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Tumor Purity</label>
                 <input
                   type="text"
                   value={editingGenomicProfile.tumorPurity || ''}
                   onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, tumorPurity: e.target.value})}
                   placeholder="e.g., 70%"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2', DesignTokens.components.input.base, 'focus:ring-medical-primary-500')}
                 />
               </div>
             </div>
@@ -144,7 +145,7 @@ export default function EditGenomicModal({
           {/* Mutations */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h4 className="font-semibold text-gray-800">Mutations</h4>
+              <h4 className={combineClasses('font-semibold', DesignTokens.colors.neutral.text[800])}>Mutations</h4>
               <button
                 onClick={() => {
                   setEditingGenomicProfile({
@@ -152,7 +153,7 @@ export default function EditGenomicModal({
                     mutations: [...(editingGenomicProfile.mutations || []), { gene: '', variant: '', dna: '', protein: '', significance: '', type: '' }]
                   });
                 }}
-                className="text-sm text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                className={combineClasses('text-sm font-medium flex items-center gap-1 transition', DesignTokens.colors.primary.text[600], DesignTokens.colors.primary.text[700].replace('text-', 'hover:text-'))}
               >
                 <Plus className="w-4 h-4" />
                 Add Mutation
@@ -161,10 +162,10 @@ export default function EditGenomicModal({
             <div className="space-y-3">
               {editingGenomicProfile.mutations && editingGenomicProfile.mutations.length > 0 ? (
                 editingGenomicProfile.mutations.map((mutation, idx) => (
-                  <div key={idx} className="border border-gray-200 rounded-lg p-3 space-y-2">
+                  <div key={idx} className={combineClasses('rounded-lg p-3 space-y-2', DesignTokens.components.card.nested)}>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Gene</label>
+                        <label className={combineClasses('block text-xs font-medium mb-1', DesignTokens.colors.neutral.text[600])}>Gene</label>
                         <input
                           type="text"
                           value={mutation.gene || ''}
@@ -174,11 +175,11 @@ export default function EditGenomicModal({
                             setEditingGenomicProfile({...editingGenomicProfile, mutations: updated});
                           }}
                           placeholder="e.g., BRCA1"
-                          className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-purple-500"
+                          className={combineClasses('w-full rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2', DesignTokens.components.input.base, 'focus:ring-medical-primary-500')}
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Variant/Alteration</label>
+                        <label className={combineClasses('block text-xs font-medium mb-1', DesignTokens.colors.neutral.text[600])}>Variant/Alteration</label>
                         <input
                           type="text"
                           value={mutation.variant || mutation.alteration || ''}
@@ -188,11 +189,11 @@ export default function EditGenomicModal({
                             setEditingGenomicProfile({...editingGenomicProfile, mutations: updated});
                           }}
                           placeholder="e.g., c.5266dupC"
-                          className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-purple-500"
+                          className={combineClasses('w-full rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2', DesignTokens.components.input.base, 'focus:ring-medical-primary-500')}
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">DNA Change</label>
+                        <label className={combineClasses('block text-xs font-medium mb-1', DesignTokens.colors.neutral.text[600])}>DNA Change</label>
                         <input
                           type="text"
                           value={mutation.dna || mutation.dnaChange || ''}
@@ -202,11 +203,11 @@ export default function EditGenomicModal({
                             setEditingGenomicProfile({...editingGenomicProfile, mutations: updated});
                           }}
                           placeholder="e.g., c.5266dupC"
-                          className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-purple-500"
+                          className={combineClasses('w-full rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2', DesignTokens.components.input.base, 'focus:ring-medical-primary-500')}
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Protein Change</label>
+                        <label className={combineClasses('block text-xs font-medium mb-1', DesignTokens.colors.neutral.text[600])}>Protein Change</label>
                         <input
                           type="text"
                           value={mutation.protein || mutation.aminoAcidChange || ''}
@@ -216,11 +217,11 @@ export default function EditGenomicModal({
                             setEditingGenomicProfile({...editingGenomicProfile, mutations: updated});
                           }}
                           placeholder="e.g., p.Gln1756Profs*74"
-                          className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-purple-500"
+                          className={combineClasses('w-full rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2', DesignTokens.components.input.base, 'focus:ring-medical-primary-500')}
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Significance</label>
+                        <label className={combineClasses('block text-xs font-medium mb-1', DesignTokens.colors.neutral.text[600])}>Significance</label>
                         <select
                           value={mutation.significance || mutation.clinicalSignificance || ''}
                           onChange={(e) => {
@@ -228,7 +229,7 @@ export default function EditGenomicModal({
                             updated[idx] = {...updated[idx], significance: e.target.value, clinicalSignificance: e.target.value};
                             setEditingGenomicProfile({...editingGenomicProfile, mutations: updated});
                           }}
-                          className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-purple-500"
+                          className={combineClasses('w-full rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2', DesignTokens.components.input.base, 'focus:ring-medical-primary-500')}
                         >
                           <option value="">Select...</option>
                           <option value="pathogenic">Pathogenic</option>
@@ -238,7 +239,7 @@ export default function EditGenomicModal({
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Type</label>
+                        <label className={combineClasses('block text-xs font-medium mb-1', DesignTokens.colors.neutral.text[600])}>Type</label>
                         <select
                           value={mutation.type || ''}
                           onChange={(e) => {
@@ -246,7 +247,7 @@ export default function EditGenomicModal({
                             updated[idx] = {...updated[idx], type: e.target.value};
                             setEditingGenomicProfile({...editingGenomicProfile, mutations: updated});
                           }}
-                          className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-purple-500"
+                          className={combineClasses('w-full rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2', DesignTokens.components.input.base, 'focus:ring-medical-primary-500')}
                         >
                           <option value="">Select...</option>
                           <option value="somatic">Somatic</option>
@@ -259,7 +260,7 @@ export default function EditGenomicModal({
                         const updated = editingGenomicProfile.mutations.filter((_, i) => i !== idx);
                         setEditingGenomicProfile({...editingGenomicProfile, mutations: updated});
                       }}
-                      className="text-xs text-red-600 hover:text-red-700 flex items-center gap-1"
+                      className={combineClasses('text-xs flex items-center gap-1 transition', DesignTokens.components.alert.text.error, DesignTokens.components.alert.text.error.replace('text-', 'hover:text-').replace('600', '700'))}
                     >
                       <Trash2 className="w-3 h-3" />
                       Remove
@@ -267,31 +268,31 @@ export default function EditGenomicModal({
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-gray-500 italic">No mutations added yet</p>
+                <p className={combineClasses('text-sm italic', DesignTokens.colors.neutral.text[500])}>No mutations added yet</p>
               )}
             </div>
           </div>
 
           {/* Biomarkers */}
           <div>
-            <h4 className="font-semibold text-gray-800 mb-3">Biomarkers</h4>
+            <h4 className={combineClasses('font-semibold mb-3', DesignTokens.colors.neutral.text[800])}>Biomarkers</h4>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">TMB (Tumor Mutational Burden)</label>
+                <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>TMB (Tumor Mutational Burden)</label>
                 <input
                   type="text"
                   value={editingGenomicProfile.tmb || ''}
                   onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, tmb: e.target.value})}
                   placeholder="e.g., 12.5 mutations/megabase"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2', DesignTokens.components.input.base, 'focus:ring-medical-primary-500')}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">MSI (Microsatellite Instability)</label>
+                <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>MSI (Microsatellite Instability)</label>
                 <select
                   value={editingGenomicProfile.msi || ''}
                   onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, msi: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2', DesignTokens.components.input.base, 'focus:ring-medical-primary-500')}
                 >
                   <option value="">Select...</option>
                   <option value="MSI-H">MSI-H (High)</option>
@@ -300,31 +301,31 @@ export default function EditGenomicModal({
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">HRD Score</label>
+                <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>HRD Score</label>
                 <input
                   type="number"
                   value={editingGenomicProfile.hrdScore || ''}
                   onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, hrdScore: e.target.value})}
                   placeholder="e.g., 48"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2', DesignTokens.components.input.base, 'focus:ring-medical-primary-500')}
                 />
               </div>
             </div>
           </div>
         </div>
 
-        <div className="flex-shrink-0 bg-white border-t p-4">
+        <div className={combineClasses('flex-shrink-0 border-t p-4', DesignTokens.components.modal.footer)}>
           <div className="flex gap-3">
             <button
               onClick={handleCancel}
-              className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-300 transition flex items-center justify-center gap-2"
+              className={combineClasses('flex-1 py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2', DesignTokens.components.button.secondary)}
             >
               <X className="w-4 h-4" />
               Cancel
             </button>
             <button
               onClick={handleSave}
-              className="flex-1 bg-purple-600 text-white py-2.5 rounded-lg font-medium hover:bg-purple-700 transition flex items-center justify-center gap-2"
+              className={combineClasses('flex-1 text-white py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2', DesignTokens.components.button.primary)}
             >
               <Check className="w-4 h-4" />
               Save Changes
