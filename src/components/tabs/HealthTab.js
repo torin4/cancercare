@@ -4069,9 +4069,9 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                   
                   // Determine alert styling based on message type
                   const alertClasses = {
-                    success: combineClasses(DesignTokens.components.alert.success.bg, DesignTokens.components.alert.success.border.split(' ')[1]),
-                    info: combineClasses(DesignTokens.components.alert.info.bg, DesignTokens.components.alert.info.border.split(' ')[1]),
-                    warning: combineClasses(DesignTokens.components.alert.warning.bg, DesignTokens.components.alert.warning.border.split(' ')[1])
+                    success: DesignTokens.components.alert.success,
+                    info: DesignTokens.components.alert.info,
+                    warning: DesignTokens.components.alert.warning
                   };
                   
                   const textClasses = {
