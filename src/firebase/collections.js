@@ -19,7 +19,8 @@ export const COLLECTIONS = {
   EMERGENCY_CONTACTS: 'emergencyContacts',
   CLINICAL_TRIALS: 'clinicalTrials',
   MATCHED_TRIALS: 'matchedTrials',
-  TRIAL_LOCATIONS: 'trialLocations'
+  TRIAL_LOCATIONS: 'trialLocations',
+  JOURNAL_NOTES: 'journalNotes'
 };
 
 /**
@@ -283,10 +284,19 @@ export const TrialLocationSchema = {
   updatedAt: 'timestamp'
 };
 
-
-
-
-
+/**
+ * Journal Note Structure
+ * Collection: journalNotes
+ * Document ID: auto-generated
+ */
+export const JournalNoteSchema = {
+  id: 'string',
+  patientId: 'string',
+  date: 'timestamp',
+  content: 'string',
+  createdAt: 'timestamp',
+  updatedAt: 'timestamp'
+};
 
 
 

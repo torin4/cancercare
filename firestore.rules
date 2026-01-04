@@ -115,6 +115,18 @@ service cloud.firestore {
                        resource.data.patientId == request.auth.uid;
     }
 
+    // Journal Notes - users can only access their own journal notes
+    match /journalNotes/{noteId} {
+      allow read: if request.auth != null &&
+                     resource.data.patientId == request.auth.uid;
+      allow create: if request.auth != null && hasValidPatientId();
+      allow update: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid &&
+                       hasValidPatientId();
+      allow delete: if request.auth != null &&
+                       resource.data.patientId == request.auth.uid;
+    }
+
     // Genomic Profiles - document ID is the patientId
     match /genomicProfiles/{profileId} {
       allow read: if isOwner(profileId);

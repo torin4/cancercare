@@ -1,19 +1,23 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical, Loader2 } from 'lucide-react';
+import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical, Loader2, BookOpen } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
 import { useBanner } from '../../contexts/BannerContext';
-import { documentService, labService, vitalService } from '../../firebase/services';
+import { documentService, labService, vitalService, journalNoteService } from '../../firebase/services';
 import { uploadDocument, deleteDocument, downloadFileAsBlob } from '../../firebase/storage';
 import { cleanupDocumentData } from '../../services/documentCleanupService';
 import { parseLocalDate, formatDateString } from '../../utils/helpers';
 import { processDocument, generateExtractionSummary, generateChatSummary } from '../../services/documentProcessor';
+import { getNotebookEntries } from '../../services/notebookService';
 import DocumentUploadOnboarding from '../DocumentUploadOnboarding';
 import EditDocumentNoteModal from '../modals/EditDocumentNoteModal';
 import UploadProgressOverlay from '../UploadProgressOverlay';
 import DeletionConfirmationModal from '../modals/DeletionConfirmationModal';
 import RescanDocumentModal from '../modals/RescanDocumentModal';
+import NotebookTimeline from '../NotebookTimeline';
+import AddJournalNoteModal from '../modals/AddJournalNoteModal';
+import EditJournalNoteModal from '../modals/EditJournalNoteModal';
 
 export default function FilesTab({ onTabChange }) {
   // Use contexts for shared state
@@ -49,6 +53,16 @@ export default function FilesTab({ onTabChange }) {
   const [debugLogs, setDebugLogs] = useState([]); // Visual debug logs for mobile
   const [documentDateRanges, setDocumentDateRanges] = useState({}); // Cache date ranges for documents
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false); // Loading state for documents
+
+  // Tab state for Documents vs Notes view
+  const [activeSubTab, setActiveSubTab] = useState('documents'); // 'documents' or 'notes'
+
+  // Notebook state
+  const [notebookEntries, setNotebookEntries] = useState([]);
+  const [isLoadingNotebook, setIsLoadingNotebook] = useState(false);
+  const [showAddJournalNote, setShowAddJournalNote] = useState(false);
+  const [addNoteDate, setAddNoteDate] = useState(null);
+  const [editingJournalNote, setEditingJournalNote] = useState(null);
 
   // Debug log helper function
   const addDebugLog = useCallback((message, type = 'log') => {
@@ -160,6 +174,102 @@ export default function FilesTab({ onTabChange }) {
 
     loadDocuments();
   }, [user]);
+
+  // Load notebook entries
+  useEffect(() => {
+    const loadNotebookEntries = async () => {
+      if (!user?.uid) return;
+
+      try {
+        setIsLoadingNotebook(true);
+        const entries = await getNotebookEntries(user.uid, { limit: 50 });
+        setNotebookEntries(entries);
+      } catch (error) {
+        console.error('Error loading notebook entries:', error);
+        showError('Failed to load notebook entries');
+      } finally {
+        setIsLoadingNotebook(false);
+      }
+    };
+
+    loadNotebookEntries();
+  }, [user]);
+
+  // Reload notebook entries (called after adding or deleting a note)
+  const reloadNotebookEntries = async () => {
+    if (!user?.uid) return;
+
+    try {
+      setIsLoadingNotebook(true);
+      const entries = await getNotebookEntries(user.uid, { limit: 50 });
+      setNotebookEntries(entries);
+    } catch (error) {
+      console.error('Error reloading notebook entries:', error);
+    } finally {
+      setIsLoadingNotebook(false);
+    }
+  };
+
+  // Handle delete journal note - show confirmation modal
+  const handleDeleteJournalNote = (noteId) => {
+    if (!user?.uid || !noteId) return;
+
+    setDeleteConfirm({
+      show: true,
+      title: 'Delete Journal Note?',
+      message: 'This will permanently delete this journal note. This action cannot be undone.',
+      itemName: 'journal note',
+      confirmText: 'Yes, Delete Permanently',
+      onConfirm: async () => {
+        setIsDeleting(true);
+        try {
+          await journalNoteService.deleteJournalNote(noteId);
+          showSuccess('Note deleted successfully');
+          reloadNotebookEntries();
+        } catch (error) {
+          console.error('Error deleting journal note:', error);
+          showError('Failed to delete note. Please try again.');
+        } finally {
+          setIsDeleting(false);
+        }
+      }
+    });
+  };
+
+  // Handle edit note - supports both journal and document notes
+  const handleEditNote = async (sourceId, entryDate, sourceType) => {
+    if (!user?.uid || !sourceId) return;
+
+    try {
+      if (sourceType === 'journal') {
+        // Fetch all journal notes to find the one we want to edit
+        const allNotes = await journalNoteService.getJournalNotes(user.uid);
+        const noteToEdit = allNotes.find(note => note.id === sourceId);
+        
+        if (noteToEdit) {
+          setEditingJournalNote({
+            sourceId: sourceId,
+            content: noteToEdit.content,
+            date: noteToEdit.date
+          });
+        } else {
+          showError('Note not found');
+        }
+      } else if (sourceType === 'document') {
+        // Fetch the document to edit
+        const documentToEdit = await documentService.getDocument(sourceId);
+        
+        if (documentToEdit) {
+          setEditingDocumentNote(documentToEdit);
+        } else {
+          showError('Document not found');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching note/document for editing:', error);
+      showError('Failed to load for editing. Please try again.');
+    }
+  };
 
   const openDocumentOnboarding = (docType = null, method = 'picker') => {
     setDocumentOnboardingMethod(method || 'picker');
@@ -571,6 +681,53 @@ export default function FilesTab({ onTabChange }) {
           </div>
         </div>
       )}
+
+      {/* Tab Navigation */}
+      <div className="bg-white border-b border-medical-neutral-200 px-3 sm:px-4 md:px-6 flex gap-2 overflow-x-auto">
+        <button
+          onClick={() => setActiveSubTab('documents')}
+          className={`pb-3 px-2 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70 whitespace-nowrap flex-shrink-0 ${
+            activeSubTab === 'documents'
+              ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
+              : 'text-medical-neutral-600 hover:text-medical-primary-600'
+          }`}
+        >
+          <FolderOpen className="w-4 h-4" />
+          <span className="text-xs sm:text-base">Files</span>
+          {documents.length > 0 && (
+            <span className={`ml-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs ${
+              activeSubTab === 'documents'
+                ? 'bg-medical-primary-100 text-medical-primary-700'
+                : 'bg-medical-neutral-100 text-medical-neutral-600'
+            }`}>
+              {documents.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveSubTab('notes')}
+          className={`pb-3 px-2 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70 whitespace-nowrap flex-shrink-0 ${
+            activeSubTab === 'notes'
+              ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
+              : 'text-medical-neutral-600 hover:text-medical-primary-600'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          <span className="text-xs sm:text-base">Notes</span>
+          {notebookEntries.length > 0 && (
+            <span className={`ml-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs ${
+              activeSubTab === 'notes'
+                ? 'bg-medical-primary-100 text-medical-primary-700'
+                : 'bg-medical-neutral-100 text-medical-neutral-600'
+            }`}>
+              {notebookEntries.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Documents Tab Content */}
+      {activeSubTab === 'documents' && (
       <div className="bg-white rounded-lg shadow p-3 sm:p-4 md:p-5 border border-medical-neutral-200">
         {documents.length > 0 && (
           <div className="flex items-center justify-between mb-3 sm:mb-4">
@@ -808,8 +965,31 @@ export default function FilesTab({ onTabChange }) {
           </div>
         )}
       </div>
+      )}
 
-      
+      {/* Notes Tab Content */}
+      {activeSubTab === 'notes' && (
+      <div className="bg-white rounded-b-lg shadow p-3 sm:p-4 md:p-5 border-x border-b border-medical-neutral-200">
+        {isLoadingNotebook ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 text-medical-primary-600 animate-spin" />
+          </div>
+        ) : (
+          <NotebookTimeline 
+            entries={notebookEntries} 
+            onEntryClick={(entry) => {
+              // Handle entry click if needed
+            }}
+            onAddNote={(date) => {
+              setAddNoteDate(date);
+              setShowAddJournalNote(true);
+            }}
+            onDeleteNote={handleDeleteJournalNote}
+            onEditNote={handleEditNote}
+          />
+        )}
+      </div>
+      )}
 
       {/* Modals */}
       {showDocumentOnboarding && (
@@ -910,7 +1090,11 @@ export default function FilesTab({ onTabChange }) {
         setEditingDocumentNote={setEditingDocumentNote}
         setIsUploading={setIsUploading}
         setUploadProgress={setUploadProgress}
-        reloadHealthData={reloadHealthData}
+        reloadHealthData={async () => {
+          await reloadHealthData();
+          // Also reload notebook entries since document notes appear in the timeline
+          reloadNotebookEntries();
+        }}
         setDocuments={setDocuments}
         onRescanRequest={(doc) => {
           // Close edit modal and open rescan modal
@@ -1136,6 +1320,32 @@ export default function FilesTab({ onTabChange }) {
           </div>
         </div>
       )}
+
+      <AddJournalNoteModal
+        show={showAddJournalNote}
+        onClose={() => {
+          setShowAddJournalNote(false);
+          setAddNoteDate(null);
+        }}
+        user={user}
+        initialDate={addNoteDate}
+        onNoteAdded={() => {
+          reloadNotebookEntries();
+        }}
+      />
+
+      <EditJournalNoteModal
+        show={!!editingJournalNote}
+        onClose={() => {
+          setEditingJournalNote(null);
+        }}
+        user={user}
+        editingNote={editingJournalNote}
+        setEditingNote={setEditingJournalNote}
+        onNoteUpdated={() => {
+          reloadNotebookEntries();
+        }}
+      />
       </div>
     </div>
   );
