@@ -101,7 +101,6 @@ export default function AddLabValueModal({
       showSuccess(isEditingLabValue ? 'Lab value updated successfully!' : 'Lab value added successfully!');
       handleClose();
     } catch (error) {
-      console.error('Error saving lab value:', error);
       showError('Failed to save lab value. Please try again.');
     }
   };

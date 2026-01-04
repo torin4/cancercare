@@ -6,7 +6,6 @@ import { cleanupDocumentData, verifyCleanupComplete } from './documentCleanupSer
 // Check if API key is available
 const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
 if (!apiKey) {
-  console.error('REACT_APP_GEMINI_API_KEY is not set. Please set it in Vercel environment variables and redeploy.');
 }
 
 const genAI = new GoogleGenerativeAI(apiKey || '');
@@ -68,7 +67,6 @@ export async function processDocument(file, userId, patientProfile = null, docum
       extractedDate // Return the extracted date for filename use
     };
   } catch (error) {
-    console.error('Error processing document:', error);
     throw error;
   }
 }
@@ -575,19 +573,16 @@ GENERAL RULES:
   if (parsed.data?.labs) {
     const labsWithoutDates = parsed.data.labs.filter(lab => !lab.date);
     if (labsWithoutDates.length > 0) {
-      console.warn(`WARNING: ${labsWithoutDates.length} lab value(s) missing dates:`, labsWithoutDates.map(l => l.label));
     }
   }
 
   if (parsed.data?.vitals) {
     const vitalsWithoutDates = parsed.data.vitals.filter(vital => !vital.date);
     if (vitalsWithoutDates.length > 0) {
-      console.warn(`WARNING: ${vitalsWithoutDates.length} vital(s) missing dates:`, vitalsWithoutDates.map(v => v.label));
     }
   }
 
   if (parsed.data?.genomic?.testInfo && !parsed.data.genomic.testInfo.testDate) {
-    console.warn('WARNING: Genomic test missing testDate');
   }
 
   return parsed;
@@ -684,15 +679,6 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
     genomic: null
   };
 
-    console.log(`[saveExtractedData] 🚀 Starting data extraction save process`, {
-      documentId: documentId || 'NEW UPLOAD',
-      userId,
-      hasLabs: !!(extractedData.data?.labs?.length),
-      hasVitals: !!(extractedData.data?.vitals?.length),
-      hasGenomic: !!extractedData.data?.genomic,
-      hasMedications: !!(extractedData.data?.medications?.length),
-      onlyExistingMetrics
-    });
 
     try {
       // If onlyExistingMetrics is enabled, get existing labs and vitals to filter against
@@ -706,40 +692,24 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         existingLabTypes = new Set(existingLabs.map(lab => (lab.labType || 'other').toLowerCase()));
         existingVitalTypes = new Set(existingVitals.map(vital => (vital.vitalType || 'other').toLowerCase()));
         
-        console.log(`[saveExtractedData] 🔍 Filtering mode enabled: ${existingLabTypes.size} existing labs, ${existingVitalTypes.size} existing vitals`);
       }
     // If reprocessing (documentId provided), delete ALL existing values from this document first
     // This prevents duplicates when reprocessing the same document
     if (documentId) {
-      console.log(`[DocumentProcessor] Reprocessing document ${documentId} - using comprehensive cleanup service`);
 
       try {
         // Use the comprehensive cleanup service
         // Use non-aggressive cleanup - only delete values with matching documentId (not all values)
         const cleanupResults = await cleanupDocumentData(documentId, userId, false);
 
-        console.log(`[DocumentProcessor] Cleanup complete:`, {
-          labValues: cleanupResults.labValuesDeleted,
-          vitalValues: cleanupResults.vitalValuesDeleted,
-          medications: cleanupResults.medicationsDeleted,
-          orphanedLabs: cleanupResults.orphanedLabsDeleted,
-          orphanedVitals: cleanupResults.orphanedVitalsDeleted,
-          legacyLabValues: cleanupResults.legacyLabValuesDeleted || 0,
-          legacyVitalValues: cleanupResults.legacyVitalValuesDeleted || 0,
-          duration: cleanupResults.duration + 'ms'
-        });
 
         // Verify cleanup was successful
         const verification = await verifyCleanupComplete(documentId, userId);
         if (!verification.isComplete) {
-          console.warn(`[DocumentProcessor] ⚠️ Cleanup verification failed - some data may remain:`, verification);
         } else {
-          console.log(`[DocumentProcessor] ✓ Cleanup verified - all document data removed`);
         }
       } catch (cleanupError) {
-        console.error(`[DocumentProcessor] Error during cleanup:`, cleanupError);
         // Don't throw - continue with reprocessing even if cleanup had issues
-        console.warn(`[DocumentProcessor] Continuing with reprocessing despite cleanup errors`);
       }
     }
 
@@ -755,7 +725,6 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         if (onlyExistingMetrics) {
           const labTypeKey = (lab.labType || 'other').toLowerCase();
           if (!existingLabTypes.has(labTypeKey)) {
-            console.log(`[saveExtractedData] Skipping lab that doesn't exist: ${lab.label || lab.labType} (onlyExistingMetrics=true)`);
             continue;
           }
         }
@@ -763,7 +732,6 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         // Validate that lab has a meaningful value (not empty, "-", "N/A", etc.)
         const value = lab.value;
         if (value === null || value === undefined) {
-          console.log(`[saveExtractedData] Skipping lab with null/undefined value: ${lab.label || lab.labType}`);
           continue;
         }
         
@@ -773,7 +741,6 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         // Check for empty/invalid value indicators
         const emptyIndicators = ['-', '—', 'n/a', 'na', 'n.a.', '未測定', '測定なし', '', 'null', 'undefined'];
         if (emptyIndicators.includes(valueStr.toLowerCase())) {
-          console.log(`[saveExtractedData] Skipping lab with empty/invalid value: ${lab.label || lab.labType} = "${valueStr}"`);
           continue;
         }
         
@@ -781,7 +748,6 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         if (lab.labType && ['ca125', 'cea', 'wbc', 'hemoglobin', 'platelets', 'creatinine', 'alt', 'ast', 'albumin', 'ldh'].includes(lab.labType.toLowerCase())) {
           const numValue = parseFloat(valueStr);
           if (isNaN(numValue)) {
-            console.log(`[saveExtractedData] Skipping numeric lab with non-numeric value: ${lab.label || lab.labType} = "${valueStr}"`);
             continue;
           }
         }
@@ -813,11 +779,9 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
           seenLabs.set(dedupKey, lab);
           uniqueLabs.push({ ...lab, _parsedDate: labDate }); // Store parsed date for later use
         } else {
-          console.log(`[saveExtractedData] Skipping duplicate lab from same upload: ${lab.label || lab.labType} = ${valueStr} on ${dateKey}`);
         }
       }
       
-      console.log(`[saveExtractedData] 📊 Lab deduplication: ${extractedData.data.labs.length} extracted → ${uniqueLabs.length} unique labs (${extractedData.data.labs.length - uniqueLabs.length} duplicates removed)`);
       
       for (const lab of uniqueLabs) {
         // Use the pre-parsed date
@@ -887,9 +851,7 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
               notes: newNote,
               documentId: documentId || null
             });
-            console.log(`[saveExtractedData] Updated existing lab value ${valueId} (duplicate detected)`);
           } else {
-            console.log(`[saveExtractedData] Skipping duplicate lab value: ${lab.label || lab.labType} = ${lab.value} on ${labDate.toISOString().split('T')[0]}`);
           }
         } else {
           // Create new lab value (existing values with this documentId were already deleted above if reprocessing)
@@ -916,7 +878,6 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         if (onlyExistingMetrics) {
           const vitalTypeKey = (vital.vitalType || 'other').toLowerCase();
           if (!existingVitalTypes.has(vitalTypeKey)) {
-            console.log(`[saveExtractedData] Skipping vital that doesn't exist: ${vital.label || vital.vitalType} (onlyExistingMetrics=true)`);
             continue;
           }
         }
@@ -924,7 +885,6 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         // Validate that vital has a meaningful value (not empty, "-", "N/A", etc.)
         const value = vital.value;
         if (value === null || value === undefined) {
-          console.log(`[saveExtractedData] Skipping vital with null/undefined value: ${vital.label || vital.vitalType}`);
           continue;
         }
         
@@ -934,7 +894,6 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         // Check for empty/invalid value indicators
         const emptyIndicators = ['-', '—', 'n/a', 'na', 'n.a.', '未測定', '測定なし', '', 'null', 'undefined'];
         if (emptyIndicators.includes(valueStr.toLowerCase())) {
-          console.log(`[saveExtractedData] Skipping vital with empty/invalid value: ${vital.label || vital.vitalType} = "${valueStr}"`);
           continue;
         }
         
@@ -943,7 +902,6 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
           const systolicStr = String(vital.systolic).trim();
           const diastolicStr = vital.diastolic ? String(vital.diastolic).trim() : '';
           if (emptyIndicators.includes(systolicStr.toLowerCase()) || (diastolicStr && emptyIndicators.includes(diastolicStr.toLowerCase()))) {
-            console.log(`[saveExtractedData] Skipping BP with empty/invalid values: ${vital.label || vital.vitalType} = "${systolicStr}/${diastolicStr}"`);
             continue;
           }
         }
@@ -979,11 +937,9 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
           seenVitals.set(dedupKey, vital);
           uniqueVitals.push({ ...vital, _parsedDate: vitalDate }); // Store parsed date for later use
         } else {
-          console.log(`[saveExtractedData] Skipping duplicate vital from same upload: ${vital.label || vital.vitalType} = ${valueStr} on ${dateKey}`);
         }
       }
       
-      console.log(`[saveExtractedData] 📊 Vital deduplication: ${extractedData.data.vitals.length} extracted → ${uniqueVitals.length} unique vitals (${extractedData.data.vitals.length - uniqueVitals.length} duplicates removed)`);
       
       for (const vital of uniqueVitals) {
         // Use the pre-parsed date
@@ -1059,9 +1015,7 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
               diastolic: vital.diastolic,
               documentId: documentId || null
             });
-            console.log(`[saveExtractedData] Updated existing vital value ${valueId} (duplicate detected)`);
           } else {
-            console.log(`[saveExtractedData] Skipping duplicate vital value: ${vital.label || vital.vitalType} = ${vital.value} on ${vitalDate.toISOString().split('T')[0]}`);
           }
         } else {
           // Create new vital value (existing values with this documentId were already deleted above if reprocessing)
@@ -1123,11 +1077,9 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
           if (!isNaN(parsedTestDate.getTime())) {
             genomicProfile.testDate = parsedTestDate;
           } else {
-            console.warn(`Could not parse genomic testDate "${genomicData.testInfo.testDate}", using today's date`);
             genomicProfile.testDate = parseLocalDate(new Date().toISOString().split('T')[0]);
           }
         } else {
-          console.warn('Genomic test missing testDate field, using today\'s date');
           genomicProfile.testDate = parseLocalDate(new Date().toISOString().split('T')[0]);
         }
       } else if (genomicData.testInfo?.testDate) {
@@ -1135,11 +1087,9 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         if (!isNaN(parsedTestDate.getTime())) {
           genomicProfile.testDate = parsedTestDate;
         } else {
-          console.warn(`Could not parse genomic testDate "${genomicData.testInfo.testDate}", using today's date`);
           genomicProfile.testDate = parseLocalDate(new Date().toISOString().split('T')[0]);
         }
       } else {
-        console.warn('Genomic test missing testDate field, using today\'s date');
         genomicProfile.testDate = parseLocalDate(new Date().toISOString().split('T')[0]);
       }
       if (genomicData.testInfo?.laboratoryName) {
@@ -1245,19 +1195,10 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
 
     const duration = Date.now() - startTime;
     const totalValues = savedData.labs.length + savedData.vitals.length;
-    console.log(`[saveExtractedData] ✅ Data extraction save complete in ${duration}ms:`, {
-      labs: savedData.labs.length,
-      vitals: savedData.vitals.length,
-      medications: savedData.medications.length,
-      hasGenomic: !!savedData.genomic,
-      totalValues,
-      documentId: documentId || 'NEW (will be linked after document creation)'
-    });
 
     return savedData;
   } catch (error) {
     const duration = Date.now() - startTime;
-    console.error(`[saveExtractedData] ❌ Error saving extracted data after ${duration}ms:`, error);
     throw error;
   }
 }
@@ -1271,11 +1212,9 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
  */
 export async function linkValuesToDocument(savedData, documentId, userId) {
   if (!documentId) {
-    console.warn('[linkValuesToDocument] ⚠️ No documentId provided, skipping linking');
     return { linked: 0, errors: [] };
   }
 
-  console.log(`[linkValuesToDocument] 🔗 Starting linking process for document ${documentId}`);
   const startTime = Date.now();
   let linkedCount = 0;
   const errors = [];
@@ -1283,57 +1222,44 @@ export async function linkValuesToDocument(savedData, documentId, userId) {
   try {
     // Link lab values
     if (savedData.labs && savedData.labs.length > 0) {
-      console.log(`[linkValuesToDocument] Processing ${savedData.labs.length} lab values`);
       for (const lab of savedData.labs) {
         if (lab.labId && lab.valueId) {
           try {
             await labService.updateLabValueDocumentId(lab.labId, lab.valueId, documentId);
             linkedCount++;
-            console.log(`[linkValuesToDocument] ✓ Linked lab value ${lab.valueId} (${lab.label || lab.labType}) to document ${documentId}`);
           } catch (error) {
             const errorMsg = `Error linking lab value ${lab.valueId}: ${error.message}`;
-            console.error(`[linkValuesToDocument] ✗ ${errorMsg}`);
             errors.push(errorMsg);
           }
         } else {
-          console.warn(`[linkValuesToDocument] ⚠️ Lab value missing labId or valueId:`, lab);
         }
       }
     } else {
-      console.log(`[linkValuesToDocument] No lab values to link`);
     }
 
     // Link vital values
     if (savedData.vitals && savedData.vitals.length > 0) {
-      console.log(`[linkValuesToDocument] Processing ${savedData.vitals.length} vital values`);
       for (const vital of savedData.vitals) {
         if (vital.vitalId && vital.valueId) {
           try {
             await vitalService.updateVitalValueDocumentId(vital.vitalId, vital.valueId, documentId);
             linkedCount++;
-            console.log(`[linkValuesToDocument] ✓ Linked vital value ${vital.valueId} (${vital.label || vital.vitalType}) to document ${documentId}`);
           } catch (error) {
             const errorMsg = `Error linking vital value ${vital.valueId}: ${error.message}`;
-            console.error(`[linkValuesToDocument] ✗ ${errorMsg}`);
             errors.push(errorMsg);
           }
         } else {
-          console.warn(`[linkValuesToDocument] ⚠️ Vital value missing vitalId or valueId:`, vital);
         }
       }
     } else {
-      console.log(`[linkValuesToDocument] No vital values to link`);
     }
 
     const duration = Date.now() - startTime;
-    console.log(`[linkValuesToDocument] ✅ Linking complete: ${linkedCount} values linked in ${duration}ms`);
     if (errors.length > 0) {
-      console.warn(`[linkValuesToDocument] ⚠️ ${errors.length} errors during linking`);
     }
     
     return { linked: linkedCount, errors, duration };
   } catch (error) {
-    console.error('[linkValuesToDocument] ❌ Fatal error during linking:', error);
     throw error;
   }
 }

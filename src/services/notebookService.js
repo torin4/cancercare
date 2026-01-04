@@ -89,13 +89,6 @@ export async function getNotebookEntries(patientId, options = {}) {
       journalNoteService.getJournalNotes(patientId)
     ]);
 
-    console.log('[NotebookService] Fetched data:', {
-      documents: allDocuments.length,
-      documentsWithNotes: allDocuments.filter(d => d.note && d.note.trim()).length,
-      symptoms: allSymptoms.length,
-      symptomsWithNotes: allSymptoms.filter(s => s.notes && s.notes.trim()).length,
-      journalNotes: allJournalNotes.length
-    });
 
     // Group everything by date
     const entriesByDate = {};
@@ -108,10 +101,6 @@ export async function getNotebookEntries(patientId, options = {}) {
       // Filter out invalid future dates (beyond end of 2025)
       const maxValidDate = new Date(2025, 11, 31, 23, 59, 59);
       if (date > maxValidDate) {
-        console.log('[NotebookService] Skipping document with invalid future date:', {
-          id: doc.id,
-          date: date.toISOString()
-        });
         return;
       }
 
@@ -157,10 +146,6 @@ export async function getNotebookEntries(patientId, options = {}) {
       // Filter out invalid future dates
       const maxValidDate = new Date(2025, 11, 31, 23, 59, 59);
       if (date > maxValidDate) {
-        console.log('[NotebookService] Skipping symptom with invalid future date:', {
-          id: symptom.id,
-          date: date.toISOString()
-        });
         return;
       }
 
@@ -204,10 +189,6 @@ export async function getNotebookEntries(patientId, options = {}) {
       const minValidDate = new Date(1900, 0, 1);
       const maxValidDate = new Date(2100, 11, 31, 23, 59, 59);
       if (date < minValidDate || date > maxValidDate) {
-        console.log('[NotebookService] Skipping journal note with invalid date:', {
-          id: journalNote.id,
-          date: date.toISOString()
-        });
         return;
       }
 
@@ -252,19 +233,9 @@ export async function getNotebookEntries(patientId, options = {}) {
       entries = entries.slice(0, limit);
     }
 
-    console.log('[NotebookService] Final entries:', {
-      totalDates: entries.length,
-      sample: entries.slice(0, 3).map(e => ({
-        date: e.dateKey,
-        notes: e.notes.length,
-        documents: e.documents.length,
-        symptoms: e.symptoms.length
-      }))
-    });
 
     return entries;
   } catch (error) {
-    console.error('Error fetching notebook entries:', error);
     throw error;
   }
 }
@@ -300,7 +271,6 @@ export async function getNotebookStats(patientId) {
 
     return stats;
   } catch (error) {
-    console.error('Error getting notebook stats:', error);
     return {
       totalDates: 0,
       totalNotes: 0,

@@ -31,11 +31,9 @@ export default function EditPatientInfoModal({
         height: parseFloat(patientProfile.height) || null,
         country: patientProfile.country || ''
       };
-      console.log('Saving Edit Patient Info:', toSave);
       await patientService.savePatient(user.uid, toSave);
       // verify saved
       const saved = await patientService.getPatient(user.uid);
-      console.log('Saved patient profile after edit:', saved);
       // Ensure UI reflects saved values
       setPatientProfile(prev => ({
         ...prev,
@@ -59,7 +57,6 @@ export default function EditPatientInfoModal({
         }]);
       }
     } catch (error) {
-      console.error('Error saving patient info:', error);
       showError('Failed to save patient information. Please try again.');
     }
   };

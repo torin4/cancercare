@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen } from 'lucide-react';
+import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
@@ -282,7 +282,6 @@ export default function ChatTab({ onTabChange }) {
           sessionStorage.removeItem('trialContextMessage');
         }
       } catch (error) {
-        console.error('Error parsing trial context:', error);
       }
     }
 
@@ -294,7 +293,17 @@ export default function ChatTab({ onTabChange }) {
         setCurrentHealthContext(healthContext);
         sessionStorage.removeItem('currentHealthContext');
       } catch (error) {
-        console.error('Error parsing health context:', error);
+      }
+    }
+
+    // Check for notebook context from FilesTab
+    const notebookContextStr = sessionStorage.getItem('currentNotebookContext');
+    if (notebookContextStr) {
+      try {
+        const notebookContext = JSON.parse(notebookContextStr);
+        setCurrentNotebookContext(notebookContext);
+        sessionStorage.removeItem('currentNotebookContext');
+      } catch (error) {
       }
     }
 
@@ -316,7 +325,6 @@ export default function ChatTab({ onTabChange }) {
           }
           setChatHistoryLoaded(true);
         } catch (error) {
-          console.error('Error loading chat history:', error);
           setChatHistoryLoaded(true); // Mark as loaded even on error to prevent retry loops
         }
       }
@@ -351,7 +359,7 @@ export default function ChatTab({ onTabChange }) {
             type: 'assistant',
             text: uploadSummaryData.summary,
             isAnalysis: false
-          }).catch(err => console.error('Error saving upload summary:', err));
+          });
           
           // Auto-scroll to bottom to show the summary
           setTimeout(() => {
@@ -359,7 +367,6 @@ export default function ChatTab({ onTabChange }) {
           }, 100);
         }
       } catch (error) {
-        console.error('Error processing upload summary:', error);
         sessionStorage.removeItem('uploadSummary');
       }
     }
@@ -387,7 +394,7 @@ export default function ChatTab({ onTabChange }) {
               type: 'user',
               text: userMessage,
               isAnalysis: false
-            }).catch(err => console.error('Error saving user message:', err));
+            });
 
             try {
               // Process message with AI
@@ -423,7 +430,7 @@ export default function ChatTab({ onTabChange }) {
                 text: responseText,
                 isAnalysis: !!result.extractedData,
                 extractedData: result.extractedData || null
-              }).catch(err => console.error('Error saving AI message:', err));
+              });
 
               // Clear loading state
               setIsBotProcessing(false);
@@ -433,7 +440,6 @@ export default function ChatTab({ onTabChange }) {
                 await reloadHealthData();
               }
             } catch (error) {
-              console.error('Error processing pending message:', error);
               
               // Clear loading state
               setIsBotProcessing(false);
@@ -450,7 +456,6 @@ export default function ChatTab({ onTabChange }) {
           setTimeout(processPendingMessage, 200);
         }
       } catch (error) {
-        console.error('Error processing pending Quick Log message:', error);
         sessionStorage.removeItem('pendingQuickLogMessage');
       }
     }
@@ -516,11 +521,9 @@ export default function ChatTab({ onTabChange }) {
           try {
             await messageService.deleteMessage(msg.id);
           } catch (err) {
-            console.error('Error deleting old message:', err);
           }
         }
       } catch (error) {
-        console.error('Error cleaning up old messages:', error);
       }
     };
 
@@ -557,7 +560,7 @@ export default function ChatTab({ onTabChange }) {
         type: 'user',
         text: userMessage,
         isAnalysis: false
-      }).catch(err => console.error('Error saving user message:', err));
+      });
     
     // Set loading state
     setIsBotProcessing(true);
@@ -599,7 +602,6 @@ export default function ChatTab({ onTabChange }) {
           // Optionally set it for future messages
           setCurrentHealthContext(healthContextToUse);
         } catch (error) {
-          console.error('Error loading health data for context:', error);
         }
       }
 
@@ -615,7 +617,6 @@ export default function ChatTab({ onTabChange }) {
           notebookContextToUse = { entries };
           setCurrentNotebookContext(notebookContextToUse);
         } catch (error) {
-          console.error('Error loading notebook entries for context:', error);
         }
       }
 
@@ -665,7 +666,6 @@ export default function ChatTab({ onTabChange }) {
             }
           }
         } catch (error) {
-          console.error('Error loading saved trials for context:', error);
           // Don't block message processing if trial loading fails
         }
       }
@@ -719,7 +719,7 @@ export default function ChatTab({ onTabChange }) {
           text: responseText,
           isAnalysis: !!result.extractedData,
           extractedData: result.extractedData || null
-        }).catch(err => console.error('Error saving AI message:', err));
+        });
       }
 
       // Reload health data if values were extracted
@@ -728,7 +728,6 @@ export default function ChatTab({ onTabChange }) {
       }
 
     } catch (error) {
-      console.error('Error processing message:', error);
       
       // Clear loading state
       setIsBotProcessing(false);
@@ -751,19 +750,17 @@ export default function ChatTab({ onTabChange }) {
           type: 'ai',
           text: errorMsg.text,
           isAnalysis: false
-        }).catch(err => console.error('Error saving error message:', err));
+        });
       }
     }
   };
 
   const openDocumentOnboarding = (docType = null, method = 'picker') => {
-    console.log('openDocumentOnboarding called, hasUploadedDocument=', hasUploadedDocument, 'docType=', docType, 'method=', method);
     setDocumentOnboardingMethod(method || 'picker');
     setShowDocumentOnboarding(true);
   };
 
   const handleRealFileUpload = async (file, docType) => {
-    console.log('handleRealFileUpload called', file?.name, docType);
     if (!user) {
       showError('Please log in to upload files');
       return;
@@ -794,7 +791,6 @@ export default function ChatTab({ onTabChange }) {
       setUploadProgress('Analyzing document with AI...');
       // Note: documentId will be null for new uploads, set after document is saved
       const processingResult = await processDocument(file, user.uid, patientProfile, providedDate, providedNote, null);
-      console.log('Document processing result:', processingResult);
 
       // Step 2: Upload file to Firebase Storage
       setUploadProgress('Uploading to secure storage...');
@@ -808,7 +804,6 @@ export default function ChatTab({ onTabChange }) {
         note: providedNote || null // Store note with document record
       });
 
-      console.log('File uploaded successfully:', uploadResult);
 
       // Step 3: Link all extracted values to the document ID
       setUploadProgress('Linking data to document...');
@@ -816,9 +811,7 @@ export default function ChatTab({ onTabChange }) {
         try {
           const { linkValuesToDocument } = await import('../../services/documentProcessor');
           await linkValuesToDocument(processingResult.extractedData, uploadResult.id, user.uid);
-          console.log('[ChatTab] Successfully linked all values to document', uploadResult.id);
         } catch (linkError) {
-          console.error('[ChatTab] Error linking values to document:', linkError);
         }
       }
 
@@ -864,7 +857,6 @@ export default function ChatTab({ onTabChange }) {
       setIsUploading(false);
       setUploadProgress('');
     } catch (error) {
-      console.error('Upload error:', error);
 
       // Update messages with error
       setMessages(prev => [
@@ -881,7 +873,6 @@ export default function ChatTab({ onTabChange }) {
   };
 
   const simulateDocumentUpload = (docType) => {
-    console.log('simulateDocumentUpload called, docType=', docType);
     // Create a file input element
     const input = document.createElement('input');
     input.type = 'file';
@@ -891,17 +882,14 @@ export default function ChatTab({ onTabChange }) {
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (file) {
-        console.log('simulateDocumentUpload - file selected:', file.name, 'docType=', docType);
         await handleRealFileUpload(file, docType);
       }
     };
 
-    console.log('simulateDocumentUpload invoking file picker');
     input.click();
   };
 
   const simulateCameraUpload = (docType) => {
-    console.log('simulateCameraUpload called, docType=', docType);
     const input = document.createElement('input');
     input.type = 'file';
     // Accept common document types and images
@@ -912,7 +900,6 @@ export default function ChatTab({ onTabChange }) {
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (file) {
-        console.log('simulateCameraUpload - file selected:', file.name, 'docType=', docType);
         await handleRealFileUpload(file, docType);
       }
     };
@@ -923,33 +910,43 @@ export default function ChatTab({ onTabChange }) {
   return (
     <>
       <div className="flex flex-col h-full">
-        {/* Clear Chat History Button */}
-        {messages.length > 0 && (
-          <div className="px-3 sm:px-4 pt-2 sm:pt-3 pb-2 flex justify-end">
-            <button
-              onClick={async () => {
-                if (!user) return;
-                if (window.confirm('Are you sure you want to clear all chat history? This will remove the conversation but keep your health data context. This cannot be undone.')) {
-                  try {
-                    await messageService.deleteAllMessages(user.uid);
-                    setMessages([]);
-                    // Don't clear health/trial contexts - those represent the user's actual data, not conversation history
-                    // The AI can still access health data and trials from the database when needed
-                    setChatHistoryLoaded(false);
-                  } catch (error) {
-                    console.error('Error clearing chat history:', error);
-                    showError('Error clearing chat history. Please try again.');
+        {/* Header */}
+        <div className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 pb-2 sm:pb-3">
+          <div className="mb-4 sm:mb-6 flex items-center justify-between gap-2 sm:gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="bg-medical-primary-50 p-2 sm:p-2.5 rounded-lg">
+                <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 text-medical-primary-600" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-medical-neutral-900 mb-0.5 sm:mb-1">Chat</h1>
+              </div>
+            </div>
+            {messages.length > 0 && (
+              <button
+                onClick={async () => {
+                  if (!user) return;
+                  if (window.confirm('Are you sure you want to clear all chat history? This will remove the conversation but keep your health data context. This cannot be undone.')) {
+                    try {
+                      await messageService.deleteAllMessages(user.uid);
+                      setMessages([]);
+                      // Don't clear health/trial contexts - those represent the user's actual data, not conversation history
+                      // The AI can still access health data and trials from the database when needed
+                      setChatHistoryLoaded(false);
+                      showSuccess('Chat history cleared');
+                    } catch (error) {
+                      showError('Error clearing chat history. Please try again.');
+                    }
                   }
-                }
-              }}
-              className="text-medical-neutral-500 hover:text-medical-neutral-700 text-xs sm:text-sm flex items-center gap-1.5 transition-colors min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70"
-              title="Clear chat history"
-            >
-              <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span className="hidden sm:inline">Clear History</span>
-            </button>
+                }}
+                className="text-medical-neutral-500 hover:text-medical-neutral-700 text-xs sm:text-sm flex items-center gap-1.5 transition-colors min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70"
+                title="Clear chat history"
+              >
+                <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Clear History</span>
+              </button>
+            )}
           </div>
-        )}
+        </div>
         <div 
           ref={messagesContainerRef}
           className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 sm:space-y-3"
@@ -1057,7 +1054,6 @@ export default function ChatTab({ onTabChange }) {
                                            };
                                            setCurrentHealthContext(healthContext);
                                          } catch (error) {
-                                           console.error('Error loading health data for quick analysis:', error);
                                          }
                                        } else {
                                          healthContext = currentHealthContext;
@@ -1276,7 +1272,6 @@ export default function ChatTab({ onTabChange }) {
                     symptoms: symptoms
                   });
                 } catch (error) {
-                  console.error('Error loading health context:', error);
                   showError('Error loading health data');
                 }
               }}
@@ -1302,7 +1297,6 @@ export default function ChatTab({ onTabChange }) {
                   const entries = await getNotebookEntries(user.uid, { limit: 50 });
                   setCurrentNotebookContext({ entries });
                 } catch (error) {
-                  console.error('Error loading notebook context:', error);
                   showError('Error loading timeline');
                 }
               }}

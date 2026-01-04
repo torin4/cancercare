@@ -238,11 +238,6 @@ export const labService = {
 
     // Verify the current user owns this lab
     if (labData.patientId !== currentUser.uid) {
-      console.error('Permission denied: Lab ownership mismatch', {
-        labId,
-        labPatientId: labData.patientId,
-        currentUserId: currentUser.uid
-      });
       throw new Error(`Permission denied: You don't have permission to delete this lab. Lab belongs to user ${labData.patientId}, but you are ${currentUser.uid}`);
     }
 
@@ -253,7 +248,6 @@ export const labService = {
       const valuesRef = collection(db, COLLECTIONS.LABS, labId, 'values');
       const valuesSnapshot = await getDocs(valuesRef);
       
-      console.log(`[deleteLab] Deleting ${valuesSnapshot.docs.length} value(s) from lab document ${labId} (${labData.label || labData.labType})`);
       
       // Delete values one by one sequentially to avoid overwhelming security rules
       // Each value is in the subcollection of this specific labId, so it's safe to delete
@@ -266,29 +260,20 @@ export const labService = {
           const expectedPathPrefix = `${COLLECTIONS.LABS}/${labId}/values/`;
           
           if (!valuePath.startsWith(expectedPathPrefix)) {
-            console.error(`[deleteLab] SECURITY WARNING: Value ${valueDoc.id} is not in expected lab subcollection!`, {
-              valuePath,
-              expectedPrefix: expectedPathPrefix,
-              labId
-            });
             // Skip this value - don't delete it as it might belong to another lab
             continue;
           }
           
           await deleteDoc(valueDoc.ref);
           deletedCount++;
-          console.log(`[deleteLab] ✓ Deleted value ${valueDoc.id} from lab ${labId}`);
         } catch (error) {
           // Log but continue - don't fail the entire operation
-          console.warn(`[deleteLab] Error deleting lab value ${valueDoc.id}:`, error.message);
         }
       }
       
-      console.log(`[deleteLab] Successfully deleted ${deletedCount} of ${valuesSnapshot.docs.length} value(s) from lab ${labId}`);
     } catch (error) {
       // Log but continue - main document deletion should still work
       // This might fail if we can't even read the subcollection, but that's okay
-      console.warn('[deleteLab] Error accessing lab subcollection values:', error.message);
     }
     
     // Delete the main lab document
@@ -297,12 +282,6 @@ export const labService = {
       await deleteDoc(labRef);
     } catch (error) {
       // If this fails, it's a real permissions issue
-      console.error('Error deleting lab document:', error);
-      console.error('Lab ID:', labId);
-      console.error('Lab patientId:', labData.patientId);
-      console.error('Current user ID:', currentUser.uid);
-      console.error('Error code:', error.code);
-      console.error('Error message:', error.message);
       throw new Error(`Failed to delete lab: ${error.message}. Code: ${error.code}`);
     }
   },
@@ -320,7 +299,6 @@ export const labService = {
     // Check if valueId is actually the lab document ID (fallback value with no subcollection)
     // This happens when transform functions use lab.id as the data point ID
     if (valueId === labId) {
-      console.log(`[deleteLabValue] valueId matches labId - this is a fallback value. Clearing currentValue instead.`);
       const labRef = doc(db, COLLECTIONS.LABS, labId);
       const labDoc = await getDoc(labRef);
       
@@ -338,7 +316,6 @@ export const labService = {
         currentValue: null,
         updatedAt: serverTimestamp()
       });
-      console.log(`[deleteLabValue] ✓ Cleared currentValue for lab ${labId} (fallback value deleted)`);
       return;
     }
 
@@ -350,7 +327,6 @@ export const labService = {
     // If value not found in provided labId, search through all labs with same type
     // This handles the case where multiple lab documents have the same labType
     if (!valueDoc.exists()) {
-      console.log(`[deleteLabValue] Value ${valueId} not found in lab ${labId}, searching through all labs...`);
       
       // Get the lab document to find its labType
       const labRef = doc(db, COLLECTIONS.LABS, labId);
@@ -382,7 +358,6 @@ export const labService = {
         const testValueDoc = await getDoc(testValueRef);
         
         if (testValueDoc.exists()) {
-          console.log(`[deleteLabValue] Found value ${valueId} in lab ${testLabId} (not the provided lab ${labId})`);
           actualLabId = testLabId;
           valueRef = testValueRef;
           valueDoc = testValueDoc;
@@ -392,7 +367,6 @@ export const labService = {
       
       // If still not found, it may have already been deleted
       if (!valueDoc.exists()) {
-        console.warn(`[deleteLabValue] Value ${valueId} not found in any lab with type ${labType} - may have already been deleted`);
         return; // Don't throw - value may have already been deleted
       }
     } else {
@@ -411,11 +385,6 @@ export const labService = {
 
       // Verify the current user owns this lab
       if (labData.patientId !== currentUser.uid) {
-        console.error('Permission denied: Lab ownership mismatch', {
-          labId,
-          labPatientId: labData.patientId,
-          currentUserId: currentUser.uid
-        });
         throw new Error(`Permission denied: You don't have permission to delete this value. Lab belongs to user ${labData.patientId}, but you are ${currentUser.uid}`);
       }
     }
@@ -426,26 +395,15 @@ export const labService = {
     const actualLabDoc = await getDoc(actualLabRef);
     const actualLabData = actualLabDoc.data();
     
-    console.log(`[deleteLabValue] DELETING value:`, {
-      providedLabId: labId,
-      actualLabId: actualLabId,
-      valueId,
-      value: valueData.value,
-      date: valueData.date,
-      labCurrentValue: actualLabData.currentValue
-    });
     
     // Delete the value
     await deleteDoc(valueRef);
-    console.log(`[deleteLabValue] ✓ Deleted value ${valueId} from lab ${actualLabId}`);
     
     // Check if this was the last value - if so, clear currentValue to prevent it from reappearing
     const remainingValues = await getDocs(query(collection(db, COLLECTIONS.LABS, actualLabId, 'values')));
-    console.log(`[deleteLabValue] Remaining values count: ${remainingValues.size} for lab ${actualLabId}`);
     
     if (remainingValues.empty) {
       // Clear currentValue so transform functions don't use it as a fallback
-      console.log(`[deleteLabValue] Clearing currentValue for lab ${actualLabId} (no values remaining)`);
       await updateDoc(actualLabRef, {
         currentValue: null,
         updatedAt: serverTimestamp()
@@ -454,9 +412,7 @@ export const labService = {
       // Verify it was cleared
       const updatedLabDoc = await getDoc(actualLabRef);
       const updatedLabData = updatedLabDoc.data();
-      console.log(`[deleteLabValue] ✓ Cleared currentValue for lab ${actualLabId}. New currentValue:`, updatedLabData.currentValue);
     } else {
-      console.log(`[deleteLabValue] Lab ${actualLabId} still has ${remainingValues.size} value(s), keeping currentValue`);
     }
   },
 
@@ -489,7 +445,6 @@ export const labService = {
       }
     }
     
-    console.log(`[deleteAllLabsByType] Found ${labsToDelete.length} lab document(s) to delete for type ${labType}`);
     
     // Delete all matching labs and their subcollection values
     const deletePromises = labsToDelete.map(async (docSnap) => {
@@ -499,12 +454,9 @@ export const labService = {
         const valuesSnapshot = await getDocs(valuesRef);
         const deleteValuePromises = valuesSnapshot.docs.map(d => deleteDoc(d.ref));
         await Promise.all(deleteValuePromises);
-        console.log(`[deleteAllLabsByType] Deleted ${valuesSnapshot.docs.length} value(s) from lab ${docSnap.id}`);
       } catch (error) {
-        console.warn(`[deleteAllLabsByType] Error deleting subcollection values for lab ${docSnap.id}:`, error);
       }
       await deleteDoc(docSnap.ref);
-      console.log(`[deleteAllLabsByType] Deleted lab document ${docSnap.id}`);
     });
     await Promise.all(deletePromises);
     return labsToDelete.length;
@@ -539,13 +491,11 @@ export const labService = {
         await this.deleteLab(lab.id);
         deletedCount++;
       } catch (error) {
-        console.warn(`[cleanupOrphanedLabs] Error deleting orphaned lab ${lab.id}:`, error);
       }
     }
     
     // Only log if we actually deleted something
     if (deletedCount > 0) {
-      console.log(`[cleanupOrphanedLabs] Cleaned up ${deletedCount} orphaned lab${deletedCount !== 1 ? 's' : ''}`);
     }
     
     return deletedCount;
@@ -696,11 +646,6 @@ export const vitalService = {
 
     // Verify the current user owns this vital
     if (vitalData.patientId !== currentUser.uid) {
-      console.error('Permission denied: Vital ownership mismatch', {
-        vitalId,
-        vitalPatientId: vitalData.patientId,
-        currentUserId: currentUser.uid
-      });
       throw new Error(`Permission denied: You don't have permission to delete this vital. Vital belongs to user ${vitalData.patientId}, but you are ${currentUser.uid}`);
     }
 
@@ -711,7 +656,6 @@ export const vitalService = {
       const valuesRef = collection(db, COLLECTIONS.VITALS, vitalId, 'values');
       const valuesSnapshot = await getDocs(valuesRef);
       
-      console.log(`[deleteVital] Deleting ${valuesSnapshot.docs.length} value(s) from vital document ${vitalId} (${vitalData.label || vitalData.vitalType})`);
       
       // Delete values with safety checks
       let deletedCount = 0;
@@ -722,38 +666,23 @@ export const vitalService = {
           const expectedPathPrefix = `${COLLECTIONS.VITALS}/${vitalId}/values/`;
           
           if (!valuePath.startsWith(expectedPathPrefix)) {
-            console.error(`[deleteVital] SECURITY WARNING: Value ${valueDoc.id} is not in expected vital subcollection!`, {
-              valuePath,
-              expectedPrefix: expectedPathPrefix,
-              vitalId
-            });
             // Skip this value - don't delete it as it might belong to another vital
             continue;
           }
           
           await deleteDoc(valueDoc.ref);
           deletedCount++;
-          console.log(`[deleteVital] ✓ Deleted value ${valueDoc.id} from vital ${vitalId}`);
     } catch (error) {
-          console.warn(`[deleteVital] Error deleting vital value ${valueDoc.id}:`, error.message);
         }
       }
       
-      console.log(`[deleteVital] Successfully deleted ${deletedCount} of ${valuesSnapshot.docs.length} value(s) from vital ${vitalId}`);
     } catch (error) {
-      console.warn('[deleteVital] Error deleting vital subcollection values:', error);
       // Continue with main document deletion even if subcollection deletion fails
     }
     
     try {
       await deleteDoc(vitalRef);
     } catch (error) {
-      console.error('Error deleting vital document:', error);
-      console.error('Vital ID:', vitalId);
-      console.error('Vital patientId:', vitalData.patientId);
-      console.error('Current user ID:', currentUser.uid);
-      console.error('Error code:', error.code);
-      console.error('Error message:', error.message);
       throw new Error(`Failed to delete vital: ${error.message}. Code: ${error.code}`);
     }
   },
@@ -773,7 +702,6 @@ export const vitalService = {
     // Check if valueId is actually the vital document ID (fallback value with no subcollection)
     // This happens when transform functions use vital.id as the data point ID
     if (valueId === vitalId) {
-      console.log(`[deleteVitalValue] valueId matches vitalId - this is a fallback value. Clearing currentValue instead.`);
       const vitalRef = doc(db, COLLECTIONS.VITALS, vitalId);
       const vitalDoc = await getDoc(vitalRef);
       
@@ -791,7 +719,6 @@ export const vitalService = {
         currentValue: null,
         updatedAt: serverTimestamp()
       });
-      console.log(`[deleteVitalValue] ✓ Cleared currentValue for vital ${vitalId} (fallback value deleted)`);
       return;
     }
 
@@ -803,7 +730,6 @@ export const vitalService = {
     // If value not found in provided vitalId, search through all vitals with same type
     // This handles the case where multiple vital documents have the same vitalType
     if (!valueDoc.exists()) {
-      console.log(`[deleteVitalValue] Value ${valueId} not found in vital ${vitalId}, searching through all vitals...`);
       
       // Get the vital document to find its vitalType
       const vitalRef = doc(db, COLLECTIONS.VITALS, vitalId);
@@ -835,7 +761,6 @@ export const vitalService = {
         const testValueDoc = await getDoc(testValueRef);
         
         if (testValueDoc.exists()) {
-          console.log(`[deleteVitalValue] Found value ${valueId} in vital ${testVitalId} (not the provided vital ${vitalId})`);
           actualVitalId = testVitalId;
           valueRef = testValueRef;
           valueDoc = testValueDoc;
@@ -845,7 +770,6 @@ export const vitalService = {
       
       // If still not found, it may have already been deleted
       if (!valueDoc.exists()) {
-        console.warn(`[deleteVitalValue] Value ${valueId} not found in any vital with type ${vitalType} - may have already been deleted`);
         return; // Don't throw - value may have already been deleted
       }
     } else {
@@ -864,11 +788,6 @@ export const vitalService = {
 
       // Verify the current user owns this vital
       if (vitalData.patientId !== currentUser.uid) {
-        console.error('Permission denied: Vital ownership mismatch', {
-          vitalId,
-          vitalPatientId: vitalData.patientId,
-          currentUserId: currentUser.uid
-        });
         throw new Error(`Permission denied: You don't have permission to delete this value. Vital belongs to user ${vitalData.patientId}, but you are ${currentUser.uid}`);
       }
     }
@@ -879,25 +798,14 @@ export const vitalService = {
     const actualVitalDoc = await getDoc(actualVitalRef);
     const actualVitalData = actualVitalDoc.data();
     
-    console.log(`[deleteVitalValue] DELETING value:`, {
-      providedVitalId: vitalId,
-      actualVitalId: actualVitalId,
-      valueId,
-      value: valueData.value,
-      date: valueData.date,
-      vitalCurrentValue: actualVitalData.currentValue
-    });
     
     await deleteDoc(valueRef);
-    console.log(`[deleteVitalValue] ✓ Deleted value ${valueId} from vital ${actualVitalId}`);
     
     // Check if this was the last value - if so, clear currentValue to prevent it from reappearing
     const remainingValues = await getDocs(query(collection(db, COLLECTIONS.VITALS, actualVitalId, 'values')));
-    console.log(`[deleteVitalValue] Remaining values count: ${remainingValues.size} for vital ${actualVitalId}`);
     
     if (remainingValues.empty) {
       // Clear currentValue so transform functions don't use it as a fallback
-      console.log(`[deleteVitalValue] Clearing currentValue for vital ${actualVitalId} (no values remaining)`);
       await updateDoc(actualVitalRef, {
         currentValue: null,
         updatedAt: serverTimestamp()
@@ -906,9 +814,7 @@ export const vitalService = {
       // Verify it was cleared
       const updatedVitalDoc = await getDoc(actualVitalRef);
       const updatedVitalData = updatedVitalDoc.data();
-      console.log(`[deleteVitalValue] ✓ Cleared currentValue for vital ${actualVitalId}. New currentValue:`, updatedVitalData.currentValue);
     } else {
-      console.log(`[deleteVitalValue] Vital ${actualVitalId} still has ${remainingValues.size} value(s), keeping currentValue`);
     }
   },
 
@@ -941,7 +847,6 @@ export const vitalService = {
       }
     }
     
-    console.log(`[deleteAllVitalsByType] Found ${vitalsToDelete.length} vital document(s) to delete for type ${vitalType}`);
     
     // Delete all matching vitals and their subcollection values
     const deletePromises = vitalsToDelete.map(async (docSnap) => {
@@ -951,12 +856,9 @@ export const vitalService = {
         const valuesSnapshot = await getDocs(valuesRef);
         const deleteValuePromises = valuesSnapshot.docs.map(d => deleteDoc(d.ref));
         await Promise.all(deleteValuePromises);
-        console.log(`[deleteAllVitalsByType] Deleted ${valuesSnapshot.docs.length} value(s) from vital ${docSnap.id}`);
       } catch (error) {
-        console.warn(`[deleteAllVitalsByType] Error deleting subcollection values for vital ${docSnap.id}:`, error);
       }
       await deleteDoc(docSnap.ref);
-      console.log(`[deleteAllVitalsByType] Deleted vital document ${docSnap.id}`);
     });
     await Promise.all(deletePromises);
     return vitalsToDelete.length;
@@ -991,13 +893,11 @@ export const vitalService = {
         await this.deleteVital(vital.id);
         deletedCount++;
       } catch (error) {
-        console.warn(`[cleanupOrphanedVitals] Error deleting orphaned vital ${vital.id}:`, error);
       }
     }
 
     // Only log if we actually deleted something
     if (deletedCount > 0) {
-      console.log(`[cleanupOrphanedVitals] Cleaned up ${deletedCount} orphaned vital${deletedCount !== 1 ? 's' : ''}`);
     }
     
     return deletedCount;
@@ -1144,7 +1044,6 @@ export const documentService = {
     
     // Update Firestore in background (non-blocking) for persistence
     this.calculateAndUpdateDateRanges(patientId, documentsWithRanges).catch(error => {
-      console.warn('[getDocuments] Error updating date ranges in Firestore:', error);
     });
     
     return documentsWithRanges;
@@ -1226,7 +1125,6 @@ export const documentService = {
         };
       });
     } catch (error) {
-      console.error('[calculateDateRangesForDocuments] Error:', error);
       // Return documents as-is if calculation fails
       return documents;
     }
@@ -1313,7 +1211,6 @@ export const documentService = {
       
       await Promise.all(updatePromises);
     } catch (error) {
-      console.error('[calculateAndUpdateDateRanges] Error:', error);
       throw error;
     }
   },
@@ -1352,7 +1249,6 @@ export const documentService = {
         ...dataToSave,
         updatedAt: serverTimestamp()
       });
-      console.log('[saveDocument] Updated document', documentData.id);
       return documentData.id;
     } else {
       const docRef = await addDoc(collection(db, COLLECTIONS.DOCUMENTS), {
@@ -1360,7 +1256,6 @@ export const documentService = {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
-      console.log('[saveDocument] Created document', docRef.id);
       return docRef.id;
     }
   },
@@ -1391,23 +1286,12 @@ export const documentService = {
 
     // Verify the current user owns this document
     if (docData.patientId !== currentUser.uid) {
-      console.error('Permission denied: Document ownership mismatch', {
-        docId,
-        docPatientId: docData.patientId,
-        currentUserId: currentUser.uid
-      });
       throw new Error(`Permission denied: You don't have permission to delete this document. Document belongs to user ${docData.patientId}, but you are ${currentUser.uid}`);
     }
 
     try {
       await deleteDoc(docRef);
     } catch (error) {
-      console.error('Error deleting document:', error);
-      console.error('Document ID:', docId);
-      console.error('Document patientId:', docData.patientId);
-      console.error('Current user ID:', currentUser.uid);
-      console.error('Error code:', error.code);
-      console.error('Error message:', error.message);
       throw new Error(`Failed to delete document: ${error.message}. Code: ${error.code}`);
     }
   }
@@ -1488,7 +1372,6 @@ export const symptomService = {
       const items = snapshot.docs.map(d => ({ id: d.id, ...convertTimestamps(d.data()) }));
       if (typeof onChange === 'function') onChange(items);
     }, (err) => {
-      console.warn('Symptoms subscription error:', err);
     });
     return unsub;
   },
@@ -1842,7 +1725,6 @@ export const accountService = {
    */
   async clearHealthData(userId) {
     try {
-      console.log('Clearing health data for:', userId);
 
       // 1. Collections to clear completely (where patientId == userId)
       const healthCollections = [
@@ -1885,9 +1767,7 @@ export const accountService = {
       // Note: diagnosis, diagnosisDate, currentStatus are kept persistent for trial matching and user reference
       // Only clear health data collections, not the patient's current status information
 
-      console.log('Health data cleared successfully - patient profile preserved');
     } catch (error) {
-      console.error('Error clearing health data:', error);
       throw error;
     }
   },
@@ -1910,9 +1790,7 @@ export const accountService = {
       const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
       await Promise.all(deletePromises);
 
-      console.log('Full user data deleted successfully');
     } catch (error) {
-      console.error('Error deleting full user data:', error);
       throw error;
     }
   }

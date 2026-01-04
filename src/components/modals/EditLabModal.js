@@ -65,7 +65,6 @@ export default function EditLabModal({
             setValues(sortedValues);
           }
         } catch (error) {
-          console.error('Error loading values:', error);
           // Fallback to lab.data
           const sortedValues = [...(lab.data || [])].sort((a, b) => {
             const dateA = a.timestamp || (a.dateOriginal ? a.dateOriginal.getTime() : 0);
@@ -103,7 +102,6 @@ export default function EditLabModal({
       onClose();
       setIsSaving(false);
     } catch (error) {
-      console.error('Error saving lab:', error);
       setIsSaving(false);
       throw error;
     }
@@ -124,7 +122,6 @@ export default function EditLabModal({
       // Remove from local state
       setValues(prev => prev.filter(v => v.id !== valueId));
     } catch (error) {
-      console.error('Error deleting value:', error);
     } finally {
       setDeletingValueId(null);
     }

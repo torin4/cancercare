@@ -148,9 +148,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
     input.style.left = '-9999px';
     
     input.onchange = async (e) => {
-      console.log('[DocumentUploadOnboarding] File input changed, files:', e.target.files?.length || 0);
       const files = Array.from(e.target.files || []);
-      console.log('[DocumentUploadOnboarding] Files array:', files.map(f => ({ name: f.name, type: f.type, size: f.size })));
       
       if (files.length > 0) {
         // Add files to selectedFiles state instead of uploading immediately
@@ -193,8 +191,6 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
         await onUploadClick(selectedType, normalizedDate, normalizedNote, selectedFiles, onlyExistingMetrics);
       }
     } catch (error) {
-      console.error('[DocumentUploadOnboarding] Error in onUploadClick:', error);
-      console.error('[DocumentUploadOnboarding] Error stack:', error.stack);
     }
   };
 

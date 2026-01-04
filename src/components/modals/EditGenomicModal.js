@@ -50,7 +50,6 @@ export default function EditGenomicModal({
       onClose();
       setMessages(prev => [...prev, { type: 'ai', text: 'Genomic profile updated successfully!' }]);
     } catch (err) {
-      console.error('Failed to save genomic profile', err);
       showError('Failed to save genomic profile. Please try again.');
     }
   };

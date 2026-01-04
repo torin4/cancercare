@@ -23,7 +23,6 @@ module.exports = async (req, res) => {
     const path = req.query.path || req.url.replace(/^\/api\/jrct-proxy/, '');
     const target = `${JRCT_HOST}${path}${req.url.includes('?') ? '&' + new URL(req.url, 'http://localhost').search.substring(1) : ''}`;
     
-    console.log('jrct-proxy: forwarding to', target);
 
     const response = await axios.get(target, {
       headers: {
@@ -36,7 +35,6 @@ module.exports = async (req, res) => {
 
     res.status(response.status).json(response.data);
   } catch (error) {
-    console.error('jrct-proxy error:', error.message || error);
     if (error.response) {
       res.status(error.response.status).json({ error: error.message, details: error.response.data });
       return;

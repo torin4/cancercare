@@ -170,9 +170,7 @@ export const transformLabsData = async (labs) => {
         } else {
           // No values in subcollection - only use lab document data if currentValue exists
           // (If currentValue is null, it means all values were deleted, so don't add it back)
-          console.log(`[transformLabsData] Lab ${lab.id} (${labType}) has no values in subcollection. currentValue:`, lab.currentValue);
           if (lab.currentValue != null && lab.currentValue !== undefined && lab.currentValue !== '') {
-            console.log(`[transformLabsData] Using lab document fallback for ${labType} with currentValue:`, lab.currentValue);
             // Convert to local date to avoid timezone shift
             let timestamp;
             if (lab.createdAt?.toDate) {
@@ -212,12 +210,10 @@ export const transformLabsData = async (labs) => {
               existingValueKeys.add(valueKey);
             }
           } else {
-            console.log(`[transformLabsData] Skipping lab ${lab.id} (${labType}) - currentValue is null/empty (all values deleted)`);
           }
           // If currentValue is null/empty, don't add anything - all values were deleted
         }
       } catch (error) {
-        console.error(`Error loading values for lab ${lab.id}:`, error);
         // Fallback to lab document data only if currentValue exists
         // (If currentValue is null, it means all values were deleted, so don't add it back)
         if (lab.currentValue != null && lab.currentValue !== undefined && lab.currentValue !== '') {
@@ -270,7 +266,6 @@ export const transformLabsData = async (labs) => {
     
     // Only log duplicates in development mode if there are many
     if (process.env.NODE_ENV === 'development' && totalSkippedCount > 5) {
-      console.warn(`[transformLabsData] Skipped ${totalSkippedCount} duplicate values for ${labType} (across ${labDocuments.length} lab document(s))`);
     }
 
     // Calculate trend based on all merged values
@@ -430,7 +425,6 @@ export const transformVitalsData = async (vitals) => {
         
         // Only log duplicates in development mode if there are many
         if (process.env.NODE_ENV === 'development' && skippedCount > 5) {
-          console.warn(`[transformVitalsData] Skipped ${skippedCount} duplicate values for ${canonicalKey}`);
         }
 
         // Update current value to most recent
@@ -444,9 +438,7 @@ export const transformVitalsData = async (vitals) => {
       } else {
         // No values in subcollection - only use vital document data if currentValue exists
         // (If currentValue is null, it means all values were deleted, so don't add it back)
-        console.log(`[transformVitalsData] Vital ${vital.id} (${canonicalKey}) has no values in subcollection. currentValue:`, vital.currentValue);
         if (vital.currentValue != null && vital.currentValue !== undefined && vital.currentValue !== '') {
-          console.log(`[transformVitalsData] Using vital document fallback for ${canonicalKey} with currentValue:`, vital.currentValue);
           // Convert to local date to avoid timezone shift
           let vitalDate;
           if (vital.createdAt?.toDate) {
@@ -477,12 +469,10 @@ export const transformVitalsData = async (vitals) => {
             notes: '' // No notes for initial value
           });
         } else {
-          console.log(`[transformVitalsData] Skipping vital ${vital.id} (${canonicalKey}) - currentValue is null/empty (all values deleted)`);
         }
         // If currentValue is null/empty, don't add anything - all values were deleted
       }
     } catch (error) {
-      console.error(`Error loading values for vital ${vital.id}:`, error);
       // Fallback to vital document data only if currentValue exists
       // (If currentValue is null, it means all values were deleted, so don't add it back)
       if (vital.currentValue != null && vital.currentValue !== undefined && vital.currentValue !== '') {

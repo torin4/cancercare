@@ -59,7 +59,6 @@ export default function EditJournalNoteModal({
       setEditingNote(null);
       onClose();
     } catch (error) {
-      console.error('Error updating journal note:', error);
       showError('Failed to update note. Please try again.');
     } finally {
       setIsSaving(false);

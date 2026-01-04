@@ -59,7 +59,6 @@ export default function EditContactsModal({
       showSuccess('Emergency contacts updated!');
       onClose();
     } catch (err) {
-      console.error('Failed to save emergency contacts', err);
       showError('Failed to save emergency contacts.');
     }
   };

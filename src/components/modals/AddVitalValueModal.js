@@ -211,7 +211,6 @@ export default function AddVitalValueModal({
       showSuccess(isEditingVitalValue ? 'Vital reading updated successfully!' : 'Vital reading added successfully!');
       onClose();
     } catch (error) {
-      console.error('Error adding vital value:', error);
       showError('Failed to add vital reading. Please try again.');
     }
   };

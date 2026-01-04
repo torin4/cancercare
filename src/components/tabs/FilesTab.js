@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical, Loader2, BookOpen } from 'lucide-react';
+import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical, Loader2, BookOpen, FileText, MessageSquare } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
@@ -70,7 +70,6 @@ export default function FilesTab({ onTabChange }) {
       const newLog = { message, type, timestamp: new Date().toLocaleTimeString() };
       return [...prev.slice(-9), newLog]; // Keep last 10 logs
     });
-    console.log(`[DEBUG] ${message}`);
   }, []);
 
   // Helper function to get date range for a document
@@ -120,7 +119,6 @@ export default function FilesTab({ onTabChange }) {
       
       return { minDate, maxDate };
     } catch (error) {
-      console.error('Error getting document date range:', error);
       return null;
     }
   }, [user]);
@@ -151,21 +149,12 @@ export default function FilesTab({ onTabChange }) {
         try {
           setIsLoadingDocuments(true);
           const docs = await documentService.getDocuments(user.uid);
-          console.log('[FilesTab] Loaded documents:', docs.map(d => ({
-            id: d.id,
-            fileName: d.fileName,
-            date: d.date,
-            note: d.note,
-            hasDate: !!d.date,
-            hasNote: !!d.note
-          })));
           setDocuments(docs);
           setHasUploadedDocument(docs.length > 0);
           
           // Date ranges are now calculated and stored in documents by documentService.getDocuments()
           // No need to calculate them here - they're already in doc.minDate/doc.maxDate
         } catch (error) {
-          console.error('Error loading documents:', error);
         } finally {
           setIsLoadingDocuments(false);
         }
@@ -185,7 +174,6 @@ export default function FilesTab({ onTabChange }) {
         const entries = await getNotebookEntries(user.uid, { limit: 50 });
         setNotebookEntries(entries);
       } catch (error) {
-        console.error('Error loading notebook entries:', error);
         showError('Failed to load notebook entries');
       } finally {
         setIsLoadingNotebook(false);
@@ -204,7 +192,6 @@ export default function FilesTab({ onTabChange }) {
       const entries = await getNotebookEntries(user.uid, { limit: 50 });
       setNotebookEntries(entries);
     } catch (error) {
-      console.error('Error reloading notebook entries:', error);
     } finally {
       setIsLoadingNotebook(false);
     }
@@ -227,7 +214,6 @@ export default function FilesTab({ onTabChange }) {
           showSuccess('Note deleted successfully');
           reloadNotebookEntries();
         } catch (error) {
-          console.error('Error deleting journal note:', error);
           showError('Failed to delete note. Please try again.');
         } finally {
           setIsDeleting(false);
@@ -266,7 +252,6 @@ export default function FilesTab({ onTabChange }) {
         }
       }
     } catch (error) {
-      console.error('Error fetching note/document for editing:', error);
       showError('Failed to load for editing. Please try again.');
     }
   };
@@ -358,7 +343,6 @@ export default function FilesTab({ onTabChange }) {
             await new Promise(resolve => setTimeout(resolve, 500));
           }
         } catch (error) {
-          console.error(`Error processing file ${fileNumber} (${file.name}):`, error);
           errorCount++;
           errors.push({ file: file.name, error: error.message });
         }
@@ -381,7 +365,6 @@ export default function FilesTab({ onTabChange }) {
       await reloadHealthData();
       
     } catch (error) {
-      console.error('Error in multiple file upload:', error);
       showError(`Failed to process files: ${error.message}`);
       setIsUploading(false);
       setUploadProgress('');
@@ -391,18 +374,9 @@ export default function FilesTab({ onTabChange }) {
 
   const handleRealFileUpload = async (file, docType, providedDateOverride = null, providedNoteOverride = null, currentFileNumber = null, totalFiles = null, onlyExistingMetricsOverride = null) => {
     addDebugLog(`handleRealFileUpload: ${file?.name || 'unknown'}`, 'info');
-    console.log('[FilesTab] handleRealFileUpload called:', { 
-      fileName: file?.name, 
-      fileType: file?.type, 
-      fileSize: file?.size, 
-      docType, 
-      currentFileNumber, 
-      totalFiles 
-    });
     
     if (!user) {
       addDebugLog('ERROR: No user found', 'error');
-      console.error('[FilesTab] No user found');
       showError('Please log in to upload files');
       return;
     }
@@ -411,13 +385,11 @@ export default function FilesTab({ onTabChange }) {
       // Show loading overlay (only if not part of a batch)
       if (currentFileNumber === null) {
         addDebugLog('Setting upload overlay to visible', 'info');
-        console.log('[FilesTab] Setting upload state to true');
         setIsUploading(true);
         setUploadProgress('Preparing upload...');
         // Small delay to ensure overlay renders before heavy processing
         await new Promise(resolve => setTimeout(resolve, 100));
         addDebugLog('Upload overlay should be visible', 'success');
-        console.log('[FilesTab] Upload overlay should be visible now');
       }
       
       const fileProgressPrefix = currentFileNumber && totalFiles 
@@ -425,7 +397,6 @@ export default function FilesTab({ onTabChange }) {
         : '';
       
       addDebugLog('Starting document processing', 'info');
-      console.log('[FilesTab] Starting to read document');
       setUploadProgress(`${fileProgressPrefix}Reading document...`);
 
       // Get document date, note, and onlyExistingMetrics (user-provided or null)
@@ -459,7 +430,6 @@ export default function FilesTab({ onTabChange }) {
       );
       
       setAiStatus(null); // Clear AI status after analysis
-      console.log('Document processing result:', processingResult);
 
       // Step 2: Upload file to Firebase Storage
       setUploadProgress(`${fileProgressPrefix}Uploading to secure storage...`);
@@ -479,7 +449,6 @@ export default function FilesTab({ onTabChange }) {
         dataPointCount: processingResult.dataPointCount || 0
       });
 
-      console.log('File uploaded successfully:', uploadResult);
 
       // Step 3: Link all extracted values to the document ID
       setUploadProgress(`${fileProgressPrefix}Linking data to document...`);
@@ -488,7 +457,6 @@ export default function FilesTab({ onTabChange }) {
           const { linkValuesToDocument } = await import('../../services/documentProcessor');
           await linkValuesToDocument(processingResult.extractedData, uploadResult.id, user.uid);
         } catch (linkError) {
-          console.error('[FilesTab] Error linking values to document:', linkError);
         }
       }
 
@@ -560,7 +528,6 @@ export default function FilesTab({ onTabChange }) {
         }
       }
     } catch (error) {
-      console.error('Upload error:', error);
       // Only show error and close overlay if not part of a batch (batch handler will show summary)
       if (currentFileNumber === null) {
         showError(`Failed to process document: ${error.message}. The file was not uploaded. Please try again or contact support if the issue persists.`);
@@ -654,8 +621,18 @@ export default function FilesTab({ onTabChange }) {
           </div>
         </div>
       )}
-      <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4">
-      {/* Visual Debug Panel - Only show if there are logs */}
+      <div className="p-3 sm:p-4 md:p-6">
+        {/* Header */}
+        <div className="mb-4 sm:mb-6 flex items-center gap-2 sm:gap-3">
+          <div className="bg-medical-primary-50 p-2 sm:p-2.5 rounded-lg">
+            <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-medical-primary-600" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-medical-neutral-900 mb-0.5 sm:mb-1">Files & Notes</h1>
+          </div>
+        </div>
+
+        {/* Visual Debug Panel - Only show if there are logs */}
       {debugLogs.length > 0 && (
         <div className="fixed bottom-4 right-4 bg-black/90 text-white p-3 rounded-lg text-xs max-w-xs z-[9999] max-h-64 overflow-y-auto shadow-2xl border border-white/20">
           <div className="flex items-center justify-between mb-2">
@@ -682,48 +659,53 @@ export default function FilesTab({ onTabChange }) {
         </div>
       )}
 
-      {/* Tab Navigation */}
-      <div className="bg-white border-b border-medical-neutral-200 px-3 sm:px-4 md:px-6 flex gap-2 overflow-x-auto">
-        <button
-          onClick={() => setActiveSubTab('documents')}
-          className={`pb-3 px-2 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70 whitespace-nowrap flex-shrink-0 ${
-            activeSubTab === 'documents'
-              ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
-              : 'text-medical-neutral-600 hover:text-medical-primary-600'
-          }`}
-        >
-          <FolderOpen className="w-4 h-4" />
-          <span className="text-xs sm:text-base">Files</span>
-          {documents.length > 0 && (
-            <span className={`ml-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs ${
+      {/* Tab Navigation with Ask About Button */}
+      <div className={`flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6 overflow-x-auto`}>
+        {/* Tab Navigation */}
+        <div className="flex gap-1 sm:gap-4 flex-1">
+          <button
+            onClick={() => setActiveSubTab('documents')}
+            className={`pb-3 px-2 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70 whitespace-nowrap flex-shrink-0 ${
               activeSubTab === 'documents'
-                ? 'bg-medical-primary-100 text-medical-primary-700'
-                : 'bg-medical-neutral-100 text-medical-neutral-600'
-            }`}>
-              {documents.length}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={() => setActiveSubTab('notes')}
-          className={`pb-3 px-2 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70 whitespace-nowrap flex-shrink-0 ${
-            activeSubTab === 'notes'
-              ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
-              : 'text-medical-neutral-600 hover:text-medical-primary-600'
-          }`}
-        >
-          <BookOpen className="w-4 h-4" />
-          <span className="text-xs sm:text-base">Notes</span>
-          {notebookEntries.length > 0 && (
-            <span className={`ml-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs ${
+                ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
+                : 'text-medical-neutral-600 hover:text-medical-primary-600'
+            }`}
+          >
+            <FolderOpen className="w-4 h-4" />
+            <span className="text-xs sm:text-base">Files</span>
+          </button>
+          <button
+            onClick={() => setActiveSubTab('notes')}
+            className={`pb-3 px-2 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70 whitespace-nowrap flex-shrink-0 ${
               activeSubTab === 'notes'
-                ? 'bg-medical-primary-100 text-medical-primary-700'
-                : 'bg-medical-neutral-100 text-medical-neutral-600'
-            }`}>
-              {notebookEntries.length}
-            </span>
-          )}
-        </button>
+                ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
+                : 'text-medical-neutral-600 hover:text-medical-primary-600'
+            }`}
+          >
+            <BookOpen className="w-4 h-4" />
+            <span className="text-xs sm:text-base">Notes</span>
+          </button>
+        </div>
+        
+        {/* Ask About Timeline Button - Only show when Notes tab is active */}
+        {activeSubTab === 'notes' && (
+          <button
+            onClick={async () => {
+              if (!user?.uid) return;
+              try {
+                const entries = await getNotebookEntries(user.uid, { limit: 50 });
+                sessionStorage.setItem('currentNotebookContext', JSON.stringify({ entries }));
+                onTabChange('chat');
+              } catch (error) {
+                showError('Error loading timeline data. Please try again.');
+              }
+            }}
+            className="bg-medical-primary-50 text-medical-primary-600 px-3 sm:px-6 py-2.5 rounded-lg hover:bg-medical-primary-100 transition font-medium flex items-center gap-2 shadow-sm border border-medical-primary-200 min-h-[44px] touch-manipulation active:opacity-70 flex-shrink-0"
+          >
+            <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-medical-primary-600" />
+            <span className="hidden sm:inline">Ask About This</span>
+          </button>
+        )}
       </div>
 
       {/* Documents Tab Content */}
@@ -802,7 +784,6 @@ export default function FilesTab({ onTabChange }) {
                       
                       showSuccess('Document and associated data deleted successfully.');
                     } catch (error) {
-                      console.error('Error deleting document:', error);
                       showError('Failed to delete document. Please try again.');
                     } finally {
                       setIsDeleting(false);
@@ -970,6 +951,37 @@ export default function FilesTab({ onTabChange }) {
       {/* Notes Tab Content */}
       {activeSubTab === 'notes' && (
       <div className="bg-white rounded-b-lg shadow p-3 sm:p-4 md:p-5 border-x border-b border-medical-neutral-200">
+        {notebookEntries.length > 0 && (
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h3 className="text-sm sm:text-base md:text-lg font-semibold text-medical-neutral-900 flex items-center gap-2">
+              <div className="bg-gray-100 p-1.5 sm:p-2 rounded-lg">
+                <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+              </div>
+              Medical Journal
+            </h3>
+            <button
+              onClick={() => {
+                setAddNoteDate(null);
+                setShowAddJournalNote(true);
+              }}
+              className="flex items-center gap-2 text-medical-primary-600 hover:text-medical-primary-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="text-sm font-medium">Add Entry</span>
+            </button>
+          </div>
+        )}
+        {notebookEntries.length === 0 && !isLoadingNotebook && (
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h3 className="text-sm sm:text-base md:text-lg font-semibold text-medical-neutral-900 flex items-center gap-2">
+              <div className="bg-gray-100 p-1.5 sm:p-2 rounded-lg">
+                <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+              </div>
+              Medical Journal
+            </h3>
+          </div>
+        )}
+
         {isLoadingNotebook ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 text-medical-primary-600 animate-spin" />
@@ -998,15 +1010,6 @@ export default function FilesTab({ onTabChange }) {
           onClose={() => setShowDocumentOnboarding(false)}
           onUploadClick={async (documentType, documentDate = null, documentNote = null, fileOrFiles = null, onlyExistingMetrics = false) => {
             addDebugLog(`onUploadClick: ${documentType}, hasFile: ${!!fileOrFiles}`, 'info');
-            console.log('[FilesTab] onUploadClick called:', { 
-              documentType, 
-              documentDate, 
-              documentNote, 
-              onlyExistingMetrics,
-              hasFile: !!fileOrFiles, 
-              isArray: Array.isArray(fileOrFiles),
-              fileCount: Array.isArray(fileOrFiles) ? fileOrFiles.length : (fileOrFiles ? 1 : 0)
-            });
             
             try {
               // Normalize and set pending state - ensure we preserve actual note values
@@ -1018,7 +1021,6 @@ export default function FilesTab({ onTabChange }) {
                 : (documentNote || null);
               
               addDebugLog(`Normalized: date=${normalizedDate}, note=${normalizedNote ? 'yes' : 'no'}, onlyExisting=${onlyExistingMetrics}`, 'info');
-              console.log('[FilesTab] Normalized date/note/onlyExisting:', { normalizedDate, normalizedNote, onlyExistingMetrics });
               
               setPendingDocumentDate(normalizedDate);
               setPendingDocumentNote(normalizedNote);
@@ -1026,35 +1028,28 @@ export default function FilesTab({ onTabChange }) {
               
               // Close modal first to show upload progress
               addDebugLog('Closing modal...', 'info');
-              console.log('[FilesTab] Closing document onboarding modal');
               setShowDocumentOnboarding(false);
               
               // Small delay to ensure modal closes before starting upload
               await new Promise(resolve => setTimeout(resolve, 150));
               addDebugLog('Modal closed, starting upload', 'info');
-              console.log('[FilesTab] Delay complete, starting upload process');
               
               // If file(s) is provided (from component's file picker), upload it/them directly
               if (fileOrFiles) {
                 addDebugLog(`File received: ${fileOrFiles.name || 'array'}`, 'success');
-                console.log('[FilesTab] File(s) provided, starting upload');
                 if (Array.isArray(fileOrFiles)) {
                   // Multiple files - process sequentially
                   addDebugLog(`Processing ${fileOrFiles.length} files`, 'info');
-                  console.log('[FilesTab] Processing multiple files:', fileOrFiles.length);
                   await handleMultipleFileUpload(fileOrFiles, documentType, normalizedDate, normalizedNote, onlyExistingMetrics);
                 } else {
                   // Single file - use existing handler
                   addDebugLog(`Processing: ${fileOrFiles.name} (${(fileOrFiles.size / 1024).toFixed(0)}KB)`, 'info');
-                  console.log('[FilesTab] Processing single file:', fileOrFiles.name, fileOrFiles.type, fileOrFiles.size);
                   await handleRealFileUpload(fileOrFiles, documentType, normalizedDate, normalizedNote, null, null, onlyExistingMetrics);
                 }
               } else {
                 // Otherwise, open file picker (fallback)
                 addDebugLog('No file, opening picker', 'warning');
-                console.log('[FilesTab] No file provided, opening file picker');
                 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-                console.log('[FilesTab] Is mobile:', isMobile, 'Method:', documentOnboardingMethod);
                 
                 if (documentOnboardingMethod === 'camera') {
                   simulateCameraUpload(documentType);
@@ -1067,8 +1062,6 @@ export default function FilesTab({ onTabChange }) {
     } catch (error) {
       addDebugLog(`ERROR: ${error.message}`, 'error');
       addDebugLog(`Stack: ${error.stack?.substring(0, 100)}...`, 'error');
-      console.error('[FilesTab] Error in onUploadClick:', error);
-      console.error('[FilesTab] Error stack:', error.stack);
       showError(`Failed to start upload: ${error.message}. Please try again.`);
       // Ensure modal can be reopened if there's an error
       setShowDocumentOnboarding(false);
@@ -1228,7 +1221,6 @@ export default function FilesTab({ onTabChange }) {
             // Navigate to chat tab to show summary
             onTabChange('chat');
           } catch (error) {
-            console.error('Error rescanning document:', error);
             showError(`Error rescanning document: ${error.message}. Please try again.`);
             // Close modal on error
             setRescanDocument(null);

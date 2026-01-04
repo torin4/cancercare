@@ -92,7 +92,6 @@ export default function RescanDocumentModal({
             setDateRange({ min: null, max: null });
           }
         } catch (error) {
-          console.error('[RescanDocumentModal] Error checking dates:', error);
           setHasMultipleDates(false);
         } finally {
           setIsCheckingDates(false);
@@ -106,12 +105,6 @@ export default function RescanDocumentModal({
   // Update state when document changes
   useEffect(() => {
     if (document) {
-      console.log('[RescanDocumentModal] Document received:', {
-        id: document.id,
-        date: document.date,
-        note: document.note,
-        fileName: document.fileName || document.name
-      });
       
       // Format date for input[type="date"]
       let dateValue = '';
@@ -128,7 +121,6 @@ export default function RescanDocumentModal({
                 dateValue = d.toISOString().split('T')[0];
               }
             } catch (e) {
-              console.warn('[RescanDocumentModal] Could not parse date string:', document.date);
             }
           }
         } else if (document.date.toDate) {
@@ -145,14 +137,11 @@ export default function RescanDocumentModal({
               dateValue = d.toISOString().split('T')[0];
             }
           } catch (e) {
-            console.warn('[RescanDocumentModal] Could not parse document date:', document.date);
             dateValue = '';
           }
         }
       }
       
-      console.log('[RescanDocumentModal] Setting date:', dateValue, 'note:', document.note || '');
-      console.log('[RescanDocumentModal] Full document object:', JSON.stringify(document, null, 2));
       setEditedDate(dateValue);
       setEditedNote(document.note || document.note || ''); // Ensure note is set even if undefined
       setAcknowledgeOverwrite(false); // Reset acknowledgment when document changes

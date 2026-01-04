@@ -120,7 +120,6 @@ export const formatDateString = (date) => {
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   } catch (e) {
-    console.warn('Error formatting date:', date, e);
     return null;
   }
 };

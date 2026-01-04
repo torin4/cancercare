@@ -716,7 +716,6 @@ export const categorizeLabs = (labs) => {
     categories[category] = categories[category].filter(([key, lab]) => {
     const labKey = key.toLowerCase();
     if (seen.has(labKey)) {
-      console.warn(`[categorizeLabs] Removing duplicate lab type in ${category}: ${key} (name: ${lab.name})`);
       return false; // Duplicate lab type
     }
     seen.add(labKey);

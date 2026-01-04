@@ -84,7 +84,6 @@ module.exports = async (req, res) => {
       const country = params.get('country');
       const includeAllLocations = params.get('includeAllLocations') === 'true' || params.get('includeAllLocations') === true;
       if (country && !includeAllLocations) {
-        console.log('trials-proxy: Location filter requested:', country, '(will filter client-side)');
       }
       
       // v2 API uses pageSize for pagination
@@ -97,7 +96,6 @@ module.exports = async (req, res) => {
       if (fields && fields !== 'all') {
         // Only use fields if explicitly requested (but note: location data won't be available)
         v2Params.push(`fields=${encodeURIComponent(fields)}`);
-        console.log('trials-proxy: WARNING - fields parameter specified, location data may not be available');
       }
       // If no fields specified, API returns full v2 format with location data
       
@@ -105,16 +103,8 @@ module.exports = async (req, res) => {
       target = `https://clinicaltrials.gov/api/v2/studies?${v2Params.join('&')}`;
       
       // Enhanced logging for debugging
-      console.log('=== trials-proxy: ClinicalTrials.gov Public v2 API Request ===');
-      console.log('Full API URL:', target);
-      console.log('query.cond (Condition/Disease - main search):', queryCondParam || '(not provided)');
-      console.log('query.term (Patient Subtype - other terms):', queryTermParam || '(not provided)');
       if (country) {
-        console.log('query.locn (Location filter):', country, includeAllLocations ? '(but including all locations)' : '(country-specific)');
       }
-      console.log('pageSize:', v2PageSize, '| pageNumber:', v2PageNumber);
-      console.log('Fields:', fields || 'default fields');
-      console.log('================================================================');
     } else if (source === 'who') {
       const path = params.get('path') || 'api/v1/trials';
       target = `https://trialsearch.who.int/${path}${forwardQs ? `?${forwardQs}` : ''}`;
@@ -122,10 +112,8 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Missing or invalid source parameter (accepted: who, ctgov)' });
     }
 
-    console.log('trials-proxy forwarding to:', target);
     if (source === 'ctgov') {
       const queryTerm = params.get('query.term') || params.get('query.cond') || params.get('expr') || params.get('condition') || '';
-      console.log('trials-proxy query term:', queryTerm || 'none');
     }
 
     // Try to fetch the target. For ClinicalTrials.gov we add special handling
@@ -139,7 +127,6 @@ module.exports = async (req, res) => {
       const includeAllLocations = params.get('includeAllLocations') === 'true' || params.get('includeAllLocations') === true;
       
       if (source === 'ctgov' && country && !includeAllLocations) {
-        console.log('trials-proxy: Fetching ALL pages and filtering by location on backend:', country);
         
         // Fetch all pages using nextPageToken
         const seenTokens = new Set(); // Track tokens to detect infinite loops
@@ -149,7 +136,6 @@ module.exports = async (req, res) => {
           
           // Safety check: if we've seen this token before, pagination is broken
           if (nextPageToken && seenTokens.has(nextPageToken)) {
-            console.warn(`trials-proxy: WARNING - Duplicate nextPageToken detected (${nextPageToken.substring(0, 20)}...), stopping pagination to prevent infinite loop`);
             break;
           }
           if (nextPageToken) {
@@ -161,7 +147,6 @@ module.exports = async (req, res) => {
             ? `${target}&pageToken=${encodeURIComponent(nextPageToken)}`
             : target;
           
-          console.log(`trials-proxy: Fetching page ${pageCount}${nextPageToken ? ` (token: ${nextPageToken.substring(0, 20)}...)` : ''}`);
           
           const response = await axios.get(pageUrl, {
             headers: {
@@ -173,7 +158,6 @@ module.exports = async (req, res) => {
           
           const d = response.data || {};
           const items = d.studies || d.data || [];
-          console.log(`trials-proxy: Page ${pageCount} returned ${items.length} studies`);
           
           // Safety check: detect if we're getting duplicate pages (same first study ID)
           if (items.length > 0) {
@@ -182,7 +166,6 @@ module.exports = async (req, res) => {
                                 items[0]?.id || 
                                 '';
             if (firstStudyId && seenFirstStudyIds.has(firstStudyId)) {
-              console.warn(`trials-proxy: WARNING - Duplicate page detected (first study ID: ${firstStudyId}), stopping pagination`);
               break;
             }
             if (firstStudyId) {
@@ -197,27 +180,19 @@ module.exports = async (req, res) => {
           const previousToken = nextPageToken;
           nextPageToken = d.nextPageToken || null;
           if (nextPageToken) {
-            console.log(`trials-proxy: More pages available, nextPageToken: ${nextPageToken.substring(0, 20)}...`);
             // Additional check: if token hasn't changed, pagination might be stuck
             if (previousToken && previousToken === nextPageToken) {
-              console.warn(`trials-proxy: WARNING - nextPageToken unchanged from previous page!`);
-              console.warn(`trials-proxy: Previous: ${previousToken.substring(0, 40)}... Current: ${nextPageToken.substring(0, 40)}...`);
-              console.warn(`trials-proxy: Stopping pagination. Total studies: ${allStudies.length}`);
               break;
             }
             // Only log "Token changed" if tokens are actually different
             if (previousToken && previousToken !== nextPageToken) {
-              console.log(`trials-proxy: Token changed: ${previousToken.substring(0, 20)}... -> ${nextPageToken.substring(0, 20)}...`);
             } else if (previousToken) {
               // This shouldn't happen due to the check above, but log for debugging
-              console.log(`trials-proxy: Token appears unchanged (will be caught by duplicate check)`);
             }
           } else {
-            console.log(`trials-proxy: No more pages (nextPageToken is null)`);
           }
         } while (nextPageToken && pageCount < 100); // Safety limit: max 100 pages
         
-        console.log(`trials-proxy: Fetched ${pageCount} page(s), total studies: ${allStudies.length}`);
         
         // Deduplicate studies by NCT ID before filtering
         const uniqueStudies = [];
@@ -232,7 +207,6 @@ module.exports = async (req, res) => {
             uniqueStudies.push(study);
           }
         }
-        console.log(`trials-proxy: After deduplication: ${uniqueStudies.length} unique studies (removed ${allStudies.length - uniqueStudies.length} duplicates)`);
         allStudies = uniqueStudies;
         
         // Now process and filter all studies
@@ -260,7 +234,6 @@ module.exports = async (req, res) => {
           }
         }
         
-        console.log(`trials-proxy: Filtering ${allStudies.length} studies for country: ${country} (search terms: ${searchTerms.join(', ')})`);
         
         let studiesWithNoLocation = 0;
         let studiesWithLocationButNoMatch = 0;
@@ -353,7 +326,6 @@ module.exports = async (req, res) => {
                   });
                 }
               } catch (e) {
-                console.warn(`trials-proxy: Error extracting location details:`, e?.message || e);
               }
             });
             
@@ -371,16 +343,9 @@ module.exports = async (req, res) => {
               LocationDetails: locationDetails // Add full location details with facility names
             });
           } catch (error) {
-            console.error(`trials-proxy: Error processing study ${idx}:`, error?.message || error);
           }
         });
         
-        console.log(`trials-proxy: Location filtering summary:`);
-        console.log(`   - Studies with matching location: ${studiesWithMatch}`);
-        console.log(`   - Studies with location but no match: ${studiesWithLocationButNoMatch}`);
-        console.log(`   - Studies with no location data: ${studiesWithNoLocation}`);
-        console.log(`   - Sample location data (first 5 studies):`, JSON.stringify(sampleLocationData, null, 2));
-        console.log(`trials-proxy: After location filtering: ${studies.length} studies match ${country}`);
         
         const out = { 
           StudyFieldsResponse: { 
@@ -395,7 +360,6 @@ module.exports = async (req, res) => {
       
       // For CTGov v2 API: Fetch ALL pages to get complete results (even without country filter)
       if (source === 'ctgov') {
-        console.log('trials-proxy: Fetching ALL pages for complete results');
         
         // Fetch all pages using nextPageToken
         let allStudies = [];
@@ -409,7 +373,6 @@ module.exports = async (req, res) => {
           
           // Safety check: if we've seen this token before, pagination is broken
           if (nextPageToken && seenTokens.has(nextPageToken)) {
-            console.warn(`trials-proxy: WARNING - Duplicate nextPageToken detected (${nextPageToken.substring(0, 20)}...), stopping pagination to prevent infinite loop`);
             break;
           }
           if (nextPageToken) {
@@ -421,7 +384,6 @@ module.exports = async (req, res) => {
             ? `${target}&pageToken=${encodeURIComponent(nextPageToken)}`
             : target;
           
-          console.log(`trials-proxy: Fetching page ${pageCount}${nextPageToken ? ` (token: ${nextPageToken.substring(0, 20)}...)` : ''}`);
           
           const response = await axios.get(pageUrl, {
         headers: {
@@ -433,7 +395,6 @@ module.exports = async (req, res) => {
           
           const d = response.data || {};
           const items = d.studies || d.data || [];
-          console.log(`trials-proxy: Page ${pageCount} returned ${items.length} studies`);
           
           // Safety check: detect if we're getting duplicate pages (same first study ID)
           if (items.length > 0) {
@@ -442,7 +403,6 @@ module.exports = async (req, res) => {
                                 items[0]?.id || 
                                 '';
             if (firstStudyId && seenFirstStudyIds.has(firstStudyId)) {
-              console.warn(`trials-proxy: WARNING - Duplicate page detected (first study ID: ${firstStudyId}), stopping pagination`);
               break;
             }
             if (firstStudyId) {
@@ -457,27 +417,19 @@ module.exports = async (req, res) => {
           const previousToken = nextPageToken;
           nextPageToken = d.nextPageToken || null;
           if (nextPageToken) {
-            console.log(`trials-proxy: More pages available, nextPageToken: ${nextPageToken.substring(0, 20)}...`);
             // Additional check: if token hasn't changed, pagination might be stuck
             if (previousToken && previousToken === nextPageToken) {
-              console.warn(`trials-proxy: WARNING - nextPageToken unchanged from previous page!`);
-              console.warn(`trials-proxy: Previous: ${previousToken.substring(0, 40)}... Current: ${nextPageToken.substring(0, 40)}...`);
-              console.warn(`trials-proxy: Stopping pagination. Total studies: ${allStudies.length}`);
               break;
             }
             // Only log "Token changed" if tokens are actually different
             if (previousToken && previousToken !== nextPageToken) {
-              console.log(`trials-proxy: Token changed: ${previousToken.substring(0, 20)}... -> ${nextPageToken.substring(0, 20)}...`);
             } else if (previousToken) {
               // This shouldn't happen due to the check above, but log for debugging
-              console.log(`trials-proxy: Token appears unchanged (will be caught by duplicate check)`);
             }
           } else {
-            console.log(`trials-proxy: No more pages (nextPageToken is null)`);
           }
         } while (nextPageToken && pageCount < 100); // Safety limit: max 100 pages
         
-        console.log(`trials-proxy: Fetched ${pageCount} page(s), total studies: ${allStudies.length}`);
         
         // Deduplicate studies by NCT ID before processing
         const uniqueStudies = [];
@@ -492,28 +444,17 @@ module.exports = async (req, res) => {
             uniqueStudies.push(study);
           }
         }
-        console.log(`trials-proxy: After deduplication: ${uniqueStudies.length} unique studies (removed ${allStudies.length - uniqueStudies.length} duplicates)`);
         allStudies = uniqueStudies;
         
         // Now process all studies (no location filtering for global search)
         const d = { studies: allStudies };
         
-        console.log('trials-proxy: CTGov response structure:', {
-          hasStudyFieldsResponse: !!d.StudyFieldsResponse,
-          hasStudies: !!d.studies,
-          hasData: !!d.data,
-          keys: Object.keys(d)
-        });
         
         // Check if it's already in legacy format (fallback from old API)
         if (d.StudyFieldsResponse && d.StudyFieldsResponse.Study) {
-          console.log('trials-proxy: Using legacy StudyFieldsResponse format, studies:', d.StudyFieldsResponse.Study.length);
           if (d.StudyFieldsResponse.Study.length > 0) {
             // Log first study to see location data structure
             const firstStudy = d.StudyFieldsResponse.Study[0];
-            console.log('trials-proxy: First study keys:', Object.keys(firstStudy));
-            console.log('trials-proxy: First study LocationCity:', firstStudy.LocationCity);
-            console.log('trials-proxy: First study LocationCountry:', firstStudy.LocationCountry);
             // Check for all location-related fields
             const locationFields = Object.keys(firstStudy).filter(k => 
               k.toLowerCase().includes('location') || 
@@ -522,16 +463,12 @@ module.exports = async (req, res) => {
               k.toLowerCase().includes('facility')
             );
             if (locationFields.length > 0) {
-              console.log('trials-proxy: Location-related fields found:', locationFields);
               locationFields.forEach(field => {
-                console.log(`trials-proxy:   ${field}:`, firstStudy[field]);
               });
             }
           }
           if (d.StudyFieldsResponse.Study.length === 0) {
             const queryTerm = params.get('query.term') || params.get('query.cond') || params.get('expr') || params.get('condition') || '';
-            console.log('trials-proxy: WARNING - Empty Study array. Query was:', queryTerm);
-            console.log('trials-proxy: Full response structure:', JSON.stringify(d, null, 2).substring(0, 500));
           }
           res.status(200).setHeader('Content-Type', 'application/json');
           return res.json(d);
@@ -541,11 +478,8 @@ module.exports = async (req, res) => {
         const items = d.studies || d.data || [];
         const studies = [];
         
-        console.log('trials-proxy: Processing v2 API format, items count:', items.length);
-        console.log('trials-proxy: Response structure check - has studies:', !!d.studies, 'has data:', !!d.data, 'keys:', Object.keys(d));
         
         if (items.length === 0 && d.studies === undefined && d.data === undefined) {
-          console.warn('trials-proxy: No studies array found in response. Full response:', JSON.stringify(d, null, 2).substring(0, 1000));
         }
         
         if (Array.isArray(items) && items.length > 0) {
@@ -564,7 +498,6 @@ module.exports = async (req, res) => {
               // Safely extract nctId with multiple fallbacks
               const id = identificationModule.nctId || study.nctId || study.id || '';
               if (!id) {
-                console.warn(`trials-proxy: Study ${idx} has no nctId, skipping`);
                 return; // Skip if no ID
               }
 
@@ -622,17 +555,9 @@ module.exports = async (req, res) => {
 
 // CRITICAL DEBUG: Log location structure for first study to understand why extraction fails
               if (locations.length > 0 && idx === 0) {
-                console.log(`trials-proxy: ===== LOCATION STRUCTURE DEBUG FOR FIRST STUDY ${id} =====`);
-                console.log(`trials-proxy: Number of locations: ${locations.length}`);
-                console.log(`trials-proxy: First location FULL structure:`, JSON.stringify(locations[0], null, 2));
-                console.log(`trials-proxy: First location keys:`, Object.keys(locations[0] || {}));
                 if (locations[0]?.facility) {
-                  console.log(`trials-proxy: Facility object:`, JSON.stringify(locations[0].facility, null, 2));
-                  console.log(`trials-proxy: Facility keys:`, Object.keys(locations[0].facility || {}));
                 } else {
-                  console.log(`trials-proxy: WARNING - First location has NO facility property!`);
                 }
-                console.log(`trials-proxy: ====================================================`);
               }
 
               const locationDetails = [];
@@ -670,19 +595,15 @@ module.exports = async (req, res) => {
                   
                   // Log if we find location data for debugging
                   if (city || country || facilityName) {
-                    console.log(`trials-proxy: Extracted location for study ${id}: facility=${facilityName}, city=${city}, state=${state}, country=${country}`);
                   }
                 } catch (e) {
-                  console.warn(`trials-proxy: Error extracting location for study ${id}:`, e?.message || e);
                   // Skip this location if there's an error
                 }
               });
               
               // Log location extraction summary
               if (locations.length > 0) {
-                console.log(`trials-proxy: Study ${id} has ${locations.length} location(s), extracted ${locationCities.length} cities, ${locationCountries.length} countries`);
               } else {
-                console.warn(`trials-proxy: Study ${id} has no locations in contactsLocationsModule`);
               }
 
               // Extract all fields in legacy array format
@@ -699,15 +620,12 @@ module.exports = async (req, res) => {
 
               studies.push(studyObj);
             } catch (error) {
-              console.error(`trials-proxy: Error processing study ${idx}:`, error?.message || error);
               // Continue processing other studies even if one fails
             }
           });
         } else {
-          console.warn('trials-proxy: No items array found or empty. Response data:', JSON.stringify(d, null, 2).substring(0, 500));
         }
 
-        console.log('trials-proxy: Normalized studies count:', studies.length);
 
         // Return in legacy StudyFieldsResponse format for compatibility
         const out = { 
@@ -733,7 +651,6 @@ module.exports = async (req, res) => {
       // If this was a CTGov v2 API request that failed, try legacy API as fallback
       if (source === 'ctgov') {
         try {
-          console.log('trials-proxy ctgov v2 failed, trying legacy API fallback:', err?.message || err);
           
           // Try legacy API endpoint as fallback
           const expr = params.get('expr') || params.get('condition') || '';
@@ -742,7 +659,6 @@ module.exports = async (req, res) => {
           const max_rnk = params.get('max_rnk') || params.get('max') || '50';
           const legacyUrl = `https://clinicaltrials.gov/api/query/study_fields?expr=${encodeURIComponent(expr)}&fields=${encodeURIComponent(fields)}&min_rnk=${min_rnk}&max_rnk=${max_rnk}&fmt=json`;
 
-          console.log('trials-proxy ctgov fallback to legacy API:', legacyUrl);
           const legacyRes = await axios.get(legacyUrl, {
             headers: { 
               'User-Agent': req.headers['user-agent'] || 'CancerCareProxy/1.0',
@@ -757,7 +673,6 @@ module.exports = async (req, res) => {
             return res.json(legacyRes.data);
           }
         } catch (legacyErr) {
-          console.error('ctgov legacy API fallback also failed:', legacyErr.message || legacyErr);
           // Try XML as last resort
           try {
             const expr = params.get('expr') || params.get('condition') || '';
@@ -765,7 +680,6 @@ module.exports = async (req, res) => {
             const max_rnk = params.get('max_rnk') || '50';
             const xmlUrl = `https://clinicaltrials.gov/ct2/results?expr=${encodeURIComponent(expr)}&min_rnk=${min_rnk}&max_rnk=${max_rnk}&displayxml=true`;
 
-            console.log('trials-proxy ctgov fallback to XML:', xmlUrl);
             const xmlRes = await axios.get(xmlUrl, {
               headers: { 'User-Agent': req.headers['user-agent'] || 'CancerCareProxy/1.0' },
               timeout: 20000
@@ -789,7 +703,6 @@ module.exports = async (req, res) => {
             res.status(200).setHeader('Content-Type', 'application/json');
             return res.json(out);
           } catch (xmlErr) {
-            console.error('ctgov XML fallback also failed:', xmlErr.message || xmlErr);
             // fall-through to send original error below
           }
         }
@@ -805,7 +718,6 @@ module.exports = async (req, res) => {
             const expr = params.get('search') || params.get('condition') || '';
             const fields = params.get('fields') || 'NCTId,BriefTitle';
             const ctUrl = `https://clinicaltrials.gov/api/v2/studies?query.term=${encodeURIComponent(expr)}&fields=${encodeURIComponent(fields)}`;
-            console.log('trials-proxy WHO fallback to CTGov v2:', ctUrl);
             const ctRes = await axios.get(ctUrl, {
               headers: { 'User-Agent': req.headers['user-agent'] || 'CancerCareProxy/1.0', Accept: 'application/json' },
               timeout: 20000
@@ -826,7 +738,6 @@ module.exports = async (req, res) => {
             res.json(out);
             return;
           } catch (ctErr) {
-            console.error('WHO->CTGov fallback failed:', ctErr.message || ctErr);
             // fall through to return original WHO error below
           }
         }
@@ -841,7 +752,6 @@ module.exports = async (req, res) => {
     }
 
   } catch (error) {
-    console.error('trials-proxy error:', error.message || error);
     if (error.response) {
       res.status(error.response.status).json({ error: error.message, details: error.response.data });
       return;

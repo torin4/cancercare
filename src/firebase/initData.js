@@ -409,45 +409,34 @@ export const initTrialLocation = async (patientId = 'mary', locationData = {}) =
  * Initialize all data for a patient
  */
 export const initAllData = async (patientId = 'mary') => {
-  console.log('Initializing Firebase data for patient:', patientId);
   
   try {
     // Initialize patient
     await initPatient(patientId);
-    console.log('✓ Patient initialized');
 
     // Initialize labs
     const labIds = await initLabs(patientId);
-    console.log('✓ Labs initialized');
 
     // Initialize vitals
     const vitalIds = await initVitals(patientId);
-    console.log('✓ Vitals initialized');
 
     // Initialize medications
     const medIds = await initMedications(patientId);
-    console.log('✓ Medications initialized');
 
     // Initialize medication logs
     await initMedicationLogs(patientId, medIds);
-    console.log('✓ Medication logs initialized');
 
     // Initialize genomic profile
     await initGenomicProfile(patientId);
-    console.log('✓ Genomic profile initialized');
 
     // Initialize emergency contacts
     await initEmergencyContacts(patientId);
-    console.log('✓ Emergency contacts initialized');
 
     // Initialize trial location
     await initTrialLocation(patientId);
-    console.log('✓ Trial location initialized');
 
-    console.log('All data initialized successfully!');
     return true;
   } catch (error) {
-    console.error('Error initializing data:', error);
     throw error;
   }
 };

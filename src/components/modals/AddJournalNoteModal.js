@@ -62,7 +62,6 @@ export default function AddJournalNoteModal({
 
       onClose();
     } catch (error) {
-      console.error('Error adding journal note:', error);
       showError('Failed to add note. Please try again.');
     } finally {
       setIsSaving(false);

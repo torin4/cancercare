@@ -54,13 +54,10 @@ export const HealthProvider = ({ children }) => {
         vitalService.cleanupOrphanedVitals(user.uid)
       ]).then(([labCount, vitalCount]) => {
         if (labCount > 0 || vitalCount > 0) {
-          console.log(`[HealthContext] Cleaned up ${labCount} orphaned labs, ${vitalCount} orphaned vitals`);
         }
       }).catch(error => {
-        console.warn('Error cleaning up orphaned data:', error);
       });
     } catch (error) {
-      console.error('Error reloading health data:', error);
     } finally {
       setLoading(false);
     }
@@ -107,13 +104,10 @@ export const HealthProvider = ({ children }) => {
           vitalService.cleanupOrphanedVitals(user.uid)
         ]).then(([labCount, vitalCount]) => {
           if (labCount > 0 || vitalCount > 0) {
-            console.log(`[HealthContext] Cleaned up ${labCount} orphaned labs, ${vitalCount} orphaned vitals`);
           }
         }).catch(error => {
-          console.warn('Error cleaning up orphaned data:', error);
         });
       } catch (error) {
-        console.error('Error loading health data:', error);
       } finally {
         setLoading(false);
       }

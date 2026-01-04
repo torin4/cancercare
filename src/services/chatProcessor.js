@@ -49,7 +49,6 @@ Would you like to search for clinical trials now?`;
           };
         }
       } catch (error) {
-        console.error('Error checking saved trials:', error);
         // Continue with normal processing if there's an error
       }
     }
@@ -312,7 +311,6 @@ When answering questions about this trial, you should:
           }
           return null;
         } catch (e) {
-          console.warn('Error formatting date:', date, e);
           return null;
         }
       };
@@ -351,9 +349,7 @@ When answering questions about this trial, you should:
             }
           }
         });
-        console.log(`[chatProcessor] Loaded ${Object.keys(documentDateMap).length} document dates (${Object.keys(documentDateRangeMap).length} with ranges) for health context`);
       } catch (error) {
-        console.warn('[chatProcessor] Error loading document dates:', error);
         // Continue without document dates - will fall back to value dates
       }
 
@@ -774,7 +770,6 @@ ${conversationHistory.slice(-5).map(msg => `${msg.role}: ${msg.content}`).join('
     };
 
   } catch (error) {
-    console.error('Error processing chat message:', error);
     throw error;
   }
 }
@@ -797,7 +792,6 @@ async function saveExtractedData(extractedData, userId) {
         // Parse and validate date - use current date as fallback if invalid
         let labDate = parseLocalDate(lab.date);
         if (!labDate || isNaN(labDate.getTime())) {
-          console.warn(`Invalid date for lab ${lab.label}: ${lab.date}, using current date`);
           labDate = new Date();
         }
 
@@ -827,7 +821,6 @@ async function saveExtractedData(extractedData, userId) {
         // Parse and validate date - use current date as fallback if invalid
         let vitalDate = parseLocalDate(vital.date);
         if (!vitalDate || isNaN(vitalDate.getTime())) {
-          console.warn(`Invalid date for vital ${vital.label}: ${vital.date}, using current date`);
           vitalDate = new Date();
         }
 
@@ -892,7 +885,6 @@ async function saveExtractedData(extractedData, userId) {
     return saved;
 
   } catch (error) {
-    console.error('Error saving extracted data:', error);
     throw error;
   }
 }

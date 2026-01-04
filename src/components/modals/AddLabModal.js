@@ -117,7 +117,6 @@ export default function AddLabModal({
       showSuccess('Lab metric added successfully!');
       onClose();
     } catch (error) {
-      console.error('Error adding lab:', error);
       showError('Failed to add lab metric. Please try again.');
     }
   };

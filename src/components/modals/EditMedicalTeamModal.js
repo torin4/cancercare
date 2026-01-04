@@ -72,7 +72,6 @@ export default function EditMedicalTeamModal({
         }]);
       }
     } catch (error) {
-      console.error('Error saving medical team:', error);
       showError('Failed to save medical team information. Please try again.');
     }
   };

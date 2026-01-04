@@ -100,7 +100,6 @@ export default function EditDocumentNoteModal({
             setDateRange({ min: null, max: null });
           }
         } catch (error) {
-          console.error('Error checking dates:', error);
           setHasMultipleDates(false);
         } finally {
           setIsCheckingDates(false);
@@ -182,7 +181,6 @@ export default function EditDocumentNoteModal({
       });
       
       // Find and update all lab values linked to this document using documentId
-      console.log(`[EditDocumentNoteModal] 🔄 Updating values for document ${editingDocumentNote.id}`);
       let updatedLabValues = 0;
       let updatedVitalValues = 0;
       
@@ -213,7 +211,6 @@ export default function EditDocumentNoteModal({
               documentId: editingDocumentNote.id // Ensure documentId is set
             });
             updatedLabValues++;
-            console.log(`[EditDocumentNoteModal] ✓ Updated lab value ${value.id} (${lab.label || lab.labType})`);
           }
         }
       }
@@ -248,12 +245,10 @@ export default function EditDocumentNoteModal({
               documentId: editingDocumentNote.id // Ensure documentId is set
             });
             updatedVitalValues++;
-            console.log(`[EditDocumentNoteModal] ✓ Updated vital value ${value.id} (${vital.label || vital.vitalType})`);
           }
         }
       }
       
-      console.log(`[EditDocumentNoteModal] ✅ Updated ${updatedLabValues} lab values and ${updatedVitalValues} vital values for document ${editingDocumentNote.id}`);
       
       // Update local documents state
       setDocuments(docs => docs.map(d => 
@@ -273,7 +268,6 @@ export default function EditDocumentNoteModal({
       const valueCount = updatedLabValues + updatedVitalValues;
       showSuccess(`Document updated successfully! ${valueCount} related value${valueCount !== 1 ? 's' : ''} updated.`);
     } catch (error) {
-      console.error('Error updating document:', error);
       showError('Error updating document. Please try again.');
       setIsSaving(false);
     }

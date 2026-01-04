@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, BarChart, Heart, Thermometer, Pill, Plus, Upload, Edit2, X, TrendingUp, TrendingDown, Minus, Activity, Info, Calendar, Clock, Check, AlertCircle, Trash2, MoreVertical, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Eye, EyeOff, Star } from 'lucide-react';
+import { MessageSquare, BarChart, Heart, Thermometer, Pill, Plus, Upload, Edit2, X, TrendingUp, TrendingDown, Minus, Activity, Info, Calendar, Clock, Check, AlertCircle, Trash2, MoreVertical, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Eye, EyeOff, Star, ClipboardList } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
@@ -221,7 +221,6 @@ export default function HealthTab({ onTabChange, initialSection = null }) {
       await refreshPatient();
       showSuccess(typeArray.includes(metricKey) ? 'Removed from favorites' : 'Added to favorites');
     } catch (error) {
-      console.error('Error updating favorites:', error);
       // Revert on error
       setFavoriteMetrics(favoriteMetrics);
       showError('Failed to update favorites');
@@ -283,7 +282,6 @@ export default function HealthTab({ onTabChange, initialSection = null }) {
       // Step 1: Process document with AI to extract medical data
       setUploadProgress('Analyzing document with AI...');
       const processingResult = await processDocument(file, user.uid, patientProfile, providedDate, providedNote, null);
-      console.log('Document processing result:', processingResult);
 
       // Step 2: Upload file to Firebase Storage
       setUploadProgress('Uploading to secure storage...');
@@ -298,7 +296,6 @@ export default function HealthTab({ onTabChange, initialSection = null }) {
         dataPointCount: processingResult.dataPointCount || 0
       });
 
-      console.log('File uploaded successfully:', uploadResult);
 
       // Step 3: Link all extracted values to the document ID
       setUploadProgress('Linking data to document...');
@@ -306,9 +303,7 @@ export default function HealthTab({ onTabChange, initialSection = null }) {
         try {
           const { linkValuesToDocument } = await import('../../services/documentProcessor');
           await linkValuesToDocument(processingResult.extractedData, uploadResult.id, user.uid);
-          console.log('[HealthTab] Successfully linked all values to document', uploadResult.id);
         } catch (linkError) {
-          console.error('[HealthTab] Error linking values to document:', linkError);
         }
       }
 
@@ -338,7 +333,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
        // Navigate to chat tab
        onTabChange('chat');
     } catch (error) {
-      console.error('Upload error:', error);
       showError(`Failed to process document: ${error.message}. The file was not uploaded. Please try again or contact support if the issue persists.`);
       setIsUploading(false);
       setUploadProgress('');
@@ -407,7 +401,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
           const meds = await medicationService.getMedications(user.uid);
           setMedications(meds);
         } catch (error) {
-          console.error('Error loading medications:', error);
         }
       }
     };
@@ -503,32 +496,26 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
       
       onTabChange('chat');
     } catch (error) {
-      console.error('Error loading health data:', error);
       showError('Error loading health data. Please try again.');
     }
   };
 
   return (
-    <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
-      {/* Ask About Health Button */}
-      <div className="bg-medical-primary-50 rounded-lg p-3 sm:p-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div>
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1">Ask About Your Health Data</h3>
-            <p className="text-xs sm:text-sm text-gray-600">Get insights about your labs, vitals, and symptoms</p>
-          </div>
-          <button
-            onClick={handleAskAboutHealth}
-            className="bg-white text-medical-primary-600 px-4 sm:px-6 py-2.5 rounded-lg hover:bg-medical-primary-100 transition font-medium flex items-center gap-2 shadow-sm border border-medical-primary-200 min-h-[44px] touch-manipulation active:opacity-70"
-          >
-            <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-medical-primary-600" />
-            Chat Now
-          </button>
+    <div className="p-3 sm:p-4 md:p-6">
+      {/* Header */}
+      <div className="mb-4 sm:mb-6 flex items-center gap-2 sm:gap-3">
+        <div className="bg-medical-primary-50 p-2 sm:p-2.5 rounded-lg">
+          <ClipboardList className="w-5 h-5 sm:w-6 sm:h-6 text-medical-primary-600" />
+        </div>
+        <div>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-medical-neutral-900 mb-0.5 sm:mb-1">Health</h1>
         </div>
       </div>
 
-      {/* Health Section Tabs */}
-      <div className="flex gap-1 sm:gap-4 mb-4 sm:mb-6 border-b border-medical-neutral-200 overflow-x-auto">
+      {/* Health Section Tabs with Ask About Button */}
+      <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6 overflow-x-auto">
+        {/* Health Section Tabs */}
+        <div className="flex gap-1 sm:gap-4 flex-1">
         {['labs', 'vitals', 'symptoms', 'medications'].map(section => (
           <button
             key={section}
@@ -568,6 +555,16 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
             )}
           </button>
         ))}
+        </div>
+        
+        {/* Ask About Health Button */}
+        <button
+          onClick={handleAskAboutHealth}
+          className="bg-medical-primary-50 text-medical-primary-600 px-3 sm:px-6 py-2.5 rounded-lg hover:bg-medical-primary-100 transition font-medium flex items-center gap-2 shadow-sm border border-medical-primary-200 min-h-[44px] touch-manipulation active:opacity-70 flex-shrink-0"
+        >
+          <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-medical-primary-600" />
+          <span className="hidden sm:inline">Ask About This</span>
+        </button>
       </div>
 
       {healthSection === 'labs' && (
@@ -1162,7 +1159,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                             confirmText: 'Yes, Delete',
                                                             onConfirm: async () => {
                                                               try {
-                                                                console.log('Deleting lab with ID:', labValueId);
                                                                 
                                                                 // Optimistically update UI immediately
                                                                 const updatedLabsData = { ...labsData };
@@ -1184,40 +1180,26 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                                   throw new Error('User not authenticated');
                                                                 }
                                                                 
-                                                                console.log(`[HealthTab] DELETING lab value:`, {
-                                                                  labDocId,
-                                                                  labValueId,
-                                                                  labName,
-                                                                  labType: selectedLab
-                                                                });
                                                                 
                                                                 await labService.deleteLabValue(labDocId, labValueId);
                                                                 
-                                                                console.log(`[HealthTab] Deletion complete, checking for orphaned lab...`);
                                                                 
                                                                 // Check if lab is now orphaned (no values left) and clean it up
                                                                 try {
                                                                   const remainingValues = await labService.getLabValues(labDocId);
-                                                                  console.log(`[HealthTab] Remaining values after deletion:`, remainingValues.length);
                                                                   if (!remainingValues || remainingValues.length === 0) {
-                                                                    console.log(`[HealthTab] Lab ${labDocId} is now orphaned (no values), deleting...`);
                                                                     await labService.deleteLab(labDocId);
-                                                                    console.log(`[HealthTab] Deleted orphaned lab ${labDocId}`);
                                                                   }
                                                                 } catch (cleanupError) {
-                                                                  console.warn(`[HealthTab] Error checking/deleting orphaned lab ${labDocId}:`, cleanupError);
                                                                 }
                                                                 
-                                                                console.log(`[HealthTab] Reloading health data...`);
                                                                 // Reload health data to ensure UI matches database state
                                                                 // deleteLabValue now clears currentValue when last value is deleted, preventing reappearance
                                                                 await reloadHealthData();
-                                                                console.log(`[HealthTab] Health data reloaded`);
                                                                 
                                                                 // Show success banner
                                                                 showSuccess(`${labName} reading deleted successfully`);
                                                               } catch (error) {
-                                                                console.error('Error deleting lab:', error);
                                                                 // Revert optimistic update on error only
                                                                 reloadHealthData();
                                                                 showError('Failed to delete lab reading. Please try again.');
@@ -1505,7 +1487,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                     confirmText: 'Yes, Delete All',
                                                     onConfirm: async () => {
                                                       try {
-                                                        console.log('Deleting all labs of type:', labType);
                                                         
                                                         // Optimistically update UI immediately
                                                         const updatedLabsData = { ...labsData };
@@ -1522,16 +1503,13 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                         
                                                         // Delete from Firestore in background
                                                         const deletedCount = await labService.deleteAllLabsByType(user.uid, labType);
-                                                        console.log('[HealthTab] Deleted labs count:', deletedCount);
                                                         
                                                         // Wait a bit longer and verify deletion before reloading
                                                         await new Promise(resolve => setTimeout(resolve, 1000));
                                                         
                                                         // Reload to ensure sync (but UI already updated)
                                                         await reloadHealthData();
-                                                        console.log('[HealthTab] Health data reloaded after deletion');
                                                       } catch (error) {
-                                                        console.error('Error deleting labs:', error);
                                                         // Revert optimistic update on error
                                                         reloadHealthData();
                                                         showError('Failed to delete lab data. Please try again.');
@@ -1669,7 +1647,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                     confirmText: 'Yes, Delete All',
                                                     onConfirm: async () => {
                                                       try {
-                                                        console.log('Deleting all labs of type:', labType);
                                                         
                                                         // Optimistically update UI immediately
                                                         const updatedLabsData = { ...labsData };
@@ -1686,16 +1663,13 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                         
                                                         // Delete from Firestore in background
                                                         const deletedCount = await labService.deleteAllLabsByType(user.uid, labType);
-                                                        console.log('[HealthTab] Deleted labs count:', deletedCount);
                                                         
                                                         // Wait a bit longer and verify deletion before reloading
                                                         await new Promise(resolve => setTimeout(resolve, 1000));
                                                         
                                                         // Reload to ensure sync (but UI already updated)
                                                         await reloadHealthData();
-                                                        console.log('[HealthTab] Health data reloaded after deletion');
                                                       } catch (error) {
-                                                        console.error('Error deleting labs:', error);
                                                         // Revert optimistic update on error
                                                         reloadHealthData();
                                                         showError('Failed to delete lab data. Please try again.');
@@ -1799,7 +1773,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                 // Fallback values have id === lab.id (the lab document ID)
                                 // Real values have different IDs (from the subcollection)
                                 if (!lab.data || !Array.isArray(lab.data) || lab.data.length === 0) {
-                                  console.log(`[filterLabsBySearch] Lab ${key} has no data array or empty array`);
                                   return false; // No data at all
                                 }
                                 
@@ -1830,15 +1803,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                   return true;
                                 });
                                 
-                                console.log(`[filterLabsBySearch] Checking lab ${key}:`, {
-                                  labDocIds: labDocIds,
-                                  dataLength: lab.data.length,
-                                  dataIds: lab.data.map(d => d.id),
-                                  dataValues: lab.data.map(d => d.value),
-                                  allDataIdsAreFallback: allDataIdsAreFallback,
-                                  hasValidValues: hasValidValues,
-                                  dataIdsMatchAnyLabDoc: lab.data.map(d => labDocIds.includes(d.id))
-                                });
                                 
                                 // Check if there are any actual recorded values (not fallback) AND the values are valid
                                 // A data point ID that matches any lab document ID means it's a fallback value
@@ -1846,7 +1810,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                 // But even real values need to have valid (non-empty) values
                                 const hasRealValidValues = !allDataIdsAreFallback && hasValidValues;
                                 
-                                console.log(`[filterLabsBySearch] Lab ${key} hasRealValidValues:`, hasRealValidValues, `(filtering ${hasRealValidValues ? 'KEEP' : 'HIDE'})`);
                                 
                                 // Only show labs that have actual recorded data points with valid values
                                 // This excludes labs that only have fallback values OR have empty/placeholder values
@@ -1872,15 +1835,12 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                           
                           // Debug: Always log counts to help identify orphaned data
                           const allLabCount = Object.keys(allLabData).length;
-                          console.log(`[HealthTab] Lab counts - Total in allLabData: ${allLabCount}, Displayed after categorization: ${totalLabCount}`);
                           
                           if (allLabCount !== totalLabCount) {
-                            console.warn(`[HealthTab] Lab count discrepancy detected: ${allLabCount} total labs in allLabData, ${totalLabCount} displayed after categorization`);
                             const labsWithoutData = Object.entries(allLabData).filter(([key, lab]) => 
                               !lab.data || !Array.isArray(lab.data) || lab.data.length === 0
                             );
                             if (labsWithoutData.length > 0) {
-                              console.log('[HealthTab] Labs without data:', labsWithoutData.map(([key, lab]) => ({ key, name: lab.name, hasData: !!(lab.data && Array.isArray(lab.data) && lab.data.length > 0) })));
                             }
                             // Find labs that were deduplicated or filtered out
                             const allLabKeys = new Set(Object.keys(allLabData));
@@ -1890,28 +1850,13 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                             });
                             const orphanedKeys = Array.from(allLabKeys).filter(key => !displayedLabKeys.has(key));
                             if (orphanedKeys.length > 0) {
-                              console.warn('[HealthTab] Orphaned lab keys (not displayed):', orphanedKeys);
-                              console.warn('[HealthTab] Orphaned labs details:', orphanedKeys.map(key => ({ 
-                                key, 
-                                name: allLabData[key]?.name,
-                                hasData: !!(allLabData[key]?.data && Array.isArray(allLabData[key].data) && allLabData[key].data.length > 0),
-                                dataLength: allLabData[key]?.data?.length || 0
-                              })));
                             } else {
-                              console.log('[HealthTab] No orphaned keys found - discrepancy may be due to deduplication in categorizeLabs');
                             }
                           } else {
-                            console.log('[HealthTab] Lab counts match - no orphaned data detected');
                           }
                           
                           // If there's a discrepancy, log cleanup instructions and offer to clean up
                           if (allLabCount !== totalLabCount) {
-                            console.warn(`[HealthTab] Discrepancy detected: ${allLabCount} total labs vs ${totalLabCount} displayed`);
-                            console.log('[HealthTab] This may be due to:');
-                            console.log('  1. Orphaned lab documents (no values) from previous uploads');
-                            console.log('  2. Duplicate lab documents with different labType names');
-                            console.log('  3. Labs filtered out during categorization/deduplication');
-                            console.log('[HealthTab] To clean up orphaned labs (labs with no values), the cleanup function is available');
                           }
 
                           return (
@@ -2053,7 +1998,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                     onConfirm: async () => {
                                                       try {
                                                         setIsDeletingEmptyMetrics(true);
-                                                        console.log(`[HealthTab] Deleting ${emptyLabTypes.length} empty lab metrics`);
                                                         
                                                         // Delete all empty labs
                                                         const deletePromises = emptyLabTypes.map(labType => 
@@ -2062,7 +2006,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                         const results = await Promise.all(deletePromises);
                                                         const totalDeleted = results.reduce((sum, count) => sum + count, 0);
                                                         
-                                                        console.log(`[HealthTab] Deleted ${totalDeleted} empty lab document(s)`);
                                                         
                                                         // Wait a bit before reloading
                                                         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -2073,7 +2016,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                         showSuccess(`Deleted ${totalDeleted} empty metric${totalDeleted !== 1 ? 's' : ''}`);
                                                         setIsDeletingEmptyMetrics(false);
                                                       } catch (error) {
-                                                        console.error('Error deleting empty metrics:', error);
                                                         showError('Failed to delete empty metrics. Please try again.');
                                                         setIsDeletingEmptyMetrics(false);
                                                       }
@@ -2184,7 +2126,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
 
                                                 showSuccess(`Deleted ${selectedKeys.length} metric${selectedKeys.length !== 1 ? 's' : ''}`);
                                               } catch (error) {
-                                                console.error('Error deleting selected metrics:', error);
                                                 showError('Failed to delete selected metrics');
                                               }
                                             }
@@ -3210,7 +3151,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                                   confirmText: 'Yes, Delete',
                                                                   onConfirm: async () => {
                                                                     try {
-                                                                      console.log('Deleting vital with ID:', vitalValueId);
                                                                       
                                                                       // Optimistically update UI immediately
                                                                       const updatedVitalsData = { ...vitalsData };
@@ -3232,40 +3172,26 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                                         throw new Error('User not authenticated');
                                                                       }
                                                                       
-                                                                      console.log(`[HealthTab] DELETING vital value:`, {
-                                                                        vitalDocId,
-                                                                        vitalValueId,
-                                                                        displayName,
-                                                                        vitalType: selectedVital
-                                                                      });
                                                                       
                                                                       await vitalService.deleteVitalValue(vitalDocId, vitalValueId);
                                                                       
-                                                                      console.log(`[HealthTab] Deletion complete, checking for orphaned vital...`);
                                                                       
                                                                       // Check if vital is now orphaned (no values left) and clean it up
                                                                       try {
                                                                         const remainingValues = await vitalService.getVitalValues(vitalDocId);
-                                                                        console.log(`[HealthTab] Remaining values after deletion:`, remainingValues.length);
                                                                         if (!remainingValues || remainingValues.length === 0) {
-                                                                          console.log(`[HealthTab] Vital ${vitalDocId} is now orphaned (no values), deleting...`);
                                                                           await vitalService.deleteVital(vitalDocId);
-                                                                          console.log(`[HealthTab] Deleted orphaned vital ${vitalDocId}`);
                                                                         }
                                                                       } catch (cleanupError) {
-                                                                        console.warn(`[HealthTab] Error checking/deleting orphaned vital ${vitalDocId}:`, cleanupError);
                                                                       }
                                                                       
-                                                                      console.log(`[HealthTab] Reloading health data...`);
                                                                       // Reload health data to ensure UI matches database state
                                                                       // deleteVitalValue now clears currentValue when last value is deleted, preventing reappearance
                                                                       await reloadHealthData();
-                                                                      console.log(`[HealthTab] Health data reloaded`);
                                                                       
                                                                       // Show success banner
                                                                       showSuccess(`${displayName} reading deleted successfully`);
                                                                     } catch (error) {
-                                                                      console.error('Error deleting vital:', error);
                                                                       // Revert optimistic update on error
                                                                       reloadHealthData();
                                                                       showError('Failed to delete vital reading. Please try again.');
@@ -3572,7 +3498,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                         return;
                                                       }
                                                       
-                                                      console.log('Deleting vital with ID:', vitalId);
                                                       
                                                       // Optimistically update UI immediately
                                                       const updatedVitalsData = { ...vitalsData };
@@ -3606,7 +3531,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                       // Otherwise, don't reload immediately - optimistic update already removed it
                                                       // Reloading too quickly can cause the vital to reappear
                                                     } catch (error) {
-                                                      console.error('Error deleting vitals:', error);
                                                       // Revert optimistic update on error
                                                       reloadHealthData();
                                                       showError('Failed to delete vital data. Please try again.');
@@ -3903,7 +3827,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                   await symptomService.deleteSymptom(symptom.id);
                                                   // Symptoms will automatically update via the subscription
                                                 } catch (error) {
-                                                  console.error('Error deleting symptom:', error);
                                                   showError('Failed to delete symptom. Please try again.');
                                                 }
                                               }
@@ -4335,12 +4258,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
         }}
         onDeleteValue={async (labId, valueId, labKey) => {
           try {
-            console.log(`[HealthTab] DELETING lab value from edit modal:`, {
-              labDocId: labId,
-              labValueId: valueId,
-              labName: editingLab?.name,
-              labType: labKey
-            });
             
             // Optimistically update UI immediately
             const updatedLabsData = { ...labsData };
@@ -4365,7 +4282,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                 await labService.deleteLab(labId);
               }
             } catch (error) {
-              console.warn('Error checking for orphaned lab:', error);
             }
             
             // Reload to ensure sync
@@ -4373,7 +4289,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
             await reloadHealthData();
             showSuccess('Value deleted successfully');
           } catch (error) {
-            console.error('Error deleting value:', error);
             reloadHealthData();
             showError('Failed to delete value. Please try again.');
             throw error;

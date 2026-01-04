@@ -35,7 +35,6 @@ export const usePatient = (patientId) => {
         setError(null);
       } catch (err) {
         setError(err);
-        console.error('Error loading patient:', err);
       } finally {
         setLoading(false);
       }
@@ -82,7 +81,6 @@ export const useLabs = (patientId) => {
         setError(null);
       } catch (err) {
         setError(err);
-        console.error('Error loading labs:', err);
       } finally {
         setLoading(false);
       }
@@ -130,7 +128,6 @@ export const useLabs = (patientId) => {
       setError(null);
     } catch (err) {
       setError(err);
-      console.error('Error reloading labs:', err);
     } finally {
       setLoading(false);
     }
@@ -163,7 +160,6 @@ export const useVitals = (patientId) => {
         setError(null);
       } catch (err) {
         setError(err);
-        console.error('Error loading vitals:', err);
       } finally {
         setLoading(false);
       }
@@ -197,7 +193,6 @@ export const useVitals = (patientId) => {
       setError(null);
     } catch (err) {
       setError(err);
-      console.error('Error reloading vitals:', err);
     } finally {
       setLoading(false);
     }
@@ -226,7 +221,6 @@ export const useMedications = (patientId) => {
         setError(null);
       } catch (err) {
         setError(err);
-        console.error('Error loading medications:', err);
       } finally {
         setLoading(false);
       }
@@ -281,7 +275,6 @@ export const useMedicationLogs = (patientId) => {
         setError(null);
       } catch (err) {
         setError(err);
-        console.error('Error loading medication logs:', err);
       } finally {
         setLoading(false);
       }
@@ -325,7 +318,6 @@ export const useDocuments = (patientId) => {
         setError(null);
       } catch (err) {
         setError(err);
-        console.error('Error loading documents:', err);
       } finally {
         setLoading(false);
       }
@@ -369,7 +361,6 @@ export const useMessages = (patientId) => {
         setError(null);
       } catch (err) {
         setError(err);
-        console.error('Error loading messages:', err);
       } finally {
         setLoading(false);
       }
@@ -413,7 +404,6 @@ export const useSymptoms = (patientId) => {
         setError(null);
       } catch (err) {
         setError(err);
-        console.error('Error loading symptoms:', err);
       } finally {
         setLoading(false);
       }
@@ -457,7 +447,6 @@ export const useGenomicProfile = (patientId) => {
         setError(null);
       } catch (err) {
         setError(err);
-        console.error('Error loading genomic profile:', err);
       } finally {
         setLoading(false);
       }
@@ -500,7 +489,6 @@ export const useEmergencyContacts = (patientId) => {
         setError(null);
       } catch (err) {
         setError(err);
-        console.error('Error loading emergency contacts:', err);
       } finally {
         setLoading(false);
       }
@@ -544,7 +532,6 @@ export const useClinicalTrials = (patientId) => {
         setError(null);
       } catch (err) {
         setError(err);
-        console.error('Error loading clinical trials:', err);
       } finally {
         setLoading(false);
       }

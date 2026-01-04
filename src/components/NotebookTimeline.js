@@ -43,19 +43,6 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
 
   return (
     <div className="space-y-8">
-      {/* Add Entry Button */}
-      {onAddNote && (
-        <div className="flex justify-end mb-4">
-          <button
-            onClick={() => onAddNote(null)}
-            className="flex items-center gap-2 px-4 py-2 bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition-colors text-sm font-medium"
-          >
-            <Plus className="w-4 h-4" />
-            Add Entry
-          </button>
-        </div>
-      )}
-
       {Object.entries(entriesByMonth).map(([month, monthEntries]) => (
         <div key={month}>
           {/* Month Header */}

@@ -21,7 +21,6 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Missing file URL parameter' });
     }
 
-    console.log('storage-proxy: Downloading file from', fileUrl);
     
     // Increase timeout for large files (up to 60 seconds for Vercel Pro, 10s for free tier)
     // For large files, we'll stream the response
@@ -42,7 +41,6 @@ module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.send(Buffer.from(response.data));
   } catch (error) {
-    console.error('storage-proxy error:', error.message || error);
     if (error.response) {
       res.status(error.response.status).json({ error: error.message, details: error.response.data });
       return;

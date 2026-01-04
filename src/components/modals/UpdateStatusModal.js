@@ -74,7 +74,6 @@ export default function UpdateStatusModal({
       }
       onClose();
     } catch (err) {
-      console.error('Failed to save current status', err);
       showError('Failed to save current status.');
     }
   };

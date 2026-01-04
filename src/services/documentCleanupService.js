@@ -15,7 +15,6 @@ import { labService, vitalService, medicationService } from '../firebase/service
  * @returns {Object} Results of the cleanup operation
  */
 export async function cleanupDocumentData(documentId, userId, aggressiveCleanup = true) {
-  console.log(`[DocumentCleanup] Starting comprehensive cleanup for document ${documentId} (aggressive: ${aggressiveCleanup})`);
 
   const results = {
     labValuesDeleted: 0,
@@ -33,47 +32,33 @@ export async function cleanupDocumentData(documentId, userId, aggressiveCleanup 
 
   try {
     // Step 1: Delete all lab values with this documentId (or ALL if aggressive)
-    console.log(`[DocumentCleanup] Step 1: Cleaning up lab values for document ${documentId}`);
     const labResults = await cleanupLabsByDocument(documentId, userId, aggressiveCleanup);
     results.labValuesDeleted = labResults.valuesDeleted;
     results.orphanedLabsDeleted = labResults.orphanedLabsDeleted;
     results.legacyLabValuesDeleted = labResults.legacyValuesDeleted || 0;
 
     // Step 2: Delete all vital values with this documentId (or ALL if aggressive)
-    console.log(`[DocumentCleanup] Step 2: Cleaning up vital values for document ${documentId}`);
     const vitalResults = await cleanupVitalsByDocument(documentId, userId, aggressiveCleanup);
     results.vitalValuesDeleted = vitalResults.valuesDeleted;
     results.orphanedVitalsDeleted = vitalResults.orphanedVitalsDeleted;
     results.legacyVitalValuesDeleted = vitalResults.legacyValuesDeleted || 0;
 
     // Step 3: Delete all medications with this documentId
-    console.log(`[DocumentCleanup] Step 3: Cleaning up medications for document ${documentId}`);
     const medicationResults = await cleanupMedicationsByDocument(documentId, userId);
     results.medicationsDeleted = medicationResults.medicationsDeleted;
 
     // Step 4: Run full orphaned cleanup to catch anything missed
-    console.log(`[DocumentCleanup] Step 4: Running full orphaned cleanup`);
     const additionalOrphans = await runFullOrphanedCleanup(userId);
     results.orphanedLabsDeleted += additionalOrphans.labs;
     results.orphanedVitalsDeleted += additionalOrphans.vitals;
 
     results.duration = Date.now() - startTime;
 
-    console.log(`[DocumentCleanup] ✓ Cleanup complete in ${results.duration}ms:`, {
-      labValues: results.labValuesDeleted,
-      vitalValues: results.vitalValuesDeleted,
-      medications: results.medicationsDeleted,
-      orphanedLabs: results.orphanedLabsDeleted,
-      orphanedVitals: results.orphanedVitalsDeleted,
-      legacyLabValues: results.legacyLabValuesDeleted,
-      legacyVitalValues: results.legacyVitalValuesDeleted
-    });
 
     return results;
   } catch (error) {
     results.errors.push(error.message);
     results.duration = Date.now() - startTime;
-    console.error(`[DocumentCleanup] ✗ Cleanup failed after ${results.duration}ms:`, error);
     throw error;
   }
 }
@@ -101,14 +86,11 @@ async function cleanupLabsByDocument(documentId, userId, aggressiveCleanup = fal
     // Use a 5-minute window for legacy value matching (values created within 5 min of document)
     const legacyWindowMs = 5 * 60 * 1000; // 5 minutes
     
-    console.log(`[LabCleanup] Checking labs for document ${documentId} (aggressive: ${aggressiveCleanup})`);
     if (docCreatedAt) {
-      console.log(`[LabCleanup] Document created at: ${docCreatedAt.toISOString()}, using ${legacyWindowMs/1000}s window for legacy values`);
     }
 
     // Get all labs for this user
     const allLabs = await labService.getLabs(userId);
-    console.log(`[LabCleanup] Checking ${allLabs.length} labs for document ${documentId}`);
 
     // Collect deletion operations for batch processing
     const deletionOps = [];
@@ -157,44 +139,35 @@ async function cleanupLabsByDocument(documentId, userId, aggressiveCleanup = fal
           results.labsChecked.add(labDoc.id);
         }
       } catch (error) {
-        console.warn(`[LabCleanup] Error checking lab ${labDoc.id}:`, error);
       }
     }
 
     // Execute deletions in parallel batches of 10
-    console.log(`[LabCleanup] Deleting ${deletionOps.length} lab values in batches (${results.legacyValuesDeleted} legacy values)`);
     for (let i = 0; i < deletionOps.length; i += 10) {
       const batch = deletionOps.slice(i, i + 10);
       await Promise.all(batch.map(async (op) => {
         try {
           await labService.deleteLabValue(op.labId, op.valueId);
           results.valuesDeleted++;
-          console.log(`[LabCleanup] ✓ Deleted ${op.label} value ${op.valueId} (${op.reason})`);
         } catch (error) {
-          console.warn(`[LabCleanup] ✗ Failed to delete value ${op.valueId}:`, error.message);
         }
       }));
     }
 
     // Clean up orphaned labs (labs with no values left)
-    console.log(`[LabCleanup] Checking ${results.labsChecked.size} labs for orphans`);
     for (const labId of results.labsChecked) {
       try {
         const remainingValues = await labService.getLabValues(labId);
         if (!remainingValues || remainingValues.length === 0) {
           await labService.deleteLab(labId);
           results.orphanedLabsDeleted++;
-          console.log(`[LabCleanup] ✓ Deleted orphaned lab ${labId}`);
         }
       } catch (error) {
-        console.warn(`[LabCleanup] ✗ Error checking/deleting orphaned lab ${labId}:`, error.message);
       }
     }
 
-    console.log(`[LabCleanup] Complete: ${results.valuesDeleted} values deleted (${results.legacyValuesDeleted} legacy), ${results.orphanedLabsDeleted} orphaned labs removed`);
     return results;
   } catch (error) {
-    console.error('[LabCleanup] Error during lab cleanup:', error);
     throw error;
   }
 }
@@ -222,14 +195,11 @@ async function cleanupVitalsByDocument(documentId, userId, aggressiveCleanup = f
     // Use a 5-minute window for legacy value matching (values created within 5 min of document)
     const legacyWindowMs = 5 * 60 * 1000; // 5 minutes
     
-    console.log(`[VitalCleanup] Checking vitals for document ${documentId} (aggressive: ${aggressiveCleanup})`);
     if (docCreatedAt) {
-      console.log(`[VitalCleanup] Document created at: ${docCreatedAt.toISOString()}, using ${legacyWindowMs/1000}s window for legacy values`);
     }
 
     // Get all vitals for this user
     const allVitals = await vitalService.getVitals(userId);
-    console.log(`[VitalCleanup] Checking ${allVitals.length} vitals for document ${documentId}`);
 
     // Collect deletion operations for batch processing
     const deletionOps = [];
@@ -278,44 +248,35 @@ async function cleanupVitalsByDocument(documentId, userId, aggressiveCleanup = f
           results.vitalsChecked.add(vitalDoc.id);
         }
       } catch (error) {
-        console.warn(`[VitalCleanup] Error checking vital ${vitalDoc.id}:`, error);
       }
     }
 
     // Execute deletions in parallel batches of 10
-    console.log(`[VitalCleanup] Deleting ${deletionOps.length} vital values in batches (${results.legacyValuesDeleted} legacy values)`);
     for (let i = 0; i < deletionOps.length; i += 10) {
       const batch = deletionOps.slice(i, i + 10);
       await Promise.all(batch.map(async (op) => {
         try {
           await vitalService.deleteVitalValue(op.vitalId, op.valueId);
           results.valuesDeleted++;
-          console.log(`[VitalCleanup] ✓ Deleted ${op.label} value ${op.valueId} (${op.reason})`);
         } catch (error) {
-          console.warn(`[VitalCleanup] ✗ Failed to delete value ${op.valueId}:`, error.message);
         }
       }));
     }
 
     // Clean up orphaned vitals (vitals with no values left)
-    console.log(`[VitalCleanup] Checking ${results.vitalsChecked.size} vitals for orphans`);
     for (const vitalId of results.vitalsChecked) {
       try {
         const remainingValues = await vitalService.getVitalValues(vitalId);
         if (!remainingValues || remainingValues.length === 0) {
           await vitalService.deleteVital(vitalId);
           results.orphanedVitalsDeleted++;
-          console.log(`[VitalCleanup] ✓ Deleted orphaned vital ${vitalId}`);
         }
       } catch (error) {
-        console.warn(`[VitalCleanup] ✗ Error checking/deleting orphaned vital ${vitalId}:`, error.message);
       }
     }
 
-    console.log(`[VitalCleanup] Complete: ${results.valuesDeleted} values deleted (${results.legacyValuesDeleted} legacy), ${results.orphanedVitalsDeleted} orphaned vitals removed`);
     return results;
   } catch (error) {
-    console.error('[VitalCleanup] Error during vital cleanup:', error);
     throw error;
   }
 }
@@ -334,12 +295,10 @@ async function cleanupMedicationsByDocument(documentId, userId) {
   try {
     // Get all medications for this user
     const allMedications = await medicationService.getMedications(userId);
-    console.log(`[MedicationCleanup] Checking ${allMedications.length} medications for document ${documentId}`);
 
     // Collect medications to delete
     const medicationsToDelete = allMedications.filter(med => med.documentId === documentId);
 
-    console.log(`[MedicationCleanup] Deleting ${medicationsToDelete.length} medications in batches`);
 
     // Delete in parallel batches of 10
     for (let i = 0; i < medicationsToDelete.length; i += 10) {
@@ -348,17 +307,13 @@ async function cleanupMedicationsByDocument(documentId, userId) {
         try {
           await medicationService.deleteMedication(med.id);
           results.medicationsDeleted++;
-          console.log(`[MedicationCleanup] ✓ Deleted medication ${med.name} (${med.id})`);
         } catch (error) {
-          console.warn(`[MedicationCleanup] ✗ Failed to delete medication ${med.id}:`, error.message);
         }
       }));
     }
 
-    console.log(`[MedicationCleanup] Complete: ${results.medicationsDeleted} medications deleted`);
     return results;
   } catch (error) {
-    console.error('[MedicationCleanup] Error during medication cleanup:', error);
     throw error;
   }
 }
@@ -383,10 +338,8 @@ async function runFullOrphanedCleanup(userId) {
     const orphanedVitals = await vitalService.cleanupOrphanedVitals(userId);
     results.vitals = orphanedVitals;
 
-    console.log(`[OrphanedCleanup] Found and removed ${results.labs} orphaned labs, ${results.vitals} orphaned vitals`);
     return results;
   } catch (error) {
-    console.error('[OrphanedCleanup] Error during orphaned cleanup:', error);
     throw error;
   }
 }
@@ -398,7 +351,6 @@ async function runFullOrphanedCleanup(userId) {
  * @returns {Object} Verification results
  */
 export async function verifyCleanupComplete(documentId, userId) {
-  console.log(`[CleanupVerification] Verifying cleanup for document ${documentId}`);
 
   const results = {
     labValuesRemaining: 0,
@@ -435,14 +387,11 @@ export async function verifyCleanupComplete(documentId, userId) {
     );
 
     if (!results.isComplete) {
-      console.warn(`[CleanupVerification] ⚠️ Cleanup incomplete! ${results.labValuesRemaining} lab values, ${results.vitalValuesRemaining} vital values, and ${results.medicationsRemaining} medications still remain`);
     } else {
-      console.log(`[CleanupVerification] ✓ Cleanup verified complete`);
     }
 
     return results;
   } catch (error) {
-    console.error('[CleanupVerification] Error during verification:', error);
     throw error;
   }
 }

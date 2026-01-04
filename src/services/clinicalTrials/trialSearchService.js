@@ -44,7 +44,6 @@ async function geocodeAddress(query) {
     geocodeCache.set(key, out);
     return out;
   } catch (e) {
-    console.warn('Geocode failed for', key, e?.message || e);
     geocodeCache.set(key, null);
     return null;
   }
@@ -93,14 +92,11 @@ async function applyLocationFilters(trials, params) {
       }
     }
     
-    console.log(`Applying location filter for country: ${params.country}, search terms:`, searchTerms);
-    console.log(`Trials before filtering: ${out.length}`);
     
     out = out.filter(t => {
       // Check trial's country field (this is the first country from locations, may not be complete)
       const trialCountry = (t.country || '').toLowerCase();
       if (searchTerms.some(term => trialCountry.includes(term))) {
-        console.log(`Trial ${t.id}: Matched top-level country "${t.country}"`);
         return true;
       }
       
@@ -109,7 +105,6 @@ async function applyLocationFilters(trials, params) {
       if (locations.length === 0) {
         // If no location data and country filter is active, exclude the trial
         // (we can't verify it's in the requested country)
-        console.warn(`Trial ${t.id} has no location data, excluding from country-filtered results`);
         return false;
       }
       
@@ -118,20 +113,17 @@ async function applyLocationFilters(trials, params) {
         if (typeof loc === 'string') {
           const matches = searchTerms.some(term => loc.toLowerCase().includes(term));
           if (matches) {
-            console.log(`Trial ${t.id}: Matched location string "${loc}"`);
           }
           return matches;
         }
         // Check location object's country field
         const locCountry = (loc.country || '').toLowerCase();
         if (locCountry && searchTerms.some(term => locCountry.includes(term))) {
-          console.log(`Trial ${t.id}: Matched location country "${loc.country}"`);
           return true;
         }
         // Also check city field (some locations might have country in city field)
         const locCity = (loc.city || '').toLowerCase();
         if (locCity && searchTerms.some(term => locCity.includes(term))) {
-          console.log(`Trial ${t.id}: Matched location city "${loc.city}"`);
           return true;
         }
         return false;
@@ -146,13 +138,11 @@ async function applyLocationFilters(trials, params) {
           }
           return loc.country || '';
         }).filter(Boolean))];
-        console.log(`Trial ${t.id}: Excluded - has countries: ${allCountries.join(', ')}, searching for: ${params.country}`);
       }
       
       return hasMatch;
     });
     
-    console.log(`Trials after filtering: ${out.length}`);
   }
 
   // If includeAllLocations is true, return all trials (no filtering)
@@ -184,15 +174,8 @@ export async function searchTrials(params) {
     // IMPORTANT: LocationCity and LocationCountry are NOT available in v2 API fields parameter
     // Location data is only in full study response (protocolSection.contactsLocationsModule.locations)
     // So we DON'T specify fields parameter - this forces API to return full v2 format with location data
-    console.log('=== ClinicalTrials.gov Query Parameters ===');
-    console.log('query.cond (Condition/Disease - main search):', cond || '(empty)');
-    console.log('query.term (Patient Subtype - other terms):', term || '(empty)');
     if (params?.country) {
-      console.log('Location filter:', params.country, params.includeAllLocations ? '(including all locations)' : '(specific country only)');
     }
-    console.log('Page:', pageNumber, '| Page Size:', pageSize);
-    console.log('Fields: NOT SPECIFIED (requesting full study data to get location information)')
-    console.log('==========================================');
     
     // Check if query is too long for GET request (limit ~2000 chars for URL)
     const queryLength = encodeURIComponent(cond).length + encodeURIComponent(term).length;
@@ -202,7 +185,6 @@ export async function searchTrials(params) {
     
     if (queryLength > maxUrlLength) {
       // Use POST request for long queries
-      console.log(`Query too long (${queryLength} chars), using POST request`);
       if (typeof onProgress === 'function') onProgress('Sending search request (POST)');
       
       const postData = {
@@ -222,9 +204,6 @@ export async function searchTrials(params) {
       }
       
       // Log POST data
-      console.log('=== POST Request Data ===');
-      console.log(JSON.stringify(postData, null, 2));
-      console.log('========================');
       
       ctRaw = await axios.post(PROXY_BASE, postData, {
         timeout: 20000,
@@ -233,10 +212,8 @@ export async function searchTrials(params) {
           'Content-Type': 'application/json'
         }
       }).then(r => {
-        console.log('ClinicalTrials.gov POST response received:', r?.data ? 'has data' : 'no data');
         return r.data;
       }).catch(err => {
-        console.error('ClinicalTrials.gov POST request failed:', err?.response?.status, err?.message);
         return null;
       });
     } else {
@@ -261,9 +238,6 @@ export async function searchTrials(params) {
       const proxyUrl = `${PROXY_BASE}?${proxyParams.toString()}`;
       
       // Log full URL (not truncated)
-      console.log('=== GET Request URL ===');
-      console.log(proxyUrl);
-      console.log('========================');
       
       ctRaw = await axios.get(proxyUrl, { 
         timeout: 20000,
@@ -271,54 +245,30 @@ export async function searchTrials(params) {
           'Accept': 'application/json'
         }
       }).then(r => {
-        console.log('ClinicalTrials.gov response received:', r?.data ? 'has data' : 'no data');
         return r.data;
       }).catch(err => {
-        console.error('ClinicalTrials.gov proxy request failed:', err?.response?.status, err?.message);
         return null;
       });
     }
     
     if (ctRaw) {
-      console.log('ClinicalTrials.gov raw response structure:', {
-        hasStudyFieldsResponse: !!ctRaw.StudyFieldsResponse,
-        hasStudies: !!ctRaw.studies,
-        hasData: !!ctRaw.data,
-        keys: Object.keys(ctRaw),
-        studyFieldsResponseKeys: ctRaw.StudyFieldsResponse ? Object.keys(ctRaw.StudyFieldsResponse) : null,
-        studyCount: ctRaw.StudyFieldsResponse?.Study?.length || ctRaw.studies?.length || 0
-      });
       
       // Log location filter params
       if (params.country) {
-        console.log('Location filter params:', {
-          country: params.country,
-          includeAllLocations: params.includeAllLocations
-        });
       }
       
       const ctResult = await searchCTGov({ ...params, _rawCTGovResponse: ctRaw });
-      console.log('searchCTGov result:', {
-        success: ctResult.success,
-        trialsLength: ctResult.trials?.length,
-        error: ctResult.error,
-        countryFilter: params.country
-      });
       if (ctResult.success && ctResult.trials.length > 0) {
         if (typeof onProgress === 'function') onProgress(`ClinicalTrials.gov returned ${ctResult.trials.length} results`);
         return { ...ctResult, attemptedSources: attempted };
       } else {
-        console.warn('ClinicalTrials.gov returned no trials:', ctResult);
         // Log the raw response for debugging
         if (ctRaw.StudyFieldsResponse) {
-          console.log('StudyFieldsResponse structure:', JSON.stringify(ctRaw.StudyFieldsResponse, null, 2).substring(0, 500));
         }
       }
     } else {
-      console.warn('ClinicalTrials.gov returned null response');
     }
   } catch (e) {
-    console.error('ClinicalTrials.gov query failed:', e?.message || e, e?.stack);
   }
 
   return { success: false, source: 'Aggregated', attemptedSources: attempted, totalResults: 0, trials: [] };
@@ -333,14 +283,6 @@ export async function searchCTGov(params) {
     const raw = params && params._rawCTGovResponse;
     let studies = [];
     
-    console.log('searchCTGov - raw response check:', {
-      hasRaw: !!raw,
-      rawType: raw ? typeof raw : null,
-      isArray: Array.isArray(raw),
-      hasStudyFieldsResponse: raw?.StudyFieldsResponse ? true : false,
-      hasStudies: !!raw?.studies,
-      studyFieldsResponseKeys: raw?.StudyFieldsResponse ? Object.keys(raw.StudyFieldsResponse) : null
-    });
     
     // Handle v2 API format (preferred) - studies array with protocolSection
     if (raw && raw.studies && Array.isArray(raw.studies)) {
@@ -359,7 +301,6 @@ export async function searchCTGov(params) {
           // Safely extract nctId with multiple fallbacks
           const nctId = identificationModule.nctId || study.nctId || study.id || '';
           if (!nctId) {
-            console.warn('Study missing nctId, skipping:', study);
             return null;
           }
           
@@ -421,37 +362,27 @@ export async function searchCTGov(params) {
             LocationCountry: locationCountries
           };
         } catch (error) {
-          console.error('Error processing study in v2 format:', error, study);
           return null;
         }
       }).filter(Boolean); // Remove null entries
-      console.log('Using v2 API format (protocolSection), studies count:', studies.length);
     } else if (raw && raw.StudyFieldsResponse) {
       // Legacy format fallback
       studies = raw.StudyFieldsResponse.Study || [];
-      console.log('Using legacy StudyFieldsResponse format, studies count:', studies.length);
       if (studies.length > 0) {
         const firstStudy = studies[0];
-        console.log('First study sample:', JSON.stringify(firstStudy, null, 2).substring(0, 1000));
-        console.log('First study LocationCity:', firstStudy.LocationCity);
-        console.log('First study LocationCountry:', firstStudy.LocationCountry);
-        console.log('First study all keys:', Object.keys(firstStudy));
         // Check for alternative location field names
         const locationKeys = Object.keys(firstStudy).filter(k => 
           k.toLowerCase().includes('location') || 
           k.toLowerCase().includes('city') || 
           k.toLowerCase().includes('country')
         );
-        console.log('Location-related keys in first study:', locationKeys);
         if (locationKeys.length > 0) {
           locationKeys.forEach(key => {
-            console.log(`  ${key}:`, firstStudy[key]);
           });
         }
       }
     } else if (raw && Array.isArray(raw)) {
       studies = raw;
-      console.log('Using array format, studies count:', studies.length);
     } else {
       // Build expression - use proxy instead of direct API call for better reliability
       const { condition, patientProfile, additionalTerms, age, gender } = params;
@@ -561,18 +492,14 @@ export async function searchCTGov(params) {
                   
                   // Log if we find location data for debugging
                   if (city || country || facilityName) {
-                    console.log(`trialSearchService: Extracted location for ${nctId}: facility=${facilityName}, city=${city}, state=${state}, country=${country}`);
                   }
                 } catch (e) {
-                  console.warn(`trialSearchService: Error extracting location for ${nctId}:`, e?.message || e);
                 }
               });
               
               // Log location extraction summary
               if (locations.length > 0) {
-                console.log(`trialSearchService: Study ${nctId} has ${locations.length} location(s), extracted ${locationCities.length} cities, ${locationCountries.length} countries`);
               } else {
-                console.warn(`trialSearchService: Study ${nctId} has no locations in contactsLocationsModule`);
               }
               
               // Also check for location data in other possible fields
@@ -604,7 +531,6 @@ export async function searchCTGov(params) {
                 LocationDetails: locationDetails // Include full location details with facility names
               };
             } catch (error) {
-              console.error('Error processing study in v2 format:', error, study);
               return null;
             }
           }).filter(Boolean); // Remove null entries
@@ -613,18 +539,14 @@ export async function searchCTGov(params) {
           studies = responseData.StudyFieldsResponse.Study || [];
         }
       } catch (error) {
-        console.error('ClinicalTrials.gov API error:', error?.response?.status, error?.message);
         // Return empty array on error
         studies = [];
       }
     }
 
-    console.log('searchCTGov - studies array length:', studies.length);
     
     if (studies.length === 0) {
-      console.warn('No studies found in response. Raw response keys:', raw ? Object.keys(raw) : 'no raw');
       if (raw) {
-        console.warn('Raw response sample:', JSON.stringify(raw, null, 2).substring(0, 1000));
       }
       return { success: false, source: 'ClinicalTrials.gov', totalResults: 0, trials: [], error: 'No studies found in API response' };
     }
@@ -695,11 +617,7 @@ export async function searchCTGov(params) {
       return trial;
     }).filter(t => t && t.id); // Filter out null trials and trials without IDs
 
-    console.log('searchCTGov - mapped trials count:', trials.length);
     if (trials.length > 0) {
-      console.log('Sample trial locations:', trials[0].locations);
-      console.log('Sample trial country:', trials[0].country);
-      console.log('Sample trial status:', trials[0].status);
       // Log trials with Japan locations for debugging
       const japanTrials = trials.filter(t => {
         const country = (t.country || '').toLowerCase();
@@ -710,14 +628,12 @@ export async function searchCTGov(params) {
         return country.includes('japan') || country.includes('japanese') || hasJapan;
       });
       if (japanTrials.length > 0) {
-        console.log(`Found ${japanTrials.length} trials with Japan locations before filtering`);
       }
     }
 
     // Apply location filters if provided
     trials = await applyLocationFilters(trials, params);
 
-    console.log('searchCTGov - after location filters:', trials.length);
 
     // Determine if there are more results available
     const totalResults = raw?.StudyFieldsResponse?.NStudiesFound || 
@@ -740,7 +656,6 @@ export async function searchCTGov(params) {
       }
     };
   } catch (error) {
-    console.error('Error searching ClinicalTrials.gov:', error?.message || error);
     return { success: false, source: 'ClinicalTrials.gov', totalResults: 0, trials: [], error: error.message };
   }
 }
@@ -819,7 +734,6 @@ export async function searchWHO(params, rawResponse) {
     const filtered = await applyLocationFilters(trials, params || {});
     return { success: true, source: 'WHO-ICTRP', totalResults: filtered.length, trials: filtered };
   } catch (error) {
-    console.error('Error searching WHO ICTRP:', error?.message || error);
     return { success: false, source: 'WHO-ICTRP', totalResults: 0, trials: [], error: error.message };
   }
 }
@@ -884,7 +798,6 @@ export async function getTrialDetails(trialId) {
 
     return { success: false, error: 'Trial not found' };
   } catch (error) {
-    console.error('Error fetching trial details:', error);
     return { success: false, error: error.message || 'Failed to fetch trial details' };
   }
 }
@@ -918,22 +831,14 @@ function buildSearchCondition(patientProfile, additionalTerms = []) {
   // currentStatus.diagnosis is the same as the main diagnosis, not the subtype
   const subtype = patientProfile.cancerType || '';
   
-  console.log(`buildSearchCondition: Checking subtype - mainDiagnosis: "${mainDiagnosis}", subtype: "${subtype}"`);
-  console.log(`   patientProfile.cancerType: "${patientProfile.cancerType}"`);
-  console.log(`   patientProfile.diagnosis: "${patientProfile.diagnosis}"`);
   
   if (subtype && subtype.trim() !== '' && subtype !== mainDiagnosis) {
     // Add subtype to termParts (query.term) instead of cond (query.cond)
     // IMPORTANT: Subtype should be FIRST in query.term to match website search behavior
     termParts.unshift(subtype.trim()); // Use unshift to add at beginning
-    console.log(`buildSearchCondition: Adding subtype "${subtype.trim()}" to query.term (Other terms)`);
-    console.log(`   Main diagnosis (query.cond): "${mainDiagnosis}"`);
-    console.log(`   Subtype (query.term): "${subtype.trim()}"`);
   } else if (subtype && subtype === mainDiagnosis) {
     // Subtype is same as main diagnosis, no need to add it again
-    console.log(`buildSearchCondition: Subtype "${subtype}" is same as main diagnosis "${mainDiagnosis}", not adding to query.term`);
   } else if (!subtype || subtype.trim() === '') {
-    console.log(`buildSearchCondition: No subtype found - patientProfile.cancerType: "${subtype}"`);
   }
   
   
@@ -947,14 +852,10 @@ function buildSearchCondition(patientProfile, additionalTerms = []) {
   // 
   // ONLY subtype (e.g., "Clear Cell") is included in query.term
   
-  console.log(`buildSearchCondition: Only subtype in query.term - all other parameters removed.`);
-  console.log(`   Genes (${additionalTerms.length}) will be used for matching only, not in search query.`);
   
   const finalCond = condTerms.join(' AND ');
   const finalTerm = termParts.join(' AND ');
   
-  console.log(`buildSearchCondition: Final query - cond: "${finalCond}", term: "${finalTerm}"`);
-  console.log(`   termParts array:`, termParts);
   
   return {
     cond: finalCond,

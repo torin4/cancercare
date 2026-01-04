@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Activity, TrendingUp, Upload, AlertCircle, ClipboardList, Info, Dna, Bookmark, Star, ChevronRight, Search, MessageSquare, X, Heart, Loader2, BarChart } from 'lucide-react';
+import { Activity, TrendingUp, Upload, AlertCircle, ClipboardList, Info, Dna, Bookmark, Star, ChevronRight, Search, MessageSquare, X, Heart, Loader2, BarChart, Home } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
@@ -71,7 +71,6 @@ export default function DashboardTab({ onTabChange }) {
             .slice(0, 5);
           setSavedTrials(sortedTrials);
         } catch (error) {
-          console.error('Error loading saved trials:', error);
           setSavedTrials([]);
         } finally {
           setLoadingSavedTrials(false);
@@ -142,7 +141,6 @@ export default function DashboardTab({ onTabChange }) {
       // Step 1: Process document with AI to extract medical data
       setUploadProgress('Analyzing document with AI...');
       const processingResult = await processDocument(file, user.uid, patientProfile, providedDate, providedNote, null);
-      console.log('Document processing result:', processingResult);
 
       // Step 2: Upload file to Firebase Storage
       setUploadProgress('Uploading to secure storage...');
@@ -157,7 +155,6 @@ export default function DashboardTab({ onTabChange }) {
         dataPointCount: processingResult.dataPointCount || 0
       });
 
-      console.log('File uploaded successfully:', uploadResult);
 
       // Step 3: Link all extracted values to the document ID
       setUploadProgress('Linking data to document...');
@@ -165,9 +162,7 @@ export default function DashboardTab({ onTabChange }) {
         try {
           const { linkValuesToDocument } = await import('../../services/documentProcessor');
           await linkValuesToDocument(processingResult.extractedData, uploadResult.id, user.uid);
-          console.log('[DashboardTab] Successfully linked all values to document', uploadResult.id);
         } catch (linkError) {
-          console.error('[DashboardTab] Error linking values to document:', linkError);
         }
       }
 
@@ -197,7 +192,6 @@ setIsUploading(false);
        // Navigate to chat tab
        onTabChange('chat');
     } catch (error) {
-      console.error('Upload error:', error);
       showError(`Failed to process document: ${error.message}. The file was not uploaded. Please try again or contact support if the issue persists.`);
       setIsUploading(false);
       setUploadProgress('');
@@ -317,64 +311,18 @@ setIsUploading(false);
           </div>
         </div>
       )}
-      {/* Quick Action Buttons */}
-      <div className="bg-white border-b border-medical-neutral-200 px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-5">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-3 sm:mb-4 flex items-center gap-2">
-            <Zap className="w-5 h-5 text-medical-primary-600" />
-            Quick Actions
-          </h2>
-          <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4">
-            <button
-              onClick={() => {
-                setShowAddSymptomModal(true);
-              }}
-              className="group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 md:px-5 py-2.5 sm:py-3 md:py-3.5 min-h-[44px] border-2 border-medical-secondary-500 bg-medical-secondary-50 hover:bg-medical-secondary-100 active:bg-medical-secondary-200 rounded-xl transition-all duration-200 touch-manipulation"
-            >
-              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-medical-secondary-50 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
-                <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-medical-secondary-600" />
-              </div>
-              <div className="flex flex-col items-center text-center">
-                <span className="text-[10px] sm:text-xs md:text-sm font-semibold text-medical-secondary-600 leading-tight">Log Symptom</span>
-                <span className="text-[9px] sm:text-xs text-medical-secondary-500/80 hidden md:block leading-tight">Track how you're feeling</span>
-              </div>
-            </button>
 
-            <button
-              onClick={() => {
-                setShowAddLabModal(true);
-              }}
-              className="group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 md:px-5 py-2.5 sm:py-3 md:py-3.5 min-h-[44px] border-2 border-medical-accent-500 bg-medical-accent-50 hover:bg-medical-accent-100 active:bg-medical-accent-200 rounded-xl transition-all duration-200 touch-manipulation"
-            >
-              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-medical-accent-50 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
-                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-medical-accent-600" />
-              </div>
-              <div className="flex flex-col items-center text-center">
-                <span className="text-[10px] sm:text-xs md:text-sm font-semibold text-medical-accent-600 leading-tight">Add Lab Metric</span>
-                <span className="text-[9px] sm:text-xs text-medical-accent-500/80 hidden md:block leading-tight">Record test results</span>
-              </div>
-            </button>
-
-            <button
-              onClick={() => {
-                setShowAddVitalModal(true);
-              }}
-              className="group relative flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 md:px-5 py-2.5 sm:py-3 md:py-3.5 min-h-[44px] border-2 border-medical-primary-500 bg-medical-primary-50 hover:bg-medical-primary-100 active:bg-medical-primary-200 rounded-xl transition-all duration-200 touch-manipulation"
-            >
-              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 bg-medical-primary-50 rounded-lg flex items-center justify-center transition-colors duration-200 flex-shrink-0">
-                <Heart className="w-4 h-4 sm:w-5 sm:h-5 text-medical-primary-600" />
-              </div>
-              <div className="flex flex-col items-center text-center">
-                <span className="text-[10px] sm:text-xs md:text-sm font-semibold text-medical-primary-600 leading-tight">Add Vital Metric</span>
-                <span className="text-[9px] sm:text-xs text-medical-primary-500/80 hidden md:block leading-tight">Record vital signs</span>
-              </div>
-            </button>
-
+      <div className="p-3 sm:p-4 md:p-6">
+        {/* Header */}
+        <div className="mb-4 sm:mb-6 flex items-center gap-2 sm:gap-3">
+          <div className="bg-medical-primary-50 p-2 sm:p-2.5 rounded-lg">
+            <Home className="w-5 h-5 sm:w-6 sm:h-6 text-medical-primary-600" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-medical-neutral-900 mb-0.5 sm:mb-1">Dashboard</h1>
           </div>
         </div>
-      </div>
 
-      <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
         {/* Dynamic CA-125 Alert */}
         {ca125Alert && (
           <div className={`bg-white rounded-lg sm:rounded-xl border-2 p-4 sm:p-5 shadow-sm ${
@@ -703,12 +651,18 @@ setIsUploading(false);
           <div className="w-full bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-purple-200 shadow-sm lg:col-span-2">
             {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 && (
               <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
+                <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 flex items-center gap-2">
                   <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-2 rounded-lg">
                     <Dna className="w-5 h-5 text-purple-600" />
                   </div>
-                  <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900">Genomic Profile</h3>
-                </div>
+                  Genomic Profile
+                </h3>
+                <button
+                  onClick={() => onTabChange('profile')}
+                  className="text-sm font-medium text-medical-primary-600 hover:text-medical-primary-700 active:text-medical-primary-800 transition-colors touch-manipulation flex items-center gap-1"
+                >
+                  View All <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
             )}
             {genomicProfile && ((genomicProfile.mutations && genomicProfile.mutations.length > 0) || (genomicProfile.cnvs && genomicProfile.cnvs.length > 0)) ? (
@@ -740,12 +694,6 @@ setIsUploading(false);
                     )}
                   </div>
                 </div>
-                <button
-                  onClick={() => onTabChange('profile')}
-                  className="px-3 py-2 min-h-[44px] text-purple-600 text-sm font-medium hover:text-purple-700 active:text-purple-800 transition-colors touch-manipulation flex items-center justify-center"
-                >
-                  View Full Profile →
-                </button>
               </>
             ) : (
               <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center">
@@ -777,12 +725,20 @@ setIsUploading(false);
         {/* Saved Trials */}
         <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-medical-accent-200 shadow-sm">
           {!loadingSavedTrials && savedTrials.length > 0 && (
-            <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-4 flex items-center gap-2">
-              <div className="bg-medical-accent-50 p-2 rounded-lg">
-                <Bookmark className="w-5 h-5 text-medical-accent-600" />
-              </div>
-              Saved Trials
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 flex items-center gap-2">
+                <div className="bg-medical-accent-50 p-2 rounded-lg">
+                  <Bookmark className="w-5 h-5 text-medical-accent-600" />
+                </div>
+                Saved Trials
+              </h3>
+              <button
+                onClick={() => onTabChange('trials')}
+                className="text-sm font-medium text-medical-primary-600 hover:text-medical-primary-700 active:text-medical-primary-800 transition-colors touch-manipulation flex items-center gap-1"
+              >
+                View All <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           )}
           {loadingSavedTrials ? (
             <div className="text-center py-8">
@@ -824,12 +780,6 @@ setIsUploading(false);
                   </div>
                 </div>
               ))}
-              <button
-                onClick={() => onTabChange('trials')}
-                className="w-full py-3 min-h-[44px] text-center text-medical-accent-600 text-sm font-medium hover:text-medical-accent-700 active:text-medical-accent-800 transition-colors mt-3 touch-manipulation"
-              >
-                View All Saved Trials →
-              </button>
             </div>
           ) : (
             <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center">

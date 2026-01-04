@@ -101,7 +101,6 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
         localStorage.removeItem('clinicalTrials_searchSources');
         localStorage.removeItem('clinicalTrials_pagination');
       } catch (error) {
-        console.error('Error clearing search state:', error);
       }
       // Reload patient data to get updated profile
       loadPatientData();
@@ -138,14 +137,12 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
           });
         }
       } catch (error) {
-        console.log('No trial location preferences found');
         setTrialLocation({
           country: 'United States',
           includeAllLocations: false
         });
       }
     } catch (error) {
-      console.error('Error loading patient data:', error);
     }
   };
 
@@ -164,7 +161,6 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
       const savedIds = new Set(trials.map(t => t.trialId || t.id));
       setSavedTrialIds(savedIds);
     } catch (error) {
-      console.error('Error loading saved trials:', error);
       // Check if it's an index error
       if (error.code === 'failed-precondition' || error.message?.includes('index')) {
         const indexUrl = error.message?.match(/https:\/\/[^\s]+/)?.[0];
@@ -215,7 +211,6 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
       });
       setSavedTrialIds(newSavedIds);
     } catch (error) {
-      console.error('Error checking saved status:', error);
     }
   };
 
@@ -251,7 +246,6 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             localStorage.setItem('clinicalTrials_pagination', JSON.stringify(results.pagination));
           }
         } catch (error) {
-          console.error('Error saving search state:', error);
         }
         
         // Check saved status for search results
@@ -264,7 +258,6 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
         setPagination(null);
       }
     } catch (error) {
-      console.error('Error searching trials:', error);
       setError('Failed to search trials');
     } finally {
       setTimeout(() => setSearchProgress(null), 600);
@@ -284,7 +277,6 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
       localStorage.removeItem('clinicalTrials_searchSources');
       localStorage.removeItem('clinicalTrials_pagination');
     } catch (error) {
-      console.error('Error clearing search state:', error);
     }
   };
 
@@ -310,7 +302,6 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
       loadSavedTrials(activeTab === 'saved');
       showSuccess('Trial saved successfully!');
     } catch (error) {
-      console.error('Error saving trial:', error);
       showError('Failed to save trial');
     }
   };
@@ -336,7 +327,6 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
       loadSavedTrials(activeTab === 'saved');
       showSuccess('Trial removed successfully!');
     } catch (error) {
-      console.error('Error removing trial:', error);
       showError('Failed to remove trial');
     }
   };
@@ -346,7 +336,6 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
       await clinicalTrialsService.toggleTrialFavorite(trialDocId, !currentStatus);
       loadSavedTrials();
     } catch (error) {
-      console.error('Error toggling favorite:', error);
     }
   };
 
@@ -599,7 +588,6 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                       setSelectedTrial({ ...trial, summary: details.summary });
                     }
                   } catch (error) {
-                    console.error('Error fetching trial details:', error);
                   } finally {
                     setLoadingTrialDetails(false);
                   }
@@ -647,7 +635,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-3 sm:p-4 md:p-6">
+    <div className="p-3 sm:p-4 md:p-6">
       {/* Header */}
       <div className="mb-4 sm:mb-6 flex items-center gap-2 sm:gap-3">
         <div className="bg-medical-accent-50 p-2 sm:p-2.5 rounded-lg">
@@ -655,12 +643,11 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
         </div>
         <div>
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-medical-neutral-900 mb-0.5 sm:mb-1">Clinical Trials</h1>
-          <p className="text-xs sm:text-sm md:text-base text-medical-neutral-600">Search and save clinical trials from ClinicalTrials.gov</p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 sm:gap-4 mb-4 sm:mb-6 border-b border-medical-neutral-200">
+      <div className="flex gap-1 sm:gap-4 mb-4 sm:mb-6 overflow-x-auto">
         <button
           onClick={() => setActiveTab('search')}
           className={`pb-2 sm:pb-3 px-3 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base min-h-[44px] touch-manipulation active:opacity-70 ${
@@ -1220,7 +1207,6 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                     loadPatientData();
                     showSuccess('Location settings saved successfully!');
                   } catch (error) {
-                    console.error('Error saving trial location:', error);
                     showError('Failed to save location settings. Please try again.');
                   }
                 }}

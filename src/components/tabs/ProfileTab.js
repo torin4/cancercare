@@ -87,8 +87,6 @@ export default function ProfileTab({ onTabChange }) {
   // Initialize currentStatus from patientProfile
   useEffect(() => {
     if (patientProfile) {
-      console.log('PatientProfile updated:', patientProfile);
-      console.log('Current status from profile:', patientProfile.currentStatus);
       if (patientProfile.currentStatus) {
         setCurrentStatus({
           diagnosis: patientProfile.currentStatus.diagnosis || patientProfile.diagnosis || '',
@@ -128,7 +126,6 @@ export default function ProfileTab({ onTabChange }) {
           );
           setEmergencyContacts(filteredContacts);
         } catch (error) {
-          console.error('Error loading emergency contacts:', error);
         }
       }
     };
@@ -143,7 +140,6 @@ export default function ProfileTab({ onTabChange }) {
           const docs = await documentService.getDocuments(user.uid);
           setHasUploadedDocument(docs.length > 0);
         } catch (error) {
-          console.error('Error checking documents:', error);
         }
       }
     };
@@ -160,7 +156,6 @@ export default function ProfileTab({ onTabChange }) {
       await signOut(auth);
       setUser(null);
     } catch (error) {
-      console.error('Sign out error:', error);
       showError('Failed to sign out: ' + error.message);
     }
   };
@@ -174,7 +169,6 @@ export default function ProfileTab({ onTabChange }) {
       await linkWithPopup(user, provider);
       showSuccess('Google account linked successfully! You can now sign in with either email/password or Google.');
     } catch (error) {
-      console.error('Account linking error:', error);
       if (error.code === 'auth/credential-already-in-use') {
         showError('This Google account is already linked to another account. Please use a different Google account.');
       } else if (error.code === 'auth/provider-already-linked') {
@@ -205,7 +199,6 @@ export default function ProfileTab({ onTabChange }) {
       await unlink(user, 'google.com');
       showSuccess('Google account unlinked successfully.');
     } catch (error) {
-      console.error('Account unlinking error:', error);
       if (error.code === 'auth/no-such-provider') {
         showError('Google account is not linked to this account.');
       } else if (error.code === 'auth/cannot-unlink-provider') {
@@ -262,7 +255,6 @@ export default function ProfileTab({ onTabChange }) {
           setShowDeletionConfirm(false);
           showSuccess('Your account and all associated data have been permanently deleted.');
         } catch (authError) {
-          console.error('Account deletion error:', authError);
           if (authError.code === 'auth/requires-recent-login') {
             showError('For security, account deletion requires a recent login. Please log out and log back in, then try again.');
             setIsDeleting(false);
@@ -274,14 +266,12 @@ export default function ProfileTab({ onTabChange }) {
               await signOut(auth);
               setUser(null);
             } catch (signOutError) {
-              console.error('Sign out error:', signOutError);
             }
           }
           throw authError;
         }
       }
     } catch (error) {
-      console.error('Error during deletion:', error);
       showError('An error occurred during deletion. Please try again.');
     } finally {
       setIsDeleting(false);
@@ -1095,7 +1085,6 @@ export default function ProfileTab({ onTabChange }) {
                         // Refresh to ensure sync (but local state already updated)
                         await refreshPatient();
                       } catch (error) {
-                        console.error('Error updating user role:', error);
                         // Revert on error
                         setPatientProfile(prev => {
                           if (!prev) return prev;

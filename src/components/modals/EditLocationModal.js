@@ -27,7 +27,6 @@ export default function EditLocationModal({
         }]);
       }
     } catch (error) {
-      console.error('Error saving trial location:', error);
       showError('Failed to save location settings. Please try again.');
     }
   };

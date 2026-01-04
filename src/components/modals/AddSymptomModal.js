@@ -59,7 +59,6 @@ export default function AddSymptomModal({
       
       // Symptoms will automatically update via the subscription
     } catch (error) {
-      console.error('Error saving symptom:', error);
       showError('Failed to save symptom. Please try again.');
     }
   };

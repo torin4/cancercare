@@ -33,7 +33,6 @@ export const PatientProvider = ({ children }) => {
         
         if (!patient) {
           // Create initial skeleton record
-          console.log('Creating initial patient record for:', user.uid);
           await patientService.savePatient(user.uid, {
             email: user.email,
             displayName: user.displayName || 'Patient',
@@ -47,14 +46,12 @@ export const PatientProvider = ({ children }) => {
           setPatientProfile(patient);
           // Check if profile is complete (has diagnosis)
           if (!patient.diagnosis) {
-            console.log('Incomplete profile detected, showing onboarding');
             setNeedsOnboarding(true);
           } else {
             setNeedsOnboarding(false);
           }
         }
       } catch (error) {
-        console.error('Error loading patient profile:', error);
         setPatientProfile(null);
       } finally {
         setLoading(false);
@@ -70,7 +67,6 @@ export const PatientProvider = ({ children }) => {
       const patient = await patientService.getPatient(user.uid);
       setPatientProfile(patient);
     } catch (error) {
-      console.error('Error refreshing patient profile:', error);
     }
   };
 

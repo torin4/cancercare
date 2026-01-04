@@ -18,7 +18,6 @@ app.get('/api/jrct-proxy/*', async (req, res) => {
   try {
     const forwardPath = req.originalUrl.replace(/^\/api\/jrct-proxy/, '');
     const target = `${JRCT_HOST}${forwardPath}`;
-    console.log('proxy forwarding to', target);
 
     const response = await axios.get(target, {
       headers: {
@@ -31,7 +30,6 @@ app.get('/api/jrct-proxy/*', async (req, res) => {
 
     res.status(response.status).json(response.data);
   } catch (error) {
-    console.error('proxy error', error.message || error);
     if (error.response) {
       res.status(error.response.status).json({ error: error.message, details: error.response.data });
       return;
@@ -88,7 +86,6 @@ app.all('/api/trials-proxy', async (req, res) => {
       res.status(500).json({ error: 'No response from trials-proxy function' });
     }
   } catch (error) {
-    console.error('trials-proxy error:', error);
     if (!responseSent) {
       res.status(500).json({ error: 'Internal server error', message: error.message });
     }
@@ -107,7 +104,4 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Proxy server listening on http://localhost:${PORT}`);
-  console.log(`  - JRCT proxy: http://localhost:${PORT}/api/jrct-proxy/*`);
-  console.log(`  - Trials proxy: http://localhost:${PORT}/api/trials-proxy`);
 });

@@ -72,7 +72,6 @@ export async function saveMatchedTrial(userId, trialData) {
 
     return trialRef.id;
   } catch (error) {
-    console.error('Error saving matched trial:', error);
     throw error;
   }
 }
@@ -100,7 +99,6 @@ export async function getSavedTrials(userId) {
   } catch (error) {
     // If index error, try fallback query without orderBy
     if (error.code === 'failed-precondition' || error.message?.includes('index')) {
-      console.warn('Index not ready, using fallback query without sorting:', error.message);
       try {
         const fallbackQuery = query(
           collection(db, 'matchedTrials'),
@@ -118,11 +116,9 @@ export async function getSavedTrials(userId) {
           return bTime - aTime;
         });
       } catch (fallbackError) {
-        console.error('Error with fallback query:', fallbackError);
         throw fallbackError;
       }
     }
-    console.error('Error getting saved trials:', error);
     throw error;
   }
 }
@@ -148,7 +144,6 @@ export async function getFavoriteTrials(userId) {
       ...doc.data()
     }));
   } catch (error) {
-    console.error('Error getting favorite trials:', error);
     throw error;
   }
 }
@@ -164,7 +159,6 @@ export async function toggleTrialFavorite(trialDocId, isFavorite) {
     const trialRef = doc(db, 'matchedTrials', trialDocId);
     await setDoc(trialRef, { isFavorite }, { merge: true });
   } catch (error) {
-    console.error('Error toggling trial favorite:', error);
     throw error;
   }
 }
@@ -180,7 +174,6 @@ export async function updateTrialNotes(trialDocId, notes) {
     const trialRef = doc(db, 'matchedTrials', trialDocId);
     await setDoc(trialRef, { notes, updatedAt: serverTimestamp() }, { merge: true });
   } catch (error) {
-    console.error('Error updating trial notes:', error);
     throw error;
   }
 }
@@ -194,7 +187,6 @@ export async function removeSavedTrial(trialDocId) {
   try {
     await deleteDoc(doc(db, 'matchedTrials', trialDocId));
   } catch (error) {
-    console.error('Error removing saved trial:', error);
     throw error;
   }
 }
@@ -215,7 +207,6 @@ export async function searchAndMatchTrials(userId, patientProfile, genomicProfil
     try {
       trialLocation = await trialLocationService.getTrialLocation(userId);
     } catch (e) {
-      console.warn('Could not load trial location for user:', e?.message || e);
     }
 
     // If genomic profile exists, use genomic-based search and include location
@@ -262,12 +253,7 @@ export async function searchAndMatchTrials(userId, patientProfile, genomicProfil
       if (trialLocation) {
         params.country = trialLocation.country;
         params.includeAllLocations = trialLocation.includeAllLocations;
-        console.log('clinicalTrialsService: Adding location filter to search params:', {
-          country: trialLocation.country,
-          includeAllLocations: trialLocation.includeAllLocations
-        });
       } else {
-        console.log('clinicalTrialsService: No trialLocation found, searching globally');
       }
       searchResults = await searchTrials(params);
     }
@@ -310,7 +296,6 @@ export async function searchAndMatchTrials(userId, patientProfile, genomicProfil
     };
 
   } catch (error) {
-    console.error('Error searching and matching trials:', error);
     return {
       success: false,
       totalResults: 0,
@@ -355,7 +340,6 @@ export async function getTrialStatistics(userId) {
 
     return stats;
   } catch (error) {
-    console.error('Error getting trial statistics:', error);
     throw error;
   }
 }
@@ -385,10 +369,8 @@ export async function isTrialSaved(userId, trialId) {
     // Handle permission errors gracefully - return false if we can't check
     // This allows the UI to continue working even if there's a permissions issue
     if (error.code === 'permission-denied' || error.message?.includes('permission')) {
-      console.warn('Permission denied checking if trial is saved. User may not be authenticated:', error.message);
       return false;
     }
-    console.error('Error checking if trial is saved:', error);
     return false;
   }
 }

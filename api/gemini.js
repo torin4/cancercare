@@ -48,7 +48,6 @@ User message: ${message}`;
     res.status(200).json({ response: text });
 
   } catch (error) {
-    console.error('Gemini API Error:', error);
     res.status(500).json({ 
       error: 'Failed to process message',
       details: error.message 

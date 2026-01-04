@@ -88,7 +88,6 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
       ...documentData
     };
   } catch (error) {
-    console.error('Error uploading document:', error);
     throw error;
   }
 };
@@ -119,7 +118,6 @@ export const deleteDocument = async (docId, storagePath) => {
     const storageRef = ref(storage, storagePath);
     await deleteObject(storageRef);
   } catch (error) {
-    console.error('Error deleting document:', error);
     throw error;
   }
 };
@@ -136,7 +134,6 @@ export const listUserFiles = async (userId) => {
     const result = await listAll(listRef);
     return result.items;
   } catch (error) {
-    console.error('Error listing files:', error);
     throw error;
   }
 };
@@ -152,7 +149,6 @@ export const getFileUrl = async (storagePath) => {
     const storageRef = ref(storage, storagePath);
     return await getDownloadURL(storageRef);
   } catch (error) {
-    console.error('Error getting file URL:', error);
     throw error;
   }
 };
@@ -185,7 +181,6 @@ export const downloadFileAsBlob = async (storagePath, existingUrl = null) => {
     ? `${proxyBaseUrl}/api/storage-proxy?url=${encodeURIComponent(downloadUrl)}`
     : `/api/storage-proxy?url=${encodeURIComponent(downloadUrl)}`;
   
-  console.log('Downloading file via proxy:', proxyUrl);
   
   try {
     // Add timeout to fetch request (60 seconds for large files)
@@ -203,7 +198,6 @@ export const downloadFileAsBlob = async (storagePath, existingUrl = null) => {
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Proxy response error:', response.status, errorText);
       const proxyInfo = proxyBaseUrl 
         ? `Make sure the proxy server is running on ${proxyBaseUrl}`
         : 'Make sure the proxy server is running (npm run start:proxy) or the Vercel serverless function is available';
@@ -212,7 +206,6 @@ export const downloadFileAsBlob = async (storagePath, existingUrl = null) => {
     
     return await response.blob();
   } catch (proxyError) {
-    console.error('Error downloading file via proxy:', proxyError);
     
     // Provide clear error message based on the type of failure
     const proxyInfo = proxyBaseUrl
@@ -251,14 +244,11 @@ export const deleteUserDirectory = async (userId) => {
     });
     await Promise.all(folderPromises);
 
-    console.log(`Storage directory for ${userId} cleared.`);
   } catch (error) {
     // If directory doesn't exist, that's okay - just log and continue
     if (error.code === 'storage/object-not-found' || error.code === 'storage/unauthorized') {
-      console.log(`Storage directory for ${userId} not found or already deleted.`);
       return;
     }
-    console.error('Error deleting user directory:', error);
     throw error;
   }
 };

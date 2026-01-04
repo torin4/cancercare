@@ -180,14 +180,12 @@ export default function CancerCareApp() {
 
   // Helper to open the document upload onboarding with debugging log
   const openDocumentOnboarding = (docType = null, method = 'picker') => {
-    console.log('openDocumentOnboarding called, hasUploadedDocument=', hasUploadedDocument, 'docType=', docType, 'method=', method);
     setDocumentOnboardingMethod(method || 'picker');
     setShowDocumentOnboarding(true);
   };
 
   // Log when onboarding modal visibility changes
   useEffect(() => {
-    console.log('showDocumentOnboarding changed:', showDocumentOnboarding);
   }, [showDocumentOnboarding]);
 
   // Helper function to determine target tab and section based on document type
@@ -211,7 +209,6 @@ export default function CancerCareApp() {
 
   // Document upload handlers
   const handleRealFileUpload = async (file, docType) => {
-    console.log('handleRealFileUpload called with file:', file?.name, 'docType:', docType);
     if (!user) {
       showError('Please log in to upload files');
       return;
@@ -219,7 +216,6 @@ export default function CancerCareApp() {
 
     try {
       // Show loading overlay
-      console.log('Setting isUploading to true');
       setIsUploading(true);
       setUploadProgress('Reading document...');
 
@@ -233,7 +229,6 @@ export default function CancerCareApp() {
       // Step 1: Process document with AI to extract medical data
       setUploadProgress('Analyzing document with AI...');
       const processingResult = await processDocument(file, user.uid, patientProfile, providedDate, providedNote, null);
-      console.log('Document processing result:', processingResult);
 
       // Step 2: Upload file to Firebase Storage
       setUploadProgress('Uploading to secure storage...');
@@ -248,7 +243,6 @@ export default function CancerCareApp() {
         dataPointCount: processingResult.dataPointCount || 0
       });
 
-      console.log('File uploaded successfully:', uploadResult);
 
       // Step 3: Link all extracted values to the document ID
       // This is critical - values were created without documentId, now we link them
@@ -256,9 +250,7 @@ export default function CancerCareApp() {
       if (processingResult.extractedData && uploadResult.id) {
         try {
           await linkValuesToDocument(processingResult.extractedData, uploadResult.id, user.uid);
-          console.log('[App] Successfully linked all values to document', uploadResult.id);
         } catch (linkError) {
-          console.error('[App] Error linking values to document:', linkError);
           // Don't fail the upload if linking fails - values are still saved
         }
       }
@@ -285,7 +277,6 @@ export default function CancerCareApp() {
       }
       setActiveTab(tab);
     } catch (error) {
-      console.error('Upload error:', error);
       showError(`Failed to process document: ${error.message}. The file was not uploaded. Please try again or contact support if the issue persists.`);
       setIsUploading(false);
       setUploadProgress('');
@@ -293,7 +284,6 @@ export default function CancerCareApp() {
   };
 
   const simulateDocumentUpload = (docType) => {
-    console.log('simulateDocumentUpload called, docType=', docType);
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls';
@@ -301,17 +291,14 @@ export default function CancerCareApp() {
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (file) {
-        console.log('simulateDocumentUpload - file selected:', file.name, 'docType=', docType);
         await handleRealFileUpload(file, docType);
       }
     };
 
-    console.log('simulateDocumentUpload invoking file picker');
     input.click();
   };
 
   const simulateCameraUpload = (docType) => {
-    console.log('simulateCameraUpload called, docType=', docType);
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls,image/*';
@@ -321,7 +308,6 @@ export default function CancerCareApp() {
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (file) {
-        console.log('simulateCameraUpload - file selected:', file.name, 'docType=', docType);
         await handleRealFileUpload(file, docType);
       }
     };
@@ -596,7 +582,6 @@ export default function CancerCareApp() {
   // Handle onboarding completion
   const handleOnboardingComplete = async (formData) => {
     try {
-      console.log('Saving onboarding data:', formData);
 
       // Calculate age from date of birth
       const dob = new Date(formData.dateOfBirth);
@@ -666,10 +651,8 @@ export default function CancerCareApp() {
         subtype: finalSubtype || prev.subtype
       }));
 
-      console.log('Onboarding completed successfully');
       setNeedsOnboarding(false);
     } catch (error) {
-      console.error('Error saving onboarding data:', error);
       showError('Failed to save profile. Please try again.');
     }
   };
@@ -685,7 +668,6 @@ export default function CancerCareApp() {
           const docs = await documentService.getDocuments(user.uid);
           setDocuments(docs);
         } catch (error) {
-          console.error('Error loading documents:', error);
         }
       }
     };
@@ -761,7 +743,6 @@ export default function CancerCareApp() {
               }
             }
           } catch (error) {
-            console.log('No emergency contacts found or error loading contacts');
           }
 
           // Load trial location preferences
@@ -775,10 +756,8 @@ export default function CancerCareApp() {
               });
             }
           } catch (error) {
-            console.log('No trial location preferences found, using defaults');
           }
         } catch (error) {
-          console.error('Error loading additional data:', error);
         }
       }
     };
@@ -1224,7 +1203,6 @@ export default function CancerCareApp() {
                           }));
                           setActiveTab('chat');
                         } catch (error) {
-                          console.error('Error saving symptom:', error);
                           showError('Failed to save symptom. Please try again.');
                         }
                       }}
@@ -1279,7 +1257,6 @@ export default function CancerCareApp() {
             isOnboarding={!hasUploadedDocument}
             onClose={() => setShowDocumentOnboarding(false)}
             onUploadClick={(documentType, documentDate = null, documentNote = null, file = null) => {
-              console.log('onUploadClick called:', { documentType, documentDate, documentNote, file: file?.name });
               // Store document date and note for use in upload
               setPendingDocumentDate(documentDate);
               setPendingDocumentNote(documentNote);
@@ -1289,7 +1266,6 @@ export default function CancerCareApp() {
               
               // If file is provided (from component's file picker), upload it directly
               if (file) {
-                console.log('File provided, calling handleRealFileUpload');
                 handleRealFileUpload(file, documentType);
               } else {
                 // Otherwise, open file picker (fallback)
