@@ -149,11 +149,14 @@ export default function ProfileTab({ onTabChange }) {
   // Check if user has uploaded documents
   useEffect(() => {
     const checkDocuments = async () => {
-      if (user) {
+      if (user && isMountedRef.current) {
         try {
           const docs = await documentService.getDocuments(user.uid);
-          setHasUploadedDocument(docs.length > 0);
+          if (isMountedRef.current) {
+            setHasUploadedDocument(docs.length > 0);
+          }
         } catch (error) {
+          // Error is silently handled; document check is not critical for app functionality
         }
       }
     };
