@@ -305,6 +305,8 @@ export default function HealthTab({ onTabChange, initialSection = null }) {
           const { linkValuesToDocument } = await import('../../services/documentProcessor');
           await linkValuesToDocument(processingResult.extractedData, uploadResult.id, user.uid);
         } catch (linkError) {
+          // Linking failure is non-critical; document is uploaded and data is extracted
+          // Error is silently handled to avoid disrupting the upload flow
         }
       }
 
@@ -402,6 +404,8 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
           const meds = await medicationService.getMedications(user.uid);
           setMedications(meds);
         } catch (error) {
+          // Error is silently handled; medications are not critical for app functionality
+          // Error handling avoids disrupting user experience
         }
       }
     };

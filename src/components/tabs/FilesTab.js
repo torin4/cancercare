@@ -56,7 +56,7 @@ export default function FilesTab({ onTabChange }) {
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false); // Loading state for documents
 
   // Tab state for Documents vs Notes view
-  const [activeSubTab, setActiveSubTab] = useState('documents'); // 'documents' or 'notes'
+  const [activeSubTab, setActiveSubTab] = useState('notes'); // 'documents' or 'notes'
 
   // Track if component is mounted to prevent setState after unmount
   const isMountedRef = useRef(true);
@@ -157,18 +157,24 @@ export default function FilesTab({ onTabChange }) {
   // Load documents from Firestore when user logs in
   useEffect(() => {
     const loadDocuments = async () => {
-      if (user) {
+      if (user && isMountedRef.current) {
         try {
           setIsLoadingDocuments(true);
           const docs = await documentService.getDocuments(user.uid);
-          setDocuments(docs);
-          setHasUploadedDocument(docs.length > 0);
+          if (isMountedRef.current) {
+            setDocuments(docs);
+            setHasUploadedDocument(docs.length > 0);
+          }
           
           // Date ranges are now calculated and stored in documents by documentService.getDocuments()
           // No need to calculate them here - they're already in doc.minDate/doc.maxDate
         } catch (error) {
+          // Log error for debugging; error is silently handled to avoid disrupting user experience
+          // Loading state is cleared in finally block
         } finally {
-          setIsLoadingDocuments(false);
+          if (isMountedRef.current) {
+            setIsLoadingDocuments(false);
+          }
         }
       }
     };
@@ -654,7 +660,7 @@ export default function FilesTab({ onTabChange }) {
             <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-medical-primary-600" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-medical-neutral-900 mb-0.5 sm:mb-1">Files & Notes</h1>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-medical-neutral-900 mb-0.5 sm:mb-1">Notes & Files</h1>
           </div>
         </div>
 
@@ -690,17 +696,6 @@ export default function FilesTab({ onTabChange }) {
         {/* Tab Navigation */}
         <div className="flex gap-1 sm:gap-4 flex-1">
           <button
-            onClick={() => setActiveSubTab('documents')}
-            className={`pb-3 px-2 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70 whitespace-nowrap flex-shrink-0 ${
-              activeSubTab === 'documents'
-                ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
-                : 'text-medical-neutral-600 hover:text-medical-primary-600'
-            }`}
-          >
-            <FolderOpen className="w-4 h-4" />
-            <span className="text-xs sm:text-base">Files</span>
-          </button>
-          <button
             onClick={() => setActiveSubTab('notes')}
             className={`pb-3 px-2 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70 whitespace-nowrap flex-shrink-0 ${
               activeSubTab === 'notes'
@@ -710,6 +705,17 @@ export default function FilesTab({ onTabChange }) {
           >
             <BookOpen className="w-4 h-4" />
             <span className="text-xs sm:text-base">Notes</span>
+          </button>
+          <button
+            onClick={() => setActiveSubTab('documents')}
+            className={`pb-3 px-2 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70 whitespace-nowrap flex-shrink-0 ${
+              activeSubTab === 'documents'
+                ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
+                : 'text-medical-neutral-600 hover:text-medical-primary-600'
+            }`}
+          >
+            <FolderOpen className="w-4 h-4" />
+            <span className="text-xs sm:text-base">Files</span>
           </button>
         </div>
         

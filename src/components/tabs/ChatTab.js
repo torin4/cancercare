@@ -466,6 +466,8 @@ export default function ChatTab({ onTabChange }) {
           setTimeout(processPendingMessage, 200);
         }
       } catch (error) {
+        // Error parsing or processing pending message; cleanup and continue
+        // Error is silently handled to avoid disrupting user experience
         isProcessingPendingRef.current = false;
         sessionStorage.removeItem('pendingQuickLogMessage');
       }

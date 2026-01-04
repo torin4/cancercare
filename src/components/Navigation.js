@@ -35,7 +35,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
     { id: 'chat', label: 'Chat', icon: MessageSquare },
     { id: 'health', label: 'Health', icon: ClipboardList },
     { id: 'trials', label: 'Trials', icon: FlaskConical },
-    { id: 'files', label: 'Files & Notes', icon: FileText },
+    { id: 'files', label: 'Notes & Files', icon: FileText },
   ];
 
   return (

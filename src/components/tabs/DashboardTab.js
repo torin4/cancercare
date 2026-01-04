@@ -149,6 +149,8 @@ export default function DashboardTab({ onTabChange }) {
           const { linkValuesToDocument } = await import('../../services/documentProcessor');
           await linkValuesToDocument(processingResult.extractedData, uploadResult.id, user.uid);
         } catch (linkError) {
+          // Linking failure is non-critical; document is uploaded and data is extracted
+          // Error is silently handled to avoid disrupting the upload flow
         }
       }
 

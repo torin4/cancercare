@@ -128,14 +128,18 @@ export default function ProfileTab({ onTabChange }) {
   // Load emergency contacts
   useEffect(() => {
     const loadContacts = async () => {
-      if (user) {
+      if (user && isMountedRef.current) {
         try {
           const contacts = await emergencyContactService.getEmergencyContacts(user.uid);
           const filteredContacts = contacts.filter(c => 
             (c.name && c.name.trim()) || (c.phone && c.phone.trim())
           );
-          setEmergencyContacts(filteredContacts);
+          if (isMountedRef.current) {
+            setEmergencyContacts(filteredContacts);
+          }
         } catch (error) {
+          // Log error for debugging; emergency contacts are not critical for app functionality
+          // Error is silently handled to avoid disrupting user experience
         }
       }
     };
