@@ -123,26 +123,26 @@ export default function AddLabModal({
   };
 
   return (
-    <div className={combineClasses('fixed inset-0 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4', DesignTokens.components.modal.overlay)}>
-      <div className={combineClasses('w-full h-full md:h-auto md:rounded-2xl md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up', DesignTokens.components.modal.container)}>
-        <div className={combineClasses('flex-shrink-0 border-b p-4 flex items-center justify-between', DesignTokens.components.modal.header)}>
-          <h3 className={combineClasses('font-bold text-lg', DesignTokens.colors.neutral.text[800])}>Add Lab Metric to Track</h3>
+    <div className={combineClasses(DesignTokens.components.modal.backdrop, 'z-50')}>
+      <div className={combineClasses('w-full h-full md:h-auto', DesignTokens.borders.radius.lg, 'md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up', DesignTokens.components.modal.container)}>
+        <div className={combineClasses('flex-shrink-0 border-b', DesignTokens.components.modal.header, DesignTokens.colors.neutral.border[200])}>
+          <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, DesignTokens.colors.neutral.text[800])}>Add Lab Metric to Track</h3>
           <button
             onClick={handleCancel}
-            className={combineClasses('transition', DesignTokens.components.modal.closeButton)}
+            className={combineClasses(DesignTokens.transitions.default, DesignTokens.components.modal.closeButton)}
             type="button"
           >
-            <X size={24} />
+            <X className={DesignTokens.icons.header.size.full} />
           </button>
         </div>
 
-        <div className={combineClasses('flex-1 overflow-y-auto p-4 sm:p-6 space-y-4', DesignTokens.components.modal.body)}>
-          <div className={combineClasses('rounded-lg p-3', DesignTokens.components.alert.info.bg, DesignTokens.components.alert.info.border)}>
-            <div className="flex items-start gap-2">
-              <AlertCircle className={combineClasses('w-5 h-5 mt-0.5 flex-shrink-0', DesignTokens.components.alert.info.icon)} />
+        <div className={combineClasses('flex-1 overflow-y-auto', DesignTokens.components.modal.body, 'space-y-4', DesignTokens.spacing.gap.lg)}>
+          <div className={combineClasses(DesignTokens.borders.radius.sm, DesignTokens.spacing.card.mobile, DesignTokens.components.alert.info.bg, DesignTokens.components.alert.info.border)}>
+            <div className={combineClasses('flex items-start', DesignTokens.spacing.gap.sm)}>
+              <AlertCircle className={combineClasses(DesignTokens.icons.button.size.full, 'mt-0.5 flex-shrink-0', DesignTokens.components.alert.info.icon)} />
               <div className="flex-1">
-                <p className={combineClasses('text-sm font-medium', DesignTokens.components.alert.info.text)}>Custom Lab Tracking</p>
-                <p className={combineClasses('text-xs mt-1', DesignTokens.components.alert.info.textSecondary)}>
+                <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, DesignTokens.components.alert.info.text)}>Custom Lab Tracking</p>
+                <p className={combineClasses(DesignTokens.typography.body.xs, 'mt-1', DesignTokens.components.alert.info.textSecondary)}>
                   Select a common marker or add your own custom lab metric. The AI will track trends and alert you to significant changes.
                 </p>
               </div>
@@ -150,8 +150,8 @@ export default function AddLabModal({
           </div>
 
           <div>
-            <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
-              Lab Metric to Track <span className={combineClasses('', DesignTokens.components.alert.text.error)}>*</span>
+            <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-2', DesignTokens.colors.neutral.text[700])}>
+              Lab Metric to Track <span className={combineClasses(DesignTokens.components.alert.text.error)}>*</span>
             </label>
             <select
               value={newLabData.label ? JSON.stringify({ name: newLabData.label, range: newLabData.normalRange, unit: newLabData.unit }) : ''}
@@ -170,7 +170,7 @@ export default function AddLabModal({
                   setNewLabData({ label: '', normalRange: '', unit: '', initialValue: '', initialDate: getTodayLocalDate() });
                 }
               }}
-              className={combineClasses('w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2', DesignTokens.components.input.base, 'focus:ring-medical-primary-500')}
+              className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
             >
               <option value="">Select a lab metric to track</option>
 
@@ -306,77 +306,77 @@ export default function AddLabModal({
                 <option value="custom">Enter Custom Lab Metric</option>
               </optgroup>
             </select>
-            <p className={combineClasses('text-xs mt-1', DesignTokens.colors.neutral.text[500])}>Common cancer-related lab metrics or enter your own</p>
+            <p className={combineClasses(DesignTokens.typography.body.xs, 'mt-1', DesignTokens.colors.neutral.text[500])}>Common cancer-related lab metrics or enter your own</p>
           </div>
 
           {newLabData.label === '' && (
-          <div className={combineClasses('rounded-lg p-4 space-y-3', DesignTokens.colors.neutral[50])}>
-            <h4 className={combineClasses('font-semibold text-sm', DesignTokens.colors.neutral.text[800])}>Custom Lab Metric</h4>
+          <div className={combineClasses(DesignTokens.borders.radius.sm, DesignTokens.spacing.card.mobile, 'space-y-3', DesignTokens.spacing.gap.md, DesignTokens.colors.neutral[50])}>
+            <h4 className={combineClasses(DesignTokens.typography.h3.weight, DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[800])}>Custom Lab Metric</h4>
 
             <div>
-              <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Lab Name *</label>
+              <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-1', DesignTokens.colors.neutral.text[700])}>Lab Name *</label>
               <input
                 type="text"
                 value={newLabData.label}
                 onChange={(e) => setNewLabData({ ...newLabData, label: e.target.value })}
                 placeholder="e.g., Vitamin D, Albumin, Magnesium"
-                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2', DesignTokens.components.input.base, 'focus:ring-medical-primary-500')}
+                className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className={combineClasses('grid grid-cols-2', DesignTokens.spacing.gap.md)}>
               <div>
-                <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Normal Range *</label>
+                <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-1', DesignTokens.colors.neutral.text[700])}>Normal Range *</label>
                 <input
                   type="text"
                   value={newLabData.normalRange}
                   onChange={(e) => setNewLabData({ ...newLabData, normalRange: e.target.value })}
                   placeholder="e.g., <35, 4.5-11.0"
-                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2', DesignTokens.components.input.base, 'focus:ring-medical-primary-500')}
+                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
                 />
               </div>
 
               <div>
-                <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Unit *</label>
+                <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-1', DesignTokens.colors.neutral.text[700])}>Unit *</label>
                 <input
                   type="text"
                   value={newLabData.unit}
                   onChange={(e) => setNewLabData({ ...newLabData, unit: e.target.value })}
                   placeholder="e.g., U/mL, mg/dL"
-                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2', DesignTokens.components.input.base, 'focus:ring-medical-primary-500')}
+                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
                 />
               </div>
             </div>
             </div>
           )}
 
-            <div className={combineClasses('rounded-lg p-2', DesignTokens.components.alert.info.bg, DesignTokens.components.alert.info.border)}>
-              <p className={combineClasses('text-xs', DesignTokens.components.alert.info.textSecondary)}>
+            <div className={combineClasses(DesignTokens.borders.radius.sm, DesignTokens.spacing.iconContainer.mobile, DesignTokens.components.alert.info.bg, DesignTokens.components.alert.info.border)}>
+              <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.components.alert.info.textSecondary)}>
                 <span className="font-semibold">Tip:</span> You can add any lab metric from your medical records - the AI will learn what's normal for you over time.
               </p>
           </div>
 
           {/* Optional: Add Initial Value */}
           {newLabData.label && newLabData.normalRange && newLabData.unit && (
-            <div className="border-t pt-4 mt-4">
-              <h4 className={combineClasses('font-semibold text-sm mb-3', DesignTokens.colors.neutral.text[800])}>Add Initial Value (Optional)</h4>
-              <p className={combineClasses('text-xs mb-3', DesignTokens.colors.neutral.text[600])}>You can add your first lab value now, or add it later from the Health tab.</p>
+            <div className={combineClasses(DesignTokens.borders.divider, 'pt-4', DesignTokens.spacing.header.mobile)}>
+              <h4 className={combineClasses(DesignTokens.typography.h3.weight, DesignTokens.typography.body.sm, 'mb-3', DesignTokens.colors.neutral.text[800])}>Add Initial Value (Optional)</h4>
+              <p className={combineClasses(DesignTokens.typography.body.xs, 'mb-3', DesignTokens.colors.neutral.text[600])}>You can add your first lab value now, or add it later from the Health tab.</p>
               
-              <div className="grid grid-cols-2 gap-3">
+              <div className={combineClasses('grid grid-cols-2', DesignTokens.spacing.gap.md)}>
                 <div>
-                  <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Value</label>
+                  <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-1', DesignTokens.colors.neutral.text[700])}>Value</label>
                   <input
                     type="number"
                     step="any"
                     value={newLabData.initialValue}
                     onChange={(e) => setNewLabData({ ...newLabData, initialValue: e.target.value })}
                     placeholder="e.g., 42"
-                    className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2', DesignTokens.components.input.base, 'focus:ring-medical-primary-500')}
+                    className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
                   />
                 </div>
 
                 <div>
-                  <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Date</label>
+                  <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-1', DesignTokens.colors.neutral.text[700])}>Date</label>
                   <DatePicker
                     value={newLabData.initialDate}
                     onChange={(e) => setNewLabData({ ...newLabData, initialDate: e.target.value })}
@@ -389,9 +389,9 @@ export default function AddLabModal({
           )}
 
           {newLabData.label && newLabData.normalRange && newLabData.unit && (
-            <div className={combineClasses('rounded-lg p-3', DesignTokens.components.alert.success.bg, DesignTokens.components.alert.success.border)}>
-              <p className={combineClasses('text-xs font-medium mb-1', DesignTokens.components.alert.success.text)}>Preview:</p>
-              <p className={combineClasses('text-sm', DesignTokens.components.alert.success.textSecondary)}>
+            <div className={combineClasses(DesignTokens.borders.radius.sm, DesignTokens.spacing.card.mobile, DesignTokens.components.alert.success.bg, DesignTokens.components.alert.success.border)}>
+              <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.typography.h3.weight, 'mb-1', DesignTokens.components.alert.success.text)}>Preview:</p>
+              <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.components.alert.success.textSecondary)}>
                 <strong>{newLabData.label}</strong> • Normal: {newLabData.normalRange} {newLabData.unit}
                 {newLabData.initialValue && (
                   <span> • Initial Value: {newLabData.initialValue} {newLabData.unit}</span>
@@ -401,20 +401,20 @@ export default function AddLabModal({
           )}
         </div>
 
-        <div className={combineClasses('flex-shrink-0 border-t p-4', DesignTokens.components.modal.footer)}>
-          <div className="flex gap-3">
+        <div className={combineClasses('flex-shrink-0 border-t', DesignTokens.components.modal.footer, DesignTokens.colors.neutral.border[200])}>
+          <div className={combineClasses('flex', DesignTokens.spacing.gap.md)}>
             <button
               onClick={handleCancel}
-              className={combineClasses('flex-1 py-2.5 rounded-lg font-medium transition', DesignTokens.components.button.secondary)}
+              className={combineClasses('flex-1 py-2.5', DesignTokens.borders.radius.sm, DesignTokens.typography.h3.weight, DesignTokens.transitions.default, DesignTokens.components.button.secondary)}
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
-              className={combineClasses('flex-1 text-white py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2 disabled:opacity-50', DesignTokens.components.button.primary)}
+              className={combineClasses('flex-1 text-white py-2.5', DesignTokens.borders.radius.sm, DesignTokens.typography.h3.weight, DesignTokens.transitions.default, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, 'disabled:opacity-50', DesignTokens.components.button.primary)}
               disabled={!newLabData.label || !newLabData.normalRange || !newLabData.unit}
             >
-              <Plus className="w-4 h-4" />
+              <Plus className={DesignTokens.icons.standard.size.full} />
               Add Lab Metric
             </button>
           </div>

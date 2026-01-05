@@ -245,6 +245,10 @@ export const DesignTokens = {
       thick: 'border-2',
     },
     
+    color: {
+      default: 'border-medical-neutral-200',
+    },
+    
     // Common border combinations
     card: 'border border-medical-neutral-200',
     divider: 'border-b border-medical-neutral-200',
@@ -326,7 +330,7 @@ export const DesignTokens = {
     
     // Form Inputs
     input: {
-      base: 'w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500 transition-all duration-200',
+      base: 'w-full px-4 py-2.5 border border-medical-neutral-200 rounded-xl text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-offset-0 focus:ring-medical-primary-500 focus:border-medical-primary-500 transition-all duration-200',
       disabled: 'bg-gray-100 cursor-not-allowed',
       textarea: 'resize-none',
       withIcon: 'pl-10',

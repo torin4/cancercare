@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical, Loader2, BookOpen, FileText, MessageSquare } from 'lucide-react';
+import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical, Loader2, BookOpen, FileText, MessageSquare, Search } from 'lucide-react';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
@@ -76,6 +76,10 @@ export default function FilesTab({ onTabChange }) {
   const [showAddJournalNote, setShowAddJournalNote] = useState(false);
   const [addNoteDate, setAddNoteDate] = useState(null);
   const [editingJournalNote, setEditingJournalNote] = useState(null);
+  
+  // Search state
+  const [documentSearchQuery, setDocumentSearchQuery] = useState('');
+  const [notebookSearchQuery, setNotebookSearchQuery] = useState('');
 
   // Debug log helper function
   const addDebugLog = useCallback((message, type = 'log') => {
@@ -493,7 +497,8 @@ export default function FilesTab({ onTabChange }) {
         }
       }
 
-      setUploadProgress(`${fileProgressPrefix}Saving extracted data...`);
+      // Don't set generic "Saving extracted data" - let the specific aiStatus messages show instead
+      // setUploadProgress(`${fileProgressPrefix}Saving extracted data...`);
 
       // Step 4: Add to local documents state
       // Use providedDate if available, otherwise format the date from uploadResult
@@ -745,7 +750,7 @@ export default function FilesTab({ onTabChange }) {
 
       {/* Documents Tab Content */}
       {activeSubTab === 'documents' && (
-      <div className={combineClasses(DesignTokens.components.card.nestedWithShadow, 'md:p-5')}>
+        <div className={combineClasses(DesignTokens.components.card.nestedWithShadow, 'md:p-5')}>
         {documents.length > 0 && (
           <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.section.mobile)}>
             <h3 className={combineClasses(
@@ -760,6 +765,7 @@ export default function FilesTab({ onTabChange }) {
             </div>
             Medical Documents
           </h3>
+            <div className="flex items-center gap-2">
             <button
               onClick={() => openDocumentOnboarding('general')}
               className="flex items-center gap-2 text-medical-primary-600 hover:text-medical-primary-700 transition-colors"
@@ -767,6 +773,7 @@ export default function FilesTab({ onTabChange }) {
               <Plus className="w-4 h-4" />
               <span className="text-sm font-medium">Add File</span>
             </button>
+            </div>
           </div>
         )}
         {documents.length === 0 ? (
@@ -791,8 +798,35 @@ export default function FilesTab({ onTabChange }) {
             </div>
           </div>
         ) : (
-          <div className="space-y-2">
-            {documents.map(doc => {
+          <div className="space-y-4">
+            {/* Search Bar */}
+            <div className={combineClasses('relative', DesignTokens.spacing.section.mobile)}>
+              <Search className={combineClasses('absolute left-3 top-1/2 -translate-y-1/2', DesignTokens.icons.standard.size.full, DesignTokens.colors.neutral.text[400])} />
+              <input
+                type="text"
+                placeholder="Search documents by name, type, or note..."
+                value={documentSearchQuery}
+                onChange={(e) => setDocumentSearchQuery(e.target.value)}
+                className={combineClasses(
+                  DesignTokens.components.input.base,
+                  DesignTokens.components.input.withIcon
+                )}
+              />
+            </div>
+            
+            {/* Filtered Documents */}
+            <div className="space-y-2">
+              {documents
+                .filter(doc => {
+                  if (!documentSearchQuery.trim()) return true;
+                  const query = documentSearchQuery.toLowerCase();
+                  const fileName = (doc.fileName || doc.name || 'Untitled Document').toLowerCase();
+                  const docType = (doc.documentType || doc.type || '').toLowerCase();
+                  const note = (doc.note || '').toLowerCase();
+                  const label = getIconConfig(doc.documentType || doc.type).label.toLowerCase();
+                  return fileName.includes(query) || docType.includes(query) || note.includes(query) || label.includes(query);
+                })
+                .map(doc => {
               const iconConfig = getIconConfig(doc.documentType || doc.type);
               const fileName = doc.fileName || doc.name || 'Untitled Document';
 
@@ -989,13 +1023,14 @@ export default function FilesTab({ onTabChange }) {
               );
             })}
           </div>
+          </div>
         )}
-      </div>
+        </div>
       )}
 
       {/* Notes Tab Content */}
       {activeSubTab === 'notes' && (
-      <div className="bg-white rounded-b-lg shadow p-3 sm:p-4 md:p-5 border-x border-b border-medical-neutral-200">
+        <div className="bg-white rounded-b-lg shadow p-3 sm:p-4 md:p-5 border-x border-b border-medical-neutral-200">
         {notebookEntries.length > 0 && (
           <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.section.mobile)}>
             <h3 className={combineClasses(
@@ -1044,21 +1079,58 @@ export default function FilesTab({ onTabChange }) {
             <Loader2 className="w-8 h-8 text-medical-primary-600 animate-spin" />
           </div>
         ) : (
-          <NotebookTimeline 
-            entries={notebookEntries} 
-            onEntryClick={(entry) => {
-              // Handle entry click if needed
-            }}
-            onAddNote={(date) => {
-              setAddNoteDate(date);
-              setShowAddJournalNote(true);
-            }}
-            onDeleteNote={handleDeleteJournalNote}
-            onEditNote={handleEditNote}
-          />
+          <>
+            {/* Search Bar */}
+            {notebookEntries.length > 0 && (
+              <div className={combineClasses('relative', DesignTokens.spacing.section.mobile)}>
+                <Search className={combineClasses('absolute left-3 top-1/2 -translate-y-1/2', DesignTokens.icons.standard.size.full, DesignTokens.colors.neutral.text[400])} />
+                <input
+                  type="text"
+                  placeholder="Search entries by date, note content, or document name..."
+                  value={notebookSearchQuery}
+                  onChange={(e) => setNotebookSearchQuery(e.target.value)}
+                  className={combineClasses(
+                    DesignTokens.components.input.base,
+                    DesignTokens.components.input.withIcon
+                  )}
+                />
+              </div>
+            )}
+            
+            <NotebookTimeline 
+              entries={notebookEntries.filter(entry => {
+                if (!notebookSearchQuery.trim()) return true;
+                const query = notebookSearchQuery.toLowerCase();
+                const dateStr = entry.date.toLocaleDateString('en-US', { 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                }).toLowerCase();
+                const notesMatch = entry.notes?.some(note => 
+                  note.content?.toLowerCase().includes(query) ||
+                  note.sourceName?.toLowerCase().includes(query)
+                );
+                const documentsMatch = entry.documents?.some(doc =>
+                  (doc.fileName || doc.name || '').toLowerCase().includes(query) ||
+                  (doc.documentType || doc.type || '').toLowerCase().includes(query)
+                );
+                return dateStr.includes(query) || notesMatch || documentsMatch;
+              })} 
+              onEntryClick={(entry) => {
+                // Handle entry click if needed
+              }}
+              onAddNote={(date) => {
+                setAddNoteDate(date);
+                setShowAddJournalNote(true);
+              }}
+              onDeleteNote={handleDeleteJournalNote}
+              onEditNote={handleEditNote}
+            />
+          </>
         )}
-      </div>
+        </div>
       )}
+      </div>
 
       {/* Modals */}
       {showDocumentOnboarding && (
@@ -1186,10 +1258,13 @@ export default function FilesTab({ onTabChange }) {
         onClose={() => setRescanDocument(null)}
         document={rescanDocument}
         isProcessing={isUploading}
-        onConfirm={async ({ date, note }) => {
+        onConfirm={async ({ date, note, onlyExistingMetrics = false }) => {
           if (!rescanDocument) return;
 
           try {
+            // Close the rescan modal first so the progress overlay is visible
+            setRescanDocument(null);
+            
             setIsUploading(true);
             setUploadProgress('Downloading document...');
 
@@ -1228,7 +1303,8 @@ export default function FilesTab({ onTabChange }) {
                 if (status) {
                   setAiStatus(status);
                 }
-              }
+              },
+              onlyExistingMetrics
             );
             
             setAiStatus(null); // Clear AI status after analysis
@@ -1256,8 +1332,7 @@ export default function FilesTab({ onTabChange }) {
             const updatedDocs = await documentService.getDocuments(user.uid);
             setDocuments(updatedDocs);
 
-            // Close modal after successful completion
-            setRescanDocument(null);
+            // Already closed modal at start, just clean up state
             setIsUploading(false);
             setUploadProgress('');
 
@@ -1279,10 +1354,10 @@ export default function FilesTab({ onTabChange }) {
             onTabChange('chat');
           } catch (error) {
             showError(`Error rescanning document: ${error.message}. Please try again.`);
-            // Close modal on error
-            setRescanDocument(null);
+            // Already closed modal at start, just clean up state
             setIsUploading(false);
             setUploadProgress('');
+            setAiStatus(null);
           }
         }}
       />
@@ -1320,7 +1395,6 @@ export default function FilesTab({ onTabChange }) {
         }}
       />
       </div>
-    </div>
   );
 }
 

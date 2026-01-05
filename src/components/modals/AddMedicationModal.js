@@ -278,30 +278,30 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
         }
       }}
     >
-      <div className={DesignTokens.components.modal.container}>
-        <div className={combineClasses(DesignTokens.components.modal.header, DesignTokens.colors.neutral.border[200])}>
-          <h3 className={combineClasses(DesignTokens.components.modal.title, DesignTokens.colors.neutral.text[900])}>{editingMedication ? 'Edit Medication' : 'Add Medication'}</h3>
+      <div className={combineClasses('w-full h-full md:h-auto', DesignTokens.borders.radius.lg, 'md:max-w-md md:max-h-[90vh] overflow-hidden flex flex-col animate-slide-up', DesignTokens.components.modal.container)}>
+        <div className={combineClasses('flex-shrink-0 border-b', DesignTokens.components.modal.header, DesignTokens.colors.neutral.border[200])}>
+          <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, DesignTokens.colors.neutral.text[900])}>{editingMedication ? 'Edit Medication' : 'Add Medication'}</h3>
           <button
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               onClose();
             }}
-            className={combineClasses('transition', DesignTokens.components.modal.closeButton)}
+            className={combineClasses(DesignTokens.transitions.default, DesignTokens.components.modal.closeButton)}
             type="button"
           >
-            <X size={24} />
+            <X className={DesignTokens.icons.header.size.full} />
           </button>
         </div>
 
-        <div className={DesignTokens.components.modal.body}>
-          <div className="space-y-4">
-            <div className={combineClasses('border rounded-lg p-3', DesignTokens.components.alert.info.bg, DesignTokens.components.alert.info.border)}>
-              <div className="flex items-start gap-2">
-                <AlertCircle className={combineClasses('w-5 h-5 mt-0.5 flex-shrink-0', DesignTokens.components.alert.text.info.replace('700', '600'))} />
+        <div className={combineClasses('flex-1 overflow-y-auto', DesignTokens.components.modal.body)}>
+          <div className={combineClasses('space-y-4', DesignTokens.spacing.gap.lg)}>
+            <div className={combineClasses(DesignTokens.borders.width.default, DesignTokens.borders.radius.sm, DesignTokens.spacing.card.mobile, DesignTokens.components.alert.info.bg, DesignTokens.components.alert.info.border)}>
+              <div className={combineClasses('flex items-start', DesignTokens.spacing.gap.sm)}>
+                <AlertCircle className={combineClasses(DesignTokens.icons.button.size.full, 'mt-0.5 flex-shrink-0', DesignTokens.components.alert.text.info.replace('700', '600'))} />
                 <div className="flex-1">
-                  <p className={combineClasses('text-sm font-medium', DesignTokens.components.alert.text.info.replace('700', '900'))}>Medication Tracking</p>
-                  <p className={combineClasses('text-xs mt-1', DesignTokens.components.alert.text.info)}>
+                  <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, DesignTokens.components.alert.text.info.replace('700', '900'))}>Medication Tracking</p>
+                  <p className={combineClasses(DesignTokens.typography.body.xs, 'mt-1', DesignTokens.components.alert.text.info)}>
                     Add any medication to track dosage, schedule, and adherence.
                   </p>
                 </div>
@@ -309,40 +309,40 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
             </div>
 
             <div>
-              <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
-                Medication Name <span className={combineClasses('', DesignTokens.components.alert.text.error)}>*</span>
+              <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-2', DesignTokens.colors.neutral.text[700])}>
+                Medication Name <span className={combineClasses(DesignTokens.components.alert.text.error)}>*</span>
               </label>
               <input
                 type="text"
                 placeholder="e.g., Paclitaxel, Ibuprofen"
                 value={formData.name}
                 onChange={(e) => setFormData({...formData, name: e.target.value})}
-                className={combineClasses('w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className={combineClasses('grid grid-cols-3', DesignTokens.spacing.gap.md)}>
               <div>
-                <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>
-                  Dosage <span className={combineClasses('', DesignTokens.components.alert.text.error)}>*</span>
+                <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-1', DesignTokens.colors.neutral.text[700])}>
+                  Dosage <span className={combineClasses(DesignTokens.components.alert.text.error)}>*</span>
                 </label>
                 <input
                   type="text"
                   placeholder="e.g., 20"
                   value={formData.dosage}
                   onChange={(e) => setFormData({...formData, dosage: e.target.value})}
-                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
                 />
               </div>
 
               <div>
-                <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>
-                  Unit <span className={combineClasses('', DesignTokens.components.alert.text.error)}>*</span>
+                <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-1', DesignTokens.colors.neutral.text[700])}>
+                  Unit <span className={combineClasses(DesignTokens.components.alert.text.error)}>*</span>
                 </label>
                 <select 
                   value={formData.unit}
                   onChange={(e) => setFormData({...formData, unit: e.target.value})}
-                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
                 >
                   <option value="">Select...</option>
                   <option value="mg">mg</option>
@@ -359,28 +359,28 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
               </div>
 
               <div>
-                <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>
-                  Quantity <span className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>(optional)</span>
+                <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-1', DesignTokens.colors.neutral.text[700])}>
+                  Quantity <span className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.neutral.text[500])}>(optional)</span>
                 </label>
                 <input
                   type="text"
                   placeholder="e.g., 2"
                   value={formData.quantity}
                   onChange={(e) => setFormData({...formData, quantity: e.target.value})}
-                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
                 />
-                <p className={combineClasses('text-xs mt-1', DesignTokens.colors.neutral.text[500])}>How many to take</p>
+                <p className={combineClasses(DesignTokens.typography.body.xs, 'mt-1', DesignTokens.colors.neutral.text[500])}>How many to take</p>
               </div>
             </div>
 
             <div>
-              <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
-                Frequency <span className={combineClasses('', DesignTokens.components.alert.text.error)}>*</span>
+              <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-2', DesignTokens.colors.neutral.text[700])}>
+                Frequency <span className={combineClasses(DesignTokens.components.alert.text.error)}>*</span>
               </label>
               <select 
                 value={formData.frequency}
                 onChange={(e) => setFormData({...formData, frequency: e.target.value})}
-                className={combineClasses('w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
               >
                 <option value="">Select frequency...</option>
                 <option value="Once daily">Once daily</option>
@@ -398,48 +398,48 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
             </div>
 
             <div>
-              <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
-                Time(s) of Day <span className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>(optional)</span>
+              <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-2', DesignTokens.colors.neutral.text[700])}>
+                Time(s) of Day <span className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.neutral.text[500])}>(optional)</span>
               </label>
-              <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
+              <div className={combineClasses('flex flex-wrap', DesignTokens.spacing.gap.lg)}>
+                <label className={combineClasses('flex items-center cursor-pointer', DesignTokens.spacing.gap.sm)}>
                   <input
                     type="checkbox"
                     checked={selectedTimes.morning}
                     onChange={(e) => setSelectedTimes({...selectedTimes, morning: e.target.checked})}
-                    className={combineClasses('w-4 h-4 rounded focus:ring-blue-500', DesignTokens.colors.primary[600].replace('bg-', 'text-'), DesignTokens.colors.neutral.border[300])}
+                    className={combineClasses('w-4 h-4', DesignTokens.borders.radius.sm, 'focus:ring-blue-500', DesignTokens.colors.primary[600].replace('bg-', 'text-'), DesignTokens.colors.neutral.border[300])}
                   />
-                  <span className={combineClasses('text-sm', DesignTokens.colors.neutral.text[700])}>Morning</span>
+                  <span className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[700])}>Morning</span>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className={combineClasses('flex items-center cursor-pointer', DesignTokens.spacing.gap.sm)}>
                   <input
                     type="checkbox"
                     checked={selectedTimes.afternoon}
                     onChange={(e) => setSelectedTimes({...selectedTimes, afternoon: e.target.checked})}
-                    className={combineClasses('w-4 h-4 rounded focus:ring-blue-500', DesignTokens.colors.primary[600].replace('bg-', 'text-'), DesignTokens.colors.neutral.border[300])}
+                    className={combineClasses('w-4 h-4', DesignTokens.borders.radius.sm, 'focus:ring-blue-500', DesignTokens.colors.primary[600].replace('bg-', 'text-'), DesignTokens.colors.neutral.border[300])}
                   />
-                  <span className={combineClasses('text-sm', DesignTokens.colors.neutral.text[700])}>Afternoon</span>
+                  <span className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[700])}>Afternoon</span>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className={combineClasses('flex items-center cursor-pointer', DesignTokens.spacing.gap.sm)}>
                   <input
                     type="checkbox"
                     checked={selectedTimes.evening}
                     onChange={(e) => setSelectedTimes({...selectedTimes, evening: e.target.checked})}
-                    className={combineClasses('w-4 h-4 rounded focus:ring-blue-500', DesignTokens.colors.primary[600].replace('bg-', 'text-'), DesignTokens.colors.neutral.border[300])}
+                    className={combineClasses('w-4 h-4', DesignTokens.borders.radius.sm, 'focus:ring-blue-500', DesignTokens.colors.primary[600].replace('bg-', 'text-'), DesignTokens.colors.neutral.border[300])}
                   />
-                  <span className={combineClasses('text-sm', DesignTokens.colors.neutral.text[700])}>Evening</span>
+                  <span className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[700])}>Evening</span>
                 </label>
               </div>
             </div>
 
             <div>
-              <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
-                Purpose/Type <span className={combineClasses('', DesignTokens.components.alert.text.error)}>*</span>
+              <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-2', DesignTokens.colors.neutral.text[700])}>
+                Purpose/Type <span className={combineClasses(DesignTokens.components.alert.text.error)}>*</span>
               </label>
               <select 
                 value={formData.purpose}
                 onChange={(e) => setFormData({...formData, purpose: e.target.value})}
-                className={combineClasses('w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
               >
                 <option value="">Select purpose...</option>
                 <option value="Chemotherapy">Chemotherapy</option>
@@ -457,7 +457,7 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
             </div>
 
             <div>
-              <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Start Date</label>
+              <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-1', DesignTokens.colors.neutral.text[700])}>Start Date</label>
                 <DatePicker
                   value={formData.startDate}
                   onChange={(e) => setFormData({...formData, startDate: e.target.value})}
@@ -466,49 +466,49 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
             </div>
 
             <div>
-              <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>
-                Special Instructions <span className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>(optional)</span>
+              <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-1', DesignTokens.colors.neutral.text[700])}>
+                Special Instructions <span className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.neutral.text[500])}>(optional)</span>
               </label>
               <textarea
                 rows="2"
                 placeholder="e.g., Take with food, Avoid grapefruit"
                 value={formData.notes}
                 onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500 resize-none', DesignTokens.components.input.base, DesignTokens.components.input.textarea)}
+                className={combineClasses(DesignTokens.components.input.base, DesignTokens.components.input.textarea, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
               ></textarea>
             </div>
           </div>
         </div>
 
-        <div className={combineClasses(DesignTokens.components.modal.footer, DesignTokens.colors.neutral.border[200])}>
-          <div className="flex gap-3">
+        <div className={combineClasses('flex-shrink-0 border-t', DesignTokens.components.modal.footer, DesignTokens.colors.neutral.border[200])}>
+          <div className={combineClasses('flex', DesignTokens.spacing.gap.md)}>
             <button
               onClick={onClose}
-              className={combineClasses('flex-1 py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2', DesignTokens.components.button.secondary)}
+              className={combineClasses('flex-1 py-2.5', DesignTokens.borders.radius.sm, DesignTokens.typography.h3.weight, DesignTokens.transitions.default, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, DesignTokens.components.button.secondary)}
             >
-              <X className="w-4 h-4" />
+              <X className={DesignTokens.icons.standard.size.full} />
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className={combineClasses('flex-1 text-white py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed', DesignTokens.components.button.primary)}
+              className={combineClasses('flex-1 text-white py-2.5', DesignTokens.borders.radius.sm, DesignTokens.typography.h3.weight, DesignTokens.transitions.default, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, 'disabled:opacity-50 disabled:cursor-not-allowed', DesignTokens.components.button.primary)}
             >
               {isSaving ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <div className={combineClasses(DesignTokens.icons.standard.size.full, 'border-2 border-white border-t-transparent rounded-full animate-spin')}></div>
                   Saving...
                 </>
               ) : (
                 <>
                   {editingMedication ? (
                     <>
-                      <Edit2 className="w-4 h-4" />
+                      <Edit2 className={DesignTokens.icons.standard.size.full} />
                       Save Changes
                     </>
                   ) : (
                     <>
-                      <Plus className="w-4 h-4" />
+                      <Plus className={DesignTokens.icons.standard.size.full} />
                       Add Medication
                     </>
                   )}

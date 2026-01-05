@@ -553,7 +553,23 @@ GENERAL RULES:
     throw new Error('Failed to parse AI response');
   }
 
-  const parsed = JSON.parse(jsonMatch[0]);
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonMatch[0]);
+  } catch (parseError) {
+    console.error('Failed to parse AI response as JSON:', parseError);
+    console.error('Raw response text:', text.substring(0, 500));
+    throw new Error(`Failed to parse AI response: ${parseError.message}`);
+  }
+
+  // Log extracted data for debugging
+  console.log('AI extracted data:', {
+    documentType: parsed.documentType,
+    labsCount: parsed.data?.labs?.length || 0,
+    vitalsCount: parsed.data?.vitals?.length || 0,
+    hasGenomic: !!parsed.data?.genomic,
+    medicationsCount: parsed.data?.medications?.length || 0
+  });
 
   // Update progress: Validating extracted data
   if (onProgress) {
@@ -679,8 +695,15 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
     genomic: null
   };
 
+  console.log('saveExtractedData called with:', {
+    hasData: !!extractedData?.data,
+    labsCount: extractedData?.data?.labs?.length || 0,
+    vitalsCount: extractedData?.data?.vitals?.length || 0,
+    hasGenomic: !!extractedData?.data?.genomic,
+    onlyExistingMetrics
+  });
 
-    try {
+  try {
       // If onlyExistingMetrics is enabled, get existing labs and vitals to filter against
       let existingLabTypes = new Set();
       let existingVitalTypes = new Set();
@@ -714,7 +737,8 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
     }
 
     // Save Lab Results
-    if (extractedData.data?.labs) {
+    if (extractedData.data?.labs && Array.isArray(extractedData.data.labs) && extractedData.data.labs.length > 0) {
+      console.log(`Processing ${extractedData.data.labs.length} lab values...`);
       // Deduplicate labs from the same upload by labType + value + date
       // This prevents the AI from creating duplicate entries if it extracts the same lab multiple times
       const seenLabs = new Map(); // key: `${labType}_${value}_${date}`, value: lab object
@@ -725,6 +749,7 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         if (onlyExistingMetrics) {
           const labTypeKey = (lab.labType || 'other').toLowerCase();
           if (!existingLabTypes.has(labTypeKey)) {
+            console.log(`Skipping lab ${lab.label || lab.labType}: not in existing metrics (onlyExistingMetrics=true)`);
             continue;
           }
         }
@@ -732,6 +757,7 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         // Validate that lab has a meaningful value (not empty, "-", "N/A", etc.)
         const value = lab.value;
         if (value === null || value === undefined) {
+          console.log(`Skipping lab ${lab.label || lab.labType}: value is null/undefined`);
           continue;
         }
         
@@ -741,6 +767,7 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         // Check for empty/invalid value indicators
         const emptyIndicators = ['-', '—', 'n/a', 'na', 'n.a.', '未測定', '測定なし', '', 'null', 'undefined'];
         if (emptyIndicators.includes(valueStr.toLowerCase())) {
+          console.log(`Skipping lab ${lab.label || lab.labType}: value is empty indicator (${valueStr})`);
           continue;
         }
         
@@ -748,6 +775,7 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         if (lab.labType && ['ca125', 'cea', 'wbc', 'hemoglobin', 'platelets', 'creatinine', 'alt', 'ast', 'albumin', 'ldh'].includes(lab.labType.toLowerCase())) {
           const numValue = parseFloat(valueStr);
           if (isNaN(numValue)) {
+            console.log(`Skipping lab ${lab.label || lab.labType}: value is not a valid number (${valueStr})`);
             continue;
           }
         }
@@ -868,7 +896,8 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
     }
 
     // Save Vitals
-    if (extractedData.data?.vitals) {
+    if (extractedData.data?.vitals && Array.isArray(extractedData.data.vitals) && extractedData.data.vitals.length > 0) {
+      console.log(`Processing ${extractedData.data.vitals.length} vital values...`);
       // Deduplicate vitals from the same upload by vitalType + value + date
       const seenVitals = new Map(); // key: `${vitalType}_${value}_${date}`, value: vital object
       const uniqueVitals = [];
@@ -1196,9 +1225,20 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
     const duration = Date.now() - startTime;
     const totalValues = savedData.labs.length + savedData.vitals.length;
 
+    // Log final summary
+    console.log('saveExtractedData completed:', {
+      labsSaved: savedData.labs.length,
+      vitalsSaved: savedData.vitals.length,
+      medicationsSaved: savedData.medications.length,
+      hasGenomic: !!savedData.genomic,
+      duration: `${(duration / 1000).toFixed(2)}s`
+    });
+
     return savedData;
   } catch (error) {
     const duration = Date.now() - startTime;
+    console.error('Error in saveExtractedData:', error);
+    console.error('Error stack:', error.stack);
     throw error;
   }
 }
