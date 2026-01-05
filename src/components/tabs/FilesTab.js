@@ -825,9 +825,19 @@ export default function FilesTab({ onTabChange }) {
                 onChange={(e) => setDocumentSearchQuery(e.target.value)}
                 className={combineClasses(
                   DesignTokens.components.input.base,
-                  DesignTokens.components.input.withIcon
+                  DesignTokens.components.input.withIcon,
+                  documentSearchQuery && 'pr-10'
                 )}
               />
+              {documentSearchQuery && (
+                <button
+                  onClick={() => setDocumentSearchQuery('')}
+                  className={combineClasses('absolute right-3 top-1/2 -translate-y-1/2', DesignTokens.colors.neutral.text[400], 'hover:text-gray-600', DesignTokens.transitions.default)}
+                  aria-label="Clear search"
+                >
+                  <X className={DesignTokens.icons.standard.size.full} />
+                </button>
+              )}
             </div>
             
             {/* Filtered Documents */}
@@ -1169,9 +1179,19 @@ export default function FilesTab({ onTabChange }) {
                   onChange={(e) => setNotebookSearchQuery(e.target.value)}
                   className={combineClasses(
                     DesignTokens.components.input.base,
-                    DesignTokens.components.input.withIcon
+                    DesignTokens.components.input.withIcon,
+                    notebookSearchQuery && 'pr-10'
                   )}
                 />
+                {notebookSearchQuery && (
+                  <button
+                    onClick={() => setNotebookSearchQuery('')}
+                    className={combineClasses('absolute right-3 top-1/2 -translate-y-1/2', DesignTokens.colors.neutral.text[400], 'hover:text-gray-600', DesignTokens.transitions.default)}
+                    aria-label="Clear search"
+                  >
+                    <X className={DesignTokens.icons.standard.size.full} />
+                  </button>
+                )}
               </div>
             )}
             

@@ -213,7 +213,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
           {/* Subtle progress bar at top */}
           <div className={combineClasses('w-full h-1', DesignTokens.colors.neutral[100])}>
             <div 
-              className={combineClasses('h-full bg-gradient-to-r from-yellow-500 to-yellow-600 transition-all duration-500 ease-out')}
+              className={combineClasses('h-full bg-gradient-to-r from-gray-500 to-gray-600 transition-all duration-500 ease-out')}
               style={{ width: `${progressPercentage}%` }}
             />
           </div>
