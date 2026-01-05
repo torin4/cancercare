@@ -211,5 +211,18 @@ service cloud.firestore {
       allow delete: if request.auth != null &&
                        resource.data.patientId == request.auth.uid;
     }
+
+    // Document Access Logs - audit trail for document access
+    // Users can only create logs for their own documents
+    match /documentAccessLogs/{logId} {
+      // Allow create if user is authenticated and logging their own access
+      allow create: if request.auth != null &&
+                       request.resource.data.userId == request.auth.uid;
+      // Allow read if user is authenticated and the log is for their own document access
+      allow read: if request.auth != null &&
+                     resource.data.userId == request.auth.uid;
+      // No updates or deletes allowed (audit logs should be immutable)
+      allow update, delete: if false;
+    }
   }
 }
