@@ -319,7 +319,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                         <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[600], 'mt-1')}>{type.description}</p>
                       </div>
                       {isSelected && (
-                        <CheckCircle className={combineClasses(DesignTokens.icons.standard.size.lg, DesignTokens.colors.primary.text[600], 'flex-shrink-0')} />
+                        <CheckCircle className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.primary.text[600], 'flex-shrink-0')} />
                       )}
                     </div>
                   </div>
@@ -650,7 +650,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                 onClick={handleBack}
                 className={combineClasses(DesignTokens.colors.neutral.text[600], 'hover:text-medical-neutral-900', 'font-medium', DesignTokens.transitions.default, 'flex items-center gap-2', DesignTokens.spacing.button.full, 'py-2.5')}
               >
-                <ChevronRight className={combineClasses(DesignTokens.icons.standard.size.xs, 'rotate-180')} />
+                <ChevronRight className={combineClasses(DesignTokens.icons.small.size.full, 'rotate-180')} />
                 Back
               </button>
               <button
@@ -669,7 +669,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                 onClick={handleBack}
                 className={combineClasses(DesignTokens.colors.neutral.text[600], 'hover:text-medical-neutral-900', 'font-medium', DesignTokens.transitions.default, 'flex items-center gap-2', DesignTokens.spacing.button.full, 'py-2.5')}
               >
-                <ChevronRight className={combineClasses(DesignTokens.icons.standard.size.xs, 'rotate-180')} />
+                <ChevronRight className={combineClasses(DesignTokens.icons.small.size.full, 'rotate-180')} />
                 Back
               </button>
               <button
@@ -688,7 +688,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                 onClick={handleBack}
                 className={combineClasses(DesignTokens.colors.neutral.text[600], 'hover:text-medical-neutral-900', 'font-medium', DesignTokens.transitions.default, 'flex items-center gap-2', DesignTokens.spacing.button.full, 'py-2.5')}
               >
-                <ChevronRight className={combineClasses(DesignTokens.icons.standard.size.xs, 'rotate-180')} />
+                <ChevronRight className={combineClasses(DesignTokens.icons.small.size.full, 'rotate-180')} />
                 Back
               </button>
               <button
