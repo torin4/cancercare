@@ -322,8 +322,8 @@ export default function EditDocumentNoteModal({
   return (
     <div className={combineClasses(DesignTokens.components.modal.backdrop, 'z-[101] animate-in fade-in duration-200')}>
       <div className={combineClasses('w-full h-full md:h-auto md:rounded-xl md:max-w-md md:max-h-[90vh] overflow-hidden flex flex-col animate-slide-up', DesignTokens.components.modal.container)}>
-        <div className={combineClasses('flex-shrink-0 border-b p-4 flex items-center justify-between', DesignTokens.components.modal.header)}>
-          <h3 className={combineClasses('text-lg font-semibold', DesignTokens.colors.neutral.text[900])}>Edit Document</h3>
+        <div className={combineClasses('flex-shrink-0 border-b p-4 flex items-center justify-between', DesignTokens.components.modal.header, 'bg-yellow-50')}>
+          <h3 className={combineClasses('text-lg font-semibold', 'text-yellow-800')}>Edit Document</h3>
           <button
             onClick={handleClose}
             className={combineClasses('transition', DesignTokens.components.modal.closeButton)}
@@ -474,7 +474,7 @@ export default function EditDocumentNoteModal({
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className={combineClasses('flex-1 text-white py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed', DesignTokens.components.button.primary)}
+              className={combineClasses('flex-1 text-white py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed', 'bg-gray-800 hover:bg-gray-700')}
             >
               {isSaving ? (
                 <>

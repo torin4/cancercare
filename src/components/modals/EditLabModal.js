@@ -195,8 +195,8 @@ export default function EditLabModal({
     <div className={combineClasses(DesignTokens.components.modal.backdrop, 'z-[101] animate-in fade-in duration-200')}>
       <div className={combineClasses('bg-white max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col', DesignTokens.borders.radius.lg, DesignTokens.shadows.xl)}>
         {/* Header */}
-        <div className={combineClasses('flex items-center justify-between border-b', DesignTokens.components.modal.header, DesignTokens.colors.neutral.border[200])}>
-          <h2 className={combineClasses(DesignTokens.typography.h1.full, DesignTokens.typography.h1.weight, DesignTokens.colors.neutral.text[900])}>Edit Metric</h2>
+        <div className={combineClasses('flex items-center justify-between border-b', DesignTokens.components.modal.header, DesignTokens.colors.neutral.border[200], 'bg-medical-primary-50')}>
+          <h2 className={combineClasses(DesignTokens.typography.h1.full, DesignTokens.typography.h1.weight, DesignTokens.colors.primary.text[700])}>Edit Metric</h2>
           <button
             onClick={onClose}
             className={combineClasses(DesignTokens.transitions.default, DesignTokens.components.modal.closeButton)}
@@ -332,7 +332,7 @@ export default function EditLabModal({
           <button
             onClick={handleSave}
             disabled={isSaving || !labName.trim()}
-              className={combineClasses(DesignTokens.spacing.button.full, 'py-2.5 text-white', DesignTokens.borders.radius.sm, DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, DesignTokens.transitions.default, 'disabled:opacity-50 disabled:cursor-not-allowed flex items-center min-h-[44px] touch-manipulation active:opacity-70', DesignTokens.spacing.gap.sm, DesignTokens.components.button.primary)}
+              className={combineClasses(DesignTokens.spacing.button.full, 'py-2.5 text-white', DesignTokens.borders.radius.sm, DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, DesignTokens.transitions.default, 'disabled:opacity-50 disabled:cursor-not-allowed flex items-center min-h-[44px] touch-manipulation active:opacity-70', DesignTokens.spacing.gap.sm, 'bg-gray-800 hover:bg-gray-700')}
           >
             {isSaving ? (
               <>

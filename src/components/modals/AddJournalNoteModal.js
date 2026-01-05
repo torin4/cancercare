@@ -80,7 +80,7 @@ export default function AddJournalNoteModal({
       <div className="bg-white w-full h-full md:h-auto md:rounded-xl md:max-w-md md:max-h-[90vh] overflow-hidden flex flex-col animate-slide-up">
         <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
           <h3 className={combineClasses('text-lg font-semibold flex items-center gap-2', DesignTokens.colors.neutral.text[900])}>
-            <Calendar className={combineClasses('w-5 h-5', DesignTokens.colors.primary.text[600])} />
+            <Calendar className={combineClasses('w-5 h-5', 'text-yellow-600')} />
             Add Journal Note
           </h3>
           <button
@@ -145,7 +145,7 @@ export default function AddJournalNoteModal({
             <button
               onClick={handleSave}
               disabled={isSaving || !noteContent.trim() || !noteDate}
-              className="flex-1 bg-medical-primary-500 text-white py-2.5 rounded-lg font-medium hover:bg-medical-primary-600 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-gray-800 text-white py-2.5 rounded-lg font-medium hover:bg-gray-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSaving ? (
                 <>

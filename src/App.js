@@ -853,8 +853,8 @@ export default function CancerCareApp() {
     return (
       <div className="min-h-screen bg-medical-neutral-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 bg-medical-primary-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-            <Activity className="w-8 h-8 text-medical-primary-600 animate-pulse" />
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+            <Activity className="w-8 h-8 text-gray-800 animate-pulse" />
           </div>
           <h1 className="text-2xl font-bold text-medical-neutral-900 mb-2">CancerCare</h1>
           <p className="text-medical-neutral-600">Loading...</p>
@@ -1009,7 +1009,7 @@ export default function CancerCareApp() {
                     onClick={() => setQuickLogMode('general')}
                     className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition ${
                       quickLogMode === 'general'
-                        ? 'bg-medical-primary-500 text-white'
+                        ? 'bg-gray-800 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
@@ -1019,7 +1019,7 @@ export default function CancerCareApp() {
                     onClick={() => setQuickLogMode('symptom')}
                     className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition ${
                       quickLogMode === 'symptom'
-                        ? 'bg-medical-primary-500 text-white'
+                        ? 'bg-gray-800 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >

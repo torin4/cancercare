@@ -962,7 +962,7 @@ export default function ChatTab({ onTabChange }) {
                         setTimeout(() => searchInputRef.current?.focus(), 100);
                       }
                     }}
-                    className={combineClasses('text-medical-neutral-500 hover:text-medical-neutral-700 transition-colors min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70 flex items-center justify-center', isSearchActive ? 'text-medical-primary-600' : '')}
+                    className={combineClasses('text-medical-neutral-500 hover:text-medical-neutral-700 transition-colors min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70 flex items-center justify-center', isSearchActive ? 'text-gray-800' : '')}
                     title={isSearchActive ? "Close search" : "Search chats"}
                   >
                       <Search className="w-5 h-5 sm:w-5 sm:h-5" />
@@ -1014,7 +1014,7 @@ export default function ChatTab({ onTabChange }) {
             DesignTokens.borders.color.default,
             'bg-white'
           )}>
-            <div className={combineClasses('flex items-center', 'w-full px-3 py-1.5 border border-medical-neutral-200 rounded-xl focus-within:ring-2 focus-within:ring-offset-0 focus-within:ring-medical-primary-500 focus-within:border-medical-primary-500 transition-all duration-200')}>
+            <div className={combineClasses('flex items-center', 'w-full px-3 py-1.5 border border-medical-neutral-200 rounded-xl focus-within:ring-2 focus-within:ring-offset-0 focus-within:ring-gray-800 focus-within:border-gray-800 transition-all duration-200')}>
               <Search className="w-5 h-5 text-medical-neutral-400 flex-shrink-0" />
               <input
                 ref={searchInputRef}
@@ -1222,7 +1222,7 @@ export default function ChatTab({ onTabChange }) {
                         h2: ({node, ...props}) => <h2 className="text-base font-bold mb-2 mt-3 first:mt-0" {...props} />,
                         h3: ({node, ...props}) => <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0" {...props} />,
                         blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-medical-neutral-300 pl-3 italic my-2" {...props} />,
-                        a: ({node, ...props}) => <a className="text-medical-primary-600 underline hover:text-medical-primary-800" {...props} />,
+                        a: ({node, ...props}) => <a className="text-gray-800 underline hover:text-gray-900" {...props} />,
                       }}
                     >
                       {msg.text}
@@ -1239,7 +1239,7 @@ export default function ChatTab({ onTabChange }) {
                       className="w-full h-full object-cover" 
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-medical-primary-500 to-medical-secondary-500 flex items-center justify-center text-white text-xs font-bold">
+                    <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-600 flex items-center justify-center text-white text-xs font-bold">
                       {(() => {
                         // If caregiver mode, use caregiver name for initials
                         let name;
@@ -1268,12 +1268,12 @@ export default function ChatTab({ onTabChange }) {
           {/* Loading indicator when bot is processing */}
           {isBotProcessing && (
             <div className="flex items-start gap-2 sm:gap-3 justify-start">
-              <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-medical-primary-500 to-medical-accent-500 flex items-center justify-center shadow-sm">
+              <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-gray-800 to-gray-600 flex items-center justify-center shadow-sm">
                 <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
               <div className="max-w-[82%] sm:max-w-[70%] rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 bg-white border border-medical-neutral-200 text-medical-neutral-900">
                 <div className="flex items-center gap-2 text-sm sm:text-base">
-                  <Loader2 className="w-4 h-4 animate-spin text-medical-primary-500" />
+                  <Loader2 className="w-4 h-4 animate-spin text-gray-800" />
                   <span className="text-medical-neutral-600">Analyzing...</span>
                 </div>
               </div>

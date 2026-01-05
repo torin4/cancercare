@@ -231,8 +231,8 @@ export default function RescanDocumentModal({
   return (
     <div className={combineClasses(DesignTokens.components.modal.backdrop, 'z-[101] animate-in fade-in duration-200')}>
       <div className={combineClasses('bg-white', DesignTokens.borders.radius.lg, 'max-w-md w-full', DesignTokens.spacing.card.desktop, DesignTokens.shadows.lg, 'animate-fade-scale')}>
-        <div className={combineClasses('w-12 h-12', DesignTokens.borders.radius.full, 'flex items-center justify-center', DesignTokens.spacing.header.mobile, 'mx-auto', DesignTokens.colors.primary[100])}>
-          <RefreshCw className={combineClasses(DesignTokens.colors.primary.text[600])} size={24} />
+        <div className={combineClasses('w-12 h-12', DesignTokens.borders.radius.full, 'flex items-center justify-center', DesignTokens.spacing.header.mobile, 'mx-auto', 'bg-yellow-100')}>
+          <RefreshCw className={combineClasses('text-yellow-600')} size={24} />
         </div>
 
         <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, 'text-center mb-2', DesignTokens.colors.neutral.text[900])}>
@@ -346,7 +346,7 @@ export default function RescanDocumentModal({
           <button
             onClick={handleConfirm}
             disabled={isProcessing}
-            className={combineClasses('w-full py-3', DesignTokens.borders.radius.md, DesignTokens.typography.h2.weight, 'text-white', DesignTokens.transitions.all, DesignTokens.shadows.lg, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, 'active:scale-[0.98]', isProcessing ? `${DesignTokens.colors.neutral[400]} cursor-not-allowed` : `${DesignTokens.colors.primary[600]} ${DesignTokens.colors.primary[700].replace('bg-', 'hover:bg-')}`)}
+            className={combineClasses('w-full py-3', DesignTokens.borders.radius.md, DesignTokens.typography.h2.weight, 'text-white', DesignTokens.transitions.all, DesignTokens.shadows.lg, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, 'active:scale-[0.98]', isProcessing ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-800 hover:bg-gray-700')}
           >
             {isProcessing ? (
               <>

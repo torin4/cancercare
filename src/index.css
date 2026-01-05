@@ -29,7 +29,7 @@
 @layer components {
   /* Medical-themed button styles */
   .btn-primary {
-    @apply bg-medical-primary-500 text-white px-6 py-2.5 rounded-lg font-medium transition-all duration-200 hover:bg-medical-primary-600 active:scale-98 shadow-sm hover:shadow-md;
+    @apply bg-gray-800 text-white px-6 py-2.5 rounded-lg font-medium transition-all duration-200 hover:bg-gray-700 active:scale-98 shadow-sm hover:shadow-md;
   }
   
   .btn-secondary {
@@ -37,7 +37,7 @@
   }
   
   .btn-outline {
-    @apply border-2 border-medical-primary-500 text-medical-primary-600 px-6 py-2.5 rounded-lg font-medium transition-all duration-200 hover:bg-medical-primary-50 active:scale-98;
+    @apply border-2 border-gray-800 text-gray-800 px-6 py-2.5 rounded-lg font-medium transition-all duration-200 hover:bg-gray-50 active:scale-98;
   }
   
   /* Card styles */
@@ -51,7 +51,7 @@
   
   /* Input styles */
   .input-medical {
-    @apply w-full px-4 py-2.5 border border-medical-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all duration-200;
+    @apply w-full px-4 py-2.5 border border-medical-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent transition-all duration-200;
   }
   
   /* Status badges */

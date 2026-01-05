@@ -47,12 +47,12 @@ export default function Login({ onLoginSuccess }) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-medical-primary-50 to-medical-secondary-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md animate-fade-scale">
         {/* Logo/Header */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-medical-primary-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-            <Activity className="w-8 h-8 text-medical-primary-600" />
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+            <Activity className="w-8 h-8 text-gray-800" />
           </div>
           <h1 className="text-2xl font-bold text-medical-neutral-900">CancerCare</h1>
           <p className="text-sm text-medical-neutral-600 mt-2">
@@ -170,7 +170,7 @@ export default function Login({ onLoginSuccess }) {
               setIsSignUp(!isSignUp);
               setError('');
             }}
-            className="text-sm text-medical-primary-600 hover:text-medical-primary-700 font-medium"
+            className="text-sm text-gray-800 hover:text-gray-900 font-medium"
             disabled={loading}
           >
             {isSignUp
@@ -180,8 +180,8 @@ export default function Login({ onLoginSuccess }) {
         </div>
 
         {/* Info Note */}
-        <div className="mt-6 p-3 bg-medical-primary-50 border border-medical-primary-200 rounded-lg">
-          <p className="text-xs text-medical-primary-700">
+        <div className="mt-6 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+          <p className="text-xs text-gray-800">
             <strong>Note:</strong> For first-time use, create an account. Your email will be used as your patient ID.
           </p>
         </div>

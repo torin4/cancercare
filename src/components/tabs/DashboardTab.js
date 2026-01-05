@@ -292,8 +292,8 @@ setIsUploading(false);
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-8 max-w-sm w-full mx-4 shadow-2xl">
             <div className="text-center">
-              <div className="w-16 h-16 bg-medical-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Loader2 className="w-8 h-8 text-medical-primary-600 animate-spin" />
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Loader2 className="w-8 h-8 text-gray-800 animate-spin" />
               </div>
               <h3 className={combineClasses('text-xl font-bold mb-2', DesignTokens.colors.neutral.text[900])}>Loading Health Data</h3>
               <p className={combineClasses(DesignTokens.colors.neutral.text[600])}>Processing labs and vitals...</p>
@@ -310,15 +310,15 @@ setIsUploading(false);
         'flex items-center'
       )}>
         <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'sm:gap-3')}>
-          <div className={Layouts.headerIcon}>
-            <Home className={DesignTokens.components.header.icon} />
+          <div className={combineClasses('p-2 sm:p-2.5 rounded-lg', 'bg-gray-100')}>
+            <Home className={combineClasses('w-5 h-5 sm:w-6 sm:h-6', 'text-gray-800')} />
           </div>
           <div>
             <h1 className={combineClasses(DesignTokens.components.header.title, 'mb-0')}>Dashboard</h1>
           </div>
         </div>
       </div>
-      <div className={combineClasses(Layouts.container, Layouts.section)}>
+      <div className={combineClasses(Layouts.container, 'flex flex-col', DesignTokens.spacing.gap.md)}>
 
         {/* Dynamic CA-125 Alert */}
         {ca125Alert && (
@@ -331,8 +331,7 @@ setIsUploading(false);
             ca125Alert.type === 'up' 
               ? 'bg-yellow-50' 
               : DesignTokens.colors.accent[50],
-            DesignTokens.shadows.sm,
-            Layouts.section
+            DesignTokens.shadows.sm
           )}>
             <div className={combineClasses('flex items-start', DesignTokens.spacing.gap.md)}>
               <div className={combineClasses(
@@ -582,7 +581,7 @@ setIsUploading(false);
             <>
               {/* Key Labs and Key Vitals Cards - Side by side on desktop, stacked on mobile */}
               {(showKeyLabs || showKeyVitals) && (
-                <div className={combineClasses('grid grid-cols-1 lg:grid-cols-2', DesignTokens.spacing.gap.responsive.md, Layouts.section)}>
+                <div className={combineClasses('grid grid-cols-1 lg:grid-cols-2', DesignTokens.spacing.gap.md)}>
                   {/* Key Labs Card */}
                   {showKeyLabs && (
                     <div className={combineClasses(
@@ -620,7 +619,7 @@ setIsUploading(false);
                           View All <ChevronRight className={DesignTokens.icons.small.size.full} />
                         </button>
                       </div>
-                      <div className={combineClasses('grid grid-cols-2 sm:grid-cols-4', DesignTokens.spacing.gap.responsive.md)}>
+                      <div className={combineClasses('grid grid-cols-2 sm:grid-cols-4', DesignTokens.spacing.gap.sm)}>
                         {keyLabItems.map((item) => renderMetricItem(item, 'lab'))}
                       </div>
                     </div>
@@ -663,7 +662,7 @@ setIsUploading(false);
                           View All <ChevronRight className={DesignTokens.icons.small.size.full} />
                         </button>
                       </div>
-                      <div className={combineClasses('grid grid-cols-2 sm:grid-cols-4', DesignTokens.spacing.gap.responsive.md)}>
+                      <div className={combineClasses('grid grid-cols-2 sm:grid-cols-4', DesignTokens.spacing.gap.sm)}>
                         {keyVitalItems.map((item) => renderMetricItem(item, 'vital'))}
                       </div>
                     </div>
@@ -676,8 +675,7 @@ setIsUploading(false);
           <div className={combineClasses(
             DesignTokens.components.emptyState.container,
             DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[200]),
-            DesignTokens.shadows.sm,
-            Layouts.section
+            DesignTokens.shadows.sm
           )}>
             <div className={combineClasses(DesignTokens.components.emptyState.iconContainer, DesignTokens.colors.primary[100], 'rounded-full')}>
               <ClipboardList className={combineClasses(DesignTokens.icons.header.size.full, DesignTokens.colors.primary.text[600])} />
@@ -718,7 +716,7 @@ setIsUploading(false);
         )}
 
         {/* Two Column Layout on larger screens */}
-        <div className={combineClasses('grid grid-cols-1 lg:grid-cols-2', DesignTokens.spacing.gap.responsive.md, Layouts.section)}>
+        <div className={combineClasses('grid grid-cols-1 lg:grid-cols-2', DesignTokens.spacing.gap.sm)}>
           {/* Genomic Profile Card */}
           <div className={combineClasses(
             'w-full',
@@ -831,8 +829,7 @@ setIsUploading(false);
         {/* Saved Trials */}
         <div className={combineClasses(
           DesignTokens.components.card.withColoredBorder(DesignTokens.colors.accent.border[200]),
-          DesignTokens.shadows.sm,
-          'mt-4 sm:mt-6'
+          DesignTokens.shadows.sm
         )}>
           {!loadingSavedTrials && savedTrials.length > 0 && (
             <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.section.mobile)}>

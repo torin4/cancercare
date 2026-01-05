@@ -492,7 +492,7 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className={combineClasses('flex-1 text-white py-2.5', DesignTokens.borders.radius.sm, DesignTokens.typography.h3.weight, DesignTokens.transitions.default, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, 'disabled:opacity-50 disabled:cursor-not-allowed', DesignTokens.components.button.primary)}
+              className={combineClasses('flex-1 text-white py-2.5', DesignTokens.borders.radius.sm, DesignTokens.typography.h3.weight, DesignTokens.transitions.default, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, 'disabled:opacity-50 disabled:cursor-not-allowed', 'bg-gray-800 hover:bg-gray-700')}
             >
               {isSaving ? (
                 <>

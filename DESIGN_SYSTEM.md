@@ -75,7 +75,9 @@ import { DesignTokens, Layouts, combineClasses } from '../design/designTokens';
 
 ## Colors
 
-### Primary Colors
+### Primary Colors (HealthTab Only)
+**Note**: Primary blue colors (`medical-primary`) are now reserved for HealthTab only. All other app-level UI uses the App Theme (dark gray).
+
 - **50**: Light background (`bg-medical-primary-50`) - `DesignTokens.colors.primary[50]`
 - **100**: Hover states (`bg-medical-primary-100`) - `DesignTokens.colors.primary[100]`
 - **200**: Borders (`bg-medical-primary-200`) - `DesignTokens.colors.primary[200]`
@@ -84,8 +86,24 @@ import { DesignTokens, Layouts, combineClasses } from '../design/designTokens';
 - **700**: Active/pressed states (`bg-medical-primary-700`) - `DesignTokens.colors.primary[700]`
 
 ### Text Colors
-- Use `DesignTokens.colors.primary.text[50-700]` for text colors
-- Use `DesignTokens.colors.primary.border[200|600]` for border colors
+- Use `DesignTokens.colors.primary.text[50-700]` for text colors (HealthTab only)
+- Use `DesignTokens.colors.primary.border[200|600]` for border colors (HealthTab only)
+
+### App Theme (Dark Gray) - Navigation & App-Level UI
+**Used for**: Navigation bar, general app UI, modals, buttons, links (NOT HealthTab)
+
+- **50**: Light background (`bg-gray-50`) - `DesignTokens.colors.app[50]`
+- **100**: Hover states (`bg-gray-100`) - `DesignTokens.colors.app[100]`
+- **200**: Borders (`bg-gray-200`) - `DesignTokens.colors.app[200]`
+- **500**: Medium gray (`bg-gray-500`) - `DesignTokens.colors.app[500]`
+- **600**: Medium-dark gray (`bg-gray-600`) - `DesignTokens.colors.app[600]`
+- **700**: Dark gray (`bg-gray-700`) - `DesignTokens.colors.app[700]`
+- **800**: Very dark gray (`bg-gray-800`) - `DesignTokens.colors.app[800]` - **Primary app color**
+- **900**: Darkest gray (`bg-gray-900`) - `DesignTokens.colors.app[900]`
+
+### App Theme Text Colors
+- Use `DesignTokens.colors.app.text[50-900]` for text colors
+- Use `DesignTokens.colors.app.border[200|300]` for border colors
 
 ### Accent Colors
 - Used for Clinical Trials and special highlights

@@ -213,7 +213,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
           {/* Subtle progress bar at top */}
           <div className={combineClasses('w-full h-1', DesignTokens.colors.neutral[100])}>
             <div 
-              className={combineClasses('h-full bg-gradient-to-r from-medical-primary-500 to-medical-primary-600 transition-all duration-500 ease-out')}
+              className={combineClasses('h-full bg-gradient-to-r from-yellow-500 to-yellow-600 transition-all duration-500 ease-out')}
               style={{ width: `${progressPercentage}%` }}
             />
           </div>
@@ -632,7 +632,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                 onClick={handleContinueFromStep1}
                 disabled={!selectedType}
                 className={combineClasses(
-                  DesignTokens.components.button.primary,
+                  'bg-gray-800 hover:bg-gray-700 text-white',
                   DesignTokens.spacing.button.full,
                   'py-2.5 flex items-center gap-2',
                   !selectedType && 'disabled:opacity-50 disabled:cursor-not-allowed'
@@ -655,7 +655,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
               </button>
               <button
                 onClick={documentDate && documentDate.trim() !== '' ? handleContinueWithDate : handleSkipDate}
-                className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 flex items-center gap-2')}
+                className={combineClasses('bg-gray-800 hover:bg-gray-700 text-white', DesignTokens.spacing.button.full, 'py-2.5 flex items-center gap-2')}
               >
                 {documentDate && documentDate.trim() !== '' ? 'Continue' : 'Skip without date'}
                 <ChevronRight className={combineClasses(DesignTokens.icons.standard.size.mobile)} />
@@ -674,7 +674,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
               </button>
               <button
                 onClick={documentNote && documentNote.trim() !== '' ? handleContinueWithNote : handleSkipNote}
-                className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 flex items-center gap-2')}
+                className={combineClasses('bg-gray-800 hover:bg-gray-700 text-white', DesignTokens.spacing.button.full, 'py-2.5 flex items-center gap-2')}
               >
                 Continue
                 <ChevronRight className={combineClasses(DesignTokens.icons.standard.size.mobile)} />
@@ -695,7 +695,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                 onClick={handleUploadAll}
                 disabled={selectedFiles.length === 0}
                 className={combineClasses(
-                  DesignTokens.components.button.primary,
+                  'bg-gray-800 hover:bg-gray-700 text-white',
                   DesignTokens.spacing.button.full,
                   'py-2.5 flex items-center gap-2',
                   selectedFiles.length === 0 && 'disabled:opacity-50 disabled:cursor-not-allowed'

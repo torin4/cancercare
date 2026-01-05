@@ -318,7 +318,7 @@ export default function ProfileTab({ onTabChange }) {
   }
 
   return (
-    <div className={combineClasses(Layouts.container, DesignTokens.spacing.gap.md, 'pb-24')}>
+    <div className={combineClasses(Layouts.container, 'flex flex-col', DesignTokens.spacing.gap.md, 'pb-24')}>
       {/* Patient Info */}
       <div className={combineClasses(DesignTokens.spacing.card.full, 'md:p-8')}>
         <div className={combineClasses('flex flex-col sm:flex-row items-start sm:items-center', DesignTokens.spacing.gap.lg)}>
@@ -331,7 +331,7 @@ export default function ProfileTab({ onTabChange }) {
                 className={combineClasses('w-28 h-28 sm:w-32 sm:h-32', DesignTokens.borders.radius.full, 'object-cover border-4 border-white')} 
               />
             ) : (
-              <div className={combineClasses('w-28 h-28 sm:w-32 sm:h-32 bg-gradient-to-br from-medical-primary-500 to-medical-secondary-500', DesignTokens.borders.radius.full, 'flex items-center justify-center text-white text-3xl sm:text-4xl font-bold border-4 border-white')}>
+              <div className={combineClasses('w-28 h-28 sm:w-32 sm:h-32 bg-gradient-to-br from-gray-800 to-gray-600', DesignTokens.borders.radius.full, 'flex items-center justify-center text-white text-3xl sm:text-4xl font-bold border-4 border-white')}>
                 {(() => {
                   // If caregiver mode, use caregiver name for initials
                   let name;
@@ -365,7 +365,7 @@ export default function ProfileTab({ onTabChange }) {
                 };
                 input.click();
               }}
-              className={combineClasses('absolute bottom-0 right-0 w-11 h-11 sm:w-12 sm:h-12', DesignTokens.colors.primary[600], DesignTokens.borders.radius.full, 'flex items-center justify-center text-white', DesignTokens.shadows.lg, `hover:${DesignTokens.colors.primary[700]}`, `active:${DesignTokens.colors.primary[700]}`, DesignTokens.transitions.all, 'transform active:scale-95', DesignTokens.spacing.touchTarget)}
+              className={combineClasses('absolute bottom-0 right-0 w-11 h-11 sm:w-12 sm:h-12', 'bg-gray-800', DesignTokens.borders.radius.full, 'flex items-center justify-center text-white', DesignTokens.shadows.lg, 'hover:bg-gray-700', 'active:bg-gray-700', DesignTokens.transitions.all, 'transform active:scale-95', DesignTokens.spacing.touchTarget)}
               title="Change profile picture"
               aria-label="Change profile picture"
             >
@@ -396,7 +396,7 @@ export default function ProfileTab({ onTabChange }) {
               </div>
               <button
                 onClick={() => setShowEditInfo(true)}
-                className={combineClasses('p-2 -mr-2', DesignTokens.spacing.touchTarget, 'flex items-center justify-center', DesignTokens.colors.primary.text[600], `hover:${DesignTokens.colors.primary.text[700]}`, `active:${DesignTokens.colors.primary.text[700]}`, DesignTokens.transitions.default)}
+                className={combineClasses('p-2 -mr-2', DesignTokens.spacing.touchTarget, 'flex items-center justify-center', 'text-gray-800', 'hover:text-gray-900', 'active:text-gray-900', DesignTokens.transitions.default)}
                 aria-label="Edit patient information"
               >
                 <Edit2 className={DesignTokens.icons.standard.size.full} />
@@ -407,8 +407,8 @@ export default function ProfileTab({ onTabChange }) {
             <div className={combineClasses('grid grid-cols-2', DesignTokens.spacing.gap.md, 'mt-4')}>
               {patientProfile.age && (
                 <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, DesignTokens.typography.body.sm)}>
-                  <div className={combineClasses(DesignTokens.spacing.iconContainer.mobile, DesignTokens.colors.primary[100], DesignTokens.borders.radius.sm, 'flex items-center justify-center flex-shrink-0')}>
-                    <User className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.primary.text[600])} />
+                  <div className={combineClasses(DesignTokens.spacing.iconContainer.mobile, 'bg-gray-100', DesignTokens.borders.radius.sm, 'flex items-center justify-center flex-shrink-0')}>
+                    <User className={combineClasses(DesignTokens.icons.standard.size.full, 'text-gray-800')} />
                   </div>
                   <div>
                     <p className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>Age</p>
@@ -468,8 +468,8 @@ export default function ProfileTab({ onTabChange }) {
               )}
               {patientProfile.weight && (
                 <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, DesignTokens.typography.body.sm)}>
-                  <div className={combineClasses(DesignTokens.spacing.iconContainer.mobile, DesignTokens.borders.radius.sm, 'flex items-center justify-center flex-shrink-0', DesignTokens.colors.primary[100])}>
-                    <Activity className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.primary.text[600])} />
+                  <div className={combineClasses(DesignTokens.spacing.iconContainer.mobile, DesignTokens.borders.radius.sm, 'flex items-center justify-center flex-shrink-0', 'bg-gray-100')}>
+                    <Activity className={combineClasses(DesignTokens.icons.standard.size.full, 'text-gray-800')} />
                   </div>
                   <div>
                     <p className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>Weight</p>
@@ -628,7 +628,7 @@ export default function ProfileTab({ onTabChange }) {
                 );
               })}
               {genomicProfile.tmb && (
-                <span className={combineClasses('px-3 py-1', DesignTokens.borders.radius.full, DesignTokens.typography.body.xs, 'font-medium', DesignTokens.colors.primary[100], DesignTokens.colors.primary.text[700])}>
+                <span className={combineClasses('px-3 py-1', DesignTokens.borders.radius.full, DesignTokens.typography.body.xs, 'font-medium', 'bg-gray-100', 'text-gray-800')}>
                   TMB: {genomicProfile.tmb}
                 </span>
               )}
@@ -785,9 +785,9 @@ export default function ProfileTab({ onTabChange }) {
                 )}
 
                 {genomicProfile.tmb && (
-                  <div className={combineClasses('p-2 border rounded', DesignTokens.colors.primary[50], DesignTokens.colors.primary.border[200])}>
+                  <div className={combineClasses('p-2 border rounded', 'bg-gray-50', 'border-gray-200')}>
                     <p className={combineClasses('text-xs mb-1', DesignTokens.colors.neutral.text[600])}>TMB</p>
-                    <p className={combineClasses('text-lg font-bold', DesignTokens.colors.primary.text[700])}>{genomicProfile.tmb}</p>
+                    <p className={combineClasses('text-lg font-bold', 'text-gray-800')}>{genomicProfile.tmb}</p>
                     <p className={combineClasses('text-xs font-medium', DesignTokens.colors.primary.text[700])}>
                       {parseFloat(genomicProfile.tmb) >= 10 ? 'High (≥10 mut/Mb)' : 'Low (<10 mut/Mb)'}
                     </p>
@@ -1067,7 +1067,7 @@ export default function ProfileTab({ onTabChange }) {
 
       {/* Settings Section */}
       {user && (
-        <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-4 sm:p-5 md:p-6 border-2 border-medical-neutral-300 mt-4 sm:mt-6">
+        <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-4 sm:p-5 md:p-6 border-2 border-medical-neutral-300">
           <div className="flex items-center gap-2 mb-6">
             <Settings className="w-5 h-5 text-medical-neutral-600" />
             <h2 className="font-semibold text-medical-neutral-900">Settings</h2>

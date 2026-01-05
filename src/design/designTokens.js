@@ -144,6 +144,34 @@ export const DesignTokens = {
         300: 'border-medical-neutral-300',
       },
     },
+    
+    // App Theme (Dark Gray) - Used for navigation and app-level UI (NOT HealthTab)
+    app: {
+      50: 'bg-gray-50',
+      100: 'bg-gray-100',
+      200: 'bg-gray-200',
+      300: 'bg-gray-300',
+      500: 'bg-gray-500',
+      600: 'bg-gray-600',
+      700: 'bg-gray-700',
+      800: 'bg-gray-800',
+      900: 'bg-gray-900',
+      text: {
+        50: 'text-gray-50',
+        100: 'text-gray-100',
+        200: 'text-gray-200',
+        300: 'text-gray-300',
+        500: 'text-gray-500',
+        600: 'text-gray-600',
+        700: 'text-gray-700',
+        800: 'text-gray-800',
+        900: 'text-gray-900',
+      },
+      border: {
+        200: 'border-gray-200',
+        300: 'border-gray-300',
+      },
+    },
   },
 
   // ============================================

@@ -42,7 +42,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
   return (
     <>
       {/* Header - Mobile Only */}
-      <div className={combineClasses('bg-medical-primary-600', DesignTokens.shadows.md, DesignTokens.spacing.container.full, 'flex-shrink-0 md:hidden')}>
+      <div className={combineClasses('bg-gray-800', DesignTokens.shadows.md, DesignTokens.spacing.container.full, 'flex-shrink-0 md:hidden')}>
         <div className="flex items-center justify-between">
           <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.md)}>
             <div className={combineClasses('w-10 h-10 sm:w-12 sm:h-12 bg-white/20', DesignTokens.borders.radius.full, 'flex items-center justify-center', DesignTokens.shadows.sm)}>
@@ -88,7 +88,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
 
       {/* Side Menu - Desktop Only - Collapsible */}
       <div 
-        className={`hidden md:flex fixed left-0 top-0 bottom-0 bg-medical-primary-600 border-r border-medical-neutral-300 shadow-lg z-20 flex-col transition-all duration-300 ${
+        className={`hidden md:flex fixed left-0 top-0 bottom-0 bg-gray-800 border-r border-medical-neutral-300 shadow-lg z-20 flex-col transition-all duration-300 ${
           isExpanded ? 'w-64' : 'w-20'
         }`}
         style={{ overflow: 'visible' }}
@@ -96,7 +96,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
         onMouseLeave={handleMouseLeave}
       >
         {/* Sidebar Header */}
-        <div className={combineClasses('bg-medical-primary-600', DesignTokens.spacing.card.mobile, 'py-5')} style={{ minHeight: '100px' }}>
+        <div className={combineClasses('bg-gray-800', DesignTokens.spacing.card.mobile, 'py-5')} style={{ minHeight: '100px' }}>
           <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.md, activeTab === 'profile' ? 'justify-center' : '')}>
             {/* Icon - Always in same position */}
             <div className={combineClasses('w-12 h-12 bg-white/20', DesignTokens.borders.radius.full, 'flex items-center justify-center', DesignTokens.shadows.sm, 'flex-shrink-0')}>
@@ -176,7 +176,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
           <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-            className={combineClasses('flex flex-col items-center justify-center', DesignTokens.spacing.gap.xs, 'px-2.5 py-2.5', DesignTokens.borders.radius.md, DesignTokens.transitions.all, 'min-h-[44px] flex-1', isActive ? combineClasses(DesignTokens.colors.primary.text[600], DesignTokens.colors.primary[50]) : combineClasses(DesignTokens.colors.neutral.text[600], `hover:${DesignTokens.colors.primary.text[600]}`, `hover:${DesignTokens.colors.neutral[50]}`))}
+            className={combineClasses('flex flex-col items-center justify-center', DesignTokens.spacing.gap.xs, 'px-2.5 py-2.5', DesignTokens.borders.radius.md, DesignTokens.transitions.all, 'min-h-[44px] flex-1', isActive ? combineClasses('text-gray-800', 'bg-gray-100') : combineClasses(DesignTokens.colors.neutral.text[600], 'hover:text-gray-800', `hover:${DesignTokens.colors.neutral[50]}`))}
           >
                 <Icon className="w-5 h-5 sm:w-5 sm:h-5" />
                 <span className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.typography.h3.weight)}>{item.label}</span>

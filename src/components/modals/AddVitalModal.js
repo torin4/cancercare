@@ -259,8 +259,8 @@ export default function AddVitalModal({
   return (
     <div className={combineClasses("fixed inset-0 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4", DesignTokens.components.modal.backdrop)}>
       <div className={combineClasses("w-full h-full md:h-auto", DesignTokens.borders.radius.lg, "md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up", DesignTokens.components.modal.container)}>
-        <div className={combineClasses("flex-shrink-0 border-b", DesignTokens.components.modal.header, DesignTokens.colors.neutral.border[200])}>
-          <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, DesignTokens.colors.neutral.text[800])}>{isEditingVital ? 'Edit Vital Value' : 'Log Vital Reading'}</h3>
+        <div className={combineClasses("flex-shrink-0 border-b", DesignTokens.components.modal.header, DesignTokens.colors.neutral.border[200], 'bg-medical-primary-50')}>
+          <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, DesignTokens.colors.primary.text[700])}>{isEditingVital ? 'Edit Vital Value' : 'Log Vital Reading'}</h3>
           <button
             onClick={handleCancel}
             className={combineClasses(DesignTokens.transitions.default, DesignTokens.components.modal.closeButton)}
@@ -500,7 +500,7 @@ export default function AddVitalModal({
             </button>
             <button
               onClick={handleSave}
-              className={combineClasses('flex-1 text-white py-2.5', DesignTokens.borders.radius.sm, DesignTokens.typography.h3.weight, DesignTokens.transitions.default, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, DesignTokens.components.button.primary)}
+              className={combineClasses('flex-1 text-white py-2.5', DesignTokens.borders.radius.sm, DesignTokens.typography.h3.weight, DesignTokens.transitions.default, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, 'bg-gray-800 hover:bg-gray-700')}
             >
               <Heart className={DesignTokens.icons.standard.size.full} />
               {isEditingVital ? 'Save' : 'Log Reading'}

@@ -155,7 +155,7 @@ export default function UploadProgressOverlay({ show, uploadProgress, aiStatus }
             </div>
             <div className={combineClasses('w-full h-3 rounded-full overflow-hidden', DesignTokens.colors.neutral[200])}>
               <div 
-                className={combineClasses('h-full transition-all duration-300 ease-out rounded-full bg-gradient-to-r', 'from-medical-primary-500', 'to-medical-primary-600')}
+                className={combineClasses('h-full transition-all duration-300 ease-out rounded-full bg-gradient-to-r', 'from-gray-800', 'to-gray-700')}
                 style={{ width: `${smoothProgress}%` }}
               />
             </div>
@@ -163,9 +163,9 @@ export default function UploadProgressOverlay({ show, uploadProgress, aiStatus }
 
           {/* Progress text - Show aiStatus if available (more specific), otherwise show uploadProgress */}
           {aiStatus && (uploadProgress.includes('Saving') || uploadProgress.includes('Analyzing') || uploadProgress.includes('Re-processing')) ? (
-            <div className={combineClasses('mb-4 p-3 rounded-lg', DesignTokens.colors.primary[50], DesignTokens.borders.width.default, DesignTokens.colors.primary.border[200])}>
-              <p className={combineClasses('text-lg font-medium flex items-center gap-2', DesignTokens.colors.primary.text[700])}>
-                <span className={combineClasses('w-2 h-2 rounded-full animate-pulse', DesignTokens.colors.primary[600])}></span>
+            <div className={combineClasses('mb-4 p-3 rounded-lg', 'bg-gray-50', DesignTokens.borders.width.default, 'border-gray-200')}>
+              <p className={combineClasses('text-lg font-medium flex items-center gap-2', 'text-gray-800')}>
+                <span className={combineClasses('w-2 h-2 rounded-full animate-pulse', 'bg-gray-800')}></span>
                 {aiStatus}
               </p>
             </div>
@@ -179,7 +179,7 @@ export default function UploadProgressOverlay({ show, uploadProgress, aiStatus }
             <div className="flex items-center gap-3 text-sm">
               <div className={combineClasses(
                 'w-2 h-2 rounded-full',
-                uploadProgress.includes('Reading') || uploadProgress.includes('Downloading') ? combineClasses('animate-pulse', DesignTokens.colors.primary[600]) :
+                uploadProgress.includes('Reading') || uploadProgress.includes('Downloading') ? combineClasses('animate-pulse', 'bg-gray-800') :
                 uploadProgress.includes('Analyzing') || uploadProgress.includes('Re-processing') || uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? 'bg-green-600' :
                 DesignTokens.colors.neutral[300]
               )}></div>
@@ -192,7 +192,7 @@ export default function UploadProgressOverlay({ show, uploadProgress, aiStatus }
             <div className="flex items-center gap-3 text-sm">
               <div className={combineClasses(
                 'w-2 h-2 rounded-full',
-                uploadProgress.includes('Analyzing') || uploadProgress.includes('Re-processing') ? combineClasses('animate-pulse', DesignTokens.colors.primary[600]) :
+                uploadProgress.includes('Analyzing') || uploadProgress.includes('Re-processing') ? combineClasses('animate-pulse', 'bg-gray-800') :
                 uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? 'bg-green-600' :
                 DesignTokens.colors.neutral[300]
               )}></div>
@@ -205,7 +205,7 @@ export default function UploadProgressOverlay({ show, uploadProgress, aiStatus }
             <div className="flex items-center gap-3 text-sm">
               <div className={combineClasses(
                 'w-2 h-2 rounded-full',
-                uploadProgress.includes('Uploading') ? combineClasses('animate-pulse', DesignTokens.colors.primary[600]) :
+                uploadProgress.includes('Uploading') ? combineClasses('animate-pulse', 'bg-gray-800') :
                 uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') || uploadProgress.includes('Re-processing') ? 'bg-green-600' :
                 DesignTokens.colors.neutral[300]
               )}></div>
@@ -218,7 +218,7 @@ export default function UploadProgressOverlay({ show, uploadProgress, aiStatus }
             <div className="flex items-center gap-3 text-sm">
               <div className={combineClasses(
                 'w-2 h-2 rounded-full',
-                uploadProgress.includes('Saving') || (uploadProgress.includes('Re-processing') && !uploadProgress.includes('Refreshing')) ? combineClasses('animate-pulse', DesignTokens.colors.primary[600]) :
+                uploadProgress.includes('Saving') || (uploadProgress.includes('Re-processing') && !uploadProgress.includes('Refreshing')) ? combineClasses('animate-pulse', 'bg-gray-800') :
                 uploadProgress.includes('Refreshing') ? 'bg-green-600' :
                 DesignTokens.colors.neutral[300]
               )}></div>
@@ -231,7 +231,7 @@ export default function UploadProgressOverlay({ show, uploadProgress, aiStatus }
             <div className="flex items-center gap-3 text-sm">
               <div className={combineClasses(
                 'w-2 h-2 rounded-full',
-                uploadProgress.includes('Refreshing') ? combineClasses('animate-pulse', DesignTokens.colors.primary[600]) :
+                uploadProgress.includes('Refreshing') ? combineClasses('animate-pulse', 'bg-gray-800') :
                 DesignTokens.colors.neutral[300]
               )}></div>
               <span className={combineClasses(
