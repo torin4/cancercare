@@ -594,7 +594,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                           </div>
                           <button
                             onClick={() => removeFile(index)}
-                            className={combineClasses('flex-shrink-0', DesignTokens.spacing.iconButton.sm, 'text-red-600 hover:bg-red-50', DesignTokens.borders.radius.md, DesignTokens.transitions.default)}
+                            className={combineClasses('flex-shrink-0', DesignTokens.spacing.iconContainer.mobile, 'text-red-600 hover:bg-red-50', DesignTokens.borders.radius.md, DesignTokens.transitions.default)}
                             title="Remove file"
                           >
                             <Trash2 className={combineClasses(DesignTokens.icons.standard.size.mobile)} />
