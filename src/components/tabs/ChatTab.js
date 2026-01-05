@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { DesignTokens, combineClasses } from '../../design/designTokens';
+import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
@@ -13,7 +13,7 @@ import { processChatMessage, generateChatExtractionSummary } from '../../service
 import { processDocument, generateExtractionSummary } from '../../services/documentProcessor';
 import { uploadDocument } from '../../firebase/storage';
 import { generalSuggestions, trialSuggestions, healthSuggestions, timelineSuggestions } from '../../constants/chatSuggestions';
-import DocumentUploadOnboarding from '../DocumentUploadOnboarding';
+import DocumentUploadOnboarding from '../modals/DocumentUploadOnboarding';
 import UploadProgressOverlay from '../UploadProgressOverlay';
 
 export default function ChatTab({ onTabChange }) {
@@ -267,7 +267,7 @@ export default function ChatTab({ onTabChange }) {
 
   // Check sessionStorage for trial/health context when component mounts
   useEffect(() => {
-    // Check for trial context from TrialsTab
+    // Check for trial context from ClinicalTrials component
     const trialContextStr = sessionStorage.getItem('currentTrialContext');
     if (trialContextStr) {
       try {
@@ -927,12 +927,12 @@ export default function ChatTab({ onTabChange }) {
         {/* Header */}
         <div className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 pb-2 sm:pb-3">
           <div className="mb-4 sm:mb-6 flex items-center justify-between gap-2 sm:gap-3">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="bg-medical-primary-50 p-2 sm:p-2.5 rounded-lg">
-                <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 text-medical-primary-600" />
+            <div className={Layouts.header}>
+              <div className={Layouts.headerIcon}>
+                <MessageSquare className={DesignTokens.components.header.icon} />
               </div>
               <div>
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-medical-neutral-900 mb-0.5 sm:mb-1">Chat</h1>
+                <h1 className={Layouts.headerTitle}>Chat</h1>
               </div>
             </div>
             {messages.length > 0 && (

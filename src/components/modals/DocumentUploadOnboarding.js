@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Activity, Dna, FileText, X, CheckCircle, ChevronRight, AlertTriangle, Camera, Trash2 } from 'lucide-react';
-import { useHealthContext } from '../contexts/HealthContext';
-import DatePicker from './DatePicker';
-import { DesignTokens, combineClasses } from '../design/designTokens';
+import { useHealthContext } from '../../contexts/HealthContext';
+import DatePicker from '../DatePicker';
+import { DesignTokens, combineClasses } from '../../design/designTokens';
 
 const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true }) => {
   const { hasRealLabData, hasRealVitalData } = useHealthContext();

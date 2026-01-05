@@ -1,31 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, AlertTriangle, XCircle, Search as SearchIcon, MapPin, Globe, X, AlertCircle, MessageSquare, Bookmark, FlaskConical, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, Search as SearchIcon, MapPin, Globe, X, MessageSquare, Bookmark, FlaskConical, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { auth } from '../firebase/config';
-import { patientService, genomicProfileService, clinicalTrialsService, trialLocationService } from '../firebase/services';
-import { useBanner } from '../contexts/BannerContext';
-import { getTrialDetails } from '../services/clinicalTrials/trialSearchService';
-import { DesignTokens, Layouts, combineClasses } from '../design/designTokens';
-
-// Comprehensive list of countries for dropdowns
-const COUNTRIES = [
-  "United States", "Canada", "United Kingdom", "Australia", "Germany", "France", "India", "China", "Japan",
-  "Brazil", "Mexico", "Italy", "Spain", "South Africa", "Nigeria", "Egypt", "Argentina", "Colombia",
-  "Indonesia", "Pakistan", "Bangladesh", "Russia", "South Korea", "Vietnam", "Philippines", "Turkey",
-  "Iran", "Thailand", "Myanmar", "Kenya", "Ukraine", "Poland", "Algeria", "Morocco", "Peru",
-  "Venezuela", "Malaysia", "Uzbekistan", "Saudi Arabia", "Yemen", "Ghana", "Nepal", "Madagascar",
-  "Cameroon", "Chile", "Netherlands", "Belgium", "Greece", "Portugal", "Sweden", "Switzerland",
-  "Austria", "Israel", "United Arab Emirates", "Singapore", "Ireland", "New Zealand", "Denmark",
-  "Finland", "Norway", "Cuba", "Dominican Republic", "Haiti", "Guatemala", "Ecuador", "Bolivia",
-  "Paraguay", "Uruguay", "Honduras", "Nicaragua", "El Salvador", "Costa Rica", "Panama", "Jamaica",
-  "Trinidad and Tobago", "Ethiopia", "Sudan", "Angola", "Mozambique", "Uganda", "Tanzania", "Democratic Republic of the Congo",
-  "Afghanistan", "Iraq", "Syria", "Kazakhstan", "Sri Lanka", "Romania", "Hungary", "Czech Republic",
-  "Bulgaria", "Serbia", "Croatia", "Bosnia and Herzegovina", "Albania", "North Macedonia", "Slovenia",
-  "Estonia", "Latvia", "Lithuania", "Belarus", "Moldova", "Cyprus", "Malta", "Luxembourg", "Iceland",
-  "Greenland", "Fiji", "Papua New Guinea", "Solomon Islands", "Vanuatu", "Samoa", "Tonga", "Kiribati",
-  "Micronesia", "Marshall Islands", "Palau", "Nauru", "Tuvalu", "San Marino", "Monaco", "Liechtenstein",
-  "Andorra", "Vatican City"
-].sort();
+import { auth } from '../../firebase/config';
+import { patientService, genomicProfileService, clinicalTrialsService, trialLocationService } from '../../firebase/services';
+import { useBanner } from '../../contexts/BannerContext';
+import { getTrialDetails } from '../../services/clinicalTrials/trialSearchService';
+import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
+import EditLocationModal from '../modals/EditLocationModal';
 
 const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
   const { showSuccess, showError } = useBanner();
@@ -69,7 +50,6 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
   const [genomicProfile, setGenomicProfile] = useState(null);
   const [trialLocation, setTrialLocation] = useState(null);
   const [showEditLocation, setShowEditLocation] = useState(false);
-  const [localTrialLocation, setLocalTrialLocation] = useState(null);
 
   const [error, setError] = useState(null);
   
@@ -348,13 +328,13 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
   const getEligibilityBadge = (level) => {
     switch (level) {
       case 'highly_eligible':
-        return <span className={combineClasses('px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-medium flex items-center gap-1', 'bg-medical-accent-100 text-medical-accent-700')}><CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="whitespace-nowrap">Highly Eligible</span></span>;
+        return <span className={combineClasses('px-2 sm:px-3 py-0.5 sm:py-1', DesignTokens.borders.radius.full, DesignTokens.typography.body.sm, 'font-medium flex items-center', DesignTokens.spacing.gap.xs, 'bg-medical-accent-100 text-medical-accent-700')}><CheckCircle className={DesignTokens.icons.small.size.full} /> <span className="whitespace-nowrap">Highly Eligible</span></span>;
       case 'potentially_eligible':
-        return <span className={combineClasses('px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-medium flex items-center gap-1', DesignTokens.components.status.low.bg, DesignTokens.components.alert.text.warning)}><AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="whitespace-nowrap">Potentially Eligible</span></span>;
+        return <span className={combineClasses('px-2 sm:px-3 py-0.5 sm:py-1', DesignTokens.borders.radius.full, DesignTokens.typography.body.sm, 'font-medium flex items-center', DesignTokens.spacing.gap.xs, DesignTokens.components.status.low.bg, DesignTokens.components.alert.text.warning)}><AlertTriangle className={DesignTokens.icons.small.size.full} /> <span className="whitespace-nowrap">Potentially Eligible</span></span>;
       case 'unlikely_eligible':
-        return <span className={combineClasses('px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-medium flex items-center gap-1', DesignTokens.components.status.high.bg, DesignTokens.components.alert.text.error)}><XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="whitespace-nowrap">Unlikely Eligible</span></span>;
+        return <span className={combineClasses('px-2 sm:px-3 py-0.5 sm:py-1', DesignTokens.borders.radius.full, DesignTokens.typography.body.sm, 'font-medium flex items-center', DesignTokens.spacing.gap.xs, DesignTokens.components.status.high.bg, DesignTokens.components.alert.text.error)}><XCircle className={DesignTokens.icons.small.size.full} /> <span className="whitespace-nowrap">Unlikely Eligible</span></span>;
       default:
-        return <span className={combineClasses('px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-medium', DesignTokens.colors.neutral[100], DesignTokens.colors.neutral.text[700])}>Unknown</span>;
+        return <span className={combineClasses('px-2 sm:px-3 py-0.5 sm:py-1', DesignTokens.borders.radius.full, DesignTokens.typography.body.sm, 'font-medium', DesignTokens.colors.neutral[100], DesignTokens.colors.neutral.text[700])}>Unknown</span>;
     }
   };
 
@@ -384,26 +364,26 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
     const needsTruncation = items.length > 4;
     
     return (
-      <div className="mb-2 sm:mb-3">
-        <div className="flex items-center justify-between mb-1">
-          <span className="font-medium text-medical-neutral-700 text-xs sm:text-sm">
+      <div className={combineClasses('mb-2 sm:mb-3', DesignTokens.spacing.header.mobile)}>
+        <div className={combineClasses('flex items-center justify-between', 'mb-1')}>
+          <span className={combineClasses(DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[700], DesignTokens.typography.body.sm)}>
             {sectionType === 'conditions' ? 'Conditions:' : 'Interventions:'}
           </span>
           {needsTruncation && (
             <button
               onClick={() => toggleSection(trialId, sectionType)}
-              className="flex items-center gap-1 text-xs text-medical-primary-600 hover:text-medical-primary-700 transition-colors min-h-[32px] min-w-[32px] sm:min-h-[44px] sm:min-w-[44px] touch-manipulation active:opacity-70 px-1"
+              className={combineClasses('flex items-center', DesignTokens.spacing.gap.xs, DesignTokens.typography.body.xs, DesignTokens.colors.primary.text[600], `hover:${DesignTokens.colors.primary.text[700]}`, DesignTokens.transitions.default, 'min-h-[32px] min-w-[32px] sm:min-h-[44px] sm:min-w-[44px]', DesignTokens.spacing.touchTarget, 'px-1')}
               aria-label={expanded ? 'Collapse' : 'Expand'}
             >
               {expanded ? (
                 <>
                   <span className="hidden sm:inline">Show less</span>
-                  <ChevronUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <ChevronUp className={DesignTokens.icons.small.size.full} />
                 </>
               ) : (
                 <>
                   <span className="hidden sm:inline">Show more</span>
-                  <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <ChevronDown className={DesignTokens.icons.small.size.full} />
                 </>
               )}
             </button>
@@ -411,14 +391,10 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
         </div>
         <div className="relative">
           <div 
-            className={`flex flex-wrap gap-1.5 sm:gap-2 mt-1 transition-all duration-200 ${
-              !expanded && needsTruncation 
-                ? 'max-h-[1.75rem] sm:max-h-[2rem] overflow-hidden' 
-                : ''
-            }`}
+            className={combineClasses('flex flex-wrap', DesignTokens.spacing.gap.sm, 'mt-1', DesignTokens.transitions.all, !expanded && needsTruncation ? 'max-h-[1.75rem] sm:max-h-[2rem] overflow-hidden' : '')}
           >
             {items.map((item, idx) => (
-              <span key={idx} className={`px-2 py-0.5 sm:py-1 rounded text-xs break-words ${badgeColorClass}`}>
+              <span key={idx} className={combineClasses('px-2 py-0.5 sm:py-1', DesignTokens.borders.radius.sm, DesignTokens.typography.body.xs, 'break-words', badgeColorClass)}>
                 {item}
               </span>
             ))}
@@ -435,31 +411,31 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
     return (
       <div key={trial.id} className={combineClasses(DesignTokens.components.card.container, DesignTokens.shadows.sm, DesignTokens.spacing.card.full, 'mb-3 sm:mb-4', DesignTokens.components.card.hover)}>
         {/* Header */}
-        <div className="flex justify-between items-start mb-2 sm:mb-3 gap-2">
+        <div className={combineClasses('flex justify-between items-start', DesignTokens.spacing.header.mobile, DesignTokens.spacing.gap.sm)}>
           <div className="flex-1 min-w-0">
-            <div className="flex items-start gap-2 sm:gap-3 flex-wrap">
+            <div className={combineClasses('flex items-start', DesignTokens.spacing.gap.sm, 'flex-wrap')}>
               <h3 
-                className="text-sm sm:text-base md:text-lg font-semibold text-medical-neutral-900 mb-1 line-clamp-2" 
+                className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, DesignTokens.typography.h3.color, 'mb-1 line-clamp-2')} 
                 title={trial.title || trial.titleJa || ''}
               >
                 {trial.title || trial.titleJa}
               </h3>
               {trial.source && (
-                <span className="text-xs px-2 py-0.5 bg-medical-neutral-100 text-medical-neutral-700 rounded-full flex-shrink-0">{trial.source}</span>
+                <span className={combineClasses(DesignTokens.typography.body.xs, 'px-2 py-0.5', DesignTokens.colors.neutral[100], DesignTokens.colors.neutral.text[700], DesignTokens.borders.radius.full, 'flex-shrink-0')}>{trial.source}</span>
               )}
             </div>
             {trial.titleJa && trial.title !== trial.titleJa && (
-              <p className="text-xs sm:text-sm text-medical-neutral-600 mb-2 break-words">{trial.titleJa}</p>
+              <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[600], 'mb-2 break-words')}>{trial.titleJa}</p>
             )}
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+          <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'flex-shrink-0')}>
             {!isSaved && !savedTrialIds.has(trial.id) ? (
               <button
                 onClick={() => handleSaveTrial(trial)}
-                className="p-1.5 sm:p-1.5 hover:bg-medical-accent-50 rounded-lg transition relative group min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
+                className={combineClasses('p-1.5 sm:p-1.5', `hover:${DesignTokens.colors.accent[50]}`, DesignTokens.borders.radius.sm, DesignTokens.transitions.default, 'relative group', DesignTokens.spacing.touchTarget, 'min-w-[44px] flex items-center justify-center', 'active:opacity-70')}
                 title="Save Trial"
               >
-                <Bookmark className="w-4 h-4 sm:w-5 sm:h-5 text-medical-accent-600" />
+                <Bookmark className={combineClasses(DesignTokens.icons.button.size.full, DesignTokens.colors.accent.text[600])} />
                 <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-medical-neutral-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 hidden sm:block">
                   Save Trial
                 </span>
@@ -467,10 +443,10 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             ) : !isSaved ? (
               <button
                 disabled
-                className="p-1.5 sm:p-1.5 rounded-lg cursor-not-allowed relative group min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className={combineClasses('p-1.5 sm:p-1.5', DesignTokens.borders.radius.sm, 'cursor-not-allowed relative group', DesignTokens.spacing.touchTarget, 'min-w-[44px] flex items-center justify-center')}
                 title="Trial saved"
               >
-                <Bookmark className="w-4 h-4 sm:w-5 sm:h-5 text-medical-accent-600 fill-medical-accent-600" />
+                <Bookmark className={combineClasses(DesignTokens.icons.button.size.full, DesignTokens.colors.accent.text[600], DesignTokens.colors.accent.text[600].replace('text-', 'fill-'))} />
                 <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-medical-neutral-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 hidden sm:block">
                   Trial saved
                 </span>
@@ -478,10 +454,10 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             ) : (
               <button
                 onClick={() => handleRemoveTrial(trial.id)}
-                className={combineClasses('p-1.5 sm:p-1.5 rounded-lg transition relative group min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70', `hover:${DesignTokens.components.status.high.bg}`)}
+                className={combineClasses('p-1.5 sm:p-1.5', DesignTokens.borders.radius.sm, DesignTokens.transitions.default, 'relative group', DesignTokens.spacing.touchTarget, 'min-w-[44px] flex items-center justify-center', 'active:opacity-70', `hover:${DesignTokens.components.status.high.bg}`)}
                 title="Remove from saved"
               >
-                <Bookmark className={combineClasses('w-4 h-4 sm:w-5 sm:h-5', DesignTokens.components.status.high.text, DesignTokens.components.status.high.text.replace('text-', 'fill-'))} />
+                <Bookmark className={combineClasses(DesignTokens.icons.button.size.full, DesignTokens.components.status.high.text, DesignTokens.components.status.high.text.replace('text-', 'fill-'))} />
                 <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-medical-neutral-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 hidden sm:block">
                   Remove from saved
                 </span>
@@ -492,31 +468,31 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
 
         {/* Eligibility Badge */}
             {trial.matchResult && (
-          <div className="mb-2 sm:mb-3 flex flex-wrap items-center gap-2">
+          <div className={combineClasses('mb-2 sm:mb-3', DesignTokens.spacing.header.mobile, 'flex flex-wrap items-center', DesignTokens.spacing.gap.sm)}>
             {getEligibilityBadge(trial.matchResult.eligibilityLevel)}
-            <span className="text-xs sm:text-sm text-medical-neutral-600">
+            <span className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[600])}>
               Match: {trial.matchResult.matchPercentage}%
             </span>
           </div>
         )}
 
         {/* Trial Details */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-4 mb-2 sm:mb-3 text-xs sm:text-sm">
+        <div className={combineClasses('grid grid-cols-1 sm:grid-cols-2', DesignTokens.spacing.gap.md, 'mb-2 sm:mb-3', DesignTokens.typography.body.sm, DesignTokens.spacing.header.mobile)}>
           <div>
-            <span className="font-medium text-medical-neutral-700">Phase:</span>
-            <span className="ml-1 sm:ml-2 text-medical-neutral-600">{trial.phase || 'Not specified'}</span>
+            <span className={combineClasses(DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[700])}>Phase:</span>
+            <span className={combineClasses('ml-1 sm:ml-2', DesignTokens.colors.neutral.text[600])}>{trial.phase || 'Not specified'}</span>
           </div>
           <div>
-            <span className="font-medium text-medical-neutral-700">Status:</span>
-            <span className="ml-1 sm:ml-2 text-medical-neutral-600">{trial.status || 'Unknown'}</span>
+            <span className={combineClasses(DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[700])}>Status:</span>
+            <span className={combineClasses('ml-1 sm:ml-2', DesignTokens.colors.neutral.text[600])}>{trial.status || 'Unknown'}</span>
           </div>
           <div>
-            <span className="font-medium text-medical-neutral-700">Sponsor:</span>
-            <span className="ml-1 sm:ml-2 text-medical-neutral-600 break-words">{trial.sponsor || 'N/A'}</span>
+            <span className={combineClasses(DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[700])}>Sponsor:</span>
+            <span className={combineClasses('ml-1 sm:ml-2', DesignTokens.colors.neutral.text[600], 'break-words')}>{trial.sponsor || 'N/A'}</span>
           </div>
           <div>
-            <span className="font-medium text-medical-neutral-700">Location:</span>
-            <span className="ml-1 sm:ml-2 text-medical-neutral-600 break-words">
+            <span className={combineClasses(DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[700])}>Location:</span>
+            <span className={combineClasses('ml-1 sm:ml-2', DesignTokens.colors.neutral.text[600], 'break-words')}>
               {trial.locations && trial.locations.length > 0 ? (() => {
                 // Get unique countries from all locations
                 const countries = [...new Set(trial.locations.map(loc => {
@@ -546,9 +522,9 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
 
         {/* Match Details */}
         {trial.matchResult && trial.matchResult.matchDetails && (
-          <div className="mb-2 sm:mb-3 p-2.5 sm:p-3 bg-medical-accent-50 rounded-lg">
-            <p className="font-medium text-medical-accent-800 text-xs sm:text-sm mb-1.5 sm:mb-2">Why this matches:</p>
-            <ul className="text-xs sm:text-sm text-medical-accent-700 space-y-0.5 sm:space-y-1">
+          <div className={combineClasses('mb-2 sm:mb-3', DesignTokens.spacing.card.mobile, DesignTokens.colors.accent[50], DesignTokens.borders.radius.sm, DesignTokens.spacing.header.mobile)}>
+            <p className={combineClasses(DesignTokens.typography.h3.weight, 'text-medical-accent-800', DesignTokens.typography.body.sm, 'mb-1.5 sm:mb-2')}>Why this matches:</p>
+            <ul className={combineClasses(DesignTokens.typography.body.sm, 'text-medical-accent-700', 'space-y-0.5 sm:space-y-1')}>
               {trial.matchResult.matchDetails.map((detail, idx) => (
                 <li key={idx}>• {detail.detail}</li>
               ))}
@@ -559,8 +535,8 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
         {/* Issues */}
         {trial.matchResult && trial.matchResult.issues && trial.matchResult.issues.length > 0 && (
           <div className={combineClasses('mb-2 sm:mb-3 p-2.5 sm:p-3 rounded-lg', DesignTokens.components.status.low.bg)}>
-            <p className={combineClasses('font-medium text-xs sm:text-sm mb-1.5 sm:mb-2', DesignTokens.components.alert.text.warning)}>Considerations:</p>
-            <ul className={combineClasses('text-xs sm:text-sm space-y-0.5 sm:space-y-1', DesignTokens.components.alert.text.warning)}>
+            <p className={combineClasses(DesignTokens.typography.h3.weight, DesignTokens.typography.body.sm, 'mb-1.5 sm:mb-2', DesignTokens.components.alert.text.warning)}>Considerations:</p>
+            <ul className={combineClasses(DesignTokens.typography.body.sm, 'space-y-0.5 sm:space-y-1', DesignTokens.components.alert.text.warning)}>
               {trial.matchResult.issues.map((issue, idx) => (
                 <li key={idx}>• {issue.detail}</li>
               ))}
@@ -571,13 +547,13 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
         {/* Recommendation */}
         {trial.matchResult && trial.matchResult.recommendation && (
           <div className={combineClasses(DesignTokens.components.card.nestedSubtle, 'mb-3 sm:mb-4')}>
-            <p className="text-xs sm:text-sm text-medical-neutral-700">{trial.matchResult.recommendation}</p>
+            <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[700])}>{trial.matchResult.recommendation}</p>
           </div>
         )}
 
         {/* Actions */}
-        <div className="flex flex-col gap-2">
-          <div className="flex gap-2 sm:gap-3">
+        <div className={combineClasses('flex flex-col', DesignTokens.spacing.gap.sm)}>
+          <div className={combineClasses('flex', DesignTokens.spacing.gap.sm)}>
             <button
               onClick={async () => {
                 setSelectedTrial(trial);
@@ -597,7 +573,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
               }}
               className={combineClasses(DesignTokens.components.button.outline.primary, DesignTokens.spacing.button.mobile, 'flex-1 text-xs sm:text-sm font-medium gap-1.5 sm:gap-2')}
             >
-              <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <FileText className={DesignTokens.icons.small.size.full} />
               <span>View Details</span>
             </button>
             {onTrialSelected && (
@@ -605,9 +581,9 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                 onClick={() => {
                   onTrialSelected(trial);
                 }}
-                className={combineClasses(DesignTokens.components.button.outline.accent, DesignTokens.spacing.button.mobile, 'flex-1 text-xs sm:text-sm font-medium gap-1.5 sm:gap-2')}
+                className={combineClasses(DesignTokens.components.button.outline.accent, DesignTokens.spacing.button.mobile, 'flex-1', DesignTokens.typography.body.sm, 'font-medium', DesignTokens.spacing.gap.sm)}
               >
-                <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <MessageSquare className={DesignTokens.icons.small.size.full} />
                 <span className="hidden sm:inline">Ask About This Trial</span>
                 <span className="sm:hidden">Ask About</span>
               </button>
@@ -618,7 +594,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
               rel="noopener noreferrer"
               className={combineClasses(DesignTokens.components.button.outline.neutral, DesignTokens.spacing.button.mobile, 'hidden sm:flex flex-1 text-xs sm:text-sm font-medium gap-1.5 sm:gap-2')}
             >
-              <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <Globe className={DesignTokens.icons.small.size.full} />
               <span>View on ClinicalTrials.gov</span>
             </a>
           </div>
@@ -626,9 +602,9 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             href={trial.url || (trial.id ? `https://clinicaltrials.gov/study/${trial.id}` : '#')}
             target="_blank"
             rel="noopener noreferrer"
-            className={combineClasses(DesignTokens.components.button.outline.neutral, 'sm:hidden w-full px-3 py-2 text-xs font-medium text-center gap-1.5')}
+            className={combineClasses(DesignTokens.components.button.outline.neutral, 'sm:hidden w-full', DesignTokens.spacing.button.mobile, DesignTokens.typography.body.xs, 'font-medium text-center', DesignTokens.spacing.gap.sm)}
           >
-            <Globe className="w-3.5 h-3.5" />
+            <Globe className={DesignTokens.icons.small.size.full} />
             <span>View on CT.gov</span>
           </a>
         </div>
@@ -692,7 +668,6 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
               {trialLocation && (
                 <button
                   onClick={() => {
-                    setLocalTrialLocation({ ...trialLocation });
                     setShowEditLocation(true);
                   }}
                   className="flex items-center gap-1.5 sm:gap-2 text-left hover:opacity-80 transition-opacity cursor-pointer min-h-[44px] touch-manipulation active:opacity-70 w-full"
@@ -1101,135 +1076,17 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
         </div>
       )}
 
-      {/* Edit Location Modal */}
-      {showEditLocation && localTrialLocation && (
-        <div className={DesignTokens.components.modal.backdrop}>
-          <div className={combineClasses('bg-white w-full h-full sm:h-auto sm:max-w-lg sm:rounded-xl sm:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up')}>
-            <div className={combineClasses(DesignTokens.components.modal.header, DesignTokens.spacing.card.mobile)}>
-              <h3 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, DesignTokens.typography.h3.color)}>Trial Search Location</h3>
-              <button
-                onClick={() => setShowEditLocation(false)}
-                className={combineClasses(DesignTokens.components.modal.closeButton, 'p-2 rounded-lg', DesignTokens.spacing.touchTarget, 'flex items-center justify-center', DesignTokens.transitions.default)}
-              >
-                <X className={combineClasses(DesignTokens.icons.standard.size.full, 'text-medical-neutral-600')} />
-              </button>
-            </div>
-
-            <div className={combineClasses(DesignTokens.components.modal.body, DesignTokens.spacing.card.mobile, 'space-y-3 sm:space-y-4')}>
-              <div className="bg-medical-accent-50 border border-medical-accent-200 rounded-lg p-3">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="w-5 h-5 text-medical-accent-600 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-medical-accent-900">Trial Matching</p>
-                    <p className="text-xs text-medical-accent-700 mt-0.5">
-                      Your location helps us find clinical trials nearby. You can also enable global search to include international trials.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-medical-primary-50 border border-medical-primary-200 rounded-lg p-4">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={localTrialLocation.includeAllLocations}
-                    onChange={(e) => setLocalTrialLocation({ ...localTrialLocation, includeAllLocations: e.target.checked })}
-                    className="mt-1 w-4 h-4 text-medical-primary-600 rounded focus:ring-medical-primary-500"
-                  />
-                  <div>
-                    <p className="font-semibold text-medical-neutral-800">Include Global Locations</p>
-                    <p className="text-xs text-medical-neutral-600 mt-1">
-                      Search international databases for all available clinical trials worldwide
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              <div className={localTrialLocation.includeAllLocations ? 'opacity-50' : ''}>
-                <h4 className="font-semibold text-medical-neutral-800 mb-3">Search Country</h4>
-                <div>
-                  <label className="block text-sm font-medium text-medical-neutral-700 mb-1">Country</label>
-                  <select
-                    value={localTrialLocation.country}
-                    onChange={(e) => setLocalTrialLocation({ ...localTrialLocation, country: e.target.value })}
-                    disabled={localTrialLocation.includeAllLocations}
-                    className={combineClasses(
-                      'w-full border border-medical-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all duration-200',
-                      'disabled:bg-medical-neutral-100 disabled:cursor-not-allowed'
-                    )}
-                  >
-                    {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <p className="text-xs text-medical-neutral-500 mt-1">
-                    {localTrialLocation.includeAllLocations 
-                      ? 'Global search is enabled - country selection disabled'
-                      : 'Trials will be searched within this country'}
-                  </p>
-                </div>
-              </div>
-
-              <div className={DesignTokens.components.card.nestedSubtle}>
-                <h5 className="text-sm font-semibold text-medical-neutral-800 mb-2">What databases will be searched?</h5>
-                <div className="space-y-1 text-xs text-medical-neutral-600">
-                  <div className="flex items-center gap-2">
-                    <div className="w-1 h-1 bg-medical-primary-600 rounded-full"></div>
-                    <span>ClinicalTrials.gov (US federal database)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-1 h-1 bg-medical-primary-600 rounded-full"></div>
-                    <span>NCI Clinical Trials Search</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-1 h-1 bg-medical-primary-600 rounded-full"></div>
-                    <span>Major cancer center databases</span>
-                  </div>
-                  {localTrialLocation.includeAllLocations && (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <div className="w-1 h-1 bg-medical-primary-600 rounded-full"></div>
-                        <span className="font-medium">EU Clinical Trials Register</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-1 h-1 bg-medical-primary-600 rounded-full"></div>
-                        <span className="font-medium">WHO International Registry</span>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="border-t border-medical-neutral-200 p-3 sm:p-4 flex gap-2 sm:gap-3 flex-shrink-0">
-              <button
-                onClick={() => setShowEditLocation(false)}
-                className="flex-1 border-2 border-medical-neutral-500 text-medical-neutral-700 py-2.5 rounded-lg font-medium hover:bg-medical-neutral-50 transition min-h-[44px] touch-manipulation active:opacity-70 text-sm sm:text-base"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  try {
-                    const userId = auth.currentUser?.uid;
-                    if (!userId) return;
-                    
-                    await trialLocationService.saveTrialLocation(userId, localTrialLocation);
-                    setTrialLocation(localTrialLocation);
-                    setShowEditLocation(false);
-                    // Reload patient data to get updated location
-                    loadPatientData();
-                    showSuccess('Location settings saved successfully!');
-                  } catch (error) {
-                    showError('Failed to save location settings. Please try again.');
-                  }
-                }}
-                className="flex-1 border-2 border-medical-primary-500 text-medical-primary-600 py-2.5 rounded-lg font-medium hover:bg-medical-primary-50 transition min-h-[44px] touch-manipulation active:opacity-70 text-sm sm:text-base"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <EditLocationModal
+        show={showEditLocation}
+        onClose={() => setShowEditLocation(false)}
+        user={auth.currentUser}
+        trialLocation={trialLocation}
+        setTrialLocation={setTrialLocation}
+        onSave={(savedLocation) => {
+          setTrialLocation(savedLocation);
+          loadPatientData();
+        }}
+      />
     </div>
   );
 };

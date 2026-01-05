@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, User, Calendar, MapPin, TrendingUp, Activity, Edit2, Dna, Upload, AlertCircle, Users, Phone, Plus, Settings, Link2, Loader2, Unlink, LogOut, Trash2, Sliders, Shield, HeartHandshake, Copy } from 'lucide-react';
-import { DesignTokens, combineClasses } from '../../design/designTokens';
+import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { signOut, linkWithPopup, unlink, GoogleAuthProvider, deleteUser } from 'firebase/auth';
 import { auth } from '../../firebase/config';
 import { useAuth } from '../../contexts/AuthContext';
@@ -18,7 +18,7 @@ import EditContactsModal from '../modals/EditContactsModal';
 import EditMedicalTeamModal from '../modals/EditMedicalTeamModal';
 import UpdateStatusModal from '../modals/UpdateStatusModal';
 import DeletionConfirmationModal from '../modals/DeletionConfirmationModal';
-import DocumentUploadOnboarding from '../DocumentUploadOnboarding';
+import DocumentUploadOnboarding from '../modals/DocumentUploadOnboarding';
 
 export default function ProfileTab({ onTabChange }) {
   // Use contexts for shared state
@@ -318,20 +318,20 @@ export default function ProfileTab({ onTabChange }) {
   }
 
   return (
-    <div className="p-3 sm:p-4 space-y-3 sm:space-y-4 pb-24">
+    <div className={combineClasses(Layouts.container, DesignTokens.spacing.gap.md, 'pb-24')}>
       {/* Patient Info */}
-      <div className="p-4 sm:p-6 md:p-8">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+      <div className={combineClasses(DesignTokens.spacing.card.full, 'md:p-8')}>
+        <div className={combineClasses('flex flex-col sm:flex-row items-start sm:items-center', DesignTokens.spacing.gap.lg)}>
           {/* Profile Picture */}
           <div className="relative flex-shrink-0">
             {profileImage ? (
               <img 
                 src={profileImage} 
                 alt="Profile" 
-                className="w-28 h-28 sm:w-32 sm:h-32 rounded-full object-cover border-4 border-white" 
+                className={combineClasses('w-28 h-28 sm:w-32 sm:h-32', DesignTokens.borders.radius.full, 'object-cover border-4 border-white')} 
               />
             ) : (
-              <div className="w-28 h-28 sm:w-32 sm:h-32 bg-gradient-to-br from-medical-primary-500 to-medical-secondary-500 rounded-full flex items-center justify-center text-white text-3xl sm:text-4xl font-bold border-4 border-white">
+              <div className={combineClasses('w-28 h-28 sm:w-32 sm:h-32 bg-gradient-to-br from-medical-primary-500 to-medical-secondary-500', DesignTokens.borders.radius.full, 'flex items-center justify-center text-white text-3xl sm:text-4xl font-bold border-4 border-white')}>
                 {(() => {
                   // If caregiver mode, use caregiver name for initials
                   let name;
@@ -365,11 +365,11 @@ export default function ProfileTab({ onTabChange }) {
                 };
                 input.click();
               }}
-              className="absolute bottom-0 right-0 w-11 h-11 sm:w-12 sm:h-12 bg-medical-primary-600 rounded-full flex items-center justify-center text-white shadow-lg hover:bg-medical-primary-700 active:bg-medical-primary-800 transition transform active:scale-95 touch-manipulation"
+              className={combineClasses('absolute bottom-0 right-0 w-11 h-11 sm:w-12 sm:h-12', DesignTokens.colors.primary[600], DesignTokens.borders.radius.full, 'flex items-center justify-center text-white', DesignTokens.shadows.lg, `hover:${DesignTokens.colors.primary[700]}`, `active:${DesignTokens.colors.primary[700]}`, DesignTokens.transitions.all, 'transform active:scale-95', DesignTokens.spacing.touchTarget)}
               title="Change profile picture"
               aria-label="Change profile picture"
             >
-              <Camera className="w-5 h-5 sm:w-6 sm:h-6" />
+              <Camera className={DesignTokens.icons.button.size.full} />
             </button>
           </div>
 
@@ -377,14 +377,14 @@ export default function ProfileTab({ onTabChange }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-4 mb-3">
               <div>
-                <h2 className={combineClasses('font-bold text-xl sm:text-2xl md:text-3xl mb-1', DesignTokens.colors.neutral.text[900])}>
+                <h2 className={combineClasses(DesignTokens.typography.h1.full, DesignTokens.typography.h1.weight, DesignTokens.typography.h1.color, DesignTokens.typography.h1.marginBottom)}>
                   {patientProfile.firstName || patientProfile.lastName 
                     ? `${patientProfile.firstName || ''} ${patientProfile.lastName || ''}`.trim()
                     : patientProfile.name || user?.displayName || 'Patient'}
                 </h2>
                 {patientProfile?.isPatient === false && patientProfile?.caregiverName && (
                   <p className={combineClasses('text-sm mb-1 flex items-center gap-1', DesignTokens.colors.neutral.text[600])}>
-                    <HeartHandshake className="w-3 h-3" />
+                    <HeartHandshake className={DesignTokens.icons.small.size.full} />
                     {getFirstAndLastName(patientProfile.caregiverName)}
                   </p>
                 )}
@@ -396,19 +396,19 @@ export default function ProfileTab({ onTabChange }) {
               </div>
               <button
                 onClick={() => setShowEditInfo(true)}
-                className={combineClasses('p-2 -mr-2 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center', DesignTokens.colors.primary.text[600], `hover:${DesignTokens.colors.primary.text[700]}`, `active:${DesignTokens.colors.primary.text[700]}`)}
+                className={combineClasses('p-2 -mr-2', DesignTokens.spacing.touchTarget, 'flex items-center justify-center', DesignTokens.colors.primary.text[600], `hover:${DesignTokens.colors.primary.text[700]}`, `active:${DesignTokens.colors.primary.text[700]}`, DesignTokens.transitions.default)}
                 aria-label="Edit patient information"
               >
-                <Edit2 size={20} />
+                <Edit2 className={DesignTokens.icons.standard.size.full} />
               </button>
             </div>
 
             {/* Key Information Grid */}
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 mt-4">
+            <div className={combineClasses('grid grid-cols-2', DesignTokens.spacing.gap.md, 'mt-4')}>
               {patientProfile.age && (
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-8 h-8 bg-medical-primary-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <User className="w-4 h-4 text-medical-primary-600" />
+                <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, DesignTokens.typography.body.sm)}>
+                  <div className={combineClasses(DesignTokens.spacing.iconContainer.mobile, DesignTokens.colors.primary[100], DesignTokens.borders.radius.sm, 'flex items-center justify-center flex-shrink-0')}>
+                    <User className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.primary.text[600])} />
                   </div>
                   <div>
                     <p className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>Age</p>
@@ -417,9 +417,9 @@ export default function ProfileTab({ onTabChange }) {
                 </div>
               )}
               {patientProfile.dateOfBirth && (
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-8 h-8 bg-medical-accent-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Calendar className="w-4 h-4 text-medical-accent-600" />
+                <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, DesignTokens.typography.body.sm)}>
+                  <div className={combineClasses(DesignTokens.spacing.iconContainer.mobile, DesignTokens.colors.accent[100], DesignTokens.borders.radius.sm, 'flex items-center justify-center flex-shrink-0')}>
+                    <Calendar className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.accent.text[600])} />
                   </div>
                   <div>
                     <p className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>Date of Birth</p>
@@ -434,9 +434,9 @@ export default function ProfileTab({ onTabChange }) {
                 </div>
               )}
               {patientProfile.country && (
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-8 h-8 bg-medical-secondary-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <MapPin className="w-4 h-4 text-medical-secondary-600" />
+                <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, DesignTokens.typography.body.sm)}>
+                  <div className={combineClasses(DesignTokens.spacing.iconContainer.mobile, 'bg-medical-secondary-100', DesignTokens.borders.radius.sm, 'flex items-center justify-center flex-shrink-0')}>
+                    <MapPin className={combineClasses(DesignTokens.icons.standard.size.full, 'text-medical-secondary-600')} />
                   </div>
                   <div>
                     <p className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>Location</p>
@@ -445,9 +445,9 @@ export default function ProfileTab({ onTabChange }) {
                 </div>
               )}
               {patientProfile.gender && (
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-8 h-8 bg-pink-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <User className="w-4 h-4 text-pink-600" />
+                <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, DesignTokens.typography.body.sm)}>
+                  <div className={combineClasses(DesignTokens.spacing.iconContainer.mobile, 'bg-pink-100', DesignTokens.borders.radius.sm, 'flex items-center justify-center flex-shrink-0')}>
+                    <User className={combineClasses(DesignTokens.icons.standard.size.full, 'text-pink-600')} />
                   </div>
                   <div>
                     <p className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>Gender</p>
@@ -456,9 +456,9 @@ export default function ProfileTab({ onTabChange }) {
                 </div>
               )}
               {patientProfile.height && (
-                <div className="flex items-center gap-2 text-sm">
-                  <div className={combineClasses('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0', DesignTokens.components.status.normal.bg)}>
-                    <TrendingUp className={combineClasses('w-4 h-4', DesignTokens.components.status.normal.text)} />
+                <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, DesignTokens.typography.body.sm)}>
+                  <div className={combineClasses(DesignTokens.spacing.iconContainer.mobile, DesignTokens.borders.radius.sm, 'flex items-center justify-center flex-shrink-0', DesignTokens.components.status.normal.bg)}>
+                    <TrendingUp className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.components.status.normal.text)} />
                   </div>
                   <div>
                     <p className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>Height</p>
@@ -467,9 +467,9 @@ export default function ProfileTab({ onTabChange }) {
                 </div>
               )}
               {patientProfile.weight && (
-                <div className="flex items-center gap-2 text-sm">
-                  <div className={combineClasses('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0', DesignTokens.colors.primary[100])}>
-                    <Activity className={combineClasses('w-4 h-4', DesignTokens.colors.primary.text[600])} />
+                <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, DesignTokens.typography.body.sm)}>
+                  <div className={combineClasses(DesignTokens.spacing.iconContainer.mobile, DesignTokens.borders.radius.sm, 'flex items-center justify-center flex-shrink-0', DesignTokens.colors.primary[100])}>
+                    <Activity className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.primary.text[600])} />
                   </div>
                   <div>
                     <p className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>Weight</p>
@@ -483,23 +483,23 @@ export default function ProfileTab({ onTabChange }) {
       </div>
 
       {/* Current Status - Full Width */}
-      <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-4 sm:p-5 md:p-6 border-2 border-medical-accent-200">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-medical-accent-50 p-2.5 rounded-lg">
-              <Activity className="w-6 h-6 text-medical-accent-600" />
+      <div className={combineClasses(DesignTokens.components.card.containerLarge, 'border-medical-accent-200')}>
+        <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.header.mobile)}>
+          <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.md)}>
+            <div className={combineClasses(DesignTokens.colors.accent[50], DesignTokens.spacing.iconContainer.full, DesignTokens.borders.radius.sm)}>
+              <Activity className={combineClasses(DesignTokens.icons.header.size.full, DesignTokens.colors.accent.text[600])} />
             </div>
-            <h2 className={combineClasses('font-semibold text-base sm:text-lg', DesignTokens.colors.neutral.text[800])}>Current Status</h2>
+            <h2 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[800])}>Current Status</h2>
           </div>
           <button
             onClick={() => setShowUpdateStatus(true)}
-            className="p-2 -mr-2 text-medical-accent-600 hover:text-medical-accent-700 active:text-medical-accent-800 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+            className={combineClasses('p-2 -mr-2', DesignTokens.colors.accent.text[600], `hover:${DesignTokens.colors.accent.text[700]}`, `active:${DesignTokens.colors.accent.text[700]}`, DesignTokens.spacing.touchTarget, 'flex items-center justify-center', DesignTokens.transitions.default)}
             aria-label="Update current status"
           >
-            <Edit2 size={20} />
+            <Edit2 className={DesignTokens.icons.standard.size.full} />
           </button>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className={combineClasses('grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3', DesignTokens.spacing.gap.lg)}>
           <div className="flex flex-col">
             <span className={combineClasses('mb-1 text-sm', DesignTokens.colors.neutral.text[600])}>Diagnosis</span>
             <span className={combineClasses('font-medium', DesignTokens.colors.neutral.text[900])}>{currentStatus?.diagnosis || patientProfile?.diagnosis || 'No diagnosis yet'}</span>
@@ -538,30 +538,30 @@ export default function ProfileTab({ onTabChange }) {
       </div>
 
       {/* Genomic Profile */}
-      <div className="bg-white rounded-lg sm:rounded-xl shadow-sm p-4 sm:p-5 md:p-6 border-2 border-purple-200">
+      <div className={combineClasses(DesignTokens.components.card.containerLarge, 'border-purple-200')}>
         {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 && (
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-2.5 rounded-lg">
-                <Dna className="w-6 h-6 text-purple-600" />
+          <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.header.mobile)}>
+            <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.md)}>
+              <div className={combineClasses('bg-gradient-to-br from-purple-50 to-pink-50', DesignTokens.spacing.iconContainer.full, DesignTokens.borders.radius.sm)}>
+                <Dna className={combineClasses(DesignTokens.icons.header.size.full, 'text-purple-600')} />
               </div>
-              <h2 className={combineClasses('font-semibold text-base sm:text-lg', DesignTokens.colors.neutral.text[800])}>Genomic Profile</h2>
+              <h2 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[800])}>Genomic Profile</h2>
             </div>
-            <div className="flex items-center gap-2">
+            <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm)}>
               <button
                 onClick={() => setGenomicExpanded(!genomicExpanded)}
-                className="text-purple-600 hover:text-purple-700 flex items-center gap-1 text-sm font-medium"
+                className={combineClasses('text-purple-600 hover:text-purple-700 flex items-center', DesignTokens.spacing.gap.xs, DesignTokens.typography.body.sm, 'font-medium', DesignTokens.transitions.default)}
               >
                 {genomicExpanded ? (
                   <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className={DesignTokens.icons.small.size.full} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                     </svg>
                     Collapse
                   </>
                 ) : (
                   <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className={DesignTokens.icons.small.size.full} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                     Expand
@@ -601,10 +601,10 @@ export default function ProfileTab({ onTabChange }) {
                   });
                   setShowEditGenomic(true);
                 }}
-                className="p-2 -mr-2 text-purple-600 hover:text-purple-700 active:text-purple-800 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+                className={combineClasses('p-2 -mr-2 text-purple-600 hover:text-purple-700 active:text-purple-800', DesignTokens.spacing.touchTarget, 'flex items-center justify-center', DesignTokens.transitions.default)}
                 aria-label="Edit genomic profile"
               >
-                <Edit2 size={20} />
+                <Edit2 className={DesignTokens.icons.standard.size.full} />
               </button>
             </div>
           </div>
@@ -613,45 +613,45 @@ export default function ProfileTab({ onTabChange }) {
         {/* Summary View - Always Visible */}
         {genomicProfile && ((genomicProfile.mutations && genomicProfile.mutations.length > 0) || (genomicProfile.cnvs && genomicProfile.cnvs.length > 0)) ? (
           <div className={combineClasses(DesignTokens.components.card.nested, 'mb-3')}>
-            <div className="flex flex-wrap gap-2">
+            <div className={combineClasses('flex flex-wrap', DesignTokens.spacing.gap.sm)}>
               {genomicProfile.mutations && genomicProfile.mutations.slice(0, 5).map((mutation, idx) => (
-                <span key={idx} className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                <span key={idx} className={combineClasses('px-3 py-1 bg-purple-100 text-purple-800', DesignTokens.borders.radius.full, DesignTokens.typography.body.xs, 'font-medium')}>
                   {mutation.gene} {formatLabel(mutation.variant || mutation.type)}
                 </span>
               ))}
               {genomicProfile.cnvs && genomicProfile.cnvs.slice(0, 3).map((cnv, idx) => {
                 const cnvType = cnv.type === 'amplification' || cnv.type === 'gain' || (cnv.copyNumber && cnv.copyNumber > 2) ? 'Amp' : 'Del';
                 return (
-                  <span key={`cnv-${idx}`} className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">
+                  <span key={`cnv-${idx}`} className={combineClasses('px-3 py-1 bg-orange-100 text-orange-800', DesignTokens.borders.radius.full, DesignTokens.typography.body.xs, 'font-medium')}>
                     {cnv.gene} {cnvType}
                   </span>
                 );
               })}
               {genomicProfile.tmb && (
-                <span className={combineClasses('px-3 py-1 rounded-full text-xs font-medium', DesignTokens.colors.primary[100], DesignTokens.colors.primary.text[700])}>
+                <span className={combineClasses('px-3 py-1', DesignTokens.borders.radius.full, DesignTokens.typography.body.xs, 'font-medium', DesignTokens.colors.primary[100], DesignTokens.colors.primary.text[700])}>
                   TMB: {genomicProfile.tmb}
                 </span>
               )}
               {genomicProfile.msi && (
-                <span className={combineClasses('px-3 py-1 rounded-full text-xs font-medium', DesignTokens.components.status.normal.bg, DesignTokens.components.status.normal.text.replace('600', '800'))}>
+                <span className={combineClasses('px-3 py-1', DesignTokens.borders.radius.full, DesignTokens.typography.body.xs, 'font-medium', DesignTokens.components.status.normal.bg, DesignTokens.components.status.normal.text.replace('600', '800'))}>
                   MSI: {genomicProfile.msi}
                 </span>
               )}
             </div>
           </div>
         ) : (
-          <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Dna className="w-8 h-8 text-purple-600" />
+          <div className={combineClasses(DesignTokens.components.emptyState.container)}>
+            <div className={combineClasses(DesignTokens.components.emptyState.iconContainer, 'bg-gradient-to-br from-purple-100 to-pink-100')}>
+              <Dna className={combineClasses(DesignTokens.components.emptyState.icon, 'text-purple-600')} />
             </div>
-            <h3 className="text-lg font-semibold text-medical-neutral-900 mb-2">No genomic data yet</h3>
-            <p className="text-sm text-medical-neutral-600 mb-6">Upload your genomic test report to match with targeted therapies and clinical trials</p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <h3 className={combineClasses(DesignTokens.components.emptyState.title, DesignTokens.typography.h3.full)}>No genomic data yet</h3>
+            <p className={combineClasses(DesignTokens.components.emptyState.message, DesignTokens.typography.body.sm)}>Upload your genomic test report to match with targeted therapies and clinical trials</p>
+            <div className={DesignTokens.components.emptyState.actions}>
                 <button
                   onClick={() => openDocumentOnboarding('genomic')}
-                  className="px-6 py-3 min-h-[44px] bg-purple-600 text-white rounded-lg hover:bg-purple-700 active:bg-purple-800 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2 touch-manipulation"
+                  className={combineClasses(DesignTokens.spacing.button.full, DesignTokens.spacing.touchTarget, 'bg-purple-600 text-white', DesignTokens.borders.radius.sm, 'hover:bg-purple-700 active:bg-purple-800', DesignTokens.transitions.all, DesignTokens.typography.body.sm, 'font-semibold', DesignTokens.shadows.sm, DesignTokens.shadows.hover, 'flex items-center justify-center', DesignTokens.spacing.gap.sm)}
                 >
-                <Upload className="w-4 h-4" />
+                <Upload className={DesignTokens.icons.standard.size.full} />
                 Upload Genomic Report
               </button>
             </div>
@@ -660,16 +660,16 @@ export default function ProfileTab({ onTabChange }) {
 
         {/* Expanded Details */}
         {genomicExpanded && genomicProfile && ((genomicProfile.mutations && genomicProfile.mutations.length > 0) || (genomicProfile.cnvs && genomicProfile.cnvs.length > 0) || genomicProfile.tmb || genomicProfile.msi || genomicProfile.hrd) && (
-          <div className="space-y-3 animate-fade-scale">
+          <div className={combineClasses('space-y-3', DesignTokens.spacing.gap.md, 'animate-fade-scale')}>
             {/* Key Mutations */}
             <div className={DesignTokens.components.card.nestedLarge}>
-              <h3 className={combineClasses('font-semibold mb-3 text-sm flex items-center gap-2', DesignTokens.colors.neutral.text[800])}>
-                <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <h3 className={combineClasses(DesignTokens.typography.h3.weight, 'mb-3', DesignTokens.typography.body.sm, 'flex items-center', DesignTokens.spacing.gap.sm, DesignTokens.colors.neutral.text[800])}>
+                <svg className={combineClasses(DesignTokens.icons.standard.size.full, 'text-purple-600')} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
                 </svg>
                 Germline & Somatic Mutations
               </h3>
-              <div className="space-y-2">
+              <div className={combineClasses('space-y-2', DesignTokens.spacing.gap.sm)}>
                 {genomicProfile.mutations.map((mutation, idx) => {
                   const { dna, protein, kind } = parseMutation(mutation);
                   
@@ -677,11 +677,11 @@ export default function ProfileTab({ onTabChange }) {
                   const vaf = mutation.variantAlleleFrequency ?? mutation.vaf ?? mutation.VAF ?? mutation.frequency ?? null;
                   
                   return (
-                    <div key={idx} className="flex items-start justify-between p-2 bg-purple-50 border border-purple-200 rounded">
+                    <div key={idx} className={combineClasses('flex items-start justify-between', DesignTokens.spacing.card.mobile, 'bg-purple-50 border border-purple-200', DesignTokens.borders.radius.sm)}>
                       <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className={combineClasses('font-semibold text-sm', DesignTokens.colors.neutral.text[900], IMPORTANT_GENES.includes((mutation.gene||'').toUpperCase()) ? 'text-yellow-700' : '')}>{mutation.gene}</span>
-                          <span className={`px-2 py-0.5 ${IMPORTANT_GENES.includes((mutation.gene||'').toUpperCase()) ? 'bg-yellow-100 text-yellow-800' : 'bg-purple-100 text-purple-800'} rounded text-xs font-medium`}>
+                        <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm)}>
+                          <span className={combineClasses(DesignTokens.typography.h3.weight, DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[900], IMPORTANT_GENES.includes((mutation.gene||'').toUpperCase()) ? 'text-yellow-700' : '')}>{mutation.gene}</span>
+                          <span className={combineClasses('px-2 py-0.5', IMPORTANT_GENES.includes((mutation.gene||'').toUpperCase()) ? 'bg-yellow-100 text-yellow-800' : 'bg-purple-100 text-purple-800', DesignTokens.borders.radius.sm, DesignTokens.typography.body.xs, 'font-medium')}>
                             {formatLabel(kind || mutation.type || 'Mutation')}
                           </span>
                         </div>
@@ -725,18 +725,18 @@ export default function ProfileTab({ onTabChange }) {
             {genomicProfile.cnvs && genomicProfile.cnvs.length > 0 && (
               <div className={DesignTokens.components.card.nestedLarge}>
                 <h3 className={combineClasses('font-semibold mb-3 text-sm flex items-center gap-2', DesignTokens.colors.neutral.text[800])}>
-                  <Copy className="w-4 h-4 text-orange-600" />
+                  <Copy className={combineClasses(DesignTokens.icons.standard.size.full, 'text-orange-600')} />
                   Copy Number Variants (CNVs)
                 </h3>
-                <div className="space-y-2">
+                <div className={combineClasses('space-y-2', DesignTokens.spacing.gap.sm)}>
                   {genomicProfile.cnvs.map((cnv, idx) => (
-                    <div key={idx} className="flex items-start justify-between p-2 bg-orange-50 border border-orange-200 rounded">
+                    <div key={idx} className={combineClasses('flex items-start justify-between', DesignTokens.spacing.card.mobile, 'bg-orange-50 border border-orange-200', DesignTokens.borders.radius.sm)}>
                       <div className="flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm)}>
                           <span className={combineClasses('font-semibold text-sm', DesignTokens.colors.neutral.text[900], IMPORTANT_GENES.includes((cnv.gene||'').toUpperCase()) ? 'text-yellow-700' : '')}>
                             {cnv.gene}
                           </span>
-                          <span className="px-2 py-0.5 bg-orange-100 text-orange-800 rounded text-xs font-medium">
+                          <span className={combineClasses('px-2 py-0.5 bg-orange-100 text-orange-800', DesignTokens.borders.radius.sm, DesignTokens.typography.body.xs, 'font-medium')}>
                             {cnv.type === 'amplification' || cnv.type === 'gain' || (cnv.copyNumber && cnv.copyNumber > 2) ? 'Amplification' : 'Deletion'}
                           </span>
                           {IMPORTANT_GENES.includes((cnv.gene||'').toUpperCase()) && (

@@ -10,8 +10,8 @@ import { processDocument, generateExtractionSummary, linkValuesToDocument } from
 import { processChatMessage, generateChatExtractionSummary } from './services/chatProcessor';
 import { auth } from './firebase/config';
 import Login from './components/Login';
-import ClinicalTrials from './components/ClinicalTrials';
-import DocumentUploadOnboarding from './components/DocumentUploadOnboarding';
+import ClinicalTrials from './components/tabs/ClinicalTrials';
+import DocumentUploadOnboarding from './components/modals/DocumentUploadOnboarding';
 import Onboarding from './components/Onboarding';
 import Navigation from './components/Navigation';
 import AddSymptomModal from './components/modals/AddSymptomModal';
@@ -31,7 +31,6 @@ import AddLabValueModal from './components/modals/AddLabValueModal';
 import UploadProgressOverlay from './components/UploadProgressOverlay';
 import ProfileTab from './components/tabs/ProfileTab';
 import FilesTab from './components/tabs/FilesTab';
-import TrialsTab from './components/tabs/TrialsTab';
 import DashboardTab from './components/tabs/DashboardTab';
 import HealthTab from './components/tabs/HealthTab';
 import ChatTab from './components/tabs/ChatTab';
@@ -896,7 +895,16 @@ export default function CancerCareApp() {
         )}
 
         {activeTab === 'trials' && (
-          <TrialsTab onTabChange={setActiveTab} />
+          <ClinicalTrials 
+            onTrialSelected={(trial) => {
+              // Store trial context in sessionStorage temporarily for chat tab
+              if (trial) {
+                sessionStorage.setItem('currentTrialContext', JSON.stringify(trial));
+              }
+              // Switch to chat tab
+              setActiveTab('chat');
+            }} 
+          />
         )}
 
         {activeTab === 'files' && (

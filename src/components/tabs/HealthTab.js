@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, BarChart, Heart, Thermometer, Pill, Plus, Upload, Edit2, X, TrendingUp, TrendingDown, Minus, Activity, Info, Calendar, Clock, Check, AlertCircle, Trash2, MoreVertical, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Eye, EyeOff, Star, ClipboardList } from 'lucide-react';
-import { DesignTokens, combineClasses } from '../../design/designTokens';
+import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
@@ -17,7 +17,7 @@ import AddVitalModal from '../modals/AddVitalModal';
 import AddVitalValueModal from '../modals/AddVitalValueModal';
 import AddLabValueModal from '../modals/AddLabValueModal';
 import EditLabModal from '../modals/EditLabModal';
-import DocumentUploadOnboarding from '../DocumentUploadOnboarding';
+import DocumentUploadOnboarding from '../modals/DocumentUploadOnboarding';
 import DeletionConfirmationModal from '../modals/DeletionConfirmationModal';
 import UploadProgressOverlay from '../UploadProgressOverlay';
 import LabTooltipModal from '../modals/LabTooltipModal';
@@ -542,53 +542,54 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
   };
 
   return (
-    <div className="p-3 sm:p-4 md:p-6">
+    <div className={combineClasses(Layouts.container, Layouts.section)}>
       {/* Header */}
-      <div className="mb-4 sm:mb-6 flex items-center gap-2 sm:gap-3">
-        <div className="bg-medical-primary-50 p-2 sm:p-2.5 rounded-lg">
-          <ClipboardList className="w-5 h-5 sm:w-6 sm:h-6 text-medical-primary-600" />
+      <div className={Layouts.header}>
+        <div className={Layouts.headerIcon}>
+          <ClipboardList className={DesignTokens.components.header.icon} />
         </div>
         <div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-medical-neutral-900 mb-0.5 sm:mb-1">Health</h1>
+          <h1 className={Layouts.headerTitle}>Health</h1>
         </div>
       </div>
 
       {/* Health Section Tabs with Ask About Button */}
-      <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6 overflow-x-auto">
+      <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.responsive.md, Layouts.section, 'overflow-x-auto')}>
         {/* Health Section Tabs */}
-        <div className="flex gap-1 sm:gap-4 flex-1">
+        <div className={Layouts.tabsContainer}>
         {['labs', 'vitals', 'symptoms', 'medications'].map(section => (
           <button
             key={section}
             onClick={() => setHealthSection(section)}
-            className={`pb-3 px-2 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70 whitespace-nowrap flex-shrink-0 ${
+            className={combineClasses(
+              DesignTokens.components.tabs.button.base,
               healthSection === section
-                ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
-                : 'text-medical-neutral-600 hover:text-medical-primary-600'
-            }`}
+                ? DesignTokens.components.tabs.button.active
+                : DesignTokens.components.tabs.button.inactive
+            )}
           >
             {section === 'labs' && (
               <>
-                <BarChart className="w-4 h-4" />
-                <span className="text-xs sm:text-base">Labs</span>
+                <BarChart className={DesignTokens.icons.button.size.full} />
+                <span className={DesignTokens.typography.body.base}>Labs</span>
               </>
             )}
             {section === 'vitals' && (
               <>
-                <Heart className="w-4 h-4" />
-                <span className="text-xs sm:text-base">Vitals</span>
+                <Heart className={DesignTokens.icons.button.size.full} />
+                <span className={DesignTokens.typography.body.base}>Vitals</span>
               </>
             )}
             {section === 'symptoms' && (
               <>
-                <Thermometer className="w-4 h-4" />
-                <span className="text-xs sm:text-base">Symptoms</span>
+                <Thermometer className={DesignTokens.icons.button.size.full} />
+                <span className={DesignTokens.typography.body.base}>Symptoms</span>
               </>
             )}
             {section === 'medications' && (
               <>
-                <Pill className="w-4 h-4" />
-                <span className="text-xs sm:text-base">
+                <Pill className={DesignTokens.icons.button.size.full} />
+                <span className={DesignTokens.typography.body.base}>
                   <span className="hidden sm:inline">Medications</span>
                   <span className="sm:hidden">Meds</span>
                 </span>
@@ -601,9 +602,9 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
         {/* Ask About Health Button */}
         <button
           onClick={handleAskAboutHealth}
-          className="bg-medical-primary-50 text-medical-primary-600 px-3 sm:px-6 py-2.5 rounded-lg hover:bg-medical-primary-100 transition font-medium flex items-center gap-2 shadow-sm border border-medical-primary-200 min-h-[44px] touch-manipulation active:opacity-70 flex-shrink-0"
+          className={DesignTokens.components.button.iconButton}
         >
-          <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-medical-primary-600" />
+          <MessageSquare className={combineClasses(DesignTokens.icons.button.size.full, DesignTokens.colors.primary.text[600])} />
           <span className="hidden sm:inline">Ask About This</span>
         </button>
       </div>

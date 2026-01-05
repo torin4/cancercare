@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Activity, TrendingUp, Upload, AlertCircle, ClipboardList, Info, Dna, Bookmark, ChevronRight, Search, MessageSquare, X, Heart, Loader2, BarChart, Home } from 'lucide-react';
-import { DesignTokens, combineClasses } from '../../design/designTokens';
+import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
@@ -15,7 +15,7 @@ import { uploadDocument } from '../../firebase/storage';
 import AddSymptomModal from '../modals/AddSymptomModal';
 import AddLabModal from '../modals/AddLabModal';
 import AddVitalModal from '../modals/AddVitalModal';
-import DocumentUploadOnboarding from '../DocumentUploadOnboarding';
+import DocumentUploadOnboarding from '../modals/DocumentUploadOnboarding';
 import UploadProgressOverlay from '../UploadProgressOverlay';
 import LabTooltipModal from '../modals/LabTooltipModal';
 
@@ -301,49 +301,58 @@ setIsUploading(false);
         </div>
       )}
 
-      <div className="p-3 sm:p-4 md:p-6">
+      <div className={combineClasses(Layouts.container, Layouts.section)}>
         {/* Header */}
-        <div className="mb-4 sm:mb-6 flex items-center gap-2 sm:gap-3">
-          <div className="bg-medical-primary-50 p-2 sm:p-2.5 rounded-lg">
-            <Home className="w-5 h-5 sm:w-6 sm:h-6 text-medical-primary-600" />
+        <div className={Layouts.header}>
+          <div className={Layouts.headerIcon}>
+            <Home className={DesignTokens.components.header.icon} />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-medical-neutral-900 mb-0.5 sm:mb-1">Dashboard</h1>
+            <h1 className={Layouts.headerTitle}>Dashboard</h1>
           </div>
         </div>
 
         {/* Dynamic CA-125 Alert */}
         {ca125Alert && (
-          <div className={`bg-white rounded-lg sm:rounded-xl border-2 p-4 sm:p-5 shadow-sm mb-4 sm:mb-6 ${
+          <div className={combineClasses(
+            DesignTokens.components.card.container,
+            DesignTokens.shadows.sm,
+            Layouts.section,
             ca125Alert.type === 'up' 
               ? 'border-amber-300 bg-amber-50' 
-              : 'border-medical-accent-300 bg-medical-accent-50'
-          }`}>
-            <div className="flex items-start gap-3">
-              <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+              : combineClasses(DesignTokens.colors.accent.border[300], DesignTokens.colors.accent[50])
+          )}>
+            <div className={combineClasses('flex items-start', DesignTokens.spacing.gap.md)}>
+              <div className={combineClasses(
+                'flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center',
                 ca125Alert.type === 'up' 
                   ? 'bg-amber-100' 
-                  : 'bg-medical-accent-100'
-              }`}>
-                <AlertCircle className={`w-5 h-5 ${
+                  : DesignTokens.colors.accent[100]
+              )}>
+                <AlertCircle className={combineClasses(
+                  DesignTokens.icons.header.size.full,
                   ca125Alert.type === 'up' 
                     ? 'text-amber-600' 
-                    : 'text-medical-accent-600'
-                }`} />
+                    : DesignTokens.colors.accent.text[600]
+                )} />
               </div>
               <div className="flex-1">
-                <h3 className={`text-base font-semibold mb-1 ${
+                <h3 className={combineClasses(
+                  DesignTokens.typography.h3.full,
+                  DesignTokens.typography.h3.weight,
+                  'mb-1',
                   ca125Alert.type === 'up' 
                     ? 'text-amber-900' 
-                    : 'text-medical-accent-900'
-                }`}>
+                    : DesignTokens.colors.accent.text[900]
+                )}>
                   CA-125 {ca125Alert.type === 'up' ? 'Trending Up' : 'Trending Down'}
                 </h3>
-                <p className={`text-sm ${
+                <p className={combineClasses(
+                  DesignTokens.typography.body.sm,
                   ca125Alert.type === 'up' 
                     ? 'text-amber-700' 
-                    : 'text-medical-accent-700'
-                }`}>
+                    : DesignTokens.colors.accent.text[700]
+                )}>
                   {ca125Alert.message}
                 </p>
               </div>
@@ -417,11 +426,20 @@ setIsUploading(false);
               'text-medical-neutral-600';
             
             return (
-              <div key={`${itemType}-${item.key}`} className="text-center p-3 sm:p-4 bg-white rounded-lg border border-medical-neutral-200 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-center gap-1.5 mb-2">
-                  <span className="text-xs font-medium text-medical-neutral-700">{displayName}</span>
-                  <div className="flex items-center gap-1">
-                    <Activity className={`w-3.5 h-3.5 ${statusColorClass}`} />
+              <div key={`${itemType}-${item.key}`} className={combineClasses(
+                'text-center',
+                DesignTokens.spacing.card.full,
+                'bg-white',
+                DesignTokens.borders.radius.sm,
+                DesignTokens.borders.card,
+                DesignTokens.shadows.sm,
+                DesignTokens.shadows.hover,
+                DesignTokens.transitions.all
+              )}>
+                <div className={combineClasses('flex items-center justify-center', DesignTokens.spacing.gap.xs, 'mb-2')}>
+                  <span className={combineClasses(DesignTokens.typography.body.xs, 'font-medium', DesignTokens.colors.neutral.text[700])}>{displayName}</span>
+                  <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.xs)}>
+                    <Activity className={combineClasses(DesignTokens.icons.small.size.full, statusColorClass)} />
                     {description && (
                       <button
                         onClick={(e) => {
@@ -431,17 +449,23 @@ setIsUploading(false);
                             description: description
                           });
                         }}
-                        className="p-1.5 -m-1.5 text-medical-primary-500 hover:text-medical-primary-700 active:text-medical-primary-800 transition-colors touch-manipulation min-w-[32px] min-h-[32px] flex items-center justify-center"
+                        className={combineClasses(
+                          'p-1.5 -m-1.5',
+                          DesignTokens.colors.primary.text[500],
+                          'hover:text-medical-primary-700 active:text-medical-primary-800',
+                          DesignTokens.transitions.default,
+                          'touch-manipulation min-w-[32px] min-h-[32px] flex items-center justify-center'
+                        )}
                         title="Learn more about this value"
                         aria-label="Learn more about this value"
                       >
-                        <Info className="w-3.5 h-3.5" />
+                        <Info className={DesignTokens.icons.small.size.full} />
                       </button>
                     )}
                   </div>
                 </div>
-                <p className="text-lg sm:text-xl font-bold text-medical-neutral-900">{latestValue}{data.unit ? ` ${data.unit}` : ''}</p>
-                <p className={`text-xs mt-1 font-medium ${statusTextColorClass}`}>
+                <p className={combineClasses(DesignTokens.typography.body.lg, 'font-bold', DesignTokens.colors.neutral.text[900])}>{latestValue}{data.unit ? ` ${data.unit}` : ''}</p>
+                <p className={combineClasses(DesignTokens.typography.body.xs, 'mt-1 font-medium', statusTextColorClass)}>
                   {statusInfo.label}
                 </p>
               </div>
@@ -546,14 +570,23 @@ setIsUploading(false);
             <>
               {/* Key Labs and Key Vitals Cards - Side by side on desktop, stacked on mobile */}
               {(showKeyLabs || showKeyVitals) && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
+                <div className={combineClasses('grid grid-cols-1 lg:grid-cols-2', DesignTokens.spacing.gap.responsive.md, Layouts.section)}>
                   {/* Key Labs Card */}
                   {showKeyLabs && (
-                    <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-medical-primary-200 shadow-sm">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 flex items-center gap-2">
-                          <div className="bg-medical-primary-50 p-2 rounded-lg">
-                            <BarChart className="w-5 h-5 text-medical-primary-600" />
+                    <div className={combineClasses(
+                      DesignTokens.components.card.container,
+                      DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[200])
+                    )}>
+                      <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.section.mobile)}>
+                        <h3 className={combineClasses(
+                          DesignTokens.typography.h3.full,
+                          DesignTokens.typography.h3.weight,
+                          DesignTokens.typography.h3.color,
+                          'flex items-center',
+                          DesignTokens.spacing.gap.sm
+                        )}>
+                          <div className={combineClasses(DesignTokens.colors.primary[50], DesignTokens.spacing.iconContainer.mobile, DesignTokens.borders.radius.sm)}>
+                            <BarChart className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.primary.text[600])} />
                           </div>
                           Key Labs
                         </h3>
@@ -562,12 +595,20 @@ setIsUploading(false);
                             sessionStorage.setItem('healthSection', 'labs');
                             onTabChange('health');
                           }}
-                          className="text-sm font-medium text-medical-primary-600 hover:text-medical-primary-700 active:text-medical-primary-800 transition-colors touch-manipulation flex items-center gap-1"
+                          className={combineClasses(
+                            DesignTokens.typography.body.sm,
+                            'font-medium',
+                            DesignTokens.colors.primary.text[600],
+                            'hover:text-medical-primary-700 active:text-medical-primary-800',
+                            DesignTokens.transitions.default,
+                            'touch-manipulation flex items-center',
+                            DesignTokens.spacing.gap.xs
+                          )}
                         >
-                          View All <ChevronRight className="w-4 h-4" />
+                          View All <ChevronRight className={DesignTokens.icons.small.size.full} />
                         </button>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                      <div className={combineClasses('grid grid-cols-2 sm:grid-cols-4', DesignTokens.spacing.gap.responsive.md)}>
                         {keyLabItems.map((item) => renderMetricItem(item, 'lab'))}
                       </div>
                     </div>
@@ -575,11 +616,20 @@ setIsUploading(false);
 
                   {/* Key Vitals Card */}
                   {showKeyVitals && (
-                    <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-medical-primary-200 shadow-sm">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 flex items-center gap-2">
-                          <div className="bg-medical-primary-50 p-2 rounded-lg">
-                            <Heart className="w-5 h-5 text-medical-primary-600" />
+                    <div className={combineClasses(
+                      DesignTokens.components.card.container,
+                      DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[200])
+                    )}>
+                      <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.section.mobile)}>
+                        <h3 className={combineClasses(
+                          DesignTokens.typography.h3.full,
+                          DesignTokens.typography.h3.weight,
+                          DesignTokens.typography.h3.color,
+                          'flex items-center',
+                          DesignTokens.spacing.gap.sm
+                        )}>
+                          <div className={combineClasses(DesignTokens.colors.primary[50], DesignTokens.spacing.iconContainer.mobile, DesignTokens.borders.radius.sm)}>
+                            <Heart className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.primary.text[600])} />
                           </div>
                           Key Vitals
                         </h3>
@@ -588,12 +638,20 @@ setIsUploading(false);
                             sessionStorage.setItem('healthSection', 'vitals');
                             onTabChange('health');
                           }}
-                          className="text-sm font-medium text-medical-primary-600 hover:text-medical-primary-700 active:text-medical-primary-800 transition-colors touch-manipulation flex items-center gap-1"
+                          className={combineClasses(
+                            DesignTokens.typography.body.sm,
+                            'font-medium',
+                            DesignTokens.colors.primary.text[600],
+                            'hover:text-medical-primary-700 active:text-medical-primary-800',
+                            DesignTokens.transitions.default,
+                            'touch-manipulation flex items-center',
+                            DesignTokens.spacing.gap.xs
+                          )}
                         >
-                          View All <ChevronRight className="w-4 h-4" />
+                          View All <ChevronRight className={DesignTokens.icons.small.size.full} />
                         </button>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                      <div className={combineClasses('grid grid-cols-2 sm:grid-cols-4', DesignTokens.spacing.gap.responsive.md)}>
                         {keyVitalItems.map((item) => renderMetricItem(item, 'vital'))}
                       </div>
                     </div>
@@ -603,18 +661,27 @@ setIsUploading(false);
             </>
           );
         })() : (
-          <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center border-2 border-medical-primary-200 shadow-sm mb-4 sm:mb-6">
-            <div className="w-16 h-16 bg-medical-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <ClipboardList className="w-8 h-8 text-medical-primary-600" />
+          <div className={combineClasses(
+            DesignTokens.components.emptyState.container,
+            DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[200]),
+            DesignTokens.shadows.sm,
+            Layouts.section
+          )}>
+            <div className={combineClasses(DesignTokens.components.emptyState.iconContainer, DesignTokens.colors.primary[100], 'rounded-full')}>
+              <ClipboardList className={combineClasses(DesignTokens.icons.header.size.full, DesignTokens.colors.primary.text[600])} />
             </div>
-            <h3 className="text-lg font-semibold text-medical-neutral-900 mb-2">No health data tracked yet</h3>
-            <p className="text-sm text-medical-neutral-600 mb-6">Start by uploading lab results or chatting with the AI assistant</p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, DesignTokens.typography.h3.color, 'mb-2')}>No health data tracked yet</h3>
+            <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[600], 'mb-6')}>Start by uploading lab results or chatting with the AI assistant</p>
+            <div className={combineClasses(DesignTokens.components.emptyState.actions)}>
               <button
                 onClick={() => onTabChange('chat')}
-                className="px-6 py-3 min-h-[44px] bg-white border-2 border-medical-primary-500 text-medical-primary-600 rounded-lg hover:bg-medical-primary-50 active:bg-medical-primary-100 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2 touch-manipulation"
+                className={combineClasses(
+                  DesignTokens.components.button.outline.primary,
+                  DesignTokens.spacing.button.full,
+                  'py-3'
+                )}
               >
-                <MessageSquare className="w-4 h-4" />
+                <MessageSquare className={DesignTokens.icons.button.size.full} />
                 Chat with AI
               </button>
               <button
@@ -625,9 +692,13 @@ setIsUploading(false);
                     onTabChange('files');
                   }
                 }}
-                className="px-6 py-3 min-h-[44px] bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 active:bg-medical-primary-700 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2 touch-manipulation"
+                className={combineClasses(
+                  DesignTokens.components.button.primary,
+                  DesignTokens.spacing.button.full,
+                  'py-3'
+                )}
               >
-                <Upload className="w-4 h-4" />
+                <Upload className={DesignTokens.icons.button.size.full} />
                 Upload Labs
               </button>
             </div>
@@ -635,22 +706,42 @@ setIsUploading(false);
         )}
 
         {/* Two Column Layout on larger screens */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
+        <div className={combineClasses('grid grid-cols-1 lg:grid-cols-2', DesignTokens.spacing.gap.responsive.md, Layouts.section)}>
           {/* Genomic Profile Card */}
-          <div className="w-full bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-purple-200 shadow-sm lg:col-span-2">
+          <div className={combineClasses(
+            'w-full',
+            DesignTokens.components.card.container,
+            'border-purple-200',
+            DesignTokens.shadows.sm,
+            'lg:col-span-2'
+          )}>
             {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 && (
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 flex items-center gap-2">
-                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-2 rounded-lg">
-                    <Dna className="w-5 h-5 text-purple-600" />
+              <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.section.mobile)}>
+                <h3 className={combineClasses(
+                  DesignTokens.typography.h3.full,
+                  DesignTokens.typography.h3.weight,
+                  DesignTokens.typography.h3.color,
+                  'flex items-center',
+                  DesignTokens.spacing.gap.sm
+                )}>
+                  <div className={combineClasses('bg-gradient-to-br from-purple-50 to-pink-50', DesignTokens.spacing.iconContainer.mobile, DesignTokens.borders.radius.sm)}>
+                    <Dna className={combineClasses(DesignTokens.icons.standard.size.full, 'text-purple-600')} />
                   </div>
                   Genomic Profile
                 </h3>
                 <button
                   onClick={() => onTabChange('profile')}
-                  className="text-sm font-medium text-medical-primary-600 hover:text-medical-primary-700 active:text-medical-primary-800 transition-colors touch-manipulation flex items-center gap-1"
+                  className={combineClasses(
+                    DesignTokens.typography.body.sm,
+                    'font-medium',
+                    DesignTokens.colors.primary.text[600],
+                    'hover:text-medical-primary-700 active:text-medical-primary-800',
+                    DesignTokens.transitions.default,
+                    'touch-manipulation flex items-center',
+                    DesignTokens.spacing.gap.xs
+                  )}
                 >
-                  View All <ChevronRight className="w-4 h-4" />
+                  View Details <ChevronRight className={DesignTokens.icons.small.size.full} />
                 </button>
               </div>
             )}
@@ -685,13 +776,13 @@ setIsUploading(false);
                 </div>
               </>
             ) : (
-              <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Dna className="w-8 h-8 text-purple-600" />
+              <div className={DesignTokens.components.emptyState.container}>
+                <div className={combineClasses(DesignTokens.components.emptyState.iconContainer, 'bg-gradient-to-br from-purple-100 to-pink-100 rounded-full')}>
+                  <Dna className={combineClasses(DesignTokens.icons.header.size.full, 'text-purple-600')} />
                 </div>
-                <h3 className="text-lg font-semibold text-medical-neutral-900 mb-2">No genomic data yet</h3>
-                <p className="text-sm text-medical-neutral-600 mb-6">Upload your genomic test report to match with targeted therapies and clinical trials</p>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, DesignTokens.typography.h3.color, 'mb-2')}>No genomic data yet</h3>
+                <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[600], 'mb-6')}>Upload your genomic test report to match with targeted therapies and clinical trials</p>
+                <div className={DesignTokens.components.emptyState.actions}>
                   <button
                     onClick={() => {
                       if (!hasUploadedDocument) {
@@ -700,9 +791,23 @@ setIsUploading(false);
                         onTabChange('files');
                       }
                     }}
-                    className="px-6 py-3 min-h-[44px] bg-purple-600 text-white rounded-lg hover:bg-purple-700 active:bg-purple-800 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2 touch-manipulation"
+                    className={combineClasses(
+                      'px-6 py-3',
+                      DesignTokens.spacing.touchTarget,
+                      'bg-purple-600 text-white',
+                      DesignTokens.borders.radius.sm,
+                      'hover:bg-purple-700 active:bg-purple-800',
+                      DesignTokens.transitions.all,
+                      DesignTokens.typography.body.sm,
+                      'font-semibold',
+                      DesignTokens.shadows.sm,
+                      DesignTokens.shadows.hover,
+                      'flex items-center justify-center',
+                      DesignTokens.spacing.gap.sm,
+                      'touch-manipulation'
+                    )}
                   >
-                    <Upload className="w-4 h-4" />
+                    <Upload className={DesignTokens.icons.button.size.full} />
                     Upload Genomic Report
                   </button>
                 </div>
@@ -712,20 +817,39 @@ setIsUploading(false);
         </div>
 
         {/* Saved Trials */}
-        <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-5 border-2 border-medical-accent-200 shadow-sm mt-4 sm:mt-6">
+        <div className={combineClasses(
+          DesignTokens.components.card.container,
+          DesignTokens.components.card.withColoredBorder(DesignTokens.colors.accent.border[200]),
+          DesignTokens.shadows.sm,
+          'mt-4 sm:mt-6'
+        )}>
           {!loadingSavedTrials && savedTrials.length > 0 && (
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 flex items-center gap-2">
-                <div className="bg-medical-accent-50 p-2 rounded-lg">
-                  <Bookmark className="w-5 h-5 text-medical-accent-600" />
+            <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.section.mobile)}>
+              <h3 className={combineClasses(
+                DesignTokens.typography.h3.full,
+                DesignTokens.typography.h3.weight,
+                DesignTokens.typography.h3.color,
+                'flex items-center',
+                DesignTokens.spacing.gap.sm
+              )}>
+                <div className={combineClasses(DesignTokens.colors.accent[50], DesignTokens.spacing.iconContainer.mobile, DesignTokens.borders.radius.sm)}>
+                  <Bookmark className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.accent.text[600])} />
                 </div>
                 Saved Trials
               </h3>
               <button
                 onClick={() => onTabChange('trials')}
-                className="text-sm font-medium text-medical-primary-600 hover:text-medical-primary-700 active:text-medical-primary-800 transition-colors touch-manipulation flex items-center gap-1"
+                className={combineClasses(
+                  DesignTokens.typography.body.sm,
+                  'font-medium',
+                  DesignTokens.colors.primary.text[600],
+                  'hover:text-medical-primary-700 active:text-medical-primary-800',
+                  DesignTokens.transitions.default,
+                  'touch-manipulation flex items-center',
+                  DesignTokens.spacing.gap.xs
+                )}
               >
-                View All <ChevronRight className="w-4 h-4" />
+                View Details <ChevronRight className={DesignTokens.icons.small.size.full} />
               </button>
             </div>
           )}
@@ -768,18 +892,25 @@ setIsUploading(false);
               ))}
             </div>
           ) : (
-            <div className="bg-white rounded-lg sm:rounded-xl p-6 sm:p-8 text-center">
-              <div className="w-16 h-16 bg-medical-accent-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Bookmark className="w-8 h-8 text-medical-accent-600" />
+            <div className={DesignTokens.components.emptyState.container}>
+              <div className={combineClasses(DesignTokens.components.emptyState.iconContainer, DesignTokens.colors.accent[100], 'rounded-full')}>
+                <Bookmark className={combineClasses(DesignTokens.icons.header.size.full, DesignTokens.colors.accent.text[600])} />
               </div>
-              <h3 className="text-lg font-semibold text-medical-neutral-900 mb-2">No saved trials yet</h3>
-              <p className="text-sm text-medical-neutral-600 mb-6">Search and save clinical trials that match your profile</p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, DesignTokens.typography.h3.color, 'mb-2')}>No saved trials yet</h3>
+              <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[600], 'mb-6')}>Search and save clinical trials that match your profile</p>
+              <div className={DesignTokens.components.emptyState.actions}>
                 <button
                   onClick={() => onTabChange('trials')}
-                  className="px-6 py-3 min-h-[44px] bg-medical-accent-500 text-white rounded-lg hover:bg-medical-accent-600 active:bg-medical-accent-700 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2 touch-manipulation"
+                  className={combineClasses(
+                    DesignTokens.components.button.primary,
+                    DesignTokens.spacing.button.full,
+                    'py-3',
+                    DesignTokens.colors.accent[500],
+                    'hover:bg-medical-accent-600 active:bg-medical-accent-700',
+                    'text-white'
+                  )}
                 >
-                  <Search className="w-4 h-4" />
+                  <Search className={DesignTokens.icons.button.size.full} />
                   Search Clinical Trials
                 </button>
               </div>

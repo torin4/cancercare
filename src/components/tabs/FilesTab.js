@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical, Loader2, BookOpen, FileText, MessageSquare } from 'lucide-react';
-import { DesignTokens, combineClasses } from '../../design/designTokens';
+import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
@@ -11,7 +11,7 @@ import { cleanupDocumentData } from '../../services/documentCleanupService';
 import { parseLocalDate, formatDateString } from '../../utils/helpers';
 import { processDocument, generateExtractionSummary, generateChatSummary } from '../../services/documentProcessor';
 import { getNotebookEntries } from '../../services/notebookService';
-import DocumentUploadOnboarding from '../DocumentUploadOnboarding';
+import DocumentUploadOnboarding from '../modals/DocumentUploadOnboarding';
 import EditDocumentNoteModal from '../modals/EditDocumentNoteModal';
 import UploadProgressOverlay from '../UploadProgressOverlay';
 import DeletionConfirmationModal from '../modals/DeletionConfirmationModal';
@@ -654,14 +654,14 @@ export default function FilesTab({ onTabChange }) {
           </div>
         </div>
       )}
-      <div className="p-3 sm:p-4 md:p-6">
+      <div className={combineClasses(Layouts.container, Layouts.section)}>
         {/* Header */}
-        <div className="mb-4 sm:mb-6 flex items-center gap-2 sm:gap-3">
-          <div className="bg-medical-primary-50 p-2 sm:p-2.5 rounded-lg">
-            <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-medical-primary-600" />
+        <div className={Layouts.header}>
+          <div className={Layouts.headerIcon}>
+            <FileText className={DesignTokens.components.header.icon} />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-medical-neutral-900 mb-0.5 sm:mb-1">Notes & Files</h1>
+            <h1 className={Layouts.headerTitle}>Notes & Files</h1>
           </div>
         </div>
 
@@ -693,30 +693,32 @@ export default function FilesTab({ onTabChange }) {
       )}
 
       {/* Tab Navigation with Ask About Button */}
-      <div className={`flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6 overflow-x-auto`}>
+      <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.responsive.md, Layouts.section, 'overflow-x-auto')}>
         {/* Tab Navigation */}
-        <div className="flex gap-1 sm:gap-4 flex-1">
+        <div className={combineClasses('flex', DesignTokens.components.tabs.container.split(' ')[1], 'flex-1')}>
           <button
             onClick={() => setActiveSubTab('notes')}
-            className={`pb-3 px-2 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70 whitespace-nowrap flex-shrink-0 ${
+            className={combineClasses(
+              DesignTokens.components.tabs.button.base,
               activeSubTab === 'notes'
-                ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
-                : 'text-medical-neutral-600 hover:text-medical-primary-600'
-            }`}
+                ? DesignTokens.components.tabs.button.active
+                : DesignTokens.components.tabs.button.inactive
+            )}
           >
-            <BookOpen className="w-4 h-4" />
-            <span className="text-xs sm:text-base">Notes</span>
+            <BookOpen className={DesignTokens.icons.button.size.full} />
+            <span className={DesignTokens.typography.body.base}>Notes</span>
           </button>
           <button
             onClick={() => setActiveSubTab('documents')}
-            className={`pb-3 px-2 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70 whitespace-nowrap flex-shrink-0 ${
+            className={combineClasses(
+              DesignTokens.components.tabs.button.base,
               activeSubTab === 'documents'
-                ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
-                : 'text-medical-neutral-600 hover:text-medical-primary-600'
-            }`}
+                ? DesignTokens.components.tabs.button.active
+                : DesignTokens.components.tabs.button.inactive
+            )}
           >
-            <FolderOpen className="w-4 h-4" />
-            <span className="text-xs sm:text-base">Files</span>
+            <FolderOpen className={DesignTokens.icons.button.size.full} />
+            <span className={DesignTokens.typography.body.base}>Files</span>
           </button>
         </div>
         
@@ -733,9 +735,9 @@ export default function FilesTab({ onTabChange }) {
                 showError('Error loading timeline data. Please try again.');
               }
             }}
-            className="bg-medical-primary-50 text-medical-primary-600 px-3 sm:px-6 py-2.5 rounded-lg hover:bg-medical-primary-100 transition font-medium flex items-center gap-2 shadow-sm border border-medical-primary-200 min-h-[44px] touch-manipulation active:opacity-70 flex-shrink-0"
+            className={DesignTokens.components.button.iconButton}
           >
-            <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-medical-primary-600" />
+            <MessageSquare className={combineClasses(DesignTokens.icons.button.size.full, DesignTokens.colors.primary.text[600])} />
             <span className="hidden sm:inline">Ask About This</span>
           </button>
         )}
@@ -745,10 +747,16 @@ export default function FilesTab({ onTabChange }) {
       {activeSubTab === 'documents' && (
       <div className={combineClasses(DesignTokens.components.card.nestedWithShadow, 'md:p-5')}>
         {documents.length > 0 && (
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h3 className="text-sm sm:text-base md:text-lg font-semibold text-medical-neutral-900 flex items-center gap-2">
-            <div className={combineClasses('p-1.5 sm:p-2 rounded-lg', DesignTokens.colors.neutral[100])}>
-              <FolderOpen className={combineClasses('w-4 h-4 sm:w-5 sm:h-5', DesignTokens.colors.neutral.text[600])} />
+          <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.section.mobile)}>
+            <h3 className={combineClasses(
+              DesignTokens.typography.h3.full,
+              DesignTokens.typography.h3.weight,
+              DesignTokens.typography.h3.color,
+              'flex items-center',
+              DesignTokens.spacing.gap.sm
+            )}>
+            <div className={combineClasses('p-1.5 sm:p-2', DesignTokens.borders.radius.sm, DesignTokens.colors.neutral[100])}>
+              <FolderOpen className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.neutral.text[600])} />
             </div>
             Medical Documents
           </h3>
@@ -762,18 +770,22 @@ export default function FilesTab({ onTabChange }) {
           </div>
         )}
         {documents.length === 0 ? (
-          <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-6 md:p-8 text-center">
-            <div className={combineClasses('w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4', DesignTokens.colors.neutral[100])}>
-              <FolderOpen className={combineClasses('w-6 h-6 sm:w-8 sm:h-8', DesignTokens.colors.neutral.text[300])} />
+          <div className={DesignTokens.components.emptyState.container}>
+            <div className={combineClasses(DesignTokens.components.emptyState.iconContainer, DesignTokens.colors.neutral[100], 'rounded-full')}>
+              <FolderOpen className={combineClasses(DesignTokens.components.emptyState.icon, DesignTokens.colors.neutral.text[300])} />
             </div>
-            <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900 mb-1.5 sm:mb-2">No documents uploaded yet</h3>
-            <p className="text-xs sm:text-sm text-medical-neutral-600 mb-4 sm:mb-6">Upload lab results, imaging scans, clinical reports, or genomic test results</p>
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center">
+            <h3 className={combineClasses(DesignTokens.components.emptyState.title, DesignTokens.typography.h3.color)}>No documents uploaded yet</h3>
+            <p className={combineClasses(DesignTokens.components.emptyState.message, DesignTokens.colors.neutral.text[600])}>Upload lab results, imaging scans, clinical reports, or genomic test results</p>
+            <div className={DesignTokens.components.emptyState.actions}>
               <button
                 onClick={() => openDocumentOnboarding('general')}
-                className="px-4 sm:px-6 py-2.5 sm:py-3 bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition-all duration-200 text-xs sm:text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2 min-h-[44px] touch-manipulation active:opacity-70"
+                className={combineClasses(
+                  DesignTokens.components.button.primary,
+                  DesignTokens.spacing.button.full,
+                  'py-2.5 sm:py-3'
+                )}
               >
-                <Upload className="w-4 h-4" />
+                <Upload className={DesignTokens.icons.button.size.full} />
                 Upload Your First Document
               </button>
             </div>
@@ -985,8 +997,14 @@ export default function FilesTab({ onTabChange }) {
       {activeSubTab === 'notes' && (
       <div className="bg-white rounded-b-lg shadow p-3 sm:p-4 md:p-5 border-x border-b border-medical-neutral-200">
         {notebookEntries.length > 0 && (
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h3 className="text-sm sm:text-base md:text-lg font-semibold text-medical-neutral-900 flex items-center gap-2">
+          <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.section.mobile)}>
+            <h3 className={combineClasses(
+              DesignTokens.typography.h3.full,
+              DesignTokens.typography.h3.weight,
+              DesignTokens.typography.h3.color,
+              'flex items-center',
+              DesignTokens.spacing.gap.sm
+            )}>
               <div className="bg-gray-100 p-1.5 sm:p-2 rounded-lg">
                 <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
               </div>
@@ -1005,8 +1023,14 @@ export default function FilesTab({ onTabChange }) {
           </div>
         )}
         {notebookEntries.length === 0 && !isLoadingNotebook && (
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h3 className="text-sm sm:text-base md:text-lg font-semibold text-medical-neutral-900 flex items-center gap-2">
+          <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.section.mobile)}>
+            <h3 className={combineClasses(
+              DesignTokens.typography.h3.full,
+              DesignTokens.typography.h3.weight,
+              DesignTokens.typography.h3.color,
+              'flex items-center',
+              DesignTokens.spacing.gap.sm
+            )}>
               <div className="bg-gray-100 p-1.5 sm:p-2 rounded-lg">
                 <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
               </div>

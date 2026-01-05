@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, AlertCircle, Check } from 'lucide-react';
 import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { COUNTRIES } from '../../constants/countries';
@@ -9,18 +9,43 @@ export default function EditLocationModal({
   show,
   onClose,
   user,
-  trialLocation,
+  trialLocation: initialTrialLocation,
   setTrialLocation,
-  setMessages
+  setMessages,
+  onSave
 }) {
   const { showSuccess, showError } = useBanner();
-  if (!show) return null;
+  const [localTrialLocation, setLocalTrialLocation] = useState(initialTrialLocation);
+
+  // Update local state when prop changes
+  useEffect(() => {
+    if (initialTrialLocation) {
+      setLocalTrialLocation({ ...initialTrialLocation });
+    }
+  }, [initialTrialLocation]);
+
+  if (!show || !localTrialLocation) return null;
 
   const handleSave = async () => {
     try {
-      await trialLocationService.saveTrialLocation(user.uid, trialLocation);
-      showSuccess('Trial search location updated successfully!');
+      const userId = user?.uid;
+      if (!userId) return;
+
+      await trialLocationService.saveTrialLocation(userId, localTrialLocation);
+      
+      // Update parent state if setTrialLocation is provided
+      if (setTrialLocation) {
+        setTrialLocation(localTrialLocation);
+      }
+      
+      // Call onSave callback if provided (for additional actions like reloading data)
+      if (onSave) {
+        onSave(localTrialLocation);
+      }
+      
+      showSuccess('Location settings saved successfully!');
       onClose();
+      
       if (setMessages) {
         setMessages(prev => [...prev, {
           type: 'ai',
@@ -57,7 +82,7 @@ export default function EditLocationModal({
               <div className="flex-1">
                 <p className={combineClasses('text-sm font-medium', DesignTokens.components.status.normal.text.replace('600', '900'))}>Trial Matching</p>
                 <p className={combineClasses('text-xs mt-0.5', DesignTokens.components.status.normal.text.replace('600', '700'))}>
-                  Your location helps us find clinical trials from ClinicalTrials.gov. You can enable global search to include international trials.
+                  Your location helps us find clinical trials nearby. You can also enable global search to include international trials.
                 </p>
               </div>
             </div>
@@ -67,8 +92,8 @@ export default function EditLocationModal({
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
-                checked={trialLocation.includeAllLocations}
-                onChange={(e) => setTrialLocation({ ...trialLocation, includeAllLocations: e.target.checked })}
+                checked={localTrialLocation.includeAllLocations}
+                onChange={(e) => setLocalTrialLocation({ ...localTrialLocation, includeAllLocations: e.target.checked })}
                 className={combineClasses('mt-1 w-4 h-4 rounded', DesignTokens.components.status.normal.text, 'focus:ring-medical-primary-500')}
               />
               <div>
@@ -80,20 +105,20 @@ export default function EditLocationModal({
             </label>
           </div>
 
-          <div className={trialLocation.includeAllLocations ? 'opacity-50' : ''}>
+          <div className={localTrialLocation.includeAllLocations ? 'opacity-50' : ''}>
             <h4 className={combineClasses('font-semibold mb-3', DesignTokens.colors.neutral.text[800])}>Search Country</h4>
             <div>
               <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Country</label>
               <select
-                value={trialLocation.country}
-                onChange={(e) => setTrialLocation({ ...trialLocation, country: e.target.value })}
-                disabled={trialLocation.includeAllLocations}
+                value={localTrialLocation.country}
+                onChange={(e) => setLocalTrialLocation({ ...localTrialLocation, country: e.target.value })}
+                disabled={localTrialLocation.includeAllLocations}
                 className={combineClasses('w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-medical-primary-500', DesignTokens.colors.neutral.border[300], DesignTokens.components.input.disabled)}
               >
                 {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
               <p className={combineClasses('text-xs mt-1', DesignTokens.colors.neutral.text[500])}>
-                {trialLocation.includeAllLocations 
+                {localTrialLocation.includeAllLocations 
                   ? 'Global search is enabled - country selection disabled'
                   : 'Trials will be searched within this country'}
               </p>
@@ -101,12 +126,32 @@ export default function EditLocationModal({
           </div>
 
           <div className={combineClasses('rounded-lg p-3', DesignTokens.colors.neutral[50])}>
-            <h5 className={combineClasses('text-sm font-semibold mb-2', DesignTokens.colors.neutral.text[800])}>Database</h5>
+            <h5 className={combineClasses('text-sm font-semibold mb-2', DesignTokens.colors.neutral.text[800])}>What databases will be searched?</h5>
             <div className={combineClasses('space-y-1 text-xs', DesignTokens.colors.neutral.text[600])}>
               <div className="flex items-center gap-2">
                 <div className={combineClasses('w-1 h-1 rounded-full', DesignTokens.components.status.normal.icon.replace('text-', 'bg-'))}></div>
-                <span>ClinicalTrials.gov</span>
+                <span>ClinicalTrials.gov (US federal database)</span>
               </div>
+              <div className="flex items-center gap-2">
+                <div className={combineClasses('w-1 h-1 rounded-full', DesignTokens.components.status.normal.icon.replace('text-', 'bg-'))}></div>
+                <span>NCI Clinical Trials Search</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className={combineClasses('w-1 h-1 rounded-full', DesignTokens.components.status.normal.icon.replace('text-', 'bg-'))}></div>
+                <span>Major cancer center databases</span>
+              </div>
+              {localTrialLocation.includeAllLocations && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <div className={combineClasses('w-1 h-1 rounded-full', DesignTokens.components.status.normal.icon.replace('text-', 'bg-'))}></div>
+                    <span className="font-medium">EU Clinical Trials Register</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className={combineClasses('w-1 h-1 rounded-full', DesignTokens.components.status.normal.icon.replace('text-', 'bg-'))}></div>
+                    <span className="font-medium">WHO International Registry</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
