@@ -56,7 +56,7 @@ export default function Banner({ message, type = 'success', duration = 4000, onC
       )}
     >
       <div className={combineClasses(alertClasses, 'border-b', DesignTokens.shadows.lg)}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+        <div className={combineClasses('max-w-7xl mx-auto', DesignTokens.spacing.container.full, 'lg:px-8 py-3')}>
           <div className="flex items-center justify-between">
             <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.md, 'flex-1 min-w-0')}>
               {isSuccess ? (

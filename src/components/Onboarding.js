@@ -257,15 +257,15 @@ export default function Onboarding({ onComplete }) {
   const progressPercentage = (step / totalSteps) * 100;
 
   return (
-    <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col animate-fade-scale">
+    <div className={combineClasses('fixed inset-0 z-[101] flex items-center justify-center', DesignTokens.spacing.container.mobile, 'bg-black/60 backdrop-blur-sm animate-in fade-in duration-200')}>
+      <div className={combineClasses('bg-white', DesignTokens.borders.radius.lg, 'max-w-2xl w-full max-h-[90vh] overflow-hidden', DesignTokens.shadows.lg, 'flex flex-col animate-fade-scale')}>
         {/* Progress Bar with Step Indicator */}
-        <div className="px-8 pt-6 pb-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className={combineClasses('text-sm font-medium', DesignTokens.colors.neutral.text[600])}>Step {step} of {totalSteps}</span>
-            <span className={combineClasses('text-sm font-medium', DesignTokens.colors.neutral.text[600])}>{Math.round(progressPercentage)}%</span>
+        <div className={combineClasses('px-8 pt-6 pb-4', DesignTokens.spacing.card.mobile)}>
+          <div className={combineClasses('flex items-center justify-between', 'mb-2')}>
+            <span className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[600])}>Step {step} of {totalSteps}</span>
+            <span className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[600])}>{Math.round(progressPercentage)}%</span>
           </div>
-          <div className={combineClasses('w-full h-2 rounded-full overflow-hidden', DesignTokens.colors.neutral[100])}>
+          <div className={combineClasses('w-full h-2', DesignTokens.borders.radius.full, 'overflow-hidden', DesignTokens.colors.neutral[100])}>
             <div 
               className={combineClasses('h-full transition-all duration-500 ease-out rounded-full bg-gradient-to-r', 'from-medical-primary-500', 'to-medical-primary-600')}
               style={{ width: `${progressPercentage}%` }}
@@ -274,18 +274,18 @@ export default function Onboarding({ onComplete }) {
         </div>
 
         {/* Form Content */}
-        <div className="p-8 overflow-y-auto flex-1">
+        <div className={combineClasses(DesignTokens.spacing.card.full, 'overflow-y-auto flex-1')}>
 
           {/* Step 0: User Role */}
           {step === 0 && (
-            <div className="space-y-6 animate-fade-scale">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-medical-primary-100 rounded-full flex items-center justify-center">
-                  <User className="w-6 h-6 text-medical-primary-600" />
+            <div className={combineClasses('space-y-6', DesignTokens.spacing.gap.lg, 'animate-fade-scale')}>
+              <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.md, DesignTokens.spacing.header.mobile)}>
+                <div className={combineClasses('w-12 h-12', DesignTokens.colors.primary[100], DesignTokens.borders.radius.full, 'flex items-center justify-center')}>
+                  <User className={combineClasses(DesignTokens.icons.header.size.full, DesignTokens.colors.primary.text[600])} />
                 </div>
                 <div>
-                  <h2 className={combineClasses('text-xl font-bold', DesignTokens.colors.neutral.text[900])}>Who is using this app?</h2>
-                  <p className={combineClasses('text-sm', DesignTokens.colors.neutral.text[600])}>This helps us personalize your experience.</p>
+                  <h2 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, DesignTokens.colors.neutral.text[900])}>Who is using this app?</h2>
+                  <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[600])}>This helps us personalize your experience.</p>
                 </div>
               </div>
 
@@ -346,18 +346,18 @@ export default function Onboarding({ onComplete }) {
           {/* Step 1: Patient Information */}
           {step === 1 && (
             <div className="space-y-6 animate-fade-scale">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-medical-primary-100 rounded-full flex items-center justify-center">
-                  <User className="w-6 h-6 text-medical-primary-600" />
+              <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.md, DesignTokens.spacing.header.mobile)}>
+                <div className={combineClasses('w-12 h-12', DesignTokens.colors.primary[100], DesignTokens.borders.radius.full, 'flex items-center justify-center')}>
+                  <User className={combineClasses(DesignTokens.icons.header.size.full, DesignTokens.colors.primary.text[600])} />
                 </div>
                 <div>
-                  <h2 className={combineClasses('text-xl font-bold', DesignTokens.colors.neutral.text[900])}>Patient Information</h2>
-                  <p className={combineClasses('text-sm', DesignTokens.colors.neutral.text[600])}>Required: name, date of birth, height, weight. Country optional.</p>
+                  <h2 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, DesignTokens.colors.neutral.text[900])}>Patient Information</h2>
+                  <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[600])}>Required: name, date of birth, height, weight. Country optional.</p>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className={combineClasses('space-y-4', DesignTokens.spacing.gap.lg)}>
+                <div className={combineClasses('grid grid-cols-1 sm:grid-cols-3', DesignTokens.spacing.gap.lg)}>
                   <div>
                     <label htmlFor="firstName" className={combineClasses('block text-sm font-medium mb-1.5', DesignTokens.colors.neutral.text[700])}>First Name *</label>
                     <input 

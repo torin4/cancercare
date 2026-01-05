@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Activity, User, Home, MessageSquare, ClipboardList, FlaskConical, FileText, HeartHandshake } from 'lucide-react';
+import { DesignTokens, combineClasses } from '../design/designTokens';
 
 export default function Navigation({ activeTab, setActiveTab, patientProfile, onSidebarHover }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -41,18 +42,18 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
   return (
     <>
       {/* Header - Mobile Only */}
-      <div className="bg-medical-primary-600 border-b-2 border-medical-neutral-300 shadow-md px-4 sm:px-6 py-3 sm:py-4 flex-shrink-0 md:hidden">
+      <div className={combineClasses('bg-medical-primary-600', DesignTokens.borders.width.thick, DesignTokens.colors.neutral.border[300], DesignTokens.shadows.md, DesignTokens.spacing.container.full, 'flex-shrink-0 md:hidden')}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 rounded-full flex items-center justify-center shadow-sm">
-              <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+          <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.md)}>
+            <div className={combineClasses('w-10 h-10 sm:w-12 sm:h-12 bg-white/20', DesignTokens.borders.radius.full, 'flex items-center justify-center', DesignTokens.shadows.sm)}>
+              <Activity className={combineClasses(DesignTokens.icons.button.size.full, 'text-white')} />
             </div>
             <div>
               {activeTab === 'profile' ? (
                 <>
-                  <h1 className="text-lg sm:text-xl font-bold text-white">CancerCare</h1>
+                  <h1 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, 'text-white')}>CancerCare</h1>
                   {(patientProfile?.diagnosis || patientProfile?.stage) && (
-                    <p className="text-xs sm:text-sm text-white/90">
+                    <p className={combineClasses(DesignTokens.typography.body.sm, 'text-white/90')}>
                       {patientProfile.diagnosis}
                       {patientProfile.diagnosis && patientProfile.stage && ' • '}
                       {patientProfile.stage}
@@ -61,14 +62,14 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
                 </>
               ) : (
                 <>
-                  <h1 className="text-lg sm:text-xl font-bold text-white">
+                  <h1 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, 'text-white')}>
                     {patientProfile?.firstName || patientProfile?.lastName 
                       ? `${patientProfile.firstName || ''} ${patientProfile.lastName || ''}`.trim()
                       : patientProfile?.name || 'Patient'}
                   </h1>
                   {patientProfile?.isPatient === false && patientProfile?.caregiverName && (
-                    <p className="text-xs text-white/80 flex items-center gap-1">
-                      <HeartHandshake className="w-3 h-3" />
+                    <p className={combineClasses(DesignTokens.typography.body.xs, 'text-white/80 flex items-center', DesignTokens.spacing.gap.xs)}>
+                      <HeartHandshake className={DesignTokens.icons.small.size.full} />
                       {getFirstAndLastName(patientProfile.caregiverName)}
                     </p>
                   )}
@@ -78,9 +79,9 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
           </div>
           <button
             onClick={() => setActiveTab('profile')}
-            className="p-2 hover:bg-white/20 rounded-lg transition-colors duration-200"
+            className={combineClasses('p-2 hover:bg-white/20', DesignTokens.borders.radius.sm, DesignTokens.transitions.all)}
           >
-            <User className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            <User className={combineClasses(DesignTokens.icons.button.size.full, 'text-white')} />
           </button>
         </div>
       </div>
@@ -95,27 +96,27 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
         onMouseLeave={handleMouseLeave}
       >
         {/* Sidebar Header */}
-        <div className="bg-medical-primary-600 px-4 py-5" style={{ minHeight: '100px' }}>
-          <div className={`flex items-center gap-3 ${activeTab === 'profile' ? 'justify-center' : ''}`}>
+        <div className={combineClasses('bg-medical-primary-600', DesignTokens.spacing.card.mobile, 'py-5')} style={{ minHeight: '100px' }}>
+          <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.md, activeTab === 'profile' ? 'justify-center' : '')}>
             {/* Icon - Always in same position */}
-            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center shadow-sm flex-shrink-0">
-              <Activity className="w-6 h-6 text-white" />
+            <div className={combineClasses('w-12 h-12 bg-white/20', DesignTokens.borders.radius.full, 'flex items-center justify-center', DesignTokens.shadows.sm, 'flex-shrink-0')}>
+              <Activity className={combineClasses(DesignTokens.icons.header.size.full, 'text-white')} />
             </div>
             {/* Text - Slides in from right */}
             <div className={`flex-1 min-w-0 transition-all duration-300 overflow-hidden ${
               isExpanded ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0'
             }`}>
-              <h1 className="text-xl font-bold text-white whitespace-nowrap">CancerCare</h1>
+              <h1 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, 'text-white whitespace-nowrap')}>CancerCare</h1>
               {patientProfile && activeTab !== 'profile' && (
                 <div className="text-white/90">
-                  <p className="text-sm font-medium whitespace-nowrap">
+                  <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'whitespace-nowrap')}>
                     {patientProfile?.firstName || patientProfile?.lastName 
                       ? `${patientProfile.firstName || ''} ${patientProfile.lastName || ''}`.trim()
                       : patientProfile?.name || 'Patient'}
                   </p>
                   {patientProfile?.isPatient === false && patientProfile?.caregiverName && (
-                    <p className="text-xs text-white/80 flex items-center gap-1 mt-1 whitespace-nowrap">
-                      <HeartHandshake className="w-3 h-3 flex-shrink-0" />
+                    <p className={combineClasses(DesignTokens.typography.body.xs, 'text-white/80 flex items-center', DesignTokens.spacing.gap.xs, 'mt-1 whitespace-nowrap')}>
+                      <HeartHandshake className={combineClasses(DesignTokens.icons.small.size.full, 'flex-shrink-0')} />
                       {getFirstAndLastName(patientProfile.caregiverName)}
                     </p>
                   )}
@@ -134,19 +135,13 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
           <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center py-3 transition-all duration-200 group ${
-                  isActive
-                    ? 'text-white bg-white/20 border-r-4 border-white'
-                    : 'text-white/80 hover:text-white hover:bg-white/10'
-            }`}
+                className={combineClasses('w-full flex items-center py-3', DesignTokens.transitions.all, 'group', isActive ? 'text-white bg-white/20 border-r-4 border-white' : 'text-white/80 hover:text-white hover:bg-white/10')}
                 title={!isExpanded ? item.label : ''}
               >
                 <div className="flex-shrink-0 w-20 flex justify-center">
-                  <Icon className="w-5 h-5" />
+                  <Icon className={DesignTokens.icons.button.size.full} />
                 </div>
-                <span className={`font-medium whitespace-nowrap transition-all duration-300 overflow-hidden gap-3 ${
-                  isExpanded ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0'
-                }`}>
+                <span className={combineClasses(DesignTokens.typography.h3.weight, 'whitespace-nowrap', DesignTokens.transitions.slow, 'overflow-hidden', DesignTokens.spacing.gap.md, isExpanded ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0')}>
                   {item.label}
                 </span>
           </button>
@@ -158,19 +153,13 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
         <div>
           <button
             onClick={() => setActiveTab('profile')}
-            className={`w-full flex items-center py-3 rounded-lg transition-all duration-200 group ${
-              activeTab === 'profile'
-                ? 'text-white bg-white/20'
-                : 'text-white/80 hover:text-white hover:bg-white/10'
-            }`}
+            className={combineClasses('w-full flex items-center py-3', DesignTokens.borders.radius.sm, DesignTokens.transitions.all, 'group', activeTab === 'profile' ? 'text-white bg-white/20' : 'text-white/80 hover:text-white hover:bg-white/10')}
             title={!isExpanded ? 'Profile' : ''}
           >
             <div className="flex-shrink-0 w-20 flex justify-center">
-              <User className="w-5 h-5" />
+              <User className={DesignTokens.icons.button.size.full} />
             </div>
-            <span className={`font-medium whitespace-nowrap transition-all duration-300 overflow-hidden gap-3 ${
-              isExpanded ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0'
-            }`}>
+            <span className={combineClasses(DesignTokens.typography.h3.weight, 'whitespace-nowrap', DesignTokens.transitions.slow, 'overflow-hidden', DesignTokens.spacing.gap.md, isExpanded ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0')}>
               Profile & Settings
             </span>
           </button>
@@ -178,7 +167,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
       </div>
 
       {/* Bottom Navigation - Mobile Only */}
-      <div className="bg-white border-t border-medical-neutral-200 shadow-lg px-2 sm:px-4 py-2 sm:py-3 flex-shrink-0 fixed bottom-0 left-0 right-0 z-10 md:hidden">
+      <div className={combineClasses('bg-white', DesignTokens.borders.divider, DesignTokens.shadows.lg, DesignTokens.spacing.card.mobile, 'flex-shrink-0 fixed bottom-0 left-0 right-0 z-10 md:hidden')}>
         <div className="flex justify-around items-center max-w-2xl mx-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -187,14 +176,10 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
           <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-            className={`flex flex-col items-center gap-1 px-3 sm:px-4 py-2 rounded-lg transition-all duration-200 min-h-[44px] min-w-[44px] touch-manipulation ${
-                  isActive
-                ? 'text-medical-primary-600 bg-medical-primary-50' 
-                : 'text-medical-neutral-600 hover:text-medical-primary-600 hover:bg-medical-neutral-50'
-            }`}
+            className={combineClasses('flex flex-col items-center', DesignTokens.spacing.gap.xs, DesignTokens.spacing.button.mobile, DesignTokens.borders.radius.sm, DesignTokens.transitions.all, DesignTokens.spacing.touchTarget, 'min-w-[44px]', isActive ? combineClasses(DesignTokens.colors.primary.text[600], DesignTokens.colors.primary[50]) : combineClasses(DesignTokens.colors.neutral.text[600], `hover:${DesignTokens.colors.primary.text[600]}`, `hover:${DesignTokens.colors.neutral[50]}`))}
           >
-                <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
-                <span className="text-xs font-medium">{item.label}</span>
+                <Icon className={DesignTokens.icons.button.size.full} />
+                <span className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.typography.h3.weight)}>{item.label}</span>
           </button>
             );
           })}
