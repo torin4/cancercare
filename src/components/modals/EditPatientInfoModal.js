@@ -63,25 +63,25 @@ export default function EditPatientInfoModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4">
-      <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
-        <div className="flex-shrink-0 bg-white border-b p-4 flex items-center justify-between">
-          <h3 className={combineClasses('font-bold text-lg', DesignTokens.colors.neutral.text[800])}>Edit Patient Information</h3>
+    <div className={combineClasses(DesignTokens.components.modal.backdrop, 'z-50')}>
+      <div className={combineClasses('bg-white w-full h-full md:h-auto', DesignTokens.borders.radius.lg, 'md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up')}>
+        <div className={combineClasses('flex-shrink-0 border-b', DesignTokens.components.modal.header, DesignTokens.colors.neutral.border[200])}>
+          <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, DesignTokens.colors.neutral.text[800])}>Edit Patient Information</h3>
           <button
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               onClose();
             }}
-            className={combineClasses('transition', DesignTokens.colors.neutral.text[500], DesignTokens.colors.neutral.text[700].replace('text-', 'hover:text-'))}
+            className={combineClasses(DesignTokens.transitions.default, DesignTokens.components.modal.closeButton)}
             type="button"
           >
-            <X size={24} />
+            <X className={DesignTokens.icons.header.size.full} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="space-y-4">
+        <div className={combineClasses('flex-1 overflow-y-auto', DesignTokens.components.modal.body)}>
+          <div className={combineClasses('space-y-4', DesignTokens.spacing.gap.lg)}>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>First Name *</label>
