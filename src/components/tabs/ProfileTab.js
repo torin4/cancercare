@@ -321,17 +321,17 @@ export default function ProfileTab({ onTabChange }) {
     <div className={combineClasses(Layouts.container, 'flex flex-col', DesignTokens.spacing.gap.md, 'pb-24')}>
       {/* Patient Info */}
       <div className={combineClasses(DesignTokens.spacing.card.full, 'md:p-8')}>
-        <div className={combineClasses('flex flex-col sm:flex-row items-start sm:items-center', DesignTokens.spacing.gap.lg)}>
+        <div className={combineClasses('flex flex-row items-center', DesignTokens.spacing.gap.md)}>
           {/* Profile Picture */}
           <div className="relative flex-shrink-0">
             {profileImage ? (
               <img 
                 src={profileImage} 
                 alt="Profile" 
-                className={combineClasses('w-28 h-28 sm:w-32 sm:h-32', DesignTokens.borders.radius.full, 'object-cover border-4 border-white')} 
+                className={combineClasses('w-20 h-20 sm:w-32 sm:h-32', DesignTokens.borders.radius.full, 'object-cover border-4 border-white')} 
               />
             ) : (
-              <div className={combineClasses('w-28 h-28 sm:w-32 sm:h-32 bg-gradient-to-br from-gray-800 to-gray-600', DesignTokens.borders.radius.full, 'flex items-center justify-center text-white text-3xl sm:text-4xl font-bold border-4 border-white')}>
+              <div className={combineClasses('w-20 h-20 sm:w-32 sm:h-32 bg-gradient-to-br from-gray-800 to-gray-600', DesignTokens.borders.radius.full, 'flex items-center justify-center text-white text-2xl sm:text-4xl font-bold border-4 border-white')}>
                 {(() => {
                   // If caregiver mode, use caregiver name for initials
                   let name;
@@ -365,7 +365,7 @@ export default function ProfileTab({ onTabChange }) {
                 };
                 input.click();
               }}
-              className={combineClasses('absolute bottom-0 right-0 w-11 h-11 sm:w-12 sm:h-12', 'bg-gray-800', DesignTokens.borders.radius.full, 'flex items-center justify-center text-white', DesignTokens.shadows.lg, 'hover:bg-gray-700', 'active:bg-gray-700', DesignTokens.transitions.all, 'transform active:scale-95', DesignTokens.spacing.touchTarget)}
+              className={combineClasses('absolute bottom-0 right-0 w-8 h-8 sm:w-12 sm:h-12', 'bg-gray-800', DesignTokens.borders.radius.full, 'flex items-center justify-center text-white', DesignTokens.shadows.lg, 'hover:bg-gray-700', 'active:bg-gray-700', DesignTokens.transitions.all, 'transform active:scale-95', DesignTokens.spacing.touchTarget)}
               title="Change profile picture"
               aria-label="Change profile picture"
             >
@@ -375,21 +375,21 @@ export default function ProfileTab({ onTabChange }) {
 
           {/* Profile Information */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-4 mb-3">
-              <div>
-                <h2 className={combineClasses(DesignTokens.typography.h1.full, DesignTokens.typography.h1.weight, DesignTokens.typography.h1.color, DesignTokens.typography.h1.marginBottom)}>
+            <div className="flex items-center justify-between gap-2 sm:gap-4 mb-0 sm:mb-3">
+              <div className="flex-1 min-w-0">
+                <h2 className={combineClasses(DesignTokens.typography.h1.full, DesignTokens.typography.h1.weight, DesignTokens.typography.h1.color, 'mb-0 sm:mb-0.5')}>
                   {patientProfile.firstName || patientProfile.lastName 
                     ? `${patientProfile.firstName || ''} ${patientProfile.lastName || ''}`.trim()
                     : patientProfile.name || user?.displayName || 'Patient'}
                 </h2>
                 {patientProfile?.isPatient === false && patientProfile?.caregiverName && (
-                  <p className={combineClasses('text-sm mb-1 flex items-center gap-1', DesignTokens.colors.neutral.text[600])}>
-                    <HeartHandshake className={DesignTokens.icons.small.size.full} />
+                  <p className={combineClasses('text-xs sm:text-sm mb-0 sm:mb-1 flex items-center gap-1', DesignTokens.colors.neutral.text[600])}>
+                    <HeartHandshake className={combineClasses('w-3 h-3 sm:w-4 sm:h-4')} />
                     {getFirstAndLastName(patientProfile.caregiverName)}
                   </p>
                 )}
                 {patientProfile.gender && (
-                  <span className={combineClasses('text-sm', DesignTokens.colors.neutral.text[600])}>
+                  <span className={combineClasses('text-xs sm:text-sm', DesignTokens.colors.neutral.text[600])}>
                     {patientProfile.gender}
                   </span>
                 )}
@@ -402,9 +402,11 @@ export default function ProfileTab({ onTabChange }) {
                 <Edit2 className={DesignTokens.icons.standard.size.full} />
               </button>
             </div>
+          </div>
+        </div>
 
-            {/* Key Information Grid */}
-            <div className={combineClasses('grid grid-cols-2', DesignTokens.spacing.gap.md, 'mt-4')}>
+        {/* Key Information Grid */}
+        <div className={combineClasses('grid grid-cols-2', DesignTokens.spacing.gap.md, 'mt-4')}>
               {patientProfile.age && (
                 <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, DesignTokens.typography.body.sm)}>
                   <div className={combineClasses(DesignTokens.spacing.iconContainer.mobile, 'bg-gray-100', DesignTokens.borders.radius.sm, 'flex items-center justify-center flex-shrink-0')}>
@@ -478,8 +480,6 @@ export default function ProfileTab({ onTabChange }) {
                 </div>
               )}
             </div>
-          </div>
-        </div>
       </div>
 
       {/* Current Status - Full Width */}
@@ -499,37 +499,37 @@ export default function ProfileTab({ onTabChange }) {
             <Edit2 className={DesignTokens.icons.standard.size.full} />
           </button>
         </div>
-        <div className={combineClasses('grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3', DesignTokens.spacing.gap.lg)}>
-          <div className="flex flex-col">
+        <div className={combineClasses('flex flex-wrap sm:grid sm:grid-cols-2 lg:grid-cols-3', DesignTokens.spacing.gap.lg)}>
+          <div className="flex flex-col flex-1 min-w-[140px] sm:min-w-0">
             <span className={combineClasses('mb-1 text-sm', DesignTokens.colors.neutral.text[600])}>Diagnosis</span>
             <span className={combineClasses('font-medium', DesignTokens.colors.neutral.text[900])}>{currentStatus?.diagnosis || patientProfile?.diagnosis || 'No diagnosis yet'}</span>
           </div>
           {(currentStatus?.subtype || patientProfile?.cancerType) && (
-            <div className="flex flex-col">
+            <div className="flex flex-col flex-1 min-w-[140px] sm:min-w-0">
               <span className={combineClasses('mb-1 text-sm', DesignTokens.colors.neutral.text[600])}>Cancer Subtype</span>
               <span className={combineClasses('font-medium', DesignTokens.colors.neutral.text[900])}>{currentStatus?.subtype || patientProfile?.cancerType || '—'}</span>
             </div>
           )}
           {(currentStatus?.stage || patientProfile?.stage) && (
-            <div className="flex flex-col">
+            <div className="flex flex-col flex-1 min-w-[140px] sm:min-w-0">
               <span className={combineClasses('mb-1 text-sm', DesignTokens.colors.neutral.text[600])}>Stage</span>
               <span className={combineClasses('font-medium', DesignTokens.colors.neutral.text[900])}>{currentStatus?.stage || patientProfile?.stage || '—'}</span>
             </div>
           )}
-          <div className="flex flex-col">
+          <div className="flex flex-col flex-1 min-w-[140px] sm:min-w-0">
             <span className={combineClasses('mb-1 text-sm', DesignTokens.colors.neutral.text[600])}>Treatment Status</span>
             <span className={combineClasses('font-medium', DesignTokens.colors.neutral.text[900])}>{currentStatus?.treatmentLine || currentStatus?.currentRegimen || '—'}</span>
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col flex-1 min-w-[140px] sm:min-w-0">
             <span className={combineClasses('mb-1 text-sm', DesignTokens.colors.neutral.text[600])}>ECOG Performance</span>
             <span className={combineClasses('font-medium', DesignTokens.colors.neutral.text[900])}>{currentStatus?.performanceStatus || '—'}</span>
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col flex-1 min-w-[140px] sm:min-w-0">
             <span className={combineClasses('mb-1 text-sm', DesignTokens.colors.neutral.text[600])}>Disease Status</span>
             <span className={combineClasses('font-medium', DesignTokens.colors.neutral.text[900])}>{currentStatus?.diseaseStatus || '—'}</span>
           </div>
           {currentStatus?.baselineCa125 != null && currentStatus?.baselineCa125 !== '' && (
-            <div className="flex flex-col">
+            <div className="flex flex-col flex-1 min-w-[140px] sm:min-w-0">
               <span className={combineClasses('mb-1 text-sm', DesignTokens.colors.neutral.text[600])}>Baseline CA-125</span>
               <span className={combineClasses('font-medium', DesignTokens.colors.neutral.text[900])}>{currentStatus.baselineCa125}</span>
             </div>
