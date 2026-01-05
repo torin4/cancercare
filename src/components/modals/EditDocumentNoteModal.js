@@ -29,26 +29,49 @@ export default function EditDocumentNoteModal({
   const [isCheckingDates, setIsCheckingDates] = useState(false);
   const [acknowledgeOverwrite, setAcknowledgeOverwrite] = useState(false); // User acknowledges they want to overwrite all dates
   
-  // Check for multiple dates when modal opens
+  // Check for multiple dates when modal opens - OPTIMIZED VERSION
   useEffect(() => {
     const checkMultipleDates = async () => {
       if (show && editingDocumentNote && user) {
         setIsCheckingDates(true);
         try {
+          // OPTIMIZATION: Use stored document metadata if available (much faster)
+          if (editingDocumentNote.hasMultipleDates && editingDocumentNote.minDate && editingDocumentNote.maxDate) {
+            const minDate = editingDocumentNote.minDate?.toDate ? editingDocumentNote.minDate.toDate() : new Date(editingDocumentNote.minDate);
+            const maxDate = editingDocumentNote.maxDate?.toDate ? editingDocumentNote.maxDate.toDate() : new Date(editingDocumentNote.maxDate);
+            setHasMultipleDates(true);
+            setDateRange({ min: minDate, max: maxDate });
+            setIsCheckingDates(false);
+            return;
+          }
+
+          // If document doesn't have stored metadata, check quickly with early exit
           const uniqueDates = new Set();
           let minDate = null;
           let maxDate = null;
 
-          // Check lab values
-          const labs = await labService.getLabs(user.uid);
-          for (const lab of labs) {
-            const values = await labService.getLabValues(lab.id);
+          // OPTIMIZATION: Load labs and vitals in parallel
+          const [labs, vitals] = await Promise.all([
+            labService.getLabs(user.uid),
+            vitalService.getVitals(user.uid)
+          ]);
+
+          // OPTIMIZATION: Load all values in parallel
+          const labValuePromises = labs.map(lab => labService.getLabValues(lab.id));
+          const vitalValuePromises = vitals.map(vital => vitalService.getVitalValues(vital.id));
+          const [allLabValues, allVitalValues] = await Promise.all([
+            Promise.all(labValuePromises),
+            Promise.all(vitalValuePromises)
+          ]);
+
+          // Process lab values
+          for (let i = 0; i < labs.length; i++) {
+            const values = allLabValues[i] || [];
             for (const value of values) {
               if (value.documentId === editingDocumentNote.id && value.date) {
                 let dateObj = null;
                 if (value.date?.toDate) {
                   const firestoreDate = value.date.toDate();
-                  // Use local date components to normalize to day-level
                   dateObj = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
                 } else if (value.date instanceof Date) {
                   dateObj = new Date(value.date.getFullYear(), value.date.getMonth(), value.date.getDate());
@@ -61,21 +84,28 @@ export default function EditDocumentNoteModal({
                   uniqueDates.add(dateStr);
                   if (!minDate || dateObj < minDate) minDate = dateObj;
                   if (!maxDate || dateObj > maxDate) maxDate = dateObj;
+                  
+                  // OPTIMIZATION: Early exit if we find 2+ dates
+                  if (uniqueDates.size >= 2) {
+                    setHasMultipleDates(true);
+                    setDateRange({ min: minDate, max: maxDate });
+                    setIsCheckingDates(false);
+                    return;
+                  }
                 }
               }
             }
           }
 
-          // Check vital values
-          const vitals = await vitalService.getVitals(user.uid);
-          for (const vital of vitals) {
-            const values = await vitalService.getVitalValues(vital.id);
+          // Process vital values (only if we haven't found multiple dates yet)
+          if (uniqueDates.size < 2) {
+            for (let i = 0; i < vitals.length; i++) {
+              const values = allVitalValues[i] || [];
             for (const value of values) {
               if (value.documentId === editingDocumentNote.id && value.date) {
                 let dateObj = null;
                 if (value.date?.toDate) {
                   const firestoreDate = value.date.toDate();
-                  // Use local date components to normalize to day-level
                   dateObj = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
                 } else if (value.date instanceof Date) {
                   dateObj = new Date(value.date.getFullYear(), value.date.getMonth(), value.date.getDate());
@@ -88,6 +118,15 @@ export default function EditDocumentNoteModal({
                   uniqueDates.add(dateStr);
                   if (!minDate || dateObj < minDate) minDate = dateObj;
                   if (!maxDate || dateObj > maxDate) maxDate = dateObj;
+                    
+                    // OPTIMIZATION: Early exit if we find 2+ dates
+                    if (uniqueDates.size >= 2) {
+                      setHasMultipleDates(true);
+                      setDateRange({ min: minDate, max: maxDate });
+                      setIsCheckingDates(false);
+                      return;
+                    }
+                  }
                 }
               }
             }
@@ -281,7 +320,7 @@ export default function EditDocumentNoteModal({
   };
 
   return (
-    <div className={combineClasses('fixed inset-0 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4', DesignTokens.components.modal.overlay)}>
+    <div className={combineClasses(DesignTokens.components.modal.backdrop, 'z-[101] animate-in fade-in duration-200')}>
       <div className={combineClasses('w-full h-full md:h-auto md:rounded-xl md:max-w-md md:max-h-[90vh] overflow-hidden flex flex-col animate-slide-up', DesignTokens.components.modal.container)}>
         <div className={combineClasses('flex-shrink-0 border-b p-4 flex items-center justify-between', DesignTokens.components.modal.header)}>
           <h3 className={combineClasses('text-lg font-semibold', DesignTokens.colors.neutral.text[900])}>Edit Document</h3>
@@ -330,7 +369,7 @@ export default function EditDocumentNoteModal({
                     checked={keepOriginalDate}
                     onChange={(e) => setKeepOriginalDate(e.target.checked)}
                     disabled={isSaving}
-                    className={combineClasses('w-4 h-4 rounded focus:ring-medical-primary-500', DesignTokens.colors.primary[600].replace('bg-', 'text-'), DesignTokens.colors.neutral.border[300], isSaving ? 'disabled:opacity-50' : '')}
+                    className={combineClasses('w-4 h-4 rounded focus:ring-medical-primary-500', DesignTokens.colors.primary[600] ? DesignTokens.colors.primary[600].replace('bg-', 'text-') : 'text-medical-primary-600', DesignTokens.colors.neutral.border[300], isSaving ? 'disabled:opacity-50' : '')}
                   />
                   <span className={combineClasses('text-xs', DesignTokens.colors.neutral.text[600])}>Keep original date</span>
                 </label>
@@ -339,14 +378,14 @@ export default function EditDocumentNoteModal({
             
             {/* Warning for multiple dates */}
             {hasMultipleDates && (
-              <div className={combineClasses('mb-3 p-3 rounded-lg', DesignTokens.components.alert.warning.bg, DesignTokens.components.alert.warning.border)}>
+              <div className={combineClasses('mb-3', DesignTokens.components.alert.warning)}>
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className={combineClasses('w-5 h-5 flex-shrink-0 mt-0.5', DesignTokens.components.alert.warning.icon)} />
+                  <AlertTriangle className={combineClasses('w-5 h-5 flex-shrink-0 mt-0.5', DesignTokens.components.alert.text.warning ? DesignTokens.components.alert.text.warning.replace('800', '600') : 'text-yellow-600')} />
                   <div className="flex-1">
-                    <p className={combineClasses('text-sm font-semibold mb-1', DesignTokens.components.alert.warning.text)}>
+                    <p className={combineClasses('text-sm font-semibold mb-1', DesignTokens.components.alert.text.warning || 'text-yellow-800')}>
                       Multiple Dates Detected
                     </p>
-                    <p className={combineClasses('text-xs mb-3', DesignTokens.components.alert.warning.textSecondary)}>
+                    <p className={combineClasses('text-xs mb-3', DesignTokens.components.alert.text.warning ? DesignTokens.components.alert.text.warning.replace('800', '700') : 'text-yellow-700')}>
                       This document contains values with different dates ({dateRange.min && dateRange.max ? `${formatDateString(dateRange.min)} to ${formatDateString(dateRange.max)}` : 'various dates'}). 
                       Changing the document date will <strong>overwrite all values with a single date</strong>.
                     </p>
@@ -356,9 +395,9 @@ export default function EditDocumentNoteModal({
                         checked={acknowledgeOverwrite}
                         onChange={(e) => setAcknowledgeOverwrite(e.target.checked)}
                         disabled={isSaving}
-                        className={combineClasses('w-4 h-4 rounded focus:ring-amber-500 mt-0.5', DesignTokens.colors.accent[600].replace('bg-', 'text-'), DesignTokens.colors.neutral.border[300], isSaving ? 'disabled:opacity-50' : '')}
+                        className={combineClasses('w-4 h-4 rounded focus:ring-amber-500 mt-0.5', DesignTokens.colors.accent[600] ? DesignTokens.colors.accent[600].replace('bg-', 'text-') : 'text-medical-accent-600', DesignTokens.colors.neutral.border[300], isSaving ? 'disabled:opacity-50' : '')}
                       />
-                      <span className={combineClasses('text-xs', DesignTokens.components.alert.warning.text)}>
+                      <span className={combineClasses('text-xs', DesignTokens.components.alert.text.warning)}>
                         I understand this will overwrite all dates with a single date
                       </span>
                     </label>
@@ -371,7 +410,7 @@ export default function EditDocumentNoteModal({
                             onClose();
                             onRescanRequest(editingDocumentNote);
                           }}
-                          className={combineClasses('text-xs underline font-medium transition', DesignTokens.components.alert.warning.textSecondary, DesignTokens.components.alert.warning.text.replace('600', '900').replace('text-', 'hover:text-'))}
+                          className={combineClasses('text-xs underline font-medium transition', DesignTokens.components.alert.text.warning, 'hover:text-yellow-900')}
                         >
                           Or rescan document to update dates individually →
                         </button>

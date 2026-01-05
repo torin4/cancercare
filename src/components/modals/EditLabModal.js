@@ -20,17 +20,26 @@ export default function EditLabModal({
   const [isSaving, setIsSaving] = useState(false);
   const [deletingValueId, setDeletingValueId] = useState(null);
 
-  useEffect(() => {
-    if (show && lab) {
-      setLabName(lab.name || '');
-      setLabUnit(lab.unit || '');
-      setLabNormalRange(lab.normalRange || '');
+  // Load values function - can be called independently
+  const loadValues = React.useCallback(async () => {
+    if (!lab || !lab.id) {
+      // Fallback to lab.data if no ID
+      const sortedValues = [...(lab?.data || [])].sort((a, b) => {
+        const dateA = a.timestamp || (a.dateOriginal ? a.dateOriginal.getTime() : 0);
+        const dateB = b.timestamp || (b.dateOriginal ? b.dateOriginal.getTime() : 0);
+        return dateB - dateA;
+      });
+      setValues(sortedValues);
+      setLoading(false);
+      return;
+    }
+
       setLoading(true);
-      // Load fresh values from Firestore
-      const loadValues = async () => {
         try {
-          if (lab.id) {
+      // Always fetch fresh values from Firestore to ensure we have all values
             const freshValues = await labService.getLabValues(lab.id);
+      console.log(`EditLabModal: Loaded ${freshValues?.length || 0} values for lab ${lab.id} (${lab.name || lab.label})`);
+      
             // Transform to match the format expected by the UI
             const transformedValues = (freshValues || []).map(v => {
               let date;
@@ -56,18 +65,10 @@ export default function EditLabModal({
             // Sort by date (newest first)
             const sortedValues = transformedValues.sort((a, b) => b.timestamp - a.timestamp);
             setValues(sortedValues);
-          } else {
-            // Fallback to lab.data if no ID
-            const sortedValues = [...(lab.data || [])].sort((a, b) => {
-              const dateA = a.timestamp || (a.dateOriginal ? a.dateOriginal.getTime() : 0);
-              const dateB = b.timestamp || (b.dateOriginal ? b.dateOriginal.getTime() : 0);
-              return dateB - dateA;
-            });
-            setValues(sortedValues);
-          }
         } catch (error) {
+      console.error('Error loading lab values:', error);
           // Fallback to lab.data
-          const sortedValues = [...(lab.data || [])].sort((a, b) => {
+      const sortedValues = [...(lab?.data || [])].sort((a, b) => {
             const dateA = a.timestamp || (a.dateOriginal ? a.dateOriginal.getTime() : 0);
             const dateB = b.timestamp || (b.dateOriginal ? b.dateOriginal.getTime() : 0);
             return dateB - dateA;
@@ -76,11 +77,28 @@ export default function EditLabModal({
         } finally {
           setLoading(false);
         }
-      };
+  }, [lab]);
       
+  useEffect(() => {
+    if (show && lab) {
+      console.log('EditLabModal: Modal opened', { 
+        labId: lab.id, 
+        labName: lab.name || lab.label, 
+        labKey,
+        hasUser: !!user,
+        valuesCount: lab.data?.length || 0
+      });
+      setLabName(lab.name || lab.label || '');
+      setLabUnit(lab.unit || '');
+      setLabNormalRange(lab.normalRange || '');
+      // Always reload values when modal opens
       loadValues();
+    } else if (!show) {
+      // Reset when modal closes
+      setValues([]);
+      setLoading(false);
     }
-  }, [show, lab]);
+  }, [show, lab, loadValues, labKey, user]);
 
   const handleSave = async () => {
     if (!lab || !lab.id || !user) return;
@@ -88,13 +106,18 @@ export default function EditLabModal({
     setIsSaving(true);
     try {
       // Update lab document with new name, unit, and normal range
+      // Note: Firestore uses 'name' field, but we also update 'label' for compatibility
       await labService.saveLab({
         id: lab.id,
-        label: labName,
+        name: labName,
+        label: labName, // Also update label for backward compatibility
         unit: labUnit,
         normalRange: labNormalRange || null,
         patientId: user.uid
       });
+
+      // Reload values after saving to ensure UI is up to date
+      await loadValues();
 
       if (onSave) {
         await onSave();
@@ -109,10 +132,17 @@ export default function EditLabModal({
   };
 
   const handleDeleteValue = async (valueId) => {
-    if (!lab || !lab.id || !user || !valueId) return;
+    console.log('EditLabModal: handleDeleteValue called', { valueId, lab: lab?.id, labName: lab?.name || lab?.label, user: user?.uid, labKey });
+    
+    if (!lab || !lab.id || !user || !valueId) {
+      console.error('EditLabModal: Cannot delete - missing required data', { lab: lab?.id, valueId, user: user?.uid });
+      return;
+    }
 
     setDeletingValueId(valueId);
     try {
+      console.log('EditLabModal: Attempting to delete value', { labId: lab.id, labName: lab.name || lab.label, valueId });
+      
       // Use the existing deleteLabValue function
       if (onDeleteValue) {
         await onDeleteValue(lab.id, valueId, labKey);
@@ -120,9 +150,19 @@ export default function EditLabModal({
         await labService.deleteLabValue(lab.id, valueId);
       }
 
-      // Remove from local state
-      setValues(prev => prev.filter(v => v.id !== valueId));
+      console.log('EditLabModal: Value deleted successfully, reloading...');
+      // Reload values from Firestore to ensure we have the latest data
+      await loadValues();
     } catch (error) {
+      console.error('EditLabModal: Error deleting value', { 
+        error: error.message, 
+        stack: error.stack,
+        labId: lab.id, 
+        labName: lab.name || lab.label,
+        valueId 
+      });
+      // Re-throw so parent can handle it (show error message)
+      throw error;
     } finally {
       setDeletingValueId(null);
     }
@@ -152,32 +192,32 @@ export default function EditLabModal({
   if (!show || !lab) return null;
 
   return (
-    <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+    <div className={combineClasses(DesignTokens.components.modal.backdrop, 'z-[101] animate-in fade-in duration-200')}>
+      <div className={combineClasses('bg-white max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col', DesignTokens.borders.radius.lg, DesignTokens.shadows.xl)}>
         {/* Header */}
-        <div className={combineClasses('flex items-center justify-between p-6 border-b', DesignTokens.colors.neutral.border[200])}>
-          <h2 className={combineClasses('text-xl font-bold', DesignTokens.colors.neutral.text[900])}>Edit Metric</h2>
+        <div className={combineClasses('flex items-center justify-between border-b', DesignTokens.components.modal.header, DesignTokens.colors.neutral.border[200])}>
+          <h2 className={combineClasses(DesignTokens.typography.h1.full, DesignTokens.typography.h1.weight, DesignTokens.colors.neutral.text[900])}>Edit Metric</h2>
           <button
             onClick={onClose}
-            className={combineClasses('transition-colors', DesignTokens.colors.neutral.text[400], DesignTokens.colors.neutral.text[600].replace('text-', 'hover:text-'))}
+            className={combineClasses(DesignTokens.transitions.default, DesignTokens.components.modal.closeButton)}
             disabled={isSaving}
           >
-            <X className="w-5 h-5" />
+            <X className={DesignTokens.icons.header.size.full} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className={combineClasses('flex-1 overflow-y-auto', DesignTokens.components.modal.body, 'space-y-6', DesignTokens.spacing.gap.lg)}>
           {/* Metric Name */}
           <div>
-            <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
+            <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-2', DesignTokens.colors.neutral.text[700])}>
               Metric Name
             </label>
             <input
               type="text"
               value={labName}
               onChange={(e) => setLabName(e.target.value)}
-              className={combineClasses('w-full px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-medical-primary-500 focus:border-medical-primary-500 text-sm', DesignTokens.components.input.base)}
+              className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500 focus:border-medical-primary-500')}
               placeholder="Enter metric name"
               disabled={isSaving}
             />
@@ -185,14 +225,14 @@ export default function EditLabModal({
 
           {/* Unit */}
           <div>
-            <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
+            <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-2', DesignTokens.colors.neutral.text[700])}>
               Unit
             </label>
             <input
               type="text"
               value={labUnit}
               onChange={(e) => setLabUnit(e.target.value)}
-              className={combineClasses('w-full px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-medical-primary-500 focus:border-medical-primary-500 text-sm', DesignTokens.components.input.base)}
+              className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500 focus:border-medical-primary-500')}
               placeholder="Enter unit (e.g., mg/dL, U/mL)"
               disabled={isSaving}
             />
@@ -200,14 +240,14 @@ export default function EditLabModal({
 
           {/* Normal Range */}
           <div>
-            <label className={combineClasses('block text-sm font-medium mb-2', DesignTokens.colors.neutral.text[700])}>
+            <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-2', DesignTokens.colors.neutral.text[700])}>
               Normal Range
             </label>
             <input
               type="text"
               value={labNormalRange}
               onChange={(e) => setLabNormalRange(e.target.value)}
-              className={combineClasses('w-full px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-medical-primary-500 focus:border-medical-primary-500 text-sm', DesignTokens.components.input.base)}
+              className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500 focus:border-medical-primary-500')}
               placeholder="Enter normal range (e.g., <0.3, 0-35, 4.5-11.0)"
               disabled={isSaving}
             />
@@ -215,33 +255,35 @@ export default function EditLabModal({
 
           {/* Values List */}
           <div>
-            <label className={combineClasses('block text-sm font-medium mb-3', DesignTokens.colors.neutral.text[700])}>
+            <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-3', DesignTokens.colors.neutral.text[700])}>
               Values ({values.length})
             </label>
             {values.length === 0 ? (
-              <div className={combineClasses('text-center py-8 rounded-lg', DesignTokens.colors.neutral.text[500], DesignTokens.colors.neutral.border[200])}>
+              <div className={combineClasses('text-center py-8', DesignTokens.borders.radius.sm, DesignTokens.colors.neutral.text[500], DesignTokens.colors.neutral.border[200])}>
                 <p>No values recorded</p>
               </div>
             ) : (
-              <div className={combineClasses('border rounded-lg overflow-hidden', DesignTokens.colors.neutral.border[200])}>
+              <div className={combineClasses(DesignTokens.borders.width.default, DesignTokens.borders.radius.sm, 'overflow-hidden', DesignTokens.colors.neutral.border[200])}>
                 <div className="max-h-96 overflow-y-auto">
-                  {values.map((value, index) => (
+                  {values.map((value, index) => {
+                    console.log('EditLabModal: Rendering value', { index, valueId: value.id, value, hasLabId: !!lab?.id });
+                    return (
                     <div
                       key={value.id || index}
-                      className={combineClasses('flex items-center justify-between p-4 last:border-b-0 transition-colors', DesignTokens.colors.neutral.border[100], DesignTokens.colors.neutral[50].replace('bg-', 'hover:bg-'))}
+                      className={combineClasses('flex items-center justify-between last:border-b-0', DesignTokens.spacing.card.mobile, DesignTokens.transitions.default, DesignTokens.colors.neutral.border[100], DesignTokens.colors.neutral[50].replace('bg-', 'hover:bg-'))}
                     >
-                      <div className="flex items-center gap-3 flex-1">
-                        <Calendar className={combineClasses('w-4 h-4', DesignTokens.colors.neutral.text[400])} />
+                      <div className={combineClasses('flex items-center flex-1', DesignTokens.spacing.gap.md)}>
+                        <Calendar className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.neutral.text[400])} />
                         <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className={combineClasses('font-medium', DesignTokens.colors.neutral.text[900])}>
+                          <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm)}>
+                            <span className={combineClasses(DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[900])}>
                               {value.value}
                             </span>
-                            <span className={combineClasses('text-sm', DesignTokens.colors.neutral.text[500])}>
+                            <span className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[500])}>
                               {labUnit || 'units'}
                             </span>
                           </div>
-                          <div className={combineClasses('text-sm mt-1', DesignTokens.colors.neutral.text[500])}>
+                          <div className={combineClasses(DesignTokens.typography.body.sm, 'mt-1', DesignTokens.colors.neutral.text[500])}>
                             {formatDate(value)}
                             {value.notes && (
                               <span className={combineClasses('ml-2', DesignTokens.colors.neutral.text[400])}>
@@ -252,19 +294,25 @@ export default function EditLabModal({
                         </div>
                       </div>
                       <button
-                        onClick={() => handleDeleteValue(value.id)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          console.log('EditLabModal: Delete button clicked', { valueId: value.id, value, hasLabId: !!lab?.id, hasUser: !!user });
+                          handleDeleteValue(value.id);
+                        }}
                         disabled={deletingValueId === value.id || isSaving}
-                        className={combineClasses('p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70', DesignTokens.components.alert.text.error, DesignTokens.components.alert.text.error.replace('600', '700').replace('text-', 'hover:text-'), DesignTokens.components.status.high.bg.replace('bg-', 'hover:bg-'))}
+                        className={combineClasses(DesignTokens.spacing.iconContainer.mobile, DesignTokens.borders.radius.sm, DesignTokens.transitions.default, 'disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70', DesignTokens.components.alert.text.error, DesignTokens.components.alert.text.error.replace('600', '700').replace('text-', 'hover:text-'), DesignTokens.components.status.high.bg.replace('bg-', 'hover:bg-'))}
                         title="Delete value"
                       >
                         {deletingValueId === value.id ? (
-                          <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                          <div className={combineClasses(DesignTokens.icons.standard.size.full, 'border-2 border-red-600 border-t-transparent rounded-full animate-spin')} />
                         ) : (
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className={DesignTokens.icons.standard.size.full} />
                         )}
                       </button>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -272,31 +320,33 @@ export default function EditLabModal({
         </div>
 
         {/* Footer */}
-        <div className={combineClasses('flex items-center justify-end gap-3 p-6 border-t', DesignTokens.colors.neutral.border[200])}>
+        <div className={combineClasses('flex items-center justify-end border-t', DesignTokens.components.modal.footer, DesignTokens.colors.neutral.border[200])}>
+          <div className={combineClasses('flex', DesignTokens.spacing.gap.md)}>
           <button
             onClick={onClose}
             disabled={isSaving}
-            className={combineClasses('px-4 py-2.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation active:opacity-70', DesignTokens.colors.neutral.text[700], DesignTokens.colors.neutral[100].replace('bg-', 'hover:bg-'))}
+              className={combineClasses(DesignTokens.spacing.button.full, 'py-2.5', DesignTokens.borders.radius.sm, DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, DesignTokens.transitions.default, 'disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation active:opacity-70', DesignTokens.components.button.secondary)}
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={isSaving || !labName.trim()}
-            className={combineClasses('px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 min-h-[44px] touch-manipulation active:opacity-70', DesignTokens.colors.primary[600], DesignTokens.colors.primary[700].replace('bg-', 'hover:bg-'))}
+              className={combineClasses(DesignTokens.spacing.button.full, 'py-2.5 text-white', DesignTokens.borders.radius.sm, DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, DesignTokens.transitions.default, 'disabled:opacity-50 disabled:cursor-not-allowed flex items-center min-h-[44px] touch-manipulation active:opacity-70', DesignTokens.spacing.gap.sm, DesignTokens.components.button.primary)}
           >
             {isSaving ? (
               <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className={combineClasses(DesignTokens.icons.standard.size.full, 'border-2 border-white border-t-transparent rounded-full animate-spin')} />
                 Saving...
               </>
             ) : (
               <>
-                <Save className="w-4 h-4" />
+                  <Save className={DesignTokens.icons.standard.size.full} />
                 Save Changes
               </>
             )}
           </button>
+          </div>
         </div>
       </div>
     </div>

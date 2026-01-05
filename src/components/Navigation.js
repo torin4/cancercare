@@ -36,13 +36,13 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
     { id: 'chat', label: 'Chat', icon: MessageSquare },
     { id: 'health', label: 'Health', icon: ClipboardList },
     { id: 'trials', label: 'Trials', icon: FlaskConical },
-    { id: 'files', label: 'Notes & Files', icon: FileText },
+    { id: 'files', label: 'Docs', icon: FileText },
   ];
 
   return (
     <>
       {/* Header - Mobile Only */}
-      <div className={combineClasses('bg-medical-primary-600', DesignTokens.borders.width.thick, DesignTokens.colors.neutral.border[300], DesignTokens.shadows.md, DesignTokens.spacing.container.full, 'flex-shrink-0 md:hidden')}>
+      <div className={combineClasses('bg-medical-primary-600', DesignTokens.shadows.md, DesignTokens.spacing.container.full, 'flex-shrink-0 md:hidden')}>
         <div className="flex items-center justify-between">
           <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.md)}>
             <div className={combineClasses('w-10 h-10 sm:w-12 sm:h-12 bg-white/20', DesignTokens.borders.radius.full, 'flex items-center justify-center', DesignTokens.shadows.sm)}>
@@ -168,7 +168,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
 
       {/* Bottom Navigation - Mobile Only */}
       <div className={combineClasses('bg-white', DesignTokens.borders.divider, DesignTokens.shadows.lg, DesignTokens.spacing.card.mobile, 'flex-shrink-0 fixed bottom-0 left-0 right-0 z-10 md:hidden')}>
-        <div className="flex justify-around items-center max-w-2xl mx-auto">
+        <div className="flex justify-evenly items-center max-w-2xl mx-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -176,7 +176,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
           <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-            className={combineClasses('flex flex-col items-center', DesignTokens.spacing.gap.xs, DesignTokens.spacing.button.mobile, DesignTokens.borders.radius.sm, DesignTokens.transitions.all, DesignTokens.spacing.touchTarget, 'min-w-[44px]', isActive ? combineClasses(DesignTokens.colors.primary.text[600], DesignTokens.colors.primary[50]) : combineClasses(DesignTokens.colors.neutral.text[600], `hover:${DesignTokens.colors.primary.text[600]}`, `hover:${DesignTokens.colors.neutral[50]}`))}
+            className={combineClasses('flex flex-col items-center justify-center', DesignTokens.spacing.gap.xs, 'px-2.5 py-2.5', DesignTokens.borders.radius.md, DesignTokens.transitions.all, 'min-h-[44px] flex-1', isActive ? combineClasses(DesignTokens.colors.primary.text[600], DesignTokens.colors.primary[50]) : combineClasses(DesignTokens.colors.neutral.text[600], `hover:${DesignTokens.colors.primary.text[600]}`, `hover:${DesignTokens.colors.neutral[50]}`))}
           >
                 <Icon className={DesignTokens.icons.button.size.full} />
                 <span className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.typography.h3.weight)}>{item.label}</span>

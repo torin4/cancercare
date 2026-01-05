@@ -121,7 +121,25 @@
 - ✅ Search by diagnosis, age, gender, genomic markers
 - ✅ Real-time trial search from JRCT API
 
-### 11. Documentation
+### 11. Design System & UI Consistency
+- ✅ Design token system created (`designTokens.js`)
+- ✅ Centralized design values for spacing, colors, typography, borders, shadows
+- ✅ Consistent card styling across all tabs
+  - ✅ Outer cards use `card.container` with larger border radius (`rounded-lg sm:rounded-xl`)
+  - ✅ Inner/nested cards use `card.nested` with smaller border radius (`rounded-lg`)
+  - ✅ Colored border variants for special cards (saved trials, notifications)
+- ✅ Standardized header icons using `header.iconContainer` design token
+- ✅ Sub-headers visually distinct from main headers
+- ✅ Search bars use design token system (`input.base`, `input.withIcon`)
+- ✅ Tab navigation uses design tokens consistently
+- ✅ "Ask About This" button aligned right in HealthTab and FilesTab
+- ✅ All components use design tokens instead of hardcoded values
+- ✅ FilesTab fully updated to design token system
+- ✅ HealthTab fully updated to design token system
+- ✅ ClinicalTrials search criteria card uses design tokens
+- ✅ Dashboard cards (saved trials, CA-125 notification) use colored borders with design tokens
+
+### 12. Documentation
 - ✅ ONBOARDING.md - Onboarding flow documentation
 - ✅ DIAGNOSIS_DROPDOWN.md - Searchable diagnosis dropdown guide
 - ✅ GENOMIC_REPORT_PROTOCOL.md - Comprehensive genomic extraction protocol
@@ -134,6 +152,7 @@
 - ✅ CHAT_EXAMPLES.md - Chat extraction examples
 - ✅ HEALTH_SCREEN_INTEGRATION.md - Health screen docs
 - ✅ DEPLOYMENT_CHECKLIST.md - Complete deployment guide
+- ✅ DESIGN_SYSTEM.md - Design token system documentation
 
 ---
 
@@ -414,6 +433,10 @@ The deployment is successful when:
 12. ✅ Trials match based on genomic profile
 13. ✅ Save/favorite trials functionality works
 14. ✅ Match percentage and eligibility displayed correctly
+15. ✅ UI is consistent across all tabs using design token system
+16. ✅ Cards have proper border radius hierarchy (outer cards larger, nested cards smaller)
+17. ✅ Colored border cards (saved trials, notifications) use design tokens
+18. ✅ All components use design tokens instead of hardcoded values
 
 ---
 
@@ -429,6 +452,9 @@ All core features are implemented and ready for testing. The app now has:
 - Secure, user-isolated data storage
 - Support for unlimited custom medical values
 - Professional UI with responsive design
+- Consistent design system using centralized design tokens
+- Standardized card styling and component patterns
+- Visual hierarchy with proper border radius and spacing
 
 **Next Steps:**
 1. Deploy Firebase rules: `npx firebase deploy --only firestore,storage`

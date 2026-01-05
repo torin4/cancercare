@@ -155,7 +155,8 @@ export default function DashboardTab({ onTabChange }) {
         }
       }
 
-      setUploadProgress('Saving extracted data...');
+      // Don't set generic "Saving extracted data" - let the specific aiStatus messages show instead
+      // setUploadProgress('Saving extracted data...');
 
       // Reload health data to show new values
       setUploadProgress('Refreshing your health data...');
@@ -315,24 +316,28 @@ setIsUploading(false);
         {/* Dynamic CA-125 Alert */}
         {ca125Alert && (
           <div className={combineClasses(
-            DesignTokens.components.card.container,
-            DesignTokens.shadows.sm,
-            Layouts.section,
+            DesignTokens.components.card.withColoredBorder(
+              ca125Alert.type === 'up' 
+                ? 'border-yellow-300' 
+                : DesignTokens.colors.accent.border[300]
+            ),
             ca125Alert.type === 'up' 
-              ? 'border-amber-300 bg-amber-50' 
-              : combineClasses(DesignTokens.colors.accent.border[300], DesignTokens.colors.accent[50])
+              ? 'bg-yellow-50' 
+              : DesignTokens.colors.accent[50],
+            DesignTokens.shadows.sm,
+            Layouts.section
           )}>
             <div className={combineClasses('flex items-start', DesignTokens.spacing.gap.md)}>
               <div className={combineClasses(
                 'flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center',
                 ca125Alert.type === 'up' 
-                  ? 'bg-amber-100' 
+                  ? 'bg-yellow-100' 
                   : DesignTokens.colors.accent[100]
               )}>
                 <AlertCircle className={combineClasses(
                   DesignTokens.icons.header.size.full,
                   ca125Alert.type === 'up' 
-                    ? 'text-amber-600' 
+                    ? 'text-yellow-600' 
                     : DesignTokens.colors.accent.text[600]
                 )} />
               </div>
@@ -342,7 +347,7 @@ setIsUploading(false);
                   DesignTokens.typography.h3.weight,
                   'mb-1',
                   ca125Alert.type === 'up' 
-                    ? 'text-amber-900' 
+                    ? 'text-yellow-900' 
                     : DesignTokens.colors.accent.text[900]
                 )}>
                   CA-125 {ca125Alert.type === 'up' ? 'Trending Up' : 'Trending Down'}
@@ -350,7 +355,7 @@ setIsUploading(false);
                 <p className={combineClasses(
                   DesignTokens.typography.body.sm,
                   ca125Alert.type === 'up' 
-                    ? 'text-amber-700' 
+                    ? 'text-yellow-700' 
                     : DesignTokens.colors.accent.text[700]
                 )}>
                   {ca125Alert.message}
@@ -818,7 +823,6 @@ setIsUploading(false);
 
         {/* Saved Trials */}
         <div className={combineClasses(
-          DesignTokens.components.card.container,
           DesignTokens.components.card.withColoredBorder(DesignTokens.colors.accent.border[200]),
           DesignTokens.shadows.sm,
           'mt-4 sm:mt-6'

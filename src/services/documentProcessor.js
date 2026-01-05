@@ -53,7 +53,7 @@ export async function processDocument(file, userId, patientProfile = null, docum
     // If no date found, extractedDate remains null (will default to today in uploadDocument)
 
     // Step 3: Save extracted data to Firestore
-    const savedData = await saveExtractedData(extractedData, userId, documentDate, documentNote, documentId, onlyExistingMetrics);
+    const savedData = await saveExtractedData(extractedData, userId, documentDate, documentNote, documentId, onlyExistingMetrics, onProgress);
 
     // Count total data points extracted (metric + value = 1 data point)
     const dataPointCount = countDataPoints(savedData);
@@ -188,6 +188,7 @@ LANGUAGE SUPPORT: This document may be in Japanese, English, or other languages
 - You MUST read and understand Japanese medical documents
 - Extract ALL data regardless of the document's language
 - Translate Japanese medical terms to English for the JSON output
+- For Japanese lab reports, look carefully for values in tables - they may be in separate columns
 - For Japanese genomic reports, look for:
   * "DNA変化" or "DNA change" → extract the DNA notation (e.g., "c.3403-1G>C")
   * "変異アレル頻度" or "VAF" or "variant allele frequency" → extract the percentage number
@@ -196,6 +197,12 @@ LANGUAGE SUPPORT: This document may be in Japanese, English, or other languages
 - Extract variant allele frequency (VAF) percentages even if shown in Japanese format
 - Japanese dates: "令和6年12月25日" or "2024年12月25日" → convert to "2024-12-25"
 - Japanese lab labels: "CA-125" may appear as "CA125" or "CA 125" - normalize to "ca125"
+
+CRITICAL: If you see test names listed (like CD19+, CD4/CD8, リンパ球サブセット, etc.), you MUST find and extract their values. Look in:
+- The same row as the test name
+- Adjacent columns
+- Tables with multiple columns
+- Anywhere numbers appear near the test name
 
 ${patientDemographicsSection}
 ${dateInstruction}
@@ -242,10 +249,9 @@ STEP 2: DATE FORMATS TO LOOK FOR:
 - Any timestamp with date component → extract just the date part
 
 STEP 3: DATE ASSIGNMENT RULES:
-- For LAB REPORTS: Use the collection/test date (採取日時/検査日) for ALL lab values
+- For LAB REPORTS: Extract the date associated with EACH individual test/value. If different tests have different collection/test dates (採取日時/検査日), use those specific dates. If all tests share the same date, use that date for all.
 - For GENOMIC REPORTS: Use the test date (testDate) from testInfo section
-- For VITALS: Use the measurement date
-- If multiple dates exist, use the MOST RECENT test/collection date
+- For VITALS: Extract the measurement date for EACH individual vital. If different vitals have different measurement dates, use those specific dates.
 - If NO date is found after thorough search, ONLY THEN use: ${parseLocalDate(new Date().toISOString().split('T')[0]).toISOString().split('T')[0]}
 `}
 
@@ -276,40 +282,117 @@ Return a JSON object with this EXACT structure:
     // For Lab Results:
     "labs": [
       {
-        "labType": "ca125|cea|wbc|hemoglobin|platelets|etc",
+        "labType": "ca125|cea|wbc|hemoglobin|platelets|cd19|cd4|cd8|cd3|cd16|cd56|etc",
         "label": "CA-125",
-        "value": 68,
-        "unit": "U/mL",
+        "value": 68,  // ⚠️ MANDATORY FIELD - REQUIRED FOR EVERY LAB ⚠️
+        // CRITICAL RULE: If a test name appears in the document but NO numeric value can be found after thorough search,
+        // DO NOT include that lab in the "labs" array at all. Only include labs where you can extract an actual numeric value.
+        // Extract ANY numeric value you see: percentages (45.2%), decimals (1.5), whole numbers (100), ratios (1.2)
+        // Look in: same row, adjacent columns, tables, Japanese text, anywhere numbers appear near the test name
+        // If the document shows test names but all values are blank/empty/dashes, return an empty "labs": [] array
+        "unit": "U/mL",  // Extract unit if shown, or use common unit for that test type (e.g., "%" for CD markers, "cells/μL" for cell counts)
         "date": "2024-12-14",  // MANDATORY: Extract the ACTUAL collection/test date. Search document header, look for "Collection Date", "Test Date", "採取日時", "検査日", or any date field. MUST be in YYYY-MM-DD format.
         "normalRange": "0-35",  // CRITICAL: If document shows a range, use that. Otherwise, provide age/gender-appropriate normal range based on patient demographics.
         "status": "high|normal|low"
       }
     ],
+    
+    IMPORTANT LAB TYPES TO RECOGNIZE:
+    - Immunology markers: CD19+, CD16+56+, CD3+, CD4+, CD8+, CD4/CD8 ratio, CD4-8
+    - These may appear with Japanese labels: リンパ球サブセット, CD19+, etc.
+    - Extract values as percentages or absolute numbers depending on what's shown
+    - For CD4/CD8 ratio, extract the ratio value (e.g., 1.2, 0.8)
+    - Normalize labType to lowercase without special characters: "cd19" for "CD19+", "cd4cd8" for "CD4/CD8"
+    
+    COMMON LAB TEST ACRONYMS - RECOGNIZE THESE AND MAP TO STANDARD labType:
+    - "HGB" or "Hb" → "hemoglobin" (NOT "hgb" - use full word "hemoglobin")
+    - "HCT" or "Ht" → "hematocrit"
+    - "WBC" → "wbc"
+    - "RBC" → "rbc"
+    - "PLT" or "Plt" → "platelets"
+    - "CA-125" or "CA125" or "CA 125" → "ca125"
+    - "CEA" → "cea"
+    - "ALT" or "GPT" → "alt"
+    - "AST" or "GOT" → "ast"
+    - "BUN" or "UN" → "bun"
+    - "Cr" or "CRE" → "creatinine"
+    - "eGFR" or "EGFR" → "egfr"
+    - "LDH" → "ldh"
+    - "ALB" → "albumin"
+    - "CRP" → "crp"
+    - "TSH" → "tsh"
+    - "T3" → "t3"
+    - "T4" → "t4"
+    - "PSA" → "psa"
+    - "AFP" → "afp"
+    - Always normalize to lowercase, remove special characters, use full word when standard (e.g., "HGB" → "hemoglobin", not "hgb")
 
     ═══════════════════════════════════════════════════════════════════════════════
-    CRITICAL: DO NOT INCLUDE METRICS WITHOUT VALUES
+    CRITICAL: EXTRACT ALL VALUES - BE AGGRESSIVE ABOUT EXTRACTION
     ═══════════════════════════════════════════════════════════════════════════════
     
-    - If a metric name appears in the document but the value is missing, empty, or shows:
-      * "-" (dash/hyphen)
-      * "—" (em dash)
-      * "N/A" or "NA" or "n/a"
-      * Empty space or blank
-      * "未測定" (Japanese: not measured)
-      * "測定なし" (Japanese: no measurement)
-      * Any placeholder indicating no value
-    - DO NOT include that metric in the labs or vitals array
-    - Only extract metrics that have actual numeric or text values
-    - If you see "CA-125: -" or "CA-125: (blank)", skip it entirely
-    - If you see "WBC: N/A", skip it entirely
-    - Only include metrics where you can extract a real, meaningful value
+    EXTRACTION RULES - BE VERY AGGRESSIVE:
+    - Extract values even if they appear in unusual formats or positions
+    - Look for values in multiple places: next to labels, in separate columns, in tables, in Japanese text
+    - For Japanese documents: Extract values even if labels are in Japanese (リンパ球サブセット, etc.)
+    - Extract percentage values (e.g., "45.2%", "45.2", "45")
+    - Extract decimal values (e.g., "1.5", "0.8", "12.34")
+    - Extract ratio values (e.g., "1.2", "0.5")
+    - Extract whole numbers (e.g., "100", "50", "2000")
+    - If you see a test name and ANY number nearby (same row, same column, adjacent cell), extract it as the value
+    - Look for values in these formats:
+      * "CD19+: 45.2%" → extract 45.2 with unit "%"
+      * "CD4/CD8: 1.2" → extract 1.2 (ratio, no unit needed)
+      * "CD3+: 65" → extract 65 with unit "%" or "cells/μL" depending on context
+      * "リンパ球サブセット: 45.2%" → extract 45.2 with unit "%"
+      * Values in tables, even if separated by columns - match by row position
+      * Values in parentheses or brackets
+      * Values separated by tabs, spaces, or other delimiters
+    
+    FOR IMMUNOLOGY TESTS (CD19+, CD16+56+, CD3+, CD4+, CD8+, CD4/CD8, etc.):
+    - These are VERY COMMON in Japanese lab reports
+    - Values are typically percentages (%), but may also be absolute counts
+    - Look for values in the same row as the test name, even if in a different column
+    - If you see "CD19+" anywhere, look for a number in that row - extract it
+    - For ratios like "CD4/CD8", extract the numeric ratio value
+    - Normalize labType: "CD19+" → "cd19", "CD4/CD8" → "cd4cd8", "CD16+56+" → "cd16cd56"
+    
+    ONLY SKIP if value is explicitly marked as:
+      * "-" (dash/hyphen) AND clearly indicates "not measured" or "N/A" AND there's no number anywhere in that row
+      * "N/A" or "NA" or "n/a" (explicitly stated as text, not just a dash)
+      * "未測定" (Japanese: not measured) - ONLY if explicitly stated as text
+      * "測定なし" (Japanese: no measurement) - ONLY if explicitly stated as text
+      * Completely blank/empty with no number anywhere in the same row or nearby
+    
+    ═══════════════════════════════════════════════════════════════════════════════
+    CRITICAL INSTRUCTION: NEVER SAY "ALL FIELDS ARE EMPTY"
+    ═══════════════════════════════════════════════════════════════════════════════
+    
+    If you see test names listed (CD19+, CD4/CD8, リンパ球サブセット, etc.), the values ARE in the document. 
+    You MUST find them. Look:
+    - In the same row as the test name (even if in a different column)
+    - In adjacent columns in tables
+    - For numbers with or without % signs
+    - For decimal values, whole numbers, or ratios
+    - In Japanese text mixed with numbers
+    
+    IMPORTANT: If you see test names but cannot find ANY numeric values after thorough searching (all fields are blank, dashes, or empty),
+    then the document genuinely has no values to extract. In this case, return an empty "labs": [] array.
+    DO NOT create lab entries without values - only include labs where you can extract an actual numeric value.
 
-    CRITICAL RULE FOR ALL LAB VALUES:
-    - ALL lab values in the "labs" array MUST use the SAME date - the collection/test date from the document
-    - Do NOT use different dates for different lab values from the same report
-    - Do NOT skip the date field - it is MANDATORY
-- Example: If document shows "採取日時: 2025/12/25" or "Collection Date: 12/25/2025", ALL labs should have "date": "2025-12-25"
-     - If you cannot find a date after searching the entire document, use today's date: ${parseLocalDate(new Date().toISOString().split('T')[0]).toISOString().split('T')[0]}
+    CRITICAL RULE FOR LAB VALUE DATES:
+    - Each lab value MUST have a "date" field - it is MANDATORY
+    - Extract the ACTUAL date associated with EACH individual test/value
+    - If different tests have different collection/test dates, use those specific dates
+    - If all tests share the same collection/test date, use that date for all
+    - Look for dates in these locations (in order of priority):
+      1. Date next to or associated with the specific test name/value
+      2. Test-specific date columns in tables
+      3. Section headers that group tests by date
+      4. Document header with collection/test date (use as fallback if no test-specific dates found)
+    - If you cannot find any date after searching the entire document, use today's date: ${parseLocalDate(new Date().toISOString().split('T')[0]).toISOString().split('T')[0]}
+    - Example: If document shows "CA-125: 68 (2025/12/14)" and "CEA: 5.2 (2025/12/20)", use dates "2025-12-14" and "2025-12-20" respectively
+    - Example: If document shows "Collection Date: 2025/12/25" and all tests are from that date, use "2025-12-25" for all
 
     // For Vitals:
     "vitals": [
@@ -523,6 +606,14 @@ GENERAL RULES:
     onProgress(null, 'Identifying document type and structure...');
   }
 
+  // Log document info for debugging
+  console.log('Sending document to AI:', {
+    mimeType,
+    base64Length: base64Data.length,
+    promptLength: prompt.length,
+    hasBase64Data: !!base64Data && base64Data.length > 0
+  });
+
   const result = await model.generateContent([
     {
       inlineData: {
@@ -547,10 +638,14 @@ GENERAL RULES:
   
   const text = response.text();
 
+  // Log raw AI response for debugging
+  console.log('Raw AI response (first 1000 chars):', text.substring(0, 1000));
+
   // Parse JSON response
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    throw new Error('Failed to parse AI response');
+    console.error('No JSON found in AI response. Full text:', text);
+    throw new Error('Failed to parse AI response - no JSON found');
   }
 
   let parsed;
@@ -558,7 +653,8 @@ GENERAL RULES:
     parsed = JSON.parse(jsonMatch[0]);
   } catch (parseError) {
     console.error('Failed to parse AI response as JSON:', parseError);
-    console.error('Raw response text:', text.substring(0, 500));
+    console.error('Raw response text:', text.substring(0, 2000));
+    console.error('JSON match:', jsonMatch[0].substring(0, 500));
     throw new Error(`Failed to parse AI response: ${parseError.message}`);
   }
 
@@ -568,8 +664,18 @@ GENERAL RULES:
     labsCount: parsed.data?.labs?.length || 0,
     vitalsCount: parsed.data?.vitals?.length || 0,
     hasGenomic: !!parsed.data?.genomic,
-    medicationsCount: parsed.data?.medications?.length || 0
+    medicationsCount: parsed.data?.medications?.length || 0,
+    rawLabs: parsed.data?.labs,
+    rawVitals: parsed.data?.vitals
   });
+  
+  // If no data extracted, log the full parsed response
+  if ((!parsed.data?.labs || parsed.data.labs.length === 0) && 
+      (!parsed.data?.vitals || parsed.data.vitals.length === 0) && 
+      !parsed.data?.genomic && 
+      (!parsed.data?.medications || parsed.data.medications.length === 0)) {
+    console.warn('WARNING: AI extracted 0 values. Full parsed response:', JSON.stringify(parsed, null, 2));
+  }
 
   // Update progress: Validating extracted data
   if (onProgress) {
@@ -686,7 +792,7 @@ function adjustNormalRangeForUnit(normalRange, unit, labType) {
  * @param {string} userId - User ID
  * @param {string|null} documentDate - Optional date provided by user (YYYY-MM-DD format)
  */
-async function saveExtractedData(extractedData, userId, documentDate = null, documentNote = null, documentId = null, onlyExistingMetrics = false) {
+async function saveExtractedData(extractedData, userId, documentDate = null, documentNote = null, documentId = null, onlyExistingMetrics = false, onProgress = null) {
   const startTime = Date.now();
   const savedData = {
     labs: [],
@@ -705,12 +811,16 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
 
   try {
       // If onlyExistingMetrics is enabled, get existing labs and vitals to filter against
+      // OPTIMIZATION: Parallelize these queries since they're independent
       let existingLabTypes = new Set();
       let existingVitalTypes = new Set();
       
       if (onlyExistingMetrics) {
-        const existingLabs = await labService.getLabs(userId);
-        const existingVitals = await vitalService.getVitals(userId);
+        // Parallelize queries for existing labs and vitals
+        const [existingLabs, existingVitals] = await Promise.all([
+          labService.getLabs(userId),
+          vitalService.getVitals(userId)
+        ]);
         
         existingLabTypes = new Set(existingLabs.map(lab => (lab.labType || 'other').toLowerCase()));
         existingVitalTypes = new Set(existingVitals.map(vital => (vital.vitalType || 'other').toLowerCase()));
@@ -739,6 +849,9 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
     // Save Lab Results
     if (extractedData.data?.labs && Array.isArray(extractedData.data.labs) && extractedData.data.labs.length > 0) {
       console.log(`Processing ${extractedData.data.labs.length} lab values...`);
+      if (onProgress) {
+        onProgress(null, `Saving ${extractedData.data.labs.length} lab values...`);
+      }
       // Deduplicate labs from the same upload by labType + value + date
       // This prevents the AI from creating duplicate entries if it extracts the same lab multiple times
       const seenLabs = new Map(); // key: `${labType}_${value}_${date}`, value: lab object
@@ -772,31 +885,41 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         }
         
         // For numeric labs, check if value is actually a number
-        if (lab.labType && ['ca125', 'cea', 'wbc', 'hemoglobin', 'platelets', 'creatinine', 'alt', 'ast', 'albumin', 'ldh'].includes(lab.labType.toLowerCase())) {
+        // Only validate numeric labs that we know should be numbers
+        // Don't validate immunology tests (cd19, cd4, etc.) as strictly since they might be percentages or ratios
+        const knownNumericLabs = ['ca125', 'cea', 'wbc', 'hemoglobin', 'platelets', 'creatinine', 'alt', 'ast', 'albumin', 'ldh', 'bun', 'egfr', 'glucose', 'sodium', 'potassium', 'calcium'];
+        if (lab.labType && knownNumericLabs.includes(lab.labType.toLowerCase())) {
           const numValue = parseFloat(valueStr);
           if (isNaN(numValue)) {
             console.log(`Skipping lab ${lab.label || lab.labType}: value is not a valid number (${valueStr})`);
             continue;
           }
         }
+        // For other labs (like immunology markers), be more lenient - accept any value that's not explicitly empty
         
         // Parse date first to create deduplication key
-        // USER-PROVIDED DATE TAKES PRECEDENCE - use it first if available
-        let labDate = parseLocalDate(new Date().toISOString().split('T')[0]);
+        // Priority order: AI-extracted date > user-provided date > document upload date > today
+        let labDate = null;
         
-        // Priority 1: User-provided date (takes absolute precedence)
-        if (documentDate) {
+        // Priority 1: AI-extracted date from document (most accurate - specific to this value)
+        if (lab.date) {
+          const parsedDate = parseLocalDate(lab.date);
+          if (!isNaN(parsedDate.getTime())) {
+            labDate = parsedDate;
+          }
+        }
+        // Priority 2: User-provided date (if AI didn't extract a date)
+        if (!labDate && documentDate) {
           const userDate = parseLocalDate(documentDate);
           if (!isNaN(userDate.getTime())) {
             labDate = userDate;
           }
         }
-        // Priority 2: AI-extracted date from document (only if user didn't provide one)
-        else if (lab.date) {
-          const parsedDate = parseLocalDate(lab.date);
-          if (!isNaN(parsedDate.getTime())) {
-            labDate = parsedDate;
-          }
+        // Priority 3: Document upload date (if available from documentId)
+        // Note: We don't have direct access to document date here, so fall back to today
+        // The document date is set in storage.js, but we use today as final fallback
+        if (!labDate) {
+          labDate = parseLocalDate(new Date().toISOString().split('T')[0]);
         }
         
         // Create deduplication key: labType + value + date (day level)
@@ -810,8 +933,9 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         }
       }
       
-      
-      for (const lab of uniqueLabs) {
+      // OPTIMIZATION: Process all labs in parallel instead of sequentially
+      // This significantly speeds up processing when there are many labs
+      const labPromises = uniqueLabs.map(async (lab) => {
         // Use the pre-parsed date
         const labDate = lab._parsedDate;
         // Date already parsed during deduplication, use it directly
@@ -842,62 +966,33 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
           labId = await labService.saveLab(labData);
         }
         
-        // Cross-document deduplication: Check if same lab+value+date already exists
-        // Convert date to timestamp for comparison (day-level precision, using local time)
-        const dayStart = new Date(labDate.getFullYear(), labDate.getMonth(), labDate.getDate()).getTime();
-        const existingValues = await labService.getLabValues(labId);
-        const duplicateValue = existingValues.find(v => {
-          // Convert Firestore Timestamp to local date (avoid timezone shift)
-          let vDate = null;
-          if (v.date?.toDate) {
-            const firestoreDate = v.date.toDate();
-            // Use local date components to avoid timezone shift
-            vDate = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
-          } else if (v.date) {
-            if (v.date instanceof Date) {
-              vDate = new Date(v.date.getFullYear(), v.date.getMonth(), v.date.getDate());
-            } else {
-              // String date - parse as local
-              const parsed = parseLocalDate(v.date);
-              vDate = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
-            }
-          }
-          if (!vDate) return false;
-          const vDayStart = new Date(vDate.getFullYear(), vDate.getMonth(), vDate.getDate()).getTime();
-          return vDayStart === dayStart && v.value === lab.value;
+        // Always create new lab value - no cross-document deduplication
+        // This ensures deletion by documentId works reliably
+        // Within-upload deduplication (above) prevents AI from creating duplicates in the same upload
+        const valueId = await labService.addLabValue(labId, {
+          value: lab.value,
+          date: labDate,
+          notes: documentNote ? `Extracted from document. Context: ${documentNote}` : `Extracted from document`,
+          documentId: documentId || null
         });
-        
-        let valueId;
-        if (duplicateValue) {
-          // Update existing value with new documentId and note if different
-          valueId = duplicateValue.id;
-          const newNote = documentNote ? `Extracted from document. Context: ${documentNote}` : `Extracted from document`;
-          if (duplicateValue.documentId !== documentId || duplicateValue.notes !== newNote) {
-            await labService.updateLabValue(labId, valueId, {
-              value: lab.value,
-              date: labDate,
-              notes: newNote,
-              documentId: documentId || null
-            });
-          } else {
-          }
-        } else {
-          // Create new lab value (existing values with this documentId were already deleted above if reprocessing)
-          valueId = await labService.addLabValue(labId, {
-            value: lab.value,
-            date: labDate,
-            notes: documentNote ? `Extracted from document. Context: ${documentNote}` : `Extracted from document`,
-            documentId: documentId || null
-          });
-        }
 
-        savedData.labs.push({ labId, valueId, ...lab });
+        return { labId, valueId, ...lab };
+      });
+      
+      // Wait for all labs to be processed in parallel
+      const labResults = await Promise.all(labPromises);
+      savedData.labs.push(...labResults);
+      if (onProgress && labResults.length > 0) {
+        onProgress(null, `Saved ${labResults.length} lab value${labResults.length !== 1 ? 's' : ''}`);
       }
     }
 
     // Save Vitals
     if (extractedData.data?.vitals && Array.isArray(extractedData.data.vitals) && extractedData.data.vitals.length > 0) {
       console.log(`Processing ${extractedData.data.vitals.length} vital values...`);
+      if (onProgress) {
+        onProgress(null, `Saving ${extractedData.data.vitals.length} vital value${extractedData.data.vitals.length !== 1 ? 's' : ''}...`);
+      }
       // Deduplicate vitals from the same upload by vitalType + value + date
       const seenVitals = new Map(); // key: `${vitalType}_${value}_${date}`, value: vital object
       const uniqueVitals = [];
@@ -936,22 +1031,28 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         }
         
         // Parse date first to create deduplication key
-        // USER-PROVIDED DATE TAKES PRECEDENCE - use it first if available
-        let vitalDate = parseLocalDate(new Date().toISOString().split('T')[0]);
+        // Priority order: AI-extracted date > user-provided date > document upload date > today
+        let vitalDate = null;
         
-        // Priority 1: User-provided date (takes absolute precedence)
-        if (documentDate) {
+        // Priority 1: AI-extracted date from document (most accurate - specific to this value)
+        if (vital.date) {
+          const parsedDate = parseLocalDate(vital.date);
+          if (!isNaN(parsedDate.getTime())) {
+            vitalDate = parsedDate;
+          }
+        }
+        // Priority 2: User-provided date (if AI didn't extract a date)
+        if (!vitalDate && documentDate) {
           const userDate = parseLocalDate(documentDate);
           if (!isNaN(userDate.getTime())) {
             vitalDate = userDate;
           }
         }
-        // Priority 2: AI-extracted date from document (only if user didn't provide one)
-        else if (vital.date) {
-          const parsedDate = parseLocalDate(vital.date);
-          if (!isNaN(parsedDate.getTime())) {
-            vitalDate = parsedDate;
-          }
+        // Priority 3: Document upload date (if available from documentId)
+        // Note: We don't have direct access to document date here, so fall back to today
+        // The document date is set in storage.js, but we use today as final fallback
+        if (!vitalDate) {
+          vitalDate = parseLocalDate(new Date().toISOString().split('T')[0]);
         }
         
         // Create deduplication key: vitalType + value + date (day level)
@@ -969,8 +1070,9 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         }
       }
       
-      
-      for (const vital of uniqueVitals) {
+      // OPTIMIZATION: Process all vitals in parallel instead of sequentially
+      // This significantly speeds up processing when there are many vitals
+      const vitalPromises = uniqueVitals.map(async (vital) => {
         // Use the pre-parsed date
         const vitalDate = vital._parsedDate;
         // Date already parsed during deduplication, use it directly
@@ -999,68 +1101,35 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
           vitalId = await vitalService.saveVital(vitalData);
         }
         
-        // Cross-document deduplication: Check if same vital+value+date already exists
-        // Convert date to timestamp for comparison (day-level precision, using local time)
-        const dayStart = new Date(vitalDate.getFullYear(), vitalDate.getMonth(), vitalDate.getDate()).getTime();
-        const existingValues = await vitalService.getVitalValues(vitalId);
-        const duplicateValue = existingValues.find(v => {
-          // Convert Firestore Timestamp to local date (avoid timezone shift)
-          let vDate = null;
-          if (v.date?.toDate) {
-            const firestoreDate = v.date.toDate();
-            // Use local date components to avoid timezone shift
-            vDate = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
-          } else if (v.date) {
-            if (v.date instanceof Date) {
-              vDate = new Date(v.date.getFullYear(), v.date.getMonth(), v.date.getDate());
-            } else {
-              // String date - parse as local
-              const parsed = parseLocalDate(v.date);
-              vDate = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
-            }
-          }
-          if (!vDate) return false;
-          const vDayStart = new Date(vDate.getFullYear(), vDate.getMonth(), vDate.getDate()).getTime();
-          // For BP, also check systolic/diastolic
-          if (vital.vitalType === 'bp' || vital.vitalType === 'bloodpressure') {
-            return vDayStart === dayStart && 
-                   v.systolic === vital.systolic && 
-                   v.diastolic === vital.diastolic;
-          }
-          return vDayStart === dayStart && v.value === vital.value;
+        // Always create new vital value - no cross-document deduplication
+        // This ensures deletion by documentId works reliably
+        // Within-upload deduplication (above) prevents AI from creating duplicates in the same upload
+        const valueId = await vitalService.addVitalValue(vitalId, {
+          value: vital.value,
+          date: vitalDate,
+          notes: documentNote ? `Extracted from document. Context: ${documentNote}` : `Extracted from document`,
+          systolic: vital.systolic,
+          diastolic: vital.diastolic,
+          documentId: documentId || null
         });
-        
-        let valueId;
-        if (duplicateValue) {
-          // Update existing value with new documentId and note if different
-          valueId = duplicateValue.id;
-          const newNote = documentNote ? `Extracted from document. Context: ${documentNote}` : `Extracted from document`;
-          if (duplicateValue.documentId !== documentId || duplicateValue.notes !== newNote) {
-            await vitalService.updateVitalValue(vitalId, valueId, {
-              value: vital.value,
-              date: vitalDate,
-              notes: newNote,
-              systolic: vital.systolic,
-              diastolic: vital.diastolic,
-              documentId: documentId || null
-            });
-          } else {
-          }
-        } else {
-          // Create new vital value (existing values with this documentId were already deleted above if reprocessing)
-          valueId = await vitalService.addVitalValue(vitalId, {
-            value: vital.value,
-            date: vitalDate,
-            notes: documentNote ? `Extracted from document. Context: ${documentNote}` : `Extracted from document`,
-            documentId: documentId || null
-          });
-        }
 
-        savedData.vitals.push({ vitalId, valueId, ...vital });
+        return { vitalId, valueId, ...vital };
+      });
+      
+      // Wait for all vitals to be processed in parallel
+      const vitalResults = await Promise.all(vitalPromises);
+      savedData.vitals.push(...vitalResults);
+      if (onProgress && vitalResults.length > 0) {
+        onProgress(null, `Saved ${vitalResults.length} vital value${vitalResults.length !== 1 ? 's' : ''}`);
       }
     }
 
     // Save Genomic Profile
+    if (extractedData.data?.genomic) {
+      if (onProgress) {
+        onProgress(null, 'Saving genomic profile...');
+      }
+    }
     if (extractedData.data?.genomic) {
       const genomicData = extractedData.data.genomic;
 
@@ -1205,8 +1274,12 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
     }
 
     // Save Medications
-    if (extractedData.data?.medications) {
-      for (const med of extractedData.data.medications) {
+    // OPTIMIZATION: Process medications in parallel
+    if (extractedData.data?.medications && extractedData.data.medications.length > 0) {
+      if (onProgress) {
+        onProgress(null, `Saving ${extractedData.data.medications.length} medication${extractedData.data.medications.length !== 1 ? 's' : ''}...`);
+      }
+      const medicationPromises = extractedData.data.medications.map(async (med) => {
         const medId = await medicationService.saveMedication({
           patientId: userId,
           name: med.name,
@@ -1218,7 +1291,13 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
           extractedFromDocument: true      // Flag that this was auto-extracted
         });
 
-        savedData.medications.push({ medId, ...med });
+        return { medId, ...med };
+      });
+      
+      const medicationResults = await Promise.all(medicationPromises);
+      savedData.medications.push(...medicationResults);
+      if (onProgress && medicationResults.length > 0) {
+        onProgress(null, `Saved ${medicationResults.length} medication${medicationResults.length !== 1 ? 's' : ''}`);
       }
     }
 

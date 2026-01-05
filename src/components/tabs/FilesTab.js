@@ -666,7 +666,7 @@ export default function FilesTab({ onTabChange }) {
             <FileText className={DesignTokens.components.header.icon} />
           </div>
           <div>
-            <h1 className={Layouts.headerTitle}>Notes & Files</h1>
+            <h1 className={Layouts.headerTitle}>Documents</h1>
           </div>
         </div>
 

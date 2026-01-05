@@ -20,6 +20,7 @@ export default function RescanDocumentModal({
   const [dateRange, setDateRange] = useState({ min: null, max: null });
   const [isCheckingDates, setIsCheckingDates] = useState(false);
   const [acknowledgeOverwrite, setAcknowledgeOverwrite] = useState(false);
+  const [onlyExistingMetrics, setOnlyExistingMetrics] = useState(false);
 
   // Check for multiple dates when modal opens
   useEffect(() => {
@@ -27,20 +28,43 @@ export default function RescanDocumentModal({
       if (show && document && user) {
         setIsCheckingDates(true);
         try {
+          // OPTIMIZATION: Use stored document metadata if available (much faster)
+          if (document.hasMultipleDates && document.minDate && document.maxDate) {
+            const minDate = document.minDate?.toDate ? document.minDate.toDate() : new Date(document.minDate);
+            const maxDate = document.maxDate?.toDate ? document.maxDate.toDate() : new Date(document.maxDate);
+            setHasMultipleDates(true);
+            setDateRange({ min: minDate, max: maxDate });
+            setIsCheckingDates(false);
+            return;
+          }
+
+          // If document doesn't have stored metadata, check quickly with early exit
           const uniqueDates = new Set();
           let minDate = null;
           let maxDate = null;
 
-          // Check lab values
-          const labs = await labService.getLabs(user.uid);
-          for (const lab of labs) {
-            const values = await labService.getLabValues(lab.id);
+          // OPTIMIZATION: Load labs and vitals in parallel
+          const [labs, vitals] = await Promise.all([
+            labService.getLabs(user.uid),
+            vitalService.getVitals(user.uid)
+          ]);
+
+          // OPTIMIZATION: Load all values in parallel
+          const labValuePromises = labs.map(lab => labService.getLabValues(lab.id));
+          const vitalValuePromises = vitals.map(vital => vitalService.getVitalValues(vital.id));
+          const [allLabValues, allVitalValues] = await Promise.all([
+            Promise.all(labValuePromises),
+            Promise.all(vitalValuePromises)
+          ]);
+
+          // Process lab values
+          for (let i = 0; i < labs.length; i++) {
+            const values = allLabValues[i] || [];
             for (const value of values) {
               if (value.documentId === document.id && value.date) {
                 let dateObj = null;
                 if (value.date?.toDate) {
                   const firestoreDate = value.date.toDate();
-                  // Use local date components to normalize to day-level
                   dateObj = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
                 } else if (value.date instanceof Date) {
                   dateObj = new Date(value.date.getFullYear(), value.date.getMonth(), value.date.getDate());
@@ -53,21 +77,28 @@ export default function RescanDocumentModal({
                   uniqueDates.add(dateStr);
                   if (!minDate || dateObj < minDate) minDate = dateObj;
                   if (!maxDate || dateObj > maxDate) maxDate = dateObj;
+                  
+                  // OPTIMIZATION: Early exit if we find 2+ dates
+                  if (uniqueDates.size >= 2) {
+                    setHasMultipleDates(true);
+                    setDateRange({ min: minDate, max: maxDate });
+                    setIsCheckingDates(false);
+                    return;
+                  }
                 }
               }
             }
           }
 
-          // Check vital values
-          const vitals = await vitalService.getVitals(user.uid);
-          for (const vital of vitals) {
-            const values = await vitalService.getVitalValues(vital.id);
+          // Process vital values (only if we haven't found multiple dates yet)
+          if (uniqueDates.size < 2) {
+            for (let i = 0; i < vitals.length; i++) {
+              const values = allVitalValues[i] || [];
             for (const value of values) {
               if (value.documentId === document.id && value.date) {
                 let dateObj = null;
                 if (value.date?.toDate) {
                   const firestoreDate = value.date.toDate();
-                  // Use local date components to normalize to day-level
                   dateObj = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
                 } else if (value.date instanceof Date) {
                   dateObj = new Date(value.date.getFullYear(), value.date.getMonth(), value.date.getDate());
@@ -80,6 +111,15 @@ export default function RescanDocumentModal({
                   uniqueDates.add(dateStr);
                   if (!minDate || dateObj < minDate) minDate = dateObj;
                   if (!maxDate || dateObj > maxDate) maxDate = dateObj;
+                    
+                    // OPTIMIZATION: Early exit if we find 2+ dates
+                    if (uniqueDates.size >= 2) {
+                      setHasMultipleDates(true);
+                      setDateRange({ min: minDate, max: maxDate });
+                      setIsCheckingDates(false);
+                      return;
+                    }
+                  }
                 }
               }
             }
@@ -107,7 +147,7 @@ export default function RescanDocumentModal({
   useEffect(() => {
     if (document) {
       
-      // Format date for input[type="date"]
+      // Format date for input[type="date"] - use local timezone to avoid one-day shift
       let dateValue = '';
       if (document.date) {
         if (typeof document.date === 'string') {
@@ -115,27 +155,46 @@ export default function RescanDocumentModal({
           if (/^\d{4}-\d{2}-\d{2}$/.test(document.date)) {
             dateValue = document.date;
           } else {
-            // Try to parse other string formats
+            // Try to parse other string formats using local date parsing
             try {
-              const d = new Date(document.date);
+              const d = parseLocalDate(document.date);
               if (!isNaN(d.getTime())) {
-                dateValue = d.toISOString().split('T')[0];
+                // Format as YYYY-MM-DD using local date components
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                dateValue = `${year}-${month}-${day}`;
               }
             } catch (e) {
             }
           }
         } else if (document.date.toDate) {
-          // If it's a Firestore Timestamp, convert to Date then to string
-          dateValue = document.date.toDate().toISOString().split('T')[0];
+          // If it's a Firestore Timestamp, convert to Date then format using local timezone
+          const d = parseLocalDate(document.date.toDate());
+          if (!isNaN(d.getTime())) {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            dateValue = `${year}-${month}-${day}`;
+          }
         } else if (document.date instanceof Date) {
-          // If it's a Date object, convert to string
-          dateValue = document.date.toISOString().split('T')[0];
+          // If it's a Date object, format using local timezone
+          const d = parseLocalDate(document.date);
+          if (!isNaN(d.getTime())) {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            dateValue = `${year}-${month}-${day}`;
+          }
         } else {
-          // Try to parse as Date
+          // Try to parse as Date using local date parsing
           try {
-            const d = new Date(document.date);
+            const d = parseLocalDate(document.date);
             if (!isNaN(d.getTime())) {
-              dateValue = d.toISOString().split('T')[0];
+              const year = d.getFullYear();
+              const month = String(d.getMonth() + 1).padStart(2, '0');
+              const day = String(d.getDate()).padStart(2, '0');
+              dateValue = `${year}-${month}-${day}`;
             }
           } catch (e) {
             dateValue = '';
@@ -164,7 +223,8 @@ export default function RescanDocumentModal({
   const handleConfirm = () => {
     onConfirm({
       date: editedDate || null,
-      note: editedNote || null
+      note: editedNote || null,
+      onlyExistingMetrics
     });
   };
 
@@ -257,6 +317,27 @@ export default function RescanDocumentModal({
             <p className={combineClasses(DesignTokens.typography.body.xs, 'mt-1', DesignTokens.colors.neutral.text[500])}>
               {editedNote.length}/200 characters
             </p>
+          </div>
+
+          {/* Extract Only Existing Metrics Option */}
+          <div className={combineClasses(DesignTokens.spacing.card.mobile, DesignTokens.borders.width.default, DesignTokens.borders.radius.sm, DesignTokens.colors.neutral[50], DesignTokens.colors.neutral.border[200])}>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={onlyExistingMetrics}
+                onChange={(e) => setOnlyExistingMetrics(e.target.checked)}
+                disabled={isProcessing}
+                className={combineClasses('mt-1', DesignTokens.components.input.checkbox)}
+              />
+              <div className="flex-1">
+                <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-1', DesignTokens.colors.neutral.text[900])}>
+                  Extract only metrics that exist in my profile
+                </p>
+                <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.neutral.text[600])}>
+                  Only extract lab values and vitals that you've already added to your health profile. This helps avoid creating duplicate entries for tests you don't track.
+                </p>
+              </div>
+            </label>
           </div>
         </div>
 

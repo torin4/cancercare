@@ -8,7 +8,7 @@ import {
 } from 'firebase/storage';
 import { storage } from './config';
 import { documentService } from './services';
-import { parseLocalDate } from '../utils/helpers';
+import { parseLocalDate, getTodayLocalDate } from '../utils/helpers';
 import { 
   validateFile, 
   sanitizeFilename, 
@@ -42,12 +42,19 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
     const providedDate = (metadata.date && typeof metadata.date === 'string' && metadata.date.trim() !== '') 
       ? metadata.date.trim() 
       : (metadata.date || null);
-    const documentDate = providedDate 
-      ? parseLocalDate(providedDate)
-      : parseLocalDate(new Date().toISOString().split('T')[0]);
     
-    // Format date as YYYY-MM-DD for filename
-    const dateStr = documentDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    // Format date as YYYY-MM-DD for filename (use local timezone, not UTC)
+    let dateStr;
+    if (providedDate) {
+      // If date is provided, use it directly (already in YYYY-MM-DD format)
+      dateStr = providedDate;
+    } else {
+      // Use today's date in local timezone
+      dateStr = getTodayLocalDate();
+    }
+    
+    // Parse the date string for Firestore storage (use local date parsing)
+    const documentDate = parseLocalDate(dateStr);
     
     // SECURITY: Sanitize original filename
     const originalName = sanitizeFilename(file.name || 'document');
@@ -250,9 +257,9 @@ export const downloadFileAsBlob = async (storagePath, existingUrl = null, userId
   
   
   try {
-    // Add timeout to fetch request (60 seconds for large files)
+    // Increase timeout for large files (120 seconds)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
     
     const response = await fetch(proxyUrl, {
       method: 'GET',
@@ -273,14 +280,14 @@ export const downloadFileAsBlob = async (storagePath, existingUrl = null, userId
     
     return await response.blob();
   } catch (proxyError) {
-    
-    // Provide clear error message based on the type of failure
+    // Note: Direct Firebase SDK download (getBytes) doesn't work in browsers due to CORS
+    // The proxy is required for browser-based downloads
     const proxyInfo = proxyBaseUrl
       ? `Cannot connect to proxy server at ${proxyBaseUrl}. Please ensure the proxy server is running.`
       : 'Cannot connect to proxy. For localhost: run "npm run start:proxy" in a separate terminal. For production: ensure Vercel serverless functions are deployed.';
     
     if (proxyError.name === 'AbortError' || proxyError.message.includes('timeout') || proxyError.message.includes('504')) {
-      throw new Error(`Proxy request timed out. The file may be too large or the proxy server is slow. ${proxyInfo}`);
+      throw new Error(`Download failed: Proxy request timed out after 120 seconds. The file may be too large or the proxy server is slow. ${proxyInfo}`);
     }
     
     if (proxyError.message.includes('Failed to fetch') || proxyError.message.includes('NetworkError')) {

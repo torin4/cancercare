@@ -11,8 +11,9 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Import and use the trials-proxy serverless function
+// Import and use the serverless functions
 const trialsProxy = require('../api/trials-proxy');
+const storageProxy = require('../api/storage-proxy');
 
 app.get('/api/jrct-proxy/*', async (req, res) => {
   try {
@@ -35,6 +36,66 @@ app.get('/api/jrct-proxy/*', async (req, res) => {
       return;
     }
     res.status(502).json({ error: 'JRCT proxy error', message: error.message });
+  }
+});
+
+// Handle storage-proxy endpoint
+app.all('/api/storage-proxy', async (req, res) => {
+  // Convert Express request to serverless function format
+  const protocol = req.protocol || 'http';
+  const host = req.get('host') || 'localhost:4000';
+  const fullUrl = `${protocol}://${host}${req.originalUrl || req.url}`;
+  
+  const serverlessReq = {
+    method: req.method,
+    url: fullUrl,
+    query: req.query,
+    headers: req.headers,
+    body: req.body
+  };
+  
+  // Create a mock response object that properly handles the serverless function format
+  let responseSent = false;
+  const serverlessRes = {
+    statusCode: 200,
+    headers: {},
+    setHeader: (key, value) => {
+      res.setHeader(key, value);
+    },
+    status: (code) => {
+      serverlessRes.statusCode = code;
+      return serverlessRes;
+    },
+    json: (data) => {
+      if (!responseSent) {
+        responseSent = true;
+        res.status(serverlessRes.statusCode).json(data);
+      }
+    },
+    send: (data) => {
+      if (!responseSent) {
+        responseSent = true;
+        res.status(serverlessRes.statusCode).send(data);
+      }
+    },
+    end: () => {
+      if (!responseSent) {
+        responseSent = true;
+        res.status(serverlessRes.statusCode).end();
+      }
+    }
+  };
+  
+  try {
+    await storageProxy(serverlessReq, serverlessRes);
+    // If no response was sent, send a default response
+    if (!responseSent) {
+      res.status(500).json({ error: 'No response from storage-proxy function' });
+    }
+  } catch (error) {
+    if (!responseSent) {
+      res.status(500).json({ error: 'Internal server error', message: error.message });
+    }
   }
 });
 
@@ -98,7 +159,8 @@ app.get('/', (req, res) => {
     message: 'Proxy server is running',
     endpoints: {
       jrct: '/api/jrct-proxy/*',
-      trials: '/api/trials-proxy'
+      trials: '/api/trials-proxy',
+      storage: '/api/storage-proxy'
     }
   });
 });

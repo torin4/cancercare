@@ -56,11 +56,11 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Invalid URL format' });
     }
 
-    // Increase timeout for large files (up to 60 seconds for Vercel Pro, 10s for free tier)
+    // Increase timeout for large files (up to 120 seconds)
     // For large files, we'll stream the response
     const response = await axios.get(fileUrl, {
       responseType: 'arraybuffer',
-      timeout: 60000, // 60 seconds for large files
+      timeout: 120000, // 120 seconds for large files (Vercel Pro allows up to 60s, but we set higher for local dev)
       maxContentLength: Infinity,
       maxBodyLength: Infinity,
       maxRedirects: 3, // Limit redirects to prevent redirect attacks
@@ -102,6 +102,14 @@ module.exports = async (req, res) => {
     res.setHeader('Expires', '0');
     res.send(Buffer.from(response.data));
   } catch (error) {
+    // Handle timeout errors specifically
+    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+      return res.status(504).json({ 
+        error: 'Gateway Timeout', 
+        message: 'The file download timed out. The file may be too large or the connection is slow. Try again or contact support if the issue persists.' 
+      });
+    }
+    
     if (error.response) {
       res.status(error.response.status).json({ error: error.message, details: error.response.data });
       return;

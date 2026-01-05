@@ -129,8 +129,10 @@ export const labService = {
     if (labData.id) {
       // Update existing
       const docRef = doc(db, COLLECTIONS.LABS, labData.id);
+      // Remove id from update data (Firestore doesn't allow updating document ID)
+      const { id, ...updateData } = labData;
       await updateDoc(docRef, {
-        ...labData,
+        ...updateData,
         updatedAt: serverTimestamp()
       });
       return labData.id;
@@ -319,101 +321,130 @@ export const labService = {
       return;
     }
 
-    // First, try to find the value in the provided labId
-    let valueRef = doc(db, COLLECTIONS.LABS, labId, 'values', valueId);
-    let valueDoc = await getDoc(valueRef);
-    let actualLabId = labId;
+    // Get the lab document first to find its labType
+    const labRef = doc(db, COLLECTIONS.LABS, labId);
+    const labDoc = await getDoc(labRef);
     
-    // If value not found in provided labId, search through all labs with same type
-    // This handles the case where multiple lab documents have the same labType
-    if (!valueDoc.exists()) {
-      
-      // Get the lab document to find its labType
-      const labRef = doc(db, COLLECTIONS.LABS, labId);
-      const labDoc = await getDoc(labRef);
-      
-      if (!labDoc.exists()) {
-        throw new Error('Lab document not found');
-      }
+    if (!labDoc.exists()) {
+      throw new Error('Lab document not found');
+    }
 
-      const labData = labDoc.data();
-      if (labData.patientId !== currentUser.uid) {
-        throw new Error(`Permission denied: You don't have permission to delete this value.`);
-      }
+    const labData = labDoc.data();
+    if (labData.patientId !== currentUser.uid) {
+      throw new Error(`Permission denied: You don't have permission to delete this value.`);
+    }
+    
+    const labType = labData.labType;
+    
+    // CRITICAL: Get ALL labs for this user and filter by normalized labType
+    // This handles cases where different labType values normalize to the same key
+    // (e.g., "hba1c", "hemoglobina1c", "Hemoglobin A1c" all normalize to "hba1c")
+    const { normalizeLabName } = await import('../utils/normalizationUtils');
+    const normalizedLabType = normalizeLabName(labType) || normalizeLabName(labData.label) || labType.toLowerCase();
+    
+    // Get all labs for this user
+    const allUserLabsQuery = query(
+      collection(db, COLLECTIONS.LABS),
+      where('patientId', '==', currentUser.uid)
+    );
+    const allUserLabsSnapshot = await getDocs(allUserLabsQuery);
+    
+    // Filter labs that normalize to the same key
+    const matchingLabs = allUserLabsSnapshot.docs.filter(doc => {
+      const docData = doc.data();
+      const docNormalizedType = normalizeLabName(docData.labType) || normalizeLabName(docData.label) || docData.labType?.toLowerCase();
+      return docNormalizedType === normalizedLabType;
+    });
+    
+    console.log(`deleteLabValue: Found ${matchingLabs.length} lab document(s) with normalized type ${normalizedLabType} (original: ${labType}), searching for value ${valueId}`);
+    
+    const deletedFromLabs = [];
+    
+    // Delete the value from ALL lab documents with the same normalized type
+    for (const labDocSnap of matchingLabs) {
+      const testLabId = labDocSnap.id;
+      const testLabData = labDocSnap.data();
+      const testValueRef = doc(db, COLLECTIONS.LABS, testLabId, 'values', valueId);
+      const testValueDoc = await getDoc(testValueRef);
       
-      const labType = labData.labType;
+      console.log(`deleteLabValue: Checking lab ${testLabId} (type: ${testLabData.labType}, label: ${testLabData.label}), value exists: ${testValueDoc.exists()}`);
       
-      // Find all labs with the same type for this user
-      const q = query(
-        collection(db, COLLECTIONS.LABS),
-        where('patientId', '==', currentUser.uid),
-        where('labType', '==', labType)
-      );
-      const allLabsSnapshot = await getDocs(q);
-      
-      // Search through all labs with same type to find which one contains this value
-      for (const labDocSnap of allLabsSnapshot.docs) {
-        const testLabId = labDocSnap.id;
-        const testValueRef = doc(db, COLLECTIONS.LABS, testLabId, 'values', valueId);
-        const testValueDoc = await getDoc(testValueRef);
+      if (testValueDoc.exists()) {
+        console.log(`deleteLabValue: Found value ${valueId} in lab ${testLabId}, deleting...`);
+        await deleteDoc(testValueRef);
+        deletedFromLabs.push(testLabId);
         
-        if (testValueDoc.exists()) {
-          actualLabId = testLabId;
-          valueRef = testValueRef;
-          valueDoc = testValueDoc;
-          break;
+        // Update that lab's currentValue
+        const testLabRef = doc(db, COLLECTIONS.LABS, testLabId);
+        const testRemainingValues = await getDocs(query(collection(db, COLLECTIONS.LABS, testLabId, 'values')));
+        if (testRemainingValues.empty) {
+          await updateDoc(testLabRef, {
+            currentValue: null,
+            updatedAt: serverTimestamp()
+          });
+          console.log(`deleteLabValue: Cleared currentValue for lab ${testLabId} (no values left)`);
+        } else {
+          const mostRecentValue = testRemainingValues.docs[0].data();
+          await updateDoc(testLabRef, {
+            currentValue: mostRecentValue.value,
+            updatedAt: serverTimestamp()
+          });
+          console.log(`deleteLabValue: Updated currentValue for lab ${testLabId} to ${mostRecentValue.value}`);
+        }
+      } else {
+        // Value not found in this lab - let's check what values actually exist
+        const allValuesInLab = await getDocs(query(collection(db, COLLECTIONS.LABS, testLabId, 'values')));
+        const existingValueIds = allValuesInLab.docs.map(d => d.id);
+        console.log(`deleteLabValue: Lab ${testLabId} has ${allValuesInLab.size} values with IDs:`, existingValueIds);
+        console.log(`deleteLabValue: Looking for value ID: ${valueId}, but found:`, existingValueIds);
+        
+        // If the value ID doesn't match but there's only one value, it's likely the one we want
+        // This handles cases where the UI has a stale/transformed ID
+        if (allValuesInLab.size === 1 && !existingValueIds.includes(valueId)) {
+          const actualValueId = existingValueIds[0];
+          const actualValueDoc = allValuesInLab.docs[0];
+          const actualValueData = actualValueDoc.data();
+          console.log(`deleteLabValue: Found single value with different ID ${actualValueId}, value: ${actualValueData.value}, date: ${actualValueData.date}`);
+          console.log(`deleteLabValue: Deleting value ${actualValueId} instead of ${valueId} (ID mismatch)`);
+          
+          // Delete the actual value
+          await deleteDoc(actualValueDoc.ref);
+          deletedFromLabs.push(testLabId);
+          
+          // Clear currentValue since this was the only value
+          const testLabRef = doc(db, COLLECTIONS.LABS, testLabId);
+          await updateDoc(testLabRef, {
+            currentValue: null,
+            updatedAt: serverTimestamp()
+          });
+          console.log(`deleteLabValue: Cleared currentValue for lab ${testLabId} (deleted only value)`);
         }
       }
-      
-      // If still not found, it may have already been deleted
-      if (!valueDoc.exists()) {
-        return; // Don't throw - value may have already been deleted
-      }
-    } else {
-      // Value found in provided labId, verify ownership
-      const labRef = doc(db, COLLECTIONS.LABS, labId);
-      const labDoc = await getDoc(labRef);
-      
-      if (!labDoc.exists()) {
-        throw new Error('Lab document not found');
-      }
-
-      const labData = labDoc.data();
-      if (!labData.patientId) {
-        throw new Error('Lab document missing patientId');
-      }
-
-      // Verify the current user owns this lab
-      if (labData.patientId !== currentUser.uid) {
-        throw new Error(`Permission denied: You don't have permission to delete this value. Lab belongs to user ${labData.patientId}, but you are ${currentUser.uid}`);
-      }
     }
-
-    // Log before deletion
-    const valueData = valueDoc.data();
-    const actualLabRef = doc(db, COLLECTIONS.LABS, actualLabId);
-    const actualLabDoc = await getDoc(actualLabRef);
-    const actualLabData = actualLabDoc.data();
     
-    
-    // Delete the value
-    await deleteDoc(valueRef);
-    
-    // Check if this was the last value - if so, clear currentValue to prevent it from reappearing
-    const remainingValues = await getDocs(query(collection(db, COLLECTIONS.LABS, actualLabId, 'values')));
-    
-    if (remainingValues.empty) {
-      // Clear currentValue so transform functions don't use it as a fallback
-      await updateDoc(actualLabRef, {
-        currentValue: null,
-        updatedAt: serverTimestamp()
-      });
-      
-      // Verify it was cleared
-      const updatedLabDoc = await getDoc(actualLabRef);
-      const updatedLabData = updatedLabDoc.data();
-    } else {
+    if (deletedFromLabs.length > 0) {
+      console.log(`deleteLabValue: Successfully deleted value ${valueId} from ${deletedFromLabs.length} lab document(s): ${deletedFromLabs.join(', ')}`);
+      return;
     }
+    
+    // If value wasn't found in any lab document, check if it's a fallback value (lab.id as valueId)
+    if (valueId === labId) {
+      // This is a fallback value, just clear currentValue from all labs with this normalized type
+      for (const labDocSnap of matchingLabs) {
+        const testLabId = labDocSnap.id;
+        const testLabRef = doc(db, COLLECTIONS.LABS, testLabId);
+        await updateDoc(testLabRef, {
+          currentValue: null,
+          updatedAt: serverTimestamp()
+        });
+      }
+      console.log(`deleteLabValue: Cleared currentValue for fallback value ${valueId} from all ${matchingLabs.length} lab document(s)`);
+      return;
+    }
+    
+    // Value not found anywhere - may have already been deleted
+    console.log(`deleteLabValue: Value ${valueId} not found in any lab document with type ${labType}, may have already been deleted`);
+    return;
   },
 
   // Delete all labs of a specific type for a patient
@@ -1245,8 +1276,10 @@ export const documentService = {
     
     if (documentData.id) {
       const docRef = doc(db, COLLECTIONS.DOCUMENTS, documentData.id);
+      // Remove 'id' from dataToSave as it's not a Firestore field
+      const { id, ...updateData } = dataToSave;
       await updateDoc(docRef, {
-        ...dataToSave,
+        ...updateData,
         updatedAt: serverTimestamp()
       });
       return documentData.id;

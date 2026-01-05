@@ -409,21 +409,36 @@ export const shouldMergeLabNames = (name1, name2) => {
 
 // Get display name for a lab (canonical key or raw name)
 export const getLabDisplayName = (labKeyOrName) => {
-  // First try to normalize
+  if (!labKeyOrName) return 'Unknown Lab';
+  
+  // If the input is already a well-formatted display name (starts with capital, has proper spacing),
+  // and it's not a canonical key, prefer to use it as-is to preserve original labels like "HGB"
+  const str = labKeyOrName.toString().trim();
+  
+  // Check if it looks like a display name (has capital letters, not all lowercase)
+  const looksLikeDisplayName = /^[A-Z]/.test(str) && str !== str.toLowerCase();
+  
+  // First try to normalize to see if it maps to a canonical key
   const canonicalKey = normalizeLabName(labKeyOrName);
+  
+  // If it normalizes to a canonical key, check if the original is already a good display name
+  // For cases like "HGB" -> "hemoglobin", we want to preserve "HGB" if it's the original label
   if (canonicalKey && labDisplayNames[canonicalKey]) {
+    // If the original looks like a display name and is different from the normalized display name,
+    // prefer the original (e.g., "HGB" should stay "HGB", not become "Hemoglobin")
+    if (looksLikeDisplayName && str !== labDisplayNames[canonicalKey]) {
+      // But only if it's a reasonable length and format (not too long, has proper casing)
+      if (str.length <= 20 && /^[A-Z][A-Z0-9\-\s]*$/.test(str)) {
+        return str;
+      }
+    }
     return labDisplayNames[canonicalKey];
   }
   
   // If no canonical key found, return title case of original
-  if (labKeyOrName) {
-    const str = labKeyOrName.toString();
     return str.split(/[\s\-_]/).map(word => 
     word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
     ).join(' ');
-  }
-  
-  return labKeyOrName || 'Unknown Lab';
   };
 
 // Lab value descriptions - using ONLY canonical keys

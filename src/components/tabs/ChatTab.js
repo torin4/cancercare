@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare } from 'lucide-react';
+import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
@@ -234,8 +234,11 @@ export default function ChatTab({ onTabChange }) {
   // Chat state
   const [messages, setMessages] = useState([]);
   const [chatHistoryLoaded, setChatHistoryLoaded] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchActive, setIsSearchActive] = useState(false);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const searchInputRef = useRef(null);
   const [inputText, setInputText] = useState('');
   const [currentTrialContext, setCurrentTrialContext] = useState(null);
   const [currentHealthContext, setCurrentHealthContext] = useState(null);
@@ -829,7 +832,8 @@ export default function ChatTab({ onTabChange }) {
         }
       }
 
-      setUploadProgress('Saving extracted data...');
+      // Don't set generic "Saving extracted data" - let the specific aiStatus messages show instead
+      // setUploadProgress('Saving extracted data...');
 
       // Step 4: Add to local documents state
       // Use user-provided date or today
@@ -925,48 +929,129 @@ export default function ChatTab({ onTabChange }) {
     <>
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-6 pb-2 sm:pb-3">
-          <div className="mb-4 sm:mb-6 flex items-center justify-between gap-2 sm:gap-3">
-            <div className={Layouts.header}>
+        <div className={combineClasses(
+          DesignTokens.spacing.container.mobile,
+          'sm:px-4 md:px-6',
+          'py-2 sm:py-3',
+          'border-b',
+          DesignTokens.borders.color.default,
+          'flex items-center'
+        )}>
+          <div className={combineClasses('flex items-center justify-between w-full', DesignTokens.spacing.gap.sm)}>
+            <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'sm:gap-3')}>
               <div className={Layouts.headerIcon}>
                 <MessageSquare className={DesignTokens.components.header.icon} />
               </div>
               <div>
-                <h1 className={Layouts.headerTitle}>Chat</h1>
+                <h1 className={combineClasses(DesignTokens.components.header.title, 'mb-0')}>Chat</h1>
               </div>
             </div>
-            {messages.length > 0 && (
-              <button
-                onClick={async () => {
-                  if (!user) return;
-                  if (window.confirm('Are you sure you want to clear all chat history? This will remove the conversation but keep your health data context. This cannot be undone.')) {
-                    try {
-                      await messageService.deleteAllMessages(user.uid);
-                      setMessages([]);
-                      // Don't clear health/trial contexts - those represent the user's actual data, not conversation history
-                      // The AI can still access health data and trials from the database when needed
-                      setChatHistoryLoaded(false);
-                      showSuccess('Chat history cleared');
-                    } catch (error) {
-                      showError('Error clearing chat history. Please try again.');
-                    }
-                  }
-                }}
-                className="text-medical-neutral-500 hover:text-medical-neutral-700 text-xs sm:text-sm flex items-center gap-1.5 transition-colors min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70"
-                title="Clear chat history"
-              >
-                <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Clear History</span>
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {messages.length > 0 && (
+                <>
+                  <button
+                    onClick={() => {
+                      if (isSearchActive) {
+                        setSearchQuery('');
+                        setIsSearchActive(false);
+                      } else {
+                        setIsSearchActive(true);
+                        setTimeout(() => searchInputRef.current?.focus(), 100);
+                      }
+                    }}
+                    className={combineClasses('text-medical-neutral-500 hover:text-medical-neutral-700 transition-colors min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70 flex items-center justify-center', isSearchActive ? 'text-medical-primary-600' : '')}
+                    title={isSearchActive ? "Close search" : "Search chats"}
+                  >
+                    <Search className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!user) return;
+                      if (window.confirm('Are you sure you want to clear all chat history? This will remove the conversation but keep your health data context. This cannot be undone.')) {
+                        try {
+                          await messageService.deleteAllMessages(user.uid);
+                          setMessages([]);
+                          // Don't clear health/trial contexts - those represent the user's actual data, not conversation history
+                          // The AI can still access health data and trials from the database when needed
+                          setChatHistoryLoaded(false);
+                          showSuccess('Chat history cleared');
+                        } catch (error) {
+                          showError('Error clearing chat history. Please try again.');
+                        }
+                      }
+                    }}
+                    className="text-medical-neutral-500 hover:text-medical-neutral-700 text-xs sm:text-sm flex items-center gap-1.5 transition-colors min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70"
+                    title="Clear chat history"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span className="hidden sm:inline">Clear History</span>
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
+        {/* Search Bar */}
+        {isSearchActive && (
+          <div className={combineClasses(
+            DesignTokens.spacing.container.mobile,
+            'sm:px-4 md:px-6',
+            'py-3',
+            'border-b',
+            DesignTokens.borders.color.default,
+            'bg-white'
+          )}>
+            <div className={combineClasses('flex items-center', 'w-full px-3 py-1.5 border border-medical-neutral-200 rounded-xl focus-within:ring-2 focus-within:ring-offset-0 focus-within:ring-medical-primary-500 focus-within:border-medical-primary-500 transition-all duration-200')}>
+              <Search className="w-4 h-4 text-medical-neutral-400 flex-shrink-0" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search chats..."
+                className="flex-1 bg-transparent border-0 outline-0 text-sm px-2"
+                autoFocus
+              />
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setIsSearchActive(false);
+                }}
+                className="text-medical-neutral-400 hover:text-medical-neutral-600 transition-colors flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
+                title="Close search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
         <div 
           ref={messagesContainerRef}
           className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 sm:space-y-3"
         >
-          {messages.map((msg, idx) => (
-            <div key={idx} className={`flex items-start gap-2 sm:gap-3 ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+          {(() => {
+            const filteredMessages = searchQuery.trim() 
+              ? messages.filter(msg => 
+                  msg.text.toLowerCase().includes(searchQuery.toLowerCase())
+                )
+              : messages;
+            
+            if (searchQuery.trim() && filteredMessages.length === 0) {
+              return (
+                <div className="flex items-center justify-center h-full text-medical-neutral-500">
+                  <div className="text-center">
+                    <Search className="w-12 h-12 mx-auto mb-3 text-medical-neutral-300" />
+                    <p className="text-sm">No messages found matching "{searchQuery}"</p>
+                  </div>
+                </div>
+              );
+            }
+            
+            return filteredMessages.map((msg, idx) => {
+            // Find original index for key
+            const originalIdx = messages.indexOf(msg);
+            return (
+            <div key={originalIdx} className={`flex items-start gap-2 sm:gap-3 ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
               {msg.type === 'ai' && (
                 <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-medical-primary-500 to-medical-accent-500 flex items-center justify-center shadow-sm">
                   <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
@@ -1161,7 +1246,9 @@ export default function ChatTab({ onTabChange }) {
                 </div>
               )}
             </div>
-          ))}
+            );
+            });
+          })()}
           
           {/* Loading indicator when bot is processing */}
           {isBotProcessing && (
