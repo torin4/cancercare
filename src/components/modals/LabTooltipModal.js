@@ -24,22 +24,22 @@ export default function LabTooltipModal({ show, labTooltip, onClose }) {
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between mb-3">
-          <h3 className={combineClasses('text-lg font-bold pr-2', DesignTokens.colors.neutral.text[900])}>{labTooltip.labName}</h3>
+        <div className={combineClasses('flex items-start justify-between', DesignTokens.spacing.gap.md)}>
+          <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, 'pr-2', DesignTokens.colors.neutral.text[900])}>{labTooltip.labName}</h3>
           <button
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               onClose();
             }}
-            className={combineClasses('p-2 -mr-2 transition-colors flex-shrink-0 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center', DesignTokens.components.modal.closeButton)}
+            className={combineClasses('p-2 -mr-2', DesignTokens.transitions.default, 'flex-shrink-0', DesignTokens.spacing.touchTarget, 'flex items-center justify-center', DesignTokens.components.modal.closeButton)}
             aria-label="Close"
             type="button"
           >
-            <X className="w-5 h-5" />
+            <X className={DesignTokens.icons.button.size.full} />
           </button>
         </div>
-        <p className={combineClasses('text-sm leading-relaxed', DesignTokens.colors.neutral.text[700])}>{labTooltip.description}</p>
+        <p className={combineClasses(DesignTokens.typography.body.sm, 'leading-relaxed', DesignTokens.colors.neutral.text[700])}>{labTooltip.description}</p>
       </div>
     </>
   );

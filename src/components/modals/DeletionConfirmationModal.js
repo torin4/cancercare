@@ -39,36 +39,36 @@ export default function DeletionConfirmationModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl animate-fade-scale">
-        <div className={combineClasses('w-12 h-12 rounded-full flex items-center justify-center mb-4 mx-auto', DesignTokens.components.status.high.bg)}>
-          <AlertCircle className={combineClasses('', DesignTokens.components.status.high.icon)} size={24} />
+    <div className={combineClasses(DesignTokens.components.modal.backdrop, 'z-[101] animate-in fade-in duration-200')}>
+      <div className={combineClasses('bg-white', DesignTokens.borders.radius.lg, 'max-w-sm w-full', DesignTokens.spacing.card.desktop, DesignTokens.shadows.lg, 'animate-fade-scale')}>
+        <div className={combineClasses('w-12 h-12', DesignTokens.borders.radius.full, 'flex items-center justify-center', DesignTokens.spacing.header.mobile, 'mx-auto', DesignTokens.components.status.high.bg)}>
+          <AlertCircle className={combineClasses(DesignTokens.components.status.high.icon)} size={24} />
         </div>
 
-        <h3 className={combineClasses('text-lg font-bold text-center mb-2', DesignTokens.colors.neutral.text[900])}>
+        <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, 'text-center mb-2', DesignTokens.colors.neutral.text[900])}>
           {getTitle()}
         </h3>
 
-        <p className={combineClasses('text-sm text-center mb-6', DesignTokens.colors.neutral.text[600])}>
+        <p className={combineClasses(DesignTokens.typography.body.sm, 'text-center', DesignTokens.spacing.header.mobile, DesignTokens.colors.neutral.text[600])}>
           {getMessage()}
           <br />
-          <span className={combineClasses('font-bold mt-2 block', DesignTokens.components.alert.text.error)}>This action is irreversible.</span>
+          <span className={combineClasses(DesignTokens.typography.h3.weight, 'mt-2 block', DesignTokens.components.alert.text.error)}>This action is irreversible.</span>
         </p>
 
-        <div className="flex flex-col gap-3">
+        <div className={combineClasses('flex flex-col', DesignTokens.spacing.gap.md)}>
           <button
             onClick={onConfirm}
             disabled={isDeleting}
-            className={combineClasses('w-full py-3 rounded-xl font-bold text-white transition-all shadow-lg flex items-center justify-center gap-2', isDeleting ? DesignTokens.colors.neutral[300] : `${DesignTokens.components.status.high.text.replace('text-', 'bg-').replace('600', '600')} ${DesignTokens.components.status.high.text.replace('text-', 'hover:bg-').replace('600', '700')} active:scale-[0.98]`)}
+            className={combineClasses('w-full py-3', DesignTokens.borders.radius.md, DesignTokens.typography.h2.weight, 'text-white', DesignTokens.transitions.all, DesignTokens.shadows.lg, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, isDeleting ? DesignTokens.colors.neutral[300] : `${DesignTokens.components.status.high.text.replace('text-', 'bg-').replace('600', '600')} ${DesignTokens.components.status.high.text.replace('text-', 'hover:bg-').replace('600', '700')} active:scale-[0.98]`)}
           >
             {isDeleting ? (
               <>
-                <Activity className="w-4 h-4 animate-spin" />
+                <Activity className={combineClasses(DesignTokens.icons.standard.size.full, 'animate-spin')} />
                 Processing...
               </>
             ) : (
               <>
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className={DesignTokens.icons.standard.size.full} />
                 {confirmText}
               </>
             )}
@@ -76,9 +76,9 @@ export default function DeletionConfirmationModal({
           <button
             onClick={onClose}
             disabled={isDeleting}
-            className={combineClasses('w-full py-3 rounded-xl font-bold transition flex items-center justify-center gap-2', DesignTokens.colors.neutral.text[700], DesignTokens.colors.neutral[100].replace('bg-', 'hover:bg-'))}
+            className={combineClasses('w-full py-3', DesignTokens.borders.radius.md, DesignTokens.typography.h2.weight, DesignTokens.transitions.default, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, DesignTokens.colors.neutral.text[700], DesignTokens.colors.neutral[100].replace('bg-', 'hover:bg-'))}
           >
-            <X className="w-4 h-4" />
+            <X className={DesignTokens.icons.standard.size.full} />
             Cancel
           </button>
         </div>

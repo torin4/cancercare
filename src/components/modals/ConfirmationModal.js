@@ -19,29 +19,29 @@ export default function ConfirmationModal({
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl animate-fade-scale">
-        <div className={`w-12 h-12 ${iconBgColor} rounded-full flex items-center justify-center mb-4 mx-auto`}>
+    <div className={combineClasses(DesignTokens.components.modal.backdrop, 'z-[101] animate-in fade-in duration-200')}>
+      <div className={combineClasses('bg-white', DesignTokens.borders.radius.lg, 'max-w-sm w-full', DesignTokens.spacing.card.desktop, DesignTokens.shadows.lg, 'animate-fade-scale')}>
+        <div className={combineClasses('w-12 h-12', iconBgColor, DesignTokens.borders.radius.full, 'flex items-center justify-center', DesignTokens.spacing.header.mobile, 'mx-auto')}>
           <Icon className={iconColor} size={24} />
         </div>
 
-        <h3 className={combineClasses('text-lg font-bold text-center mb-2', DesignTokens.colors.neutral.text[900])}>
+        <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, 'text-center mb-2', DesignTokens.colors.neutral.text[900])}>
           {title}
         </h3>
 
-        <p className={combineClasses('text-sm text-center mb-6', DesignTokens.colors.neutral.text[600])}>
+        <p className={combineClasses(DesignTokens.typography.body.sm, 'text-center', DesignTokens.spacing.header.mobile, DesignTokens.colors.neutral.text[600])}>
           {message}
         </p>
 
-        <div className="flex flex-col gap-3">
+        <div className={combineClasses('flex flex-col', DesignTokens.spacing.gap.md)}>
           <button
             onClick={onConfirm}
             disabled={isProcessing}
-            className={combineClasses('w-full py-3 rounded-xl font-bold text-white transition-all shadow-lg flex items-center justify-center gap-2', isProcessing ? DesignTokens.colors.neutral[300] : `${confirmButtonColor} active:scale-[0.98]`)}
+            className={combineClasses('w-full py-3', DesignTokens.borders.radius.md, DesignTokens.typography.h2.weight, 'text-white', DesignTokens.transitions.all, DesignTokens.shadows.lg, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, isProcessing ? DesignTokens.colors.neutral[300] : `${confirmButtonColor} active:scale-[0.98]`)}
           >
             {isProcessing ? (
               <>
-                <Activity className="w-4 h-4 animate-spin" />
+                <Activity className={combineClasses(DesignTokens.icons.standard.size.full, 'animate-spin')} />
                 Processing...
               </>
             ) : (
@@ -51,9 +51,9 @@ export default function ConfirmationModal({
           <button
             onClick={onClose}
             disabled={isProcessing}
-            className={combineClasses('w-full py-3 rounded-xl font-bold transition flex items-center justify-center gap-2', DesignTokens.colors.neutral.text[700], DesignTokens.colors.neutral[100].replace('bg-', 'hover:bg-'))}
+            className={combineClasses('w-full py-3', DesignTokens.borders.radius.md, DesignTokens.typography.h2.weight, DesignTokens.transitions.default, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, DesignTokens.colors.neutral.text[700], DesignTokens.colors.neutral[100].replace('bg-', 'hover:bg-'))}
           >
-            <X className="w-4 h-4" />
+            <X className={DesignTokens.icons.standard.size.full} />
             {cancelText}
           </button>
         </div>
