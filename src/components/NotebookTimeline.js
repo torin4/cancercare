@@ -68,13 +68,13 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
               return (
                 <div
                   key={entry.dateKey}
-                  className="relative pl-8 pb-3 border-l-2 border-medical-primary-300 last:border-transparent last:pb-0"
+                  className="relative pl-8 pb-3 border-l-2 border-yellow-300 last:border-transparent last:pb-0"
                 >
                   {/* Timeline Dot */}
-                  <div className="absolute left-0 top-0 w-4 h-4 rounded-full border-2 bg-medical-primary-500 border-medical-primary-200 -ml-[9px]" />
+                  <div className="absolute left-0 top-0 w-4 h-4 rounded-full border-2 bg-yellow-500 border-yellow-200 -ml-[9px]" />
 
                   {/* Entry Card */}
-                  <div className="bg-white rounded-lg border-2 border-medical-primary-100 shadow-sm hover:shadow-md transition-all">
+                  <div className="bg-white rounded-lg border-2 border-yellow-300 shadow-sm hover:shadow-md transition-all">
                     {/* Date Header - Always visible */}
                     <div className="p-4">
                       <div className="flex items-center justify-between">
@@ -133,7 +133,7 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
                                   e.stopPropagation();
                                   onAddNote(entry.date);
                                 }}
-                                className="flex items-center gap-1 px-2 py-1 text-xs text-medical-primary-600 hover:text-medical-primary-700 hover:bg-medical-primary-50 rounded transition-colors"
+                                className="flex items-center gap-1 px-2 py-1 text-xs text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 rounded transition-colors"
                               >
                                 <Plus className="w-3 h-3" />
                                 Add Note
@@ -170,7 +170,7 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
                                               e.stopPropagation();
                                               onEditNote(note.sourceId, entry.date, note.source);
                                             }}
-                                            className="text-medical-primary-600 hover:text-medical-primary-700 hover:bg-medical-primary-50 p-1.5 rounded transition-colors"
+                                            className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 p-1.5 rounded transition-colors"
                                             title="Edit note"
                                           >
                                             <Edit2 className="w-4 h-4" />
@@ -203,7 +203,7 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
                                   e.stopPropagation();
                                   onAddNote(entry.date);
                                 }}
-                                className="mt-2 flex items-center gap-2 px-4 py-2 bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 transition-colors text-sm font-medium mx-auto"
+                                className="mt-2 flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm font-medium mx-auto"
                               >
                                 <Plus className="w-4 h-4" />
                                 Add Note
@@ -222,10 +222,10 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
                               {entry.documents.map((doc) => (
                                 <div
                                   key={doc.id}
-                                  className={combineClasses('flex items-center justify-between rounded-lg p-3 border', 'bg-blue-50', 'border-blue-100')}
+                                  className={combineClasses('flex items-center justify-between rounded-lg p-3 border', 'bg-yellow-50', 'border-yellow-100')}
                                 >
                                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                                    <FileIcon className={combineClasses('w-4 h-4 flex-shrink-0', DesignTokens.colors.primary.text[600])} />
+                                    <FileIcon className={combineClasses('w-4 h-4 flex-shrink-0', 'text-yellow-600')} />
                                     <div className="flex-1 min-w-0">
                                       <p className="text-sm font-medium text-medical-neutral-900 truncate">
                                         {doc.name}
@@ -241,7 +241,7 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
                                       href={doc.fileUrl}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className={combineClasses(DesignTokens.colors.primary.text[600], `hover:${DesignTokens.colors.primary.text[700]}`, 'flex-shrink-0 ml-2', DesignTokens.transitions.default)}
+                                      className={combineClasses('text-yellow-600', 'hover:text-yellow-700', 'flex-shrink-0 ml-2', DesignTokens.transitions.default)}
                                       onClick={(e) => e.stopPropagation()}
                                     >
                                       <Eye className="w-4 h-4" />

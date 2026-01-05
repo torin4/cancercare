@@ -543,16 +543,24 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
   };
 
   return (
-    <div className={combineClasses(Layouts.container, Layouts.section)}>
+    <>
       {/* Header */}
-      <div className={Layouts.header}>
-        <div className={Layouts.headerIcon}>
-          <ClipboardList className={DesignTokens.components.header.icon} />
-        </div>
-        <div>
-          <h1 className={Layouts.headerTitle}>Health</h1>
+      <div className={combineClasses(
+        DesignTokens.spacing.container.mobile,
+        'sm:px-4 md:px-6',
+        'py-2 sm:py-3',
+        'flex items-center'
+      )}>
+        <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'sm:gap-3')}>
+          <div className={Layouts.headerIcon}>
+            <ClipboardList className={DesignTokens.components.header.icon} />
+          </div>
+          <div>
+            <h1 className={combineClasses(DesignTokens.components.header.title, 'mb-0')}>Health</h1>
+          </div>
         </div>
       </div>
+      <div className={combineClasses(Layouts.container, Layouts.section)}>
 
       {/* Health Section Tabs with Ask About Button */}
       <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.responsive.md, Layouts.section, 'overflow-x-auto')}>
@@ -603,9 +611,9 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
         {/* Ask About Health Button */}
         <button
           onClick={handleAskAboutHealth}
-          className={DesignTokens.components.button.iconButton}
+          className={combineClasses('bg-medical-secondary-50 text-medical-secondary-600 px-3 sm:px-6 py-2.5 rounded-lg hover:bg-medical-secondary-100 transition font-medium flex items-center gap-2 shadow-sm border border-medical-secondary-200 min-h-[44px] touch-manipulation active:opacity-70 flex-shrink-0')}
         >
-          <MessageSquare className={combineClasses(DesignTokens.icons.button.size.full, DesignTokens.colors.primary.text[600])} />
+          <MessageSquare className={combineClasses(DesignTokens.icons.button.size.full, 'text-medical-secondary-600')} />
           <span className="hidden sm:inline">Ask About This</span>
         </button>
       </div>
@@ -614,7 +622,11 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
         <div className="space-y-4">
           {/* Empty State - No Lab Data */}
                     {!hasRealLabData && Object.keys(labsData).length === 0 && (
-                      <div className="border-2 border-medical-primary-500 rounded-lg p-4 sm:p-6 text-center bg-white">
+                      <div className={combineClasses(
+                        DesignTokens.components.card.container,
+                        DesignTokens.components.card.withColoredBorder('border-medical-primary-500'),
+                        'text-center'
+                      )}>
                         <div className="flex flex-col items-center gap-3">
                           <BarChart className="w-10 h-10 sm:w-12 sm:h-12 text-medical-primary-400" />
                           <div>
@@ -649,7 +661,10 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
 
                         {/* Lab Trend Chart - only show if we have numeric labs */}
                         {Object.values(allLabData).some(lab => lab.isNumeric) && (
-                          <div className={combineClasses('bg-white rounded-xl p-3 sm:p-4 md:p-6 border', DesignTokens.colors.neutral.border[200])}>
+                          <div className={combineClasses(
+                            DesignTokens.components.card.container,
+                            DesignTokens.borders.card
+                          )}>
                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
                               <h2 className={combineClasses('text-base sm:text-lg font-semibold', DesignTokens.colors.neutral.text[900])}>Lab Trends</h2>
                               <select
@@ -1405,13 +1420,15 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                   return (
                                 <div
                                       key={key}
-                                  className={`relative bg-white rounded-lg shadow-sm p-4 border-2 transition-all cursor-pointer ${
+                                  className={combineClasses(
+                                    'relative cursor-pointer',
+                                    DesignTokens.transitions.all,
                                     metricSelectionMode && selectedMetrics.has(key)
-                                      ? combineClasses('border', DesignTokens.colors.primary.border[600] || 'border-medical-primary-500', DesignTokens.colors.primary[50])
+                                      ? combineClasses(DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[600] || 'border-medical-primary-500'), DesignTokens.colors.primary[50])
                                       : selectedLab === key && !metricSelectionMode
-                                      ? 'border-medical-primary-500 bg-medical-primary-50'
-                                      : 'border-medical-neutral-200 hover:border-medical-neutral-300 hover:shadow-md'
-                                  }`}
+                                      ? combineClasses(DesignTokens.components.card.withColoredBorder('border-medical-primary-500'), 'bg-medical-primary-50')
+                                      : combineClasses(DesignTokens.components.card.nestedWithShadow, 'hover:border-medical-neutral-300', DesignTokens.shadows.hover)
+                                  )}
                                   onClick={() => {
                                     if (metricSelectionMode) {
                                       const newSelected = new Set(selectedMetrics);
@@ -1456,7 +1473,12 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                           className={combineClasses("transition-colors", DesignTokens.colors.accent.text[500], DesignTokens.colors.accent.text[600])}
                                           title={favoriteMetrics.labs?.includes(key) ? "Remove from favorites" : "Add to favorites"}
                                         >
-                                          <Star className={`w-3.5 h-3.5 ${favoriteMetrics.labs?.includes(key) ? 'fill-yellow-500' : ''}`} />
+                                          <Star className={combineClasses(
+                                            DesignTokens.icons.small.size.full,
+                                            favoriteMetrics.labs?.includes(key) 
+                                              ? DesignTokens.components.favorite.filled 
+                                              : DesignTokens.components.favorite.unfilled
+                                          )} />
                                         </button>
                                         {labDescription && (
                                           <button
@@ -1610,11 +1632,13 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                               return (
                                 <div
                                   key={key}
-                                  className={`relative bg-white rounded-lg shadow-sm p-4 border-2 transition-all cursor-pointer ${
+                                  className={combineClasses(
+                                    'relative cursor-pointer',
+                                    DesignTokens.transitions.all,
                                     metricSelectionMode && selectedMetrics.has(key)
-                                      ? combineClasses('border', DesignTokens.colors.primary.border[600] || 'border-medical-primary-500', DesignTokens.colors.primary[50])
-                                      : 'border-medical-neutral-200 hover:border-medical-neutral-300 hover:shadow-md'
-                                  }`}
+                                      ? combineClasses(DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[600] || 'border-medical-primary-500'), DesignTokens.colors.primary[50])
+                                      : combineClasses(DesignTokens.components.card.nestedWithShadow, 'hover:border-medical-neutral-300', DesignTokens.shadows.hover)
+                                  )}
                                   onClick={() => {
                                     if (metricSelectionMode) {
                                       const newSelected = new Set(selectedMetrics);
@@ -1650,7 +1674,12 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                           className={combineClasses("transition-colors", DesignTokens.colors.accent.text[500], DesignTokens.colors.accent.text[600])}
                                           title={favoriteMetrics.labs?.includes(key) ? "Remove from favorites" : "Add to favorites"}
                                         >
-                                          <Star className={`w-3.5 h-3.5 ${favoriteMetrics.labs?.includes(key) ? 'fill-yellow-500' : ''}`} />
+                                          <Star className={combineClasses(
+                                            DesignTokens.icons.small.size.full,
+                                            favoriteMetrics.labs?.includes(key) 
+                                              ? DesignTokens.components.favorite.filled 
+                                              : DesignTokens.components.favorite.unfilled
+                                          )} />
                                         </button>
                                       </div>
                                       {lab.current ? (
@@ -2240,7 +2269,10 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                 return (
                                   <div className="mb-4">
                                     <div className="flex items-center gap-2 mb-2">
-                                      <Star className={combineClasses("w-4 h-4", DesignTokens.colors.accent.text[500], "fill-medical-accent-500")} />
+                                      <Star className={combineClasses(
+                                        DesignTokens.icons.button.size.full,
+                                        DesignTokens.components.favorite.filled
+                                      )} />
                                       <h3 className="text-sm font-semibold text-medical-neutral-700">Favorite Labs</h3>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
@@ -2267,9 +2299,12 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                               }
                                             }, 100);
                                           }}
-                                          className={combineClasses("px-3 py-1.5 border rounded-lg transition-colors text-sm font-medium flex items-center gap-1.5 min-h-[44px] touch-manipulation active:opacity-70", DesignTokens.colors.neutral.text[900], DesignTokens.colors.accent[50], DesignTokens.colors.accent.border[200], DesignTokens.colors.accent[100], DesignTokens.colors.accent.border[300])}
+                                          className={combineClasses("px-3 py-1.5 border rounded-lg transition-colors text-sm font-medium flex items-center gap-1.5 min-h-[44px] touch-manipulation active:opacity-70", DesignTokens.colors.primary.text[600], DesignTokens.colors.primary[50], DesignTokens.colors.primary.border[200], `hover:${DesignTokens.colors.primary[100]}`, `hover:${DesignTokens.colors.primary.border[300]}`)}
                                         >
-                                          <Star className={combineClasses("w-3.5 h-3.5", DesignTokens.colors.accent.text[500], "fill-medical-accent-500")} />
+                                          <Star className={combineClasses(
+                                            DesignTokens.icons.small.size.full,
+                                            DesignTokens.components.favorite.filled
+                                          )} />
                                           <span>{displayName}</span>
                                           <ChevronRight className="w-3 h-3 text-medical-neutral-400" />
                                         </button>
@@ -2354,7 +2389,11 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
         <div className="space-y-4">
                     {/* Empty State - No Vital Data */}
                     {Object.keys(allVitalsData).length === 0 && (
-                      <div className="border-2 border-medical-primary-500 rounded-lg p-4 sm:p-6 text-center bg-white">
+                      <div className={combineClasses(
+                        DesignTokens.components.card.container,
+                        DesignTokens.components.card.withColoredBorder('border-medical-primary-500'),
+                        'text-center'
+                      )}>
                         <div className="flex flex-col items-center gap-3">
                           <Heart className="w-10 h-10 sm:w-12 sm:h-12 text-medical-primary-400" />
                           <div>
@@ -2391,7 +2430,10 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                       <>
 
                         {/* Vital Trend Chart */}
-                        <div className={combineClasses('bg-white rounded-xl p-3 sm:p-4 md:p-6 border', DesignTokens.colors.neutral.border[200])}>
+                        <div className={combineClasses(
+                          DesignTokens.components.card.container,
+                          DesignTokens.borders.card
+                        )}>
                           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
                             <h2 className={combineClasses('text-base sm:text-lg font-semibold', DesignTokens.colors.neutral.text[900])}>Vital Signs</h2>
                             <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -2453,7 +2495,12 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                               className={combineClasses("transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center", DesignTokens.colors.accent.text[500], DesignTokens.colors.accent.text[600])}
                               title={favoriteMetrics.vitals?.includes(selectedVital) ? "Remove from favorites" : "Add to favorites"}
                             >
-                              <Star className={`w-4 h-4 ${favoriteMetrics.vitals?.includes(selectedVital) ? 'fill-yellow-500' : ''}`} />
+                              <Star className={combineClasses(
+                                DesignTokens.icons.button.size.full,
+                                favoriteMetrics.vitals?.includes(selectedVital) 
+                                  ? DesignTokens.components.favorite.filled 
+                                  : DesignTokens.components.favorite.unfilled
+                              )} />
                             </button>
                             </>
                               ) : (
@@ -3384,7 +3431,9 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                         )}
 
                         {/* Quick Vital Stats */}
-                        <div className="bg-white rounded-lg shadow p-4">
+                        <div className={combineClasses(
+                          DesignTokens.components.card.nestedWithShadow
+                        )}>
                           <h3 className={combineClasses("font-semibold mb-3", DesignTokens.colors.neutral.text[900])}>All Vitals (Latest)</h3>
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                             {Object.entries(allVitalsData).map(([key, vital]) => {
@@ -3435,11 +3484,13 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                               return (
                                 <div
                                   key={key}
-                                  className={`relative bg-white rounded-lg shadow-sm p-4 border-2 transition-all cursor-pointer ${
+                                  className={combineClasses(
+                                    'relative cursor-pointer',
+                                    DesignTokens.transitions.all,
                                     selectedVital === key
-                                      ? 'border-medical-primary-500 bg-medical-primary-50'
-                                      : 'border-medical-neutral-200 hover:border-medical-neutral-300 hover:shadow-md'
-                                  }`}
+                                      ? combineClasses(DesignTokens.components.card.withColoredBorder('border-medical-primary-500'), 'bg-medical-primary-50')
+                                      : combineClasses(DesignTokens.components.card.nestedWithShadow, 'hover:border-medical-neutral-300', DesignTokens.shadows.hover)
+                                  )}
                                   onClick={() => setSelectedVital(key)}
                                 >
                                   <div className="flex items-start justify-between mb-2">
@@ -3461,7 +3512,12 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                           className={combineClasses("transition-colors", DesignTokens.colors.accent.text[500], DesignTokens.colors.accent.text[600])}
                                           title={favoriteMetrics.vitals?.includes(key) ? "Remove from favorites" : "Add to favorites"}
                                         >
-                                          <Star className={`w-3.5 h-3.5 ${favoriteMetrics.vitals?.includes(key) ? 'fill-yellow-500' : ''}`} />
+                                          <Star className={combineClasses(
+                                            DesignTokens.icons.small.size.full,
+                                            favoriteMetrics.vitals?.includes(key) 
+                                              ? DesignTokens.components.favorite.filled 
+                                              : DesignTokens.components.favorite.unfilled
+                                          )} />
                                         </button>
                                       </div>
                                       <div className="flex items-baseline gap-2">
@@ -4515,7 +4571,8 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
         show={isUploading}
         uploadProgress={uploadProgress}
       />
-    </div>
+      </div>
+    </>
   );
 }
 

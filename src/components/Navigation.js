@@ -81,7 +81,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
             onClick={() => setActiveTab('profile')}
             className={combineClasses('p-2 hover:bg-white/20', DesignTokens.borders.radius.sm, DesignTokens.transitions.all)}
           >
-            <User className={combineClasses(DesignTokens.icons.button.size.full, 'text-white')} />
+            <User className="w-6 h-6 sm:w-6 sm:h-6 text-white" />
           </button>
         </div>
       </div>
@@ -167,7 +167,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
       </div>
 
       {/* Bottom Navigation - Mobile Only */}
-      <div className={combineClasses('bg-white', DesignTokens.borders.divider, DesignTokens.shadows.lg, DesignTokens.spacing.card.mobile, 'flex-shrink-0 fixed bottom-0 left-0 right-0 z-10 md:hidden')}>
+      <div className={combineClasses('bg-white', 'border-t', DesignTokens.borders.color.default, DesignTokens.shadows.lg, DesignTokens.spacing.card.mobile, 'flex-shrink-0 fixed bottom-0 left-0 right-0 z-10 md:hidden')}>
         <div className="flex justify-evenly items-center max-w-2xl mx-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -178,7 +178,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
                 onClick={() => setActiveTab(item.id)}
             className={combineClasses('flex flex-col items-center justify-center', DesignTokens.spacing.gap.xs, 'px-2.5 py-2.5', DesignTokens.borders.radius.md, DesignTokens.transitions.all, 'min-h-[44px] flex-1', isActive ? combineClasses(DesignTokens.colors.primary.text[600], DesignTokens.colors.primary[50]) : combineClasses(DesignTokens.colors.neutral.text[600], `hover:${DesignTokens.colors.primary.text[600]}`, `hover:${DesignTokens.colors.neutral[50]}`))}
           >
-                <Icon className={DesignTokens.icons.button.size.full} />
+                <Icon className="w-5 h-5 sm:w-5 sm:h-5" />
                 <span className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.typography.h3.weight)}>{item.label}</span>
           </button>
             );

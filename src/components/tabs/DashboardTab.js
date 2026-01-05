@@ -302,16 +302,23 @@ setIsUploading(false);
         </div>
       )}
 
-      <div className={combineClasses(Layouts.container, Layouts.section)}>
-        {/* Header */}
-        <div className={Layouts.header}>
+      {/* Header */}
+      <div className={combineClasses(
+        DesignTokens.spacing.container.mobile,
+        'sm:px-4 md:px-6',
+        'py-2 sm:py-3',
+        'flex items-center'
+      )}>
+        <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'sm:gap-3')}>
           <div className={Layouts.headerIcon}>
             <Home className={DesignTokens.components.header.icon} />
           </div>
           <div>
-            <h1 className={Layouts.headerTitle}>Dashboard</h1>
+            <h1 className={combineClasses(DesignTokens.components.header.title, 'mb-0')}>Dashboard</h1>
           </div>
         </div>
+      </div>
+      <div className={combineClasses(Layouts.container, Layouts.section)}>
 
         {/* Dynamic CA-125 Alert */}
         {ca125Alert && (

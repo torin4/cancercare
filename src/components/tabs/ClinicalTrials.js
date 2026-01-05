@@ -581,7 +581,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                 onClick={() => {
                   onTrialSelected(trial);
                 }}
-                className={combineClasses(DesignTokens.components.button.outline.accent, DesignTokens.spacing.button.mobile, 'flex-1', DesignTokens.typography.body.sm, 'font-medium', DesignTokens.spacing.gap.sm)}
+                className={combineClasses('border-2 border-medical-secondary-500 text-medical-secondary-600 rounded-lg hover:bg-medical-secondary-50 transition font-medium min-h-[44px] touch-manipulation active:opacity-70 flex items-center justify-center gap-2', DesignTokens.spacing.button.mobile, 'flex-1', DesignTokens.typography.body.sm, 'font-medium', DesignTokens.spacing.gap.sm)}
               >
                 <MessageSquare className={DesignTokens.icons.small.size.full} />
                 <span className="hidden sm:inline">Ask About This Trial</span>
@@ -613,16 +613,24 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
   };
 
   return (
-    <div className={Layouts.container}>
+    <>
       {/* Header */}
-      <div className={Layouts.header}>
-        <div className={combineClasses('bg-medical-accent-50', DesignTokens.spacing.iconContainer.full, DesignTokens.borders.radius.sm)}>
-          <FlaskConical className={combineClasses(DesignTokens.icons.header.size.full, 'text-medical-accent-600')} />
-        </div>
-        <div>
-          <h1 className={Layouts.headerTitle}>Clinical Trials</h1>
+      <div className={combineClasses(
+        DesignTokens.spacing.container.mobile,
+        'sm:px-4 md:px-6',
+        'py-2 sm:py-3',
+        'flex items-center'
+      )}>
+        <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'sm:gap-3')}>
+          <div className={combineClasses('bg-medical-accent-50 p-2 sm:p-2.5 rounded-lg')}>
+            <FlaskConical className={combineClasses('w-5 h-5 sm:w-6 sm:h-6 text-medical-accent-600')} />
+          </div>
+          <div>
+            <h1 className={combineClasses(DesignTokens.components.header.title, 'mb-0')}>Clinical Trials</h1>
+          </div>
         </div>
       </div>
+      <div className={Layouts.container}>
 
       {/* Tabs */}
       <div className={Layouts.tabsContainer}>
@@ -1066,7 +1074,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                     onTrialSelected(selectedTrial);
                     setSelectedTrial(null);
                   }}
-                  className={combineClasses(DesignTokens.components.button.outline.accent, DesignTokens.spacing.button.desktop, 'flex-1 font-semibold gap-1.5 sm:gap-2 text-sm sm:text-base', DesignTokens.transitions.all)}
+                  className={combineClasses('border-2 border-medical-secondary-500 text-medical-secondary-600 rounded-lg hover:bg-medical-secondary-50 transition font-medium min-h-[44px] touch-manipulation active:opacity-70 flex items-center justify-center gap-2', DesignTokens.spacing.button.desktop, 'flex-1 font-semibold gap-1.5 sm:gap-2 text-sm sm:text-base', DesignTokens.transitions.all)}
                 >
                   <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span className="hidden sm:inline">Ask About This Trial</span>
@@ -1099,7 +1107,8 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
           loadPatientData();
         }}
       />
-    </div>
+      </div>
+    </>
   );
 };
 

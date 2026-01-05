@@ -15,6 +15,7 @@ import { uploadDocument } from '../../firebase/storage';
 import { generalSuggestions, trialSuggestions, healthSuggestions, timelineSuggestions } from '../../constants/chatSuggestions';
 import DocumentUploadOnboarding from '../modals/DocumentUploadOnboarding';
 import UploadProgressOverlay from '../UploadProgressOverlay';
+import DeletionConfirmationModal from '../modals/DeletionConfirmationModal';
 
 export default function ChatTab({ onTabChange }) {
   const { user } = useAuth();
@@ -236,6 +237,8 @@ export default function ChatTab({ onTabChange }) {
   const [chatHistoryLoaded, setChatHistoryLoaded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchActive, setIsSearchActive] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Delete Permanently' });
+  const [isDeleting, setIsDeleting] = useState(false);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const searchInputRef = useRef(null);
@@ -939,8 +942,8 @@ export default function ChatTab({ onTabChange }) {
         )}>
           <div className={combineClasses('flex items-center justify-between w-full', DesignTokens.spacing.gap.sm)}>
             <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'sm:gap-3')}>
-              <div className={Layouts.headerIcon}>
-                <MessageSquare className={DesignTokens.components.header.icon} />
+              <div className={combineClasses('bg-medical-secondary-50 p-2 sm:p-2.5 rounded-lg')}>
+                <MessageSquare className={combineClasses('w-5 h-5 sm:w-6 sm:h-6 text-medical-secondary-600')} />
               </div>
               <div>
                 <h1 className={combineClasses(DesignTokens.components.header.title, 'mb-0')}>Chat</h1>
@@ -962,28 +965,38 @@ export default function ChatTab({ onTabChange }) {
                     className={combineClasses('text-medical-neutral-500 hover:text-medical-neutral-700 transition-colors min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70 flex items-center justify-center', isSearchActive ? 'text-medical-primary-600' : '')}
                     title={isSearchActive ? "Close search" : "Search chats"}
                   >
-                    <Search className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <Search className="w-5 h-5 sm:w-5 sm:h-5" />
                   </button>
                   <button
-                    onClick={async () => {
+                    onClick={() => {
                       if (!user) return;
-                      if (window.confirm('Are you sure you want to clear all chat history? This will remove the conversation but keep your health data context. This cannot be undone.')) {
-                        try {
-                          await messageService.deleteAllMessages(user.uid);
-                          setMessages([]);
-                          // Don't clear health/trial contexts - those represent the user's actual data, not conversation history
-                          // The AI can still access health data and trials from the database when needed
-                          setChatHistoryLoaded(false);
-                          showSuccess('Chat history cleared');
-                        } catch (error) {
-                          showError('Error clearing chat history. Please try again.');
+                      setDeleteConfirm({
+                        show: true,
+                        title: 'Clear All Chat History?',
+                        message: 'This will remove all conversation history but keep your health data context. The AI can still access your health data and trials from the database when needed.',
+                        itemName: 'all chat history',
+                        confirmText: 'Yes, Clear History',
+                        onConfirm: async () => {
+                          setIsDeleting(true);
+                          try {
+                            await messageService.deleteAllMessages(user.uid);
+                            setMessages([]);
+                            // Don't clear health/trial contexts - those represent the user's actual data, not conversation history
+                            // The AI can still access health data and trials from the database when needed
+                            setChatHistoryLoaded(false);
+                            showSuccess('Chat history cleared');
+                          } catch (error) {
+                            showError('Error clearing chat history. Please try again.');
+                          } finally {
+                            setIsDeleting(false);
+                          }
                         }
-                      }
+                      });
                     }}
                     className="text-medical-neutral-500 hover:text-medical-neutral-700 text-xs sm:text-sm flex items-center gap-1.5 transition-colors min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70"
                     title="Clear chat history"
                   >
-                    <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <Trash2 className="w-5 h-5 sm:w-5 sm:h-5" />
                     <span className="hidden sm:inline">Clear History</span>
                   </button>
                 </>
@@ -1002,7 +1015,7 @@ export default function ChatTab({ onTabChange }) {
             'bg-white'
           )}>
             <div className={combineClasses('flex items-center', 'w-full px-3 py-1.5 border border-medical-neutral-200 rounded-xl focus-within:ring-2 focus-within:ring-offset-0 focus-within:ring-medical-primary-500 focus-within:border-medical-primary-500 transition-all duration-200')}>
-              <Search className="w-4 h-4 text-medical-neutral-400 flex-shrink-0" />
+              <Search className="w-5 h-5 text-medical-neutral-400 flex-shrink-0" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -1020,7 +1033,7 @@ export default function ChatTab({ onTabChange }) {
                 className="text-medical-neutral-400 hover:text-medical-neutral-600 transition-colors flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
                 title="Close search"
               >
-                <X className="w-4 h-4" />
+                        <X className="w-5 h-5" />
               </button>
             </div>
           </div>
@@ -1053,16 +1066,18 @@ export default function ChatTab({ onTabChange }) {
             return (
             <div key={originalIdx} className={`flex items-start gap-2 sm:gap-3 ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
               {msg.type === 'ai' && (
-                <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-medical-primary-500 to-medical-accent-500 flex items-center justify-center shadow-sm">
+                <div className={combineClasses('flex-shrink-0 flex items-center justify-center', DesignTokens.components.chat.avatar)}>
                   <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
               )}
-              <div className={`max-w-[82%] sm:max-w-[70%] rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 ${msg.type === 'user'
-                ? 'bg-medical-primary-500 text-white'
-                : msg.isAnalysis
-                  ? 'bg-medical-secondary-50 border border-medical-secondary-200 text-medical-neutral-800'
-                  : 'bg-white border border-medical-neutral-200 text-medical-neutral-900'
-                }`}>
+              <div className={combineClasses(
+                'max-w-[82%] sm:max-w-[70%]',
+                msg.type === 'user'
+                  ? DesignTokens.components.chat.userBubble
+                  : msg.isAnalysis
+                    ? DesignTokens.components.chat.analysisBubble
+                    : DesignTokens.components.chat.aiBubble
+              )}>
                 {msg.type === 'user' ? (
                   <p className="text-sm sm:text-base whitespace-pre-wrap">{msg.text}</p>
                 ) : (
@@ -1096,14 +1111,14 @@ export default function ChatTab({ onTabChange }) {
                                      sessionStorage.setItem('expandGenomicProfile', 'true');
                                      onTabChange('profile');
                                    }}
-                                   className="px-3 py-1.5 bg-purple-500 text-white text-xs rounded-full hover:bg-purple-600 transition-colors flex items-center gap-1"
+                                   className={combineClasses(DesignTokens.components.button.chip.base, DesignTokens.components.button.chip.purple)}
                                  >
                                    <Dna className="w-3 h-3" />
                                    View Profile
                                  </button>
                                  <button
                                    onClick={() => onTabChange('trials')}
-                                   className={combineClasses('px-3 py-1.5 text-white text-xs rounded-full transition-colors flex items-center gap-1', DesignTokens.components.status.normal.text.replace('text-', 'bg-'), `hover:${DesignTokens.components.status.normal.text.replace('text-', 'bg-').replace('600', '700')}`)}
+                                   className={combineClasses(DesignTokens.components.button.chip.base, DesignTokens.components.button.chip.success)}
                                  >
                                    <Activity className="w-3 h-3" />
                                    Search Trials
@@ -1113,7 +1128,7 @@ export default function ChatTab({ onTabChange }) {
                                <>
                                  <button
                                    onClick={() => onTabChange('health')}
-                                   className={combineClasses('px-3 py-1.5 text-white text-xs rounded-full transition-colors flex items-center gap-1', DesignTokens.colors.primary[500], `hover:${DesignTokens.colors.primary[600]}`)}
+                                   className={combineClasses(DesignTokens.components.button.chip.base, DesignTokens.components.button.chip.primary)}
                                  >
                                    <Activity className="w-3 h-3" />
                                    View Health Data
@@ -1182,10 +1197,10 @@ export default function ChatTab({ onTabChange }) {
                                        setInputText(analysisPrompt);
                                        setTimeout(() => handleSendMessage(), 150);
                                      }}
-                                     className={combineClasses('px-3 py-1.5 text-white text-xs rounded-full transition-colors flex items-center gap-1', DesignTokens.components.status.normal.text.replace('text-', 'bg-'), `hover:${DesignTokens.components.status.normal.text.replace('text-', 'bg-').replace('600', '700')}`)}
-                                   >
-                                     <Zap className="w-3 h-3" />
-                                     Quick Analysis
+                                    className={combineClasses(DesignTokens.components.button.chip.base, DesignTokens.components.button.chip.primary)}
+                                  >
+                                    <Zap className="w-3 h-3" />
+                                    Quick Analysis
                                    </button>
                                  )}
                                </>
@@ -1376,11 +1391,12 @@ export default function ChatTab({ onTabChange }) {
                   showError('Error loading health data');
                 }
               }}
-              className={`px-3 py-2 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 flex items-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation ${
+              className={combineClasses(
+                'px-3 py-2 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 flex items-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation',
                 currentHealthContext && !currentTrialContext && !currentNotebookContext
-                  ? 'bg-medical-primary-500 text-white'
-                  : 'bg-white border border-medical-neutral-300 text-medical-neutral-700 hover:bg-medical-primary-50 hover:border-medical-primary-300'
-              }`}
+                  ? combineClasses(DesignTokens.colors.primary[500], 'text-white')
+                  : combineClasses('bg-white', DesignTokens.borders.card, DesignTokens.colors.neutral.text[700], `hover:${DesignTokens.colors.primary[50]}`, `hover:${DesignTokens.colors.primary.border[300]}`)
+              )}
             >
               <BarChart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               Health Data
@@ -1401,11 +1417,12 @@ export default function ChatTab({ onTabChange }) {
                   showError('Error loading timeline');
                 }
               }}
-              className={`px-3 py-2 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 flex items-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation ${
+              className={combineClasses(
+                'px-3 py-2 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 flex items-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation',
                 currentNotebookContext && !currentHealthContext && !currentTrialContext
-                  ? 'bg-yellow-500 text-white'
-                  : 'bg-white border border-medical-neutral-300 text-medical-neutral-700 hover:bg-yellow-50 hover:border-yellow-300'
-              }`}
+                  ? combineClasses(DesignTokens.components.status.low.text.replace('text-', 'bg-'), 'text-white')
+                  : combineClasses('bg-white', DesignTokens.borders.card, DesignTokens.colors.neutral.text[700], `hover:${DesignTokens.components.status.low.bg}`, `hover:${DesignTokens.components.status.low.border}`)
+              )}
             >
               <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               Timeline
@@ -1473,19 +1490,34 @@ export default function ChatTab({ onTabChange }) {
                     ? "Ask about your labs, vitals, or symptoms..." 
                     : "Ask about symptoms, treatments, or upload results..."
               }
-              className="flex-1 border border-medical-neutral-300 rounded-full px-3 py-2.5 sm:px-4 sm:py-2.5 text-sm sm:text-base focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent transition-all duration-200 min-h-[44px]"
+              className={combineClasses(
+                'flex-1 rounded-full px-3 py-2.5 sm:px-4 sm:py-2.5 text-sm sm:text-base transition-all duration-200 min-h-[44px]',
+                DesignTokens.borders.card,
+                'focus:ring-2 focus:ring-medical-primary-500 focus:border-transparent'
+              )}
             />
             <div className="flex items-center gap-2">
               <button
                 onClick={() => openDocumentOnboarding(null, 'picker')}
                 title="Attach file or take photo"
-                className="bg-medical-neutral-100 text-medical-neutral-700 p-2.5 sm:p-2 rounded-full hover:bg-medical-neutral-200 transition flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70"
+                className={combineClasses(
+                  'p-2.5 sm:p-2 rounded-full transition flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70',
+                  DesignTokens.colors.neutral[100],
+                  DesignTokens.colors.neutral.text[700],
+                  `hover:${DesignTokens.colors.neutral[200]}`
+                )}
               >
                 <Paperclip className="w-5 h-5" />
               </button>
               <button
                 onClick={handleSendMessage}
-                className="bg-medical-primary-500 text-white w-11 h-11 sm:w-10 sm:h-10 rounded-full hover:bg-medical-primary-600 transition flex-shrink-0 shadow-sm flex items-center justify-center min-h-[44px] min-w-[44px] touch-manipulation active:opacity-90"
+                className={combineClasses(
+                  'w-11 h-11 sm:w-10 sm:h-10 rounded-full transition flex-shrink-0 flex items-center justify-center min-h-[44px] min-w-[44px] touch-manipulation active:opacity-90',
+                  DesignTokens.colors.primary[500],
+                  'text-white',
+                  `hover:${DesignTokens.colors.primary[600]}`,
+                  DesignTokens.shadows.sm
+                )}
               >
                 <Send className="w-5 h-5" />
               </button>
@@ -1522,6 +1554,28 @@ export default function ChatTab({ onTabChange }) {
         show={isUploading}
         uploadProgress={uploadProgress}
         />
+
+      <DeletionConfirmationModal
+        show={deleteConfirm.show}
+        onClose={() => {
+          if (!isDeleting) {
+            setDeleteConfirm({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Delete Permanently' });
+            setIsDeleting(false);
+          }
+        }}
+        onConfirm={async () => {
+          if (deleteConfirm.onConfirm) {
+            await deleteConfirm.onConfirm();
+          }
+          // Close modal after deletion completes (isDeleting will be false in finally block)
+          setDeleteConfirm({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Delete Permanently' });
+        }}
+        title={deleteConfirm.title}
+        message={deleteConfirm.message}
+        itemName={deleteConfirm.itemName}
+        confirmText={deleteConfirm.confirmText}
+        isDeleting={isDeleting}
+      />
     </>
   );
 }

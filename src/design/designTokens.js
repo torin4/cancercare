@@ -297,6 +297,14 @@ export const DesignTokens = {
         accent: 'border-2 border-medical-accent-500 text-medical-accent-600 rounded-lg hover:bg-medical-accent-50 transition font-medium min-h-[44px] touch-manipulation active:opacity-70 flex items-center justify-center gap-2',
         neutral: 'border-2 border-medical-neutral-500 text-medical-neutral-700 rounded-lg hover:bg-medical-neutral-50 transition font-medium min-h-[44px] touch-manipulation active:opacity-70 flex items-center justify-center gap-2',
       },
+      // Small chip/action buttons
+      chip: {
+        base: 'px-3 py-1.5 text-white text-xs rounded-full transition-colors flex items-center gap-1 min-h-[32px] touch-manipulation active:opacity-90',
+        primary: 'bg-medical-primary-500 hover:bg-medical-primary-600',
+        accent: 'bg-medical-accent-500 hover:bg-medical-accent-600',
+        success: 'bg-green-500 hover:bg-green-600',
+        purple: 'bg-purple-500 hover:bg-purple-600',
+      },
     },
     
     // Card
@@ -398,6 +406,13 @@ export const DesignTokens = {
         border: 'border-yellow-200',
         icon: 'text-yellow-600',
       },
+    },
+    
+    // Favorite/Star Icon
+    favorite: {
+      filled: 'fill-yellow-400 text-yellow-500 stroke-yellow-600 stroke-1',
+      unfilled: 'text-yellow-500 stroke-yellow-600 stroke-1',
+      border: 'border-yellow-600',
     },
   },
   
