@@ -8,47 +8,47 @@ export default function DocumentMetadataModal({ show, document, onClose }) {
 
   return (
     <div 
-      className="fixed inset-0 z-[101] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      className={combineClasses(DesignTokens.components.modal.backdrop, 'z-[101] animate-in fade-in duration-200')}
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-fade-scale"
+        className={combineClasses('bg-white', DesignTokens.borders.radius.lg, 'max-w-md w-full', DesignTokens.spacing.card.desktop, DesignTokens.shadows.lg, 'animate-fade-scale')}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className={combineClasses('text-lg font-bold', DesignTokens.colors.neutral.text[900])}>Document Metadata</h3>
+        <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.header.mobile)}>
+          <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, DesignTokens.colors.neutral.text[900])}>Document Metadata</h3>
           <button
             onClick={onClose}
-            className={combineClasses('p-1.5 rounded-full transition', DesignTokens.colors.neutral[100].replace('bg-', 'hover:bg-'))}
+            className={combineClasses('p-1.5', DesignTokens.borders.radius.full, DesignTokens.transitions.default, DesignTokens.colors.neutral[100].replace('bg-', 'hover:bg-'))}
             aria-label="Close"
             type="button"
           >
-            <X className={combineClasses('w-5 h-5', DesignTokens.colors.neutral.text[500])} />
+            <X className={combineClasses(DesignTokens.icons.button.size.full, DesignTokens.colors.neutral.text[500])} />
           </button>
         </div>
 
-        <div className="space-y-3">
+        <div className={combineClasses('space-y-3', DesignTokens.spacing.gap.md)}>
           <div>
-            <p className={combineClasses('text-xs font-semibold uppercase mb-1', DesignTokens.colors.neutral.text[500])}>File Name</p>
-            <p className={combineClasses('text-sm', DesignTokens.colors.neutral.text[900])}>{document.fileName || document.name || 'Unknown'}</p>
+            <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.typography.h3.weight, 'uppercase mb-1', DesignTokens.colors.neutral.text[500])}>File Name</p>
+            <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[900])}>{document.fileName || document.name || 'Unknown'}</p>
           </div>
 
           <div>
-            <p className={combineClasses('text-xs font-semibold uppercase mb-1', DesignTokens.colors.neutral.text[500])}>Document Type</p>
-            <p className={combineClasses('text-sm', DesignTokens.colors.neutral.text[900])}>{document.documentType || document.type || 'Unknown'}</p>
+            <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.typography.h3.weight, 'uppercase mb-1', DesignTokens.colors.neutral.text[500])}>Document Type</p>
+            <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[900])}>{document.documentType || document.type || 'Unknown'}</p>
           </div>
 
           {document.dataPointCount !== undefined && document.dataPointCount !== null && (
             <div>
-              <p className={combineClasses('text-xs font-semibold uppercase mb-1', DesignTokens.colors.neutral.text[500])}>Extracted Data Points</p>
-              <p className={combineClasses('text-sm font-semibold', DesignTokens.colors.neutral.text[900])}>{document.dataPointCount} data point{document.dataPointCount !== 1 ? 's' : ''}</p>
+              <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.typography.h3.weight, 'uppercase mb-1', DesignTokens.colors.neutral.text[500])}>Extracted Data Points</p>
+              <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[900])}>{document.dataPointCount} data point{document.dataPointCount !== 1 ? 's' : ''}</p>
             </div>
           )}
 
           {document.fileSize && (
             <div>
-              <p className={combineClasses('text-xs font-semibold uppercase mb-1', DesignTokens.colors.neutral.text[500])}>File Size</p>
-              <p className={combineClasses('text-sm', DesignTokens.colors.neutral.text[900])}>
+              <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.typography.h3.weight, 'uppercase mb-1', DesignTokens.colors.neutral.text[500])}>File Size</p>
+              <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[900])}>
                 {document.fileSize < 1024 
                   ? `${document.fileSize} bytes`
                   : document.fileSize < 1024 * 1024
@@ -60,14 +60,14 @@ export default function DocumentMetadataModal({ show, document, onClose }) {
 
           {document.fileType && (
             <div>
-              <p className={combineClasses('text-xs font-semibold uppercase mb-1', DesignTokens.colors.neutral.text[500])}>File Type</p>
-              <p className={combineClasses('text-sm', DesignTokens.colors.neutral.text[900])}>{document.fileType}</p>
+              <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.typography.h3.weight, 'uppercase mb-1', DesignTokens.colors.neutral.text[500])}>File Type</p>
+              <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[900])}>{document.fileType}</p>
             </div>
           )}
 
           <div>
-            <p className={combineClasses('text-xs font-semibold uppercase mb-1', DesignTokens.colors.neutral.text[500])}>Upload Date</p>
-            <p className={combineClasses('text-sm', DesignTokens.colors.neutral.text[900])}>
+            <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.typography.h3.weight, 'uppercase mb-1', DesignTokens.colors.neutral.text[500])}>Upload Date</p>
+            <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[900])}>
               {parseLocalDate(document.date).toLocaleDateString('en-US', { 
                 month: 'long', 
                 day: 'numeric', 
@@ -80,15 +80,15 @@ export default function DocumentMetadataModal({ show, document, onClose }) {
 
           {document.note && (
             <div>
-              <p className={combineClasses('text-xs font-semibold uppercase mb-1', DesignTokens.colors.neutral.text[500])}>Note</p>
-              <p className={combineClasses('text-sm italic', DesignTokens.colors.neutral.text[900])}>{document.note}</p>
+              <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.typography.h3.weight, 'uppercase mb-1', DesignTokens.colors.neutral.text[500])}>Note</p>
+              <p className={combineClasses(DesignTokens.typography.body.sm, 'italic', DesignTokens.colors.neutral.text[900])}>{document.note}</p>
             </div>
           )}
         </div>
 
         <button
           onClick={onClose}
-          className={combineClasses('mt-6 w-full py-3 rounded-xl font-bold text-white transition', DesignTokens.colors.primary[600], DesignTokens.colors.primary[700].replace('bg-', 'hover:bg-'))}
+          className={combineClasses('mt-6 w-full py-3', DesignTokens.borders.radius.md, DesignTokens.typography.h2.weight, 'text-white', DesignTokens.transitions.default, DesignTokens.colors.primary[600], DesignTokens.colors.primary[700].replace('bg-', 'hover:bg-'))}
         >
           Close
         </button>
