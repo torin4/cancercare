@@ -700,7 +700,7 @@ export default function FilesTab({ onTabChange }) {
       {/* Tab Navigation with Ask About Button */}
       <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.responsive.md, Layouts.section, 'overflow-x-auto')}>
         {/* Tab Navigation */}
-        <div className={combineClasses('flex', DesignTokens.components.tabs.container.split(' ')[1], 'flex-1')}>
+        <div className={combineClasses('flex', DesignTokens.spacing.gap.responsive.xs, 'overflow-x-auto', 'flex-1', 'mb-0')}>
           <button
             onClick={() => setActiveSubTab('notes')}
             className={combineClasses(
@@ -727,51 +727,60 @@ export default function FilesTab({ onTabChange }) {
           </button>
         </div>
         
-        {/* Ask About Timeline Button - Only show when Notes tab is active */}
-        {activeSubTab === 'notes' && (
-          <button
-            onClick={async () => {
-              if (!user?.uid) return;
-              try {
+        {/* Ask About Button */}
+        <button
+          onClick={async () => {
+            if (!user?.uid) return;
+            try {
+              if (activeSubTab === 'notes') {
                 const entries = await getNotebookEntries(user.uid, { limit: 50 });
                 sessionStorage.setItem('currentNotebookContext', JSON.stringify({ entries }));
-                onTabChange('chat');
-              } catch (error) {
-                showError('Error loading timeline data. Please try again.');
+              } else {
+                // For documents tab, set document context
+                sessionStorage.setItem('currentDocumentContext', JSON.stringify({ documents }));
               }
-            }}
-            className={DesignTokens.components.button.iconButton}
-          >
-            <MessageSquare className={combineClasses(DesignTokens.icons.button.size.full, DesignTokens.colors.primary.text[600])} />
-            <span className="hidden sm:inline">Ask About This</span>
-          </button>
-        )}
+              onTabChange('chat');
+            } catch (error) {
+              showError('Error loading data. Please try again.');
+            }
+          }}
+          className={DesignTokens.components.button.iconButton}
+        >
+          <MessageSquare className={combineClasses(DesignTokens.icons.button.size.full, DesignTokens.colors.primary.text[600])} />
+          <span className="hidden sm:inline">Ask About This</span>
+        </button>
       </div>
 
       {/* Documents Tab Content */}
       {activeSubTab === 'documents' && (
-        <div className={combineClasses(DesignTokens.components.card.nestedWithShadow, 'md:p-5')}>
+        <div className={DesignTokens.components.card.container}>
         {documents.length > 0 && (
           <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.section.mobile)}>
-            <h3 className={combineClasses(
-              DesignTokens.typography.h3.full,
-              DesignTokens.typography.h3.weight,
-              DesignTokens.typography.h3.color,
+            <div className={combineClasses(
               'flex items-center',
-              DesignTokens.spacing.gap.sm
+              DesignTokens.spacing.gap.sm,
+              DesignTokens.typography.body.base,
+              'font-semibold',
+              DesignTokens.colors.neutral.text[700]
             )}>
-            <div className={combineClasses('p-1.5 sm:p-2', DesignTokens.borders.radius.sm, DesignTokens.colors.neutral[100])}>
-              <FolderOpen className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.neutral.text[600])} />
+            <div className={combineClasses(DesignTokens.spacing.iconContainer.full, DesignTokens.borders.radius.sm, DesignTokens.colors.neutral[100])}>
+              <FolderOpen className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.neutral.text[500])} />
             </div>
             Medical Documents
-          </h3>
-            <div className="flex items-center gap-2">
+          </div>
+            <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm)}>
             <button
               onClick={() => openDocumentOnboarding('general')}
-              className="flex items-center gap-2 text-medical-primary-600 hover:text-medical-primary-700 transition-colors"
+              className={combineClasses(
+                'flex items-center',
+                DesignTokens.spacing.gap.sm,
+                DesignTokens.colors.primary.text[600],
+                `hover:${DesignTokens.colors.primary.text[700]}`,
+                DesignTokens.transitions.default
+              )}
             >
-              <Plus className="w-4 h-4" />
-              <span className="text-sm font-medium">Add File</span>
+              <Plus className={DesignTokens.icons.standard.size.full} />
+              <span className={combineClasses(DesignTokens.typography.body.sm, 'font-medium')}>Add File</span>
             </button>
             </div>
           </div>
@@ -872,7 +881,14 @@ export default function FilesTab({ onTabChange }) {
               };
 
               return (
-                <div key={doc.id} className={combineClasses('relative flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-2.5 sm:p-3 border rounded-lg transition', `hover:${DesignTokens.colors.neutral[50]}`)}>
+                <div key={doc.id} className={combineClasses(
+                  DesignTokens.components.card.nested,
+                  'relative flex flex-col sm:flex-row sm:items-center',
+                  DesignTokens.spacing.gap.sm,
+                  'sm:gap-3',
+                  DesignTokens.transitions.default,
+                  `hover:${DesignTokens.colors.neutral[50]}`
+                )}>
                   {/* Menu button - three dots in upper right corner */}
                   <div className="absolute top-2 right-2 z-10">
                     <button
@@ -881,26 +897,35 @@ export default function FilesTab({ onTabChange }) {
                         e.preventDefault();
                         setOpenMenuId(openMenuId === doc.id ? null : doc.id);
                       }}
-                      className={combineClasses('p-1.5 sm:p-1.5 rounded-full transition min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70', DesignTokens.colors.neutral.text[500], `hover:${DesignTokens.colors.neutral[100]}`, `hover:${DesignTokens.colors.neutral.text[700]}`)}
+                      className={combineClasses(
+                        DesignTokens.spacing.iconContainer.full,
+                        DesignTokens.borders.radius.full,
+                        DesignTokens.transitions.default,
+                        DesignTokens.spacing.touchTarget,
+                        'min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70',
+                        DesignTokens.colors.neutral.text[500],
+                        `hover:${DesignTokens.colors.neutral[100]}`,
+                        `hover:${DesignTokens.colors.neutral.text[700]}`
+                      )}
                       title="More options"
                     >
-                      <MoreVertical className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+                      <MoreVertical className={DesignTokens.icons.standard.size.full} />
                     </button>
                   </div>
                   
-                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 pr-8 sm:pr-10">
+                  <div className={combineClasses('flex items-center flex-1 min-w-0 pr-8 sm:pr-10', DesignTokens.spacing.gap.sm, 'sm:gap-3')}>
                     <div className={`w-10 h-10 sm:w-12 sm:h-12 ${iconConfig.bgColor} rounded-lg flex items-center justify-center flex-shrink-0`}>
                       <div className={`${iconConfig.iconColor} w-5 h-5 sm:w-6 sm:h-6`}>
                         {iconConfig.icon}
                       </div>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm sm:text-base font-semibold truncate">{fileName}</p>
-                      <p className={combineClasses('text-xs mt-0.5', DesignTokens.colors.neutral.text[700])}>{iconConfig.label}</p>
+                      <p className={combineClasses(DesignTokens.typography.body.base, 'font-semibold truncate')}>{fileName}</p>
+                      <p className={combineClasses(DesignTokens.typography.body.xs, 'mt-0.5', DesignTokens.colors.neutral.text[700])}>{iconConfig.label}</p>
                       {doc.note && (
-                        <p className="text-xs sm:text-sm text-medical-primary-600 mt-1 sm:mt-0.5 italic break-words line-clamp-2 sm:line-clamp-none">{doc.note}</p>
+                        <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.primary.text[600], 'mt-1 sm:mt-0.5 italic break-words line-clamp-2 sm:line-clamp-none')}>{doc.note}</p>
                       )}
-                      <p className={combineClasses('text-xs mt-0.5', DesignTokens.colors.neutral.text[500])}>
+                      <p className={combineClasses(DesignTokens.typography.body.xs, 'mt-0.5', DesignTokens.colors.neutral.text[500])}>
                         {(() => {
                           // Use stored date range from document if available (calculated upfront)
                           if (doc.hasMultipleDates && doc.minDate && doc.maxDate) {
@@ -935,14 +960,22 @@ export default function FilesTab({ onTabChange }) {
                       </p>
                     </div>
                   </div>
-                  <div className="flex-shrink-0 flex items-center justify-end gap-1 sm:gap-2 mt-2 sm:mt-0 sm:mr-12">
+                  <div className={combineClasses('flex-shrink-0 flex items-center justify-end mt-2 sm:mt-0 sm:mr-12', DesignTokens.spacing.gap.xs, 'sm:gap-2')}>
                     {/* View button - always visible */}
                     {doc.fileUrl && (
                       <a
                         href={doc.fileUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={combineClasses('px-3 py-1.5 text-white text-xs sm:text-sm font-medium rounded transition min-h-[44px] flex items-center justify-center touch-manipulation active:opacity-70 whitespace-nowrap', DesignTokens.colors.primary[600], `hover:${DesignTokens.colors.primary[700]}`)}
+                        className={combineClasses(
+                        'px-3 py-1.5 text-white font-medium rounded-lg',
+                        DesignTokens.typography.body.sm,
+                        DesignTokens.spacing.touchTarget,
+                        'flex items-center justify-center touch-manipulation active:opacity-70 whitespace-nowrap',
+                        DesignTokens.colors.primary[600],
+                        `hover:${DesignTokens.colors.primary[700]}`,
+                        DesignTokens.transitions.default
+                      )}
                         onClick={(e) => e.stopPropagation()}
                       >
                         View
@@ -962,7 +995,13 @@ export default function FilesTab({ onTabChange }) {
                         }}
                       />
                       {/* Menu items */}
-                      <div className={combineClasses('absolute top-10 right-2 w-48 bg-white rounded-lg shadow-lg py-1 z-30', DesignTokens.borders.width.default, DesignTokens.colors.neutral.border[200])}>
+                      <div className={combineClasses(
+                        'absolute top-10 right-2 w-48 bg-white py-1 z-30',
+                        DesignTokens.borders.radius.md,
+                        DesignTokens.shadows.lg,
+                        DesignTokens.borders.width.default,
+                        DesignTokens.colors.neutral.border[200]
+                      )}>
                             {/* Info button */}
                             <button
                               onClick={(e) => {
@@ -970,9 +1009,15 @@ export default function FilesTab({ onTabChange }) {
                                 setOpenMenuId(null);
                                 setShowDocumentMetadata(doc);
                               }}
-                              className={combineClasses('w-full px-4 py-2 text-left text-sm flex items-center gap-2', DesignTokens.colors.neutral.text[700], `hover:${DesignTokens.colors.neutral[100]}`)}
+                              className={combineClasses(
+                                'w-full px-4 py-2 text-left flex items-center',
+                                DesignTokens.spacing.gap.sm,
+                                DesignTokens.typography.body.sm,
+                                DesignTokens.colors.neutral.text[700],
+                                `hover:${DesignTokens.colors.neutral[100]}`
+                              )}
                             >
-                              <Info className="w-4 h-4" />
+                              <Info className={DesignTokens.icons.standard.size.full} />
                               View Metadata
                             </button>
                             
@@ -983,9 +1028,15 @@ export default function FilesTab({ onTabChange }) {
                                 setOpenMenuId(null);
                                 setEditingDocumentNote(doc);
                               }}
-                              className={combineClasses('w-full px-4 py-2 text-left text-sm flex items-center gap-2', DesignTokens.colors.neutral.text[700], `hover:${DesignTokens.colors.neutral[100]}`)}
+                              className={combineClasses(
+                                'w-full px-4 py-2 text-left flex items-center',
+                                DesignTokens.spacing.gap.sm,
+                                DesignTokens.typography.body.sm,
+                                DesignTokens.colors.neutral.text[700],
+                                `hover:${DesignTokens.colors.neutral[100]}`
+                              )}
                             >
-                              <Edit2 className="w-4 h-4" />
+                              <Edit2 className={DesignTokens.icons.standard.size.full} />
                               Edit Name, Date & Note
                             </button>
                             
@@ -997,9 +1048,15 @@ export default function FilesTab({ onTabChange }) {
                                   setOpenMenuId(null);
                                   setRescanDocument(doc);
                                 }}
-                                className={combineClasses('w-full px-4 py-2 text-left text-sm flex items-center gap-2', DesignTokens.colors.neutral.text[700], `hover:${DesignTokens.colors.neutral[100]}`)}
+                                className={combineClasses(
+                                  'w-full px-4 py-2 text-left flex items-center',
+                                  DesignTokens.spacing.gap.sm,
+                                  DesignTokens.typography.body.sm,
+                                  DesignTokens.colors.neutral.text[700],
+                                  `hover:${DesignTokens.colors.neutral[100]}`
+                                )}
                               >
-                                <RefreshCw className="w-4 h-4" />
+                                <RefreshCw className={DesignTokens.icons.standard.size.full} />
                                 Rescan Document
                               </button>
                             )}
@@ -1011,9 +1068,15 @@ export default function FilesTab({ onTabChange }) {
                                 setOpenMenuId(null);
                                 handleDelete(e);
                               }}
-                              className={combineClasses('w-full px-4 py-2 text-left text-sm flex items-center gap-2', DesignTokens.components.status.high.text, `hover:${DesignTokens.components.status.high.bg}`)}
+                              className={combineClasses(
+                                'w-full px-4 py-2 text-left flex items-center',
+                                DesignTokens.spacing.gap.sm,
+                                DesignTokens.typography.body.sm,
+                                DesignTokens.components.status.high.text,
+                                `hover:${DesignTokens.components.status.high.bg}`
+                              )}
                             >
-                              <X className="w-4 h-4" />
+                              <X className={DesignTokens.icons.standard.size.full} />
                               Delete Document
                             </button>
                           </div>
@@ -1030,47 +1093,56 @@ export default function FilesTab({ onTabChange }) {
 
       {/* Notes Tab Content */}
       {activeSubTab === 'notes' && (
-        <div className="bg-white rounded-b-lg shadow p-3 sm:p-4 md:p-5 border-x border-b border-medical-neutral-200">
+        <div className={combineClasses(
+          DesignTokens.components.card.container,
+          'rounded-b-lg border-x border-b'
+        )}>
         {notebookEntries.length > 0 && (
           <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.section.mobile)}>
-            <h3 className={combineClasses(
-              DesignTokens.typography.h3.full,
-              DesignTokens.typography.h3.weight,
-              DesignTokens.typography.h3.color,
+            <div className={combineClasses(
               'flex items-center',
-              DesignTokens.spacing.gap.sm
+              DesignTokens.spacing.gap.sm,
+              DesignTokens.typography.body.base,
+              'font-semibold',
+              DesignTokens.colors.neutral.text[700]
             )}>
-              <div className="bg-gray-100 p-1.5 sm:p-2 rounded-lg">
-                <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+              <div className={combineClasses(DesignTokens.spacing.iconContainer.full, DesignTokens.borders.radius.sm, DesignTokens.colors.neutral[100])}>
+                <BookOpen className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.neutral.text[500])} />
               </div>
               Medical Notebook
-            </h3>
+            </div>
             <button
               onClick={() => {
                 setAddNoteDate(null);
                 setShowAddJournalNote(true);
               }}
-              className="flex items-center gap-2 text-medical-primary-600 hover:text-medical-primary-700 transition-colors"
+              className={combineClasses(
+                'flex items-center',
+                DesignTokens.spacing.gap.sm,
+                DesignTokens.colors.primary.text[600],
+                `hover:${DesignTokens.colors.primary.text[700]}`,
+                DesignTokens.transitions.default
+              )}
             >
-              <Plus className="w-4 h-4" />
-              <span className="text-sm font-medium">Add Entry</span>
+              <Plus className={DesignTokens.icons.standard.size.full} />
+              <span className={combineClasses(DesignTokens.typography.body.sm, 'font-medium')}>Add Entry</span>
             </button>
           </div>
         )}
         {notebookEntries.length === 0 && !isLoadingNotebook && (
           <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.section.mobile)}>
-            <h3 className={combineClasses(
-              DesignTokens.typography.h3.full,
-              DesignTokens.typography.h3.weight,
-              DesignTokens.typography.h3.color,
+            <div className={combineClasses(
               'flex items-center',
-              DesignTokens.spacing.gap.sm
+              DesignTokens.spacing.gap.sm,
+              DesignTokens.typography.body.base,
+              'font-semibold',
+              DesignTokens.colors.neutral.text[700]
             )}>
-              <div className="bg-gray-100 p-1.5 sm:p-2 rounded-lg">
-                <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+              <div className={combineClasses(DesignTokens.spacing.iconContainer.full, DesignTokens.borders.radius.sm, DesignTokens.colors.neutral[100])}>
+                <BookOpen className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.neutral.text[500])} />
               </div>
               Medical Journal
-            </h3>
+            </div>
           </div>
         )}
 

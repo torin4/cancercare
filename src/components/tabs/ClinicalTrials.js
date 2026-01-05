@@ -656,9 +656,21 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
       {activeTab === 'search' && (
         <div>
           {/* Search Info */}
-          <div className={combineClasses('border border-medical-accent-200', DesignTokens.borders.radius.sm, DesignTokens.spacing.card.full, Layouts.section)}>
-            <h3 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, 'text-medical-accent-900 mb-2')}>Search Criteria</h3>
-            <div className={combineClasses(DesignTokens.typography.body.sm, 'text-medical-neutral-700 space-y-1')}>
+          <div className={combineClasses(
+            DesignTokens.components.card.withColoredBorder(DesignTokens.colors.accent.border[200]),
+            Layouts.section
+          )}>
+            <h3 className={combineClasses(
+              DesignTokens.typography.h3.full,
+              DesignTokens.typography.h3.weight,
+              DesignTokens.colors.accent.text[700],
+              'mb-2'
+            )}>Search Criteria</h3>
+            <div className={combineClasses(
+              DesignTokens.typography.body.sm,
+              DesignTokens.colors.neutral.text[700],
+              'space-y-1'
+            )}>
               <p><strong>Diagnosis:</strong> {patientProfile?.diagnosis || 'Not set'}</p>
               <p><strong>Age:</strong> {patientProfile?.age || 'Not set'}</p>
               <p><strong>Gender:</strong> {patientProfile?.gender || 'Not set'}</p>

@@ -330,7 +330,8 @@ export default function HealthTab({ onTabChange, initialSection = null }) {
         }
       }
 
-      setUploadProgress('Saving extracted data...');
+      // Don't set generic "Saving extracted data" - let the specific aiStatus messages show instead
+      // setUploadProgress('Saving extracted data...');
 
       // Reload health data to show new values
       setUploadProgress('Refreshing your health data...');
@@ -556,7 +557,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
       {/* Health Section Tabs with Ask About Button */}
       <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.responsive.md, Layouts.section, 'overflow-x-auto')}>
         {/* Health Section Tabs */}
-        <div className={Layouts.tabsContainer}>
+        <div className={combineClasses('flex', DesignTokens.spacing.gap.responsive.xs, 'overflow-x-auto', 'flex-1', 'mb-0')}>
         {['labs', 'vitals', 'symptoms', 'medications'].map(section => (
           <button
             key={section}
@@ -1178,6 +1179,15 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                       <button
                                                         onClick={(e) => {
                                                           e.stopPropagation();
+                                                          console.log('HealthTab: Delete button clicked from chart', { 
+                                                            valueId: d.id, 
+                                                            selectedLab, 
+                                                            labDoc: allLabData[selectedLab],
+                                                            labDocId: allLabData[selectedLab]?.id,
+                                                            currentLab,
+                                                            allLabDataKeys: Object.keys(allLabData)
+                                                          });
+                                                          
                                                           // Capture values in closure
                                                           const labValueId = d.id;
                                                           const labKey = selectedLab;
@@ -1189,6 +1199,13 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                           const labDate = d.date;
                                                           
                                                           if (!labDocId) {
+                                                            console.error('HealthTab: Lab document ID not found', { 
+                                                              labKey, 
+                                                              selectedLab, 
+                                                              labDoc, 
+                                                              allLabData: Object.keys(allLabData),
+                                                              currentLab 
+                                                            });
                                                             showError('Lab document ID not found. Please try again.');
                                                             return;
                                                           }
@@ -1223,8 +1240,9 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                                 }
                                                                 
                                                                 
+                                                                console.log('HealthTab: Attempting to delete lab value', { labDocId, labValueId, labName, labKey });
                                                                 await labService.deleteLabValue(labDocId, labValueId);
-                                                                
+                                                                console.log('HealthTab: Lab value deleted successfully');
                                                                 
                                                                 // Check if lab is now orphaned (no values left) and clean it up
                                                                 try {
@@ -1242,9 +1260,17 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                                 // Show success banner
                                                                 showSuccess(`${labName} reading deleted successfully`);
                                                               } catch (error) {
+                                                                console.error('HealthTab: Error deleting lab value', { 
+                                                                  error: error.message, 
+                                                                  stack: error.stack,
+                                                                  labDocId, 
+                                                                  labValueId, 
+                                                                  labName, 
+                                                                  labKey 
+                                                                });
                                                                 // Revert optimistic update on error only
                                                                 reloadHealthData();
-                                                                showError('Failed to delete lab reading. Please try again.');
+                                                                showError(`Failed to delete lab reading: ${error.message}`);
                                                               }
                                                             }
                                                           });
