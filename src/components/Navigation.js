@@ -206,7 +206,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
                 <div className="flex-shrink-0 w-20 flex justify-center">
                   <Icon className={DesignTokens.icons.button.size.full} />
                 </div>
-                <span className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'whitespace-nowrap', DesignTokens.transitions.slow, 'overflow-hidden', DesignTokens.spacing.gap.md, isExpanded ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0')}>
+                <span className={combineClasses(DesignTokens.typography.body.sm, 'font-semibold', 'whitespace-nowrap', DesignTokens.transitions.slow, 'overflow-hidden', DesignTokens.spacing.gap.md, isExpanded ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0')}>
                   {item.label}
                 </span>
           </button>
@@ -232,7 +232,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
                 <User className={DesignTokens.icons.button.size.full} />
               )}
             </div>
-            <span className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'whitespace-nowrap', DesignTokens.transitions.slow, 'overflow-hidden', DesignTokens.spacing.gap.md, isExpanded ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0')}>
+            <span className={combineClasses(DesignTokens.typography.body.sm, 'font-semibold', 'whitespace-nowrap', DesignTokens.transitions.slow, 'overflow-hidden', DesignTokens.spacing.gap.md, isExpanded ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0')}>
               Profile
             </span>
           </button>

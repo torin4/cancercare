@@ -4,6 +4,7 @@ import { auth } from '../firebase/config';
 import { Mail, Lock, AlertCircle } from 'lucide-react';
 import { DesignTokens, combineClasses } from '../design/designTokens';
 import logoSecondary from '../assets/logo_secondary.svg';
+import logoLightBg from '../assets/logo_light_bg.svg';
 
 export default function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
@@ -52,8 +53,8 @@ export default function Login({ onLoginSuccess }) {
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md animate-fade-scale">
         {/* Logo/Header */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-            <img src={logoSecondary} alt="CancerCare" className="w-10 h-10" />
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <img src={logoLightBg} alt="CancerCare" className="w-12 h-12" />
           </div>
           <h1 className="text-2xl font-bold text-medical-neutral-900">CancerCare</h1>
           <p className="text-sm text-medical-neutral-600 mt-2">
