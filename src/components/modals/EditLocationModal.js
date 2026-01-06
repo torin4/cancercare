@@ -94,7 +94,7 @@ export default function EditLocationModal({
                 type="checkbox"
                 checked={localTrialLocation.includeAllLocations}
                 onChange={(e) => setLocalTrialLocation({ ...localTrialLocation, includeAllLocations: e.target.checked })}
-                className={combineClasses('mt-1 w-4 h-4 rounded', DesignTokens.components.status.normal.text, 'focus:ring-medical-primary-500')}
+                className={combineClasses('mt-1 w-4 h-4 rounded', DesignTokens.components.status.normal.text)}
               />
               <div>
                 <p className={combineClasses('font-semibold', DesignTokens.colors.neutral.text[800])}>Include Global Locations</p>
@@ -113,7 +113,7 @@ export default function EditLocationModal({
                 value={localTrialLocation.country}
                 onChange={(e) => setLocalTrialLocation({ ...localTrialLocation, country: e.target.value })}
                 disabled={localTrialLocation.includeAllLocations}
-                className={combineClasses('w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-medical-primary-500', DesignTokens.colors.neutral.border[300], DesignTokens.components.input.disabled)}
+                className={combineClasses(DesignTokens.components.input.base, DesignTokens.components.input.disabled)}
               >
                 {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
@@ -166,7 +166,7 @@ export default function EditLocationModal({
           </button>
           <button
             onClick={handleSave}
-            className={combineClasses('flex-1 text-white py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2', DesignTokens.components.status.normal.text.replace('text-', 'bg-').replace('600', '600'), DesignTokens.components.status.normal.text.replace('text-', 'hover:bg-').replace('600', '700'))}
+            className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed')}
           >
             <Check className="w-4 h-4" />
             Save

@@ -1,0 +1,323 @@
+# Theme Usage Rules (LOCKED)
+
+This document defines **how color themes are applied across CancerCare**.
+It is not a suggestion. It is the contract that prevents visual chaos as the app grows.
+
+---
+
+## 0. Design Goal
+
+CancerCare is a multi-domain platform:
+- Health tracking
+- Clinical trials
+- Files & records
+- Cross-domain chat and dashboards
+
+The UI must feel:
+- stable
+- clinical
+- calm
+- trustworthy
+
+At the same time, users must instantly understand **context**.
+
+We achieve this by separating:
+- **Anchor (charcoal)** → structure & actions
+- **Module colors** → meaning & context
+- **Semantic colors** → safety signals
+
+---
+
+## 1. Color Roles (Non-Negotiable)
+
+### Anchor (charcoal)
+Anchor is the **product frame**.
+
+Use anchor for:
+- app chrome (nav, headers, page background)
+- default text and headings
+- borders and dividers
+- primary buttons
+- input focus rings
+- default icons
+- base cards and layouts
+
+**Primary actions are ALWAYS anchor-dark.**  
+No screen may override primary buttons with module colors.
+
+---
+
+### Module Colors (Accents Only)
+Module colors exist to **label meaning**, not to theme entire screens.
+
+Module mapping:
+- **Health** → medical-primary (blue)
+- **Trials** → care (green)
+- **Files** → medical-secondary (teal)
+- **Chat** → medical-secondary (teal, accent only)
+
+Allowed usage:
+- icon containers
+- badges / chips
+- thin active indicators (underline, left border)
+- small context banners
+- small chart highlights
+
+Not allowed:
+- page backgrounds
+- primary buttons
+- input focus rings
+- nav or header backgrounds
+- default typography
+
+---
+
+### Semantic Colors
+Semantic colors retain universal meaning:
+- **Red** → destructive / error
+- **Amber** → warning / urgent
+- **Green (semantic)** → success / normal status
+
+Semantic green ≠ Trials green.
+
+---
+
+## 2. Screen Categories
+
+### Module Screens
+These screens represent a single domain:
+- HealthTab
+- TrialsTab
+- FilesTab
+
+They may use their module color **in accent slots only**.
+
+---
+
+### Aggregator Screens
+These screens pull content from multiple domains:
+- Dashboard
+- Profile
+- Chat
+
+They must remain **anchor-first** to stay neutral and readable.
+
+However:
+> Aggregator screens **may apply module accent colors to components that are clearly related to that module’s data**.
+
+Example:
+- A “Trial enrollment” card on Dashboard may use **Trials (care) accent**
+- A health metric chip inside Chat may use **Health (blue) accent**
+- A file attachment badge may use **Files (teal) accent**
+
+The **page itself remains anchor-themed**.
+
+---
+
+## 3. Accent Slots (Where Color Is Allowed)
+
+Module colors may be used ONLY in these slots:
+
+### Slot A — Header Icon Container
+- Header text stays anchor.
+- Icon container background may use module accent.
+- Icon may use module accent text color.
+
+---
+
+### Slot B — Chips & Badges
+Examples:
+- “Health Data”
+- “Trial Context”
+- “PDF”
+- “Lab Result”
+
+Chips should be:
+- compact
+- clearly scoped
+- visually secondary to content
+
+---
+
+### Slot C — Thin Indicators
+- active tab underline
+- left border on context cards
+- small status markers
+
+Thickness matters — **thin only**.
+
+---
+
+### Slot D — Context Banners (Contained)
+Used to signal context, not to theme the page.
+
+Rules:
+- subtle background tint
+- small vertical footprint
+- body text remains anchor
+
+---
+
+## 4. Screen-by-Screen Rules
+
+## HealthTab
+**Intent:** clinical health tracking and trends.
+
+Allowed:
+- blue accent in header icon container
+- blue chips for vitals, labs, trends
+- blue highlights in charts
+
+Anchor remains responsible for:
+- page background
+- cards
+- headings and body text
+- buttons
+- input focus
+
+Not allowed:
+- blue primary buttons
+- blue screen-wide backgrounds
+
+---
+
+## TrialsTab
+**Intent:** research companion, progress tracking.
+
+Allowed:
+- care green accent in header icon container
+- green chips for enrollment status, cycle count
+- subtle green context banners
+
+Anchor remains responsible for:
+- layout structure
+- typography
+- primary actions
+- inputs
+
+Not allowed:
+- green CTAs
+- green input focus
+- green page backgrounds
+
+---
+
+## FilesTab
+**Intent:** utility and organization.
+
+Allowed:
+- teal accent in header icon container
+- teal file-type chips
+- thin teal indicators
+
+Anchor remains responsible for:
+- lists
+- metadata
+- buttons
+- layout
+
+Files should be **mostly anchor** with minimal color.
+
+---
+
+## ChatTab (Aggregator)
+**Intent:** cross-domain reasoning and coordination.
+
+ChatTab is **anchor-first**.
+
+Allowed:
+- context chips (Health / Trials / Files)
+- small context banners
+- accent icons tied to message content
+
+Not allowed:
+- recoloring chat input by context
+- recoloring send button by context
+- recoloring header or page background
+
+Chat always feels like “CancerCare,” not like the current topic.
+
+---
+
+## Dashboard (Aggregator)
+**Intent:** overview and synthesis.
+
+Dashboard remains anchor-first.
+
+Allowed:
+- module accent usage **inside individual cards**
+- mixed accents across different cards (expected)
+
+Not allowed:
+- page-level theming
+- dominant background colors
+
+---
+
+## Profile (Aggregator)
+**Intent:** identity, preferences, summaries.
+
+Profile remains anchor-first.
+
+Allowed:
+- module accents inside related sections
+  - trials summary → care accent
+  - health stats → blue accent
+
+Not allowed:
+- full profile theming
+- colored CTAs
+
+---
+
+## 5. Components (Global Enforcement)
+
+### Buttons
+- Primary → `DesignTokens.components.button.primary` (anchor)
+- Secondary / outline → anchor variants
+- Semantic buttons allowed only when semantic
+
+Never:
+- stack `bg-medical-*` or `bg-care-*` on primary buttons
+
+---
+
+### Inputs
+- Always use anchor focus ring
+- Context does NOT change focus color
+
+---
+
+### Cards
+- Cards use borders, spacing, and shadows for hierarchy
+- Do not use large colored card backgrounds
+
+---
+
+## 6. Cursor Implementation Instructions
+
+When refactoring or creating screens:
+
+1. Apply anchor layout first.
+2. Identify module-relevant components.
+3. Apply module accent **only** in approved accent slots.
+4. Verify primary actions remain anchor.
+5. Verify input focus remains anchor.
+6. Confirm page still reads clearly in grayscale.
+
+---
+
+## 7. Pass / Fail Tests
+
+A screen passes if:
+- It still works visually in grayscale.
+- Module context is clear via chips/icons, not page color.
+- Primary actions look identical across all tabs.
+- Aggregator screens feel neutral and stable.
+
+If a screen fails any of these, it violates the theme contract.
+
+---
+
+**This document is the guardrail.  
+If something feels “loud,” check this file first.**

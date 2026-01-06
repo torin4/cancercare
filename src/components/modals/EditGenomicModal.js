@@ -63,8 +63,8 @@ export default function EditGenomicModal({
   return (
     <div className={combineClasses(DesignTokens.components.modal.backdrop, 'z-50')}>
       <div className={combineClasses('w-full h-full md:h-auto md:max-w-4xl md:max-h-[90vh] overflow-hidden flex flex-col animate-slide-up', DesignTokens.borders.radius.lg, DesignTokens.components.modal.container)}>
-        <div className={combineClasses('flex-shrink-0 border-b', DesignTokens.components.modal.header, DesignTokens.colors.neutral.border[200], 'bg-gray-50')}>
-          <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, 'text-gray-800')}>Edit Genomic Profile</h3>
+        <div className={DesignTokens.components.modal.header}>
+          <h3 className={DesignTokens.components.modal.title}>Edit Genomic Profile</h3>
           <button
             onClick={handleCancel}
             className={combineClasses(DesignTokens.transitions.default, DesignTokens.components.modal.closeButton)}
@@ -97,7 +97,7 @@ export default function EditGenomicModal({
                   value={editingGenomicProfile.testName || ''}
                   onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, testName: e.target.value})}
                   placeholder="e.g., FoundationOne CDx, Guardant360"
-                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                 />
               </div>
               <div>
@@ -116,7 +116,7 @@ export default function EditGenomicModal({
                   value={editingGenomicProfile.laboratoryName || ''}
                   onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, laboratoryName: e.target.value})}
                   placeholder="e.g., Foundation Medicine"
-                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                 />
               </div>
               <div>
@@ -126,7 +126,7 @@ export default function EditGenomicModal({
                   value={editingGenomicProfile.specimenType || ''}
                   onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, specimenType: e.target.value})}
                   placeholder="e.g., FFPE tissue, Blood (ctDNA)"
-                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                 />
               </div>
               <div>
@@ -136,7 +136,7 @@ export default function EditGenomicModal({
                   value={editingGenomicProfile.tumorPurity || ''}
                   onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, tumorPurity: e.target.value})}
                   placeholder="e.g., 70%"
-                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                 />
               </div>
             </div>
@@ -175,7 +175,7 @@ export default function EditGenomicModal({
                             setEditingGenomicProfile({...editingGenomicProfile, mutations: updated});
                           }}
                           placeholder="e.g., BRCA1"
-                          className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                          className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                         />
                       </div>
                       <div>
@@ -189,7 +189,7 @@ export default function EditGenomicModal({
                             setEditingGenomicProfile({...editingGenomicProfile, mutations: updated});
                           }}
                           placeholder="e.g., c.5266dupC"
-                          className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                          className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                         />
                       </div>
                       <div>
@@ -203,7 +203,7 @@ export default function EditGenomicModal({
                             setEditingGenomicProfile({...editingGenomicProfile, mutations: updated});
                           }}
                           placeholder="e.g., c.5266dupC"
-                          className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                          className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                         />
                       </div>
                       <div>
@@ -217,7 +217,7 @@ export default function EditGenomicModal({
                             setEditingGenomicProfile({...editingGenomicProfile, mutations: updated});
                           }}
                           placeholder="e.g., p.Gln1756Profs*74"
-                          className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                          className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                         />
                       </div>
                       <div>
@@ -229,7 +229,7 @@ export default function EditGenomicModal({
                             updated[idx] = {...updated[idx], significance: e.target.value, clinicalSignificance: e.target.value};
                             setEditingGenomicProfile({...editingGenomicProfile, mutations: updated});
                           }}
-                          className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                          className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                         >
                           <option value="">Select...</option>
                           <option value="pathogenic">Pathogenic</option>
@@ -247,7 +247,7 @@ export default function EditGenomicModal({
                             updated[idx] = {...updated[idx], type: e.target.value};
                             setEditingGenomicProfile({...editingGenomicProfile, mutations: updated});
                           }}
-                          className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                          className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                         >
                           <option value="">Select...</option>
                           <option value="somatic">Somatic</option>
@@ -284,7 +284,7 @@ export default function EditGenomicModal({
                   value={editingGenomicProfile.tmb || ''}
                   onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, tmb: e.target.value})}
                   placeholder="e.g., 12.5 mutations/megabase"
-                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                 />
               </div>
               <div>
@@ -292,7 +292,7 @@ export default function EditGenomicModal({
                 <select
                   value={editingGenomicProfile.msi || ''}
                   onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, msi: e.target.value})}
-                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                 >
                   <option value="">Select...</option>
                   <option value="MSI-H">MSI-H (High)</option>
@@ -307,7 +307,7 @@ export default function EditGenomicModal({
                   value={editingGenomicProfile.hrdScore || ''}
                   onChange={(e) => setEditingGenomicProfile({...editingGenomicProfile, hrdScore: e.target.value})}
                   placeholder="e.g., 48"
-                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                 />
               </div>
             </div>
@@ -325,7 +325,7 @@ export default function EditGenomicModal({
             </button>
             <button
               onClick={handleSave}
-              className={combineClasses('flex-1 text-white py-2.5', DesignTokens.borders.radius.sm, DesignTokens.typography.h3.weight, DesignTokens.transitions.default, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, 'bg-gray-800 hover:bg-gray-700')}
+              className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed')}
             >
               <Check className={DesignTokens.icons.standard.size.full} />
               Save Changes

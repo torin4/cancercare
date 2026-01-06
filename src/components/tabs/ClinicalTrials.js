@@ -523,8 +523,8 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
         {/* Match Details */}
         {trial.matchResult && trial.matchResult.matchDetails && (
           <div className={combineClasses('mb-2 sm:mb-3', DesignTokens.spacing.card.mobile, DesignTokens.colors.accent[50], DesignTokens.borders.radius.sm, DesignTokens.spacing.header.mobile)}>
-            <p className={combineClasses(DesignTokens.typography.h3.weight, 'text-medical-accent-800', DesignTokens.typography.body.sm, 'mb-1.5 sm:mb-2')}>Why this matches:</p>
-            <ul className={combineClasses(DesignTokens.typography.body.sm, 'text-medical-accent-700', 'space-y-0.5 sm:space-y-1')}>
+            <p className={combineClasses(DesignTokens.typography.h3.weight, DesignTokens.colors.app.text[900], DesignTokens.typography.body.sm, 'mb-1.5 sm:mb-2')}>Why this matches:</p>
+            <ul className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.app.text[700], 'space-y-0.5 sm:space-y-1')}>
               {trial.matchResult.matchDetails.map((detail, idx) => (
                 <li key={idx}>• {detail.detail}</li>
               ))}
@@ -639,8 +639,8 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
           className={combineClasses(
             DesignTokens.components.tabs.button.base,
             activeTab === 'search'
-              ? 'text-medical-accent-600 border-b-2 border-medical-accent-600'
-              : 'text-medical-neutral-600 hover:text-medical-accent-600'
+              ? DesignTokens.components.tabs.button.active
+              : DesignTokens.components.tabs.button.inactive
           )}
         >
           <SearchIcon className={DesignTokens.icons.standard.size.mobile} />
@@ -651,8 +651,8 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
           className={combineClasses(
             DesignTokens.components.tabs.button.base,
             activeTab === 'saved'
-              ? 'text-medical-accent-600 border-b-2 border-medical-accent-600'
-              : 'text-medical-neutral-600 hover:text-medical-accent-600'
+              ? DesignTokens.components.tabs.button.active
+              : DesignTokens.components.tabs.button.inactive
           )}
         >
           <Bookmark className={DesignTokens.icons.standard.size.mobile} />
@@ -683,7 +683,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
               <p><strong>Age:</strong> {patientProfile?.age || 'Not set'}</p>
               <p><strong>Gender:</strong> {patientProfile?.gender || 'Not set'}</p>
               {genomicProfile && (
-                <p className="flex items-center gap-1 flex-wrap"><strong>Genomic Profile:</strong> <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-medical-accent-600 flex-shrink-0" /> <span className="text-xs sm:text-sm">Available (will be used for matching)</span></p>
+                <p className="flex items-center gap-1 flex-wrap"><strong>Genomic Profile:</strong> <CheckCircle className={combineClasses('w-3.5 h-3.5 sm:w-4 sm:h-4', DesignTokens.colors.app.text[600], 'flex-shrink-0')} /> <span className="text-xs sm:text-sm">Available (will be used for matching)</span></p>
               )}
               {trialLocation && (
                 <button
@@ -695,17 +695,17 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                   <strong className="text-xs sm:text-sm">Search Location:</strong> {
                     trialLocation.includeAllLocations 
                       ? (
-                        <span className="flex items-center gap-1 text-medical-accent-600 text-xs sm:text-sm">
+                        <span className={combineClasses('flex items-center gap-1', DesignTokens.colors.app.text[700], 'text-xs sm:text-sm')}>
                           <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" /> <span className="truncate">Global (All Countries)</span>
                         </span>
                       )
                       : (
-                        <span className="flex items-center gap-1 text-medical-accent-600 text-xs sm:text-sm">
+                        <span className={combineClasses('flex items-center gap-1', DesignTokens.colors.app.text[700], 'text-xs sm:text-sm')}>
                           <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" /> <span className="truncate">{trialLocation.country}</span>
                         </span>
                       )
                   }
-                  <span className="text-xs text-medical-accent-500 ml-1 flex-shrink-0">(Click to change)</span>
+                  <span className={combineClasses('text-xs', DesignTokens.colors.app.text[500], 'ml-1 flex-shrink-0')}>(Click to change)</span>
                 </button>
               )}
             </div>
@@ -716,7 +716,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             <button
               onClick={handleSearchTrials}
               disabled={searching || !patientProfile?.diagnosis}
-              className="flex-1 border-2 border-medical-accent-500 text-medical-accent-600 px-4 sm:px-6 py-2.5 sm:py-3.5 rounded-lg hover:bg-medical-accent-50 transition font-medium text-sm sm:text-base md:text-lg disabled:border-medical-neutral-400 disabled:text-medical-neutral-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-h-[44px] touch-manipulation active:opacity-70"
+              className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 sm:py-3.5', DesignTokens.spacing.gap.sm, 'text-sm sm:text-base md:text-lg disabled:opacity-50 disabled:cursor-not-allowed')}
             >
               {searching ? (
                 <span className="flex items-center gap-2"><SearchIcon className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">Searching sources...</span><span className="sm:hidden">Searching...</span></span>
@@ -767,7 +767,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                     <button
                       onClick={handleLoadMore}
                       disabled={loadingMore || searching}
-                      className="px-4 sm:px-6 py-2.5 sm:py-3 border-2 border-medical-accent-500 text-medical-accent-600 rounded-lg font-medium hover:bg-medical-accent-50 transition disabled:border-medical-neutral-400 disabled:text-medical-neutral-400 disabled:cursor-not-allowed flex items-center gap-2 text-sm sm:text-base min-h-[44px] touch-manipulation active:opacity-70"
+                      className={combineClasses(DesignTokens.components.button.outline.primary, DesignTokens.spacing.button.full, 'py-2.5 sm:py-3', DesignTokens.spacing.gap.sm, 'text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed')}
                     >
                       {loadingMore ? (
                         <>
@@ -888,15 +888,15 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             {/* Content */}
             <div className={combineClasses(DesignTokens.components.modal.body, DesignTokens.spacing.card.full, 'space-y-4 sm:space-y-6')}>
               {selectedTrial.titleJa && selectedTrial.title !== selectedTrial.titleJa && (
-                <div className="bg-medical-accent-50 border border-medical-accent-200 rounded-lg p-2.5 sm:p-3">
-                  <p className="text-xs sm:text-sm text-medical-accent-800 break-words">{selectedTrial.titleJa}</p>
+                <div className={combineClasses(DesignTokens.colors.accent[50], 'border', DesignTokens.colors.accent.border[200], DesignTokens.borders.radius.sm, 'p-2.5 sm:p-3')}>
+                  <p className={combineClasses('text-xs sm:text-sm', DesignTokens.colors.app.text[900], 'break-words')}>{selectedTrial.titleJa}</p>
                 </div>
               )}
 
               {/* Summary */}
               <div className={combineClasses(DesignTokens.components.card.container, DesignTokens.shadows.sm)}>
                 <h3 className="font-semibold text-medical-neutral-900 mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base">
-                  <SearchIcon className="w-4 h-4 sm:w-5 sm:h-5 text-medical-accent-600 flex-shrink-0" />
+                  <SearchIcon className={combineClasses('w-4 h-4 sm:w-5 sm:h-5', DesignTokens.colors.app.text[600], 'flex-shrink-0')} />
                   Summary
                 </h3>
                 {loadingTrialDetails ? (
@@ -934,8 +934,8 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
               {/* Eligibility Criteria */}
               {selectedTrial.eligibility && (
                 <div className={combineClasses(DesignTokens.components.card.container, DesignTokens.shadows.sm)}>
-                  <h3 className="font-semibold text-medical-neutral-900 mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base">
-                    <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-medical-accent-600 flex-shrink-0" />
+                  <h3 className={combineClasses('font-semibold', DesignTokens.colors.app.text[900], 'mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base')}>
+                    <CheckCircle className={combineClasses('w-4 h-4 sm:w-5 sm:h-5', DesignTokens.colors.app.text[600], 'flex-shrink-0')} />
                     Eligibility Criteria
                   </h3>
                   <div className={DesignTokens.components.card.nestedSubtle}>
@@ -994,7 +994,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                 return (
                   <div className={combineClasses(DesignTokens.components.card.container, DesignTokens.shadows.sm, 'p-4')}>
                     <h3 className="font-semibold text-medical-neutral-900 mb-3 flex items-center gap-2">
-                      <MapPin className="w-5 h-5 text-medical-accent-600" />
+                      <MapPin className={combineClasses('w-5 h-5', DesignTokens.colors.app.text[600])} />
                       Study Locations
                     </h3>
                     <ul className="space-y-3">
@@ -1031,30 +1031,25 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                         return (
                           <li 
                             key={idx} 
-                            className={`rounded-lg p-3 border ${
-                              isSelectedLocation
-                                ? 'bg-medical-accent-50 border-medical-accent-300 border-2'
-                                : 'bg-medical-neutral-50 border-medical-neutral-200'
-                            }`}
+                            className={combineClasses('rounded-lg p-3 border', isSelectedLocation
+                                ? combineClasses(DesignTokens.colors.accent[50], DesignTokens.colors.accent.border[300], 'border-2')
+                                : combineClasses(DesignTokens.colors.app[50], DesignTokens.colors.app.border[200])
+                            )}
                           >
                             {isSelectedLocation && (
                               <div className="flex items-center gap-2 mb-2">
-                                <CheckCircle className="w-4 h-4 text-medical-accent-600" />
-                                <span className="text-xs font-semibold text-medical-accent-700 uppercase tracking-wide">
+                                <CheckCircle className={combineClasses('w-4 h-4', DesignTokens.colors.accent.text[600])} />
+                                <span className={combineClasses('text-xs font-semibold', DesignTokens.colors.accent.text[700], 'uppercase tracking-wide')}>
                                   Your Selected Location
                                 </span>
                               </div>
                             )}
                             {facilityName && (
-                              <div className={`font-semibold mb-1 ${
-                                isSelectedLocation ? 'text-medical-accent-900' : 'text-medical-neutral-900'
-                              }`}>
+                              <div className={combineClasses('font-semibold mb-1', DesignTokens.colors.app.text[900])}>
                                 {facilityName}
                               </div>
                             )}
-                            <div className={`text-sm ${
-                              isSelectedLocation ? 'text-medical-accent-800' : 'text-medical-neutral-700'
-                            }`}>
+                            <div className={combineClasses('text-sm', DesignTokens.colors.app.text[700])}>
                               {locationText}
                             </div>
                           </li>

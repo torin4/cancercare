@@ -125,7 +125,7 @@ export default function AddLabModal({
   return (
     <div className={combineClasses(DesignTokens.components.modal.backdrop, 'z-50')}>
       <div className={combineClasses('w-full h-full md:h-auto', DesignTokens.borders.radius.lg, 'md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up', DesignTokens.components.modal.container)}>
-        <div className={combineClasses('flex-shrink-0 border-b', DesignTokens.components.modal.header, DesignTokens.colors.neutral.border[200], 'bg-medical-primary-50')}>
+        <div className={DesignTokens.components.modal.header}>
           <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, DesignTokens.colors.primary.text[700])}>Add Lab Metric to Track</h3>
           <button
             onClick={handleCancel}
@@ -170,7 +170,7 @@ export default function AddLabModal({
                   setNewLabData({ label: '', normalRange: '', unit: '', initialValue: '', initialDate: getTodayLocalDate() });
                 }
               }}
-              className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+              className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
             >
               <option value="">Select a lab metric to track</option>
 
@@ -320,7 +320,7 @@ export default function AddLabModal({
                 value={newLabData.label}
                 onChange={(e) => setNewLabData({ ...newLabData, label: e.target.value })}
                 placeholder="e.g., Vitamin D, Albumin, Magnesium"
-                className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
               />
             </div>
 
@@ -332,7 +332,7 @@ export default function AddLabModal({
                   value={newLabData.normalRange}
                   onChange={(e) => setNewLabData({ ...newLabData, normalRange: e.target.value })}
                   placeholder="e.g., <35, 4.5-11.0"
-                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                 />
               </div>
 
@@ -343,7 +343,7 @@ export default function AddLabModal({
                   value={newLabData.unit}
                   onChange={(e) => setNewLabData({ ...newLabData, unit: e.target.value })}
                   placeholder="e.g., U/mL, mg/dL"
-                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                 />
               </div>
             </div>
@@ -371,7 +371,7 @@ export default function AddLabModal({
                     value={newLabData.initialValue}
                     onChange={(e) => setNewLabData({ ...newLabData, initialValue: e.target.value })}
                     placeholder="e.g., 42"
-                    className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                    className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                   />
                 </div>
 
@@ -411,7 +411,7 @@ export default function AddLabModal({
             </button>
             <button
               onClick={handleSave}
-              className={combineClasses('flex-1 text-white py-2.5', DesignTokens.borders.radius.sm, DesignTokens.typography.h3.weight, DesignTokens.transitions.default, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, 'disabled:opacity-50', 'bg-gray-800 hover:bg-gray-700')}
+              className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed')}
               disabled={!newLabData.label || !newLabData.normalRange || !newLabData.unit}
             >
               <Plus className={DesignTokens.icons.standard.size.full} />

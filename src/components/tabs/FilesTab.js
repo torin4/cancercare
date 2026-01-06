@@ -587,8 +587,8 @@ export default function FilesTab({ onTabChange }) {
     switch (type) {
       case 'Lab':
         return {
-          bgColor: 'bg-yellow-100',
-          iconColor: 'text-yellow-600',
+          bgColor: DesignTokens.moduleAccent.files.bg,
+          iconColor: DesignTokens.moduleAccent.files.text,
           icon: (
             <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
@@ -650,8 +650,8 @@ export default function FilesTab({ onTabChange }) {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-8 max-w-sm w-full mx-4 shadow-2xl">
             <div className="text-center">
-              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Loader2 className="w-8 h-8 text-yellow-600 animate-spin" />
+              <div className={combineClasses('w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4', DesignTokens.colors.app[100])}>
+                <Loader2 className={combineClasses('w-8 h-8 animate-spin', DesignTokens.colors.app.text[600])} />
               </div>
               <h3 className={combineClasses('text-xl font-bold mb-2', DesignTokens.colors.neutral.text[900])}>Loading Documents</h3>
               <p className={combineClasses(DesignTokens.colors.neutral.text[600])}>Calculating date ranges...</p>
@@ -667,8 +667,8 @@ export default function FilesTab({ onTabChange }) {
         'flex items-center'
       )}>
         <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'sm:gap-3')}>
-          <div className={combineClasses('bg-yellow-50 p-2 sm:p-2.5 rounded-lg')}>
-            <FileText className={combineClasses('w-5 h-5 sm:w-6 sm:h-6 text-yellow-600')} />
+          <div className={combineClasses(DesignTokens.moduleAccent.files.bg, 'p-2 sm:p-2.5 rounded-lg')}>
+            <FileText className={combineClasses('w-5 h-5 sm:w-6 sm:h-6', DesignTokens.moduleAccent.files.text)} />
           </div>
           <div>
             <h1 className={combineClasses(DesignTokens.components.header.title, 'mb-0')}>Documents</h1>
@@ -713,8 +713,8 @@ export default function FilesTab({ onTabChange }) {
             className={combineClasses(
               DesignTokens.components.tabs.button.base,
               activeSubTab === 'notes'
-                ? 'text-yellow-600 border-b-2 border-yellow-600'
-                : 'text-medical-neutral-600 hover:text-yellow-600'
+                ? DesignTokens.components.tabs.button.active
+                : DesignTokens.components.tabs.button.inactive
             )}
           >
             <BookOpen className={DesignTokens.icons.button.size.full} />
@@ -725,8 +725,8 @@ export default function FilesTab({ onTabChange }) {
             className={combineClasses(
               DesignTokens.components.tabs.button.base,
               activeSubTab === 'documents'
-                ? 'text-yellow-600 border-b-2 border-yellow-600'
-                : 'text-medical-neutral-600 hover:text-yellow-600'
+                ? DesignTokens.components.tabs.button.active
+                : DesignTokens.components.tabs.button.inactive
             )}
           >
             <FolderOpen className={DesignTokens.icons.button.size.full} />
@@ -751,9 +751,9 @@ export default function FilesTab({ onTabChange }) {
               showError('Error loading data. Please try again.');
             }
           }}
-          className={combineClasses('bg-medical-secondary-50 text-medical-secondary-600 px-3 sm:px-6 py-2.5 rounded-lg hover:bg-medical-secondary-100 transition font-medium flex items-center gap-2 shadow-sm border border-medical-secondary-200 min-h-[44px] touch-manipulation active:opacity-70 flex-shrink-0')}
+          className={combineClasses(DesignTokens.components.button.outline.primary, 'px-3 sm:px-6 py-2.5 font-medium flex items-center gap-2 shadow-sm min-h-[44px] touch-manipulation active:opacity-70 flex-shrink-0')}
         >
-          <MessageSquare className={combineClasses(DesignTokens.icons.button.size.full, 'text-medical-secondary-600')} />
+          <MessageSquare className={combineClasses(DesignTokens.icons.button.size.full, DesignTokens.colors.app.text[600])} />
           <span className="hidden sm:inline">Ask About This</span>
         </button>
       </div>
@@ -781,8 +781,8 @@ export default function FilesTab({ onTabChange }) {
               className={combineClasses(
                 'flex items-center',
                 DesignTokens.spacing.gap.sm,
-                'text-yellow-600',
-                'hover:text-yellow-700',
+                DesignTokens.colors.app.text[600],
+                'hover:' + DesignTokens.colors.app.text[700],
                 DesignTokens.transitions.default
               )}
             >
@@ -803,9 +803,9 @@ export default function FilesTab({ onTabChange }) {
               <button
                 onClick={() => openDocumentOnboarding('general')}
                 className={combineClasses(
-                  'bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors font-medium min-h-[44px] touch-manipulation active:opacity-70',
+                  DesignTokens.components.button.primary,
                   DesignTokens.spacing.button.full,
-                  'py-2.5 sm:py-3'
+                  'py-2.5 sm:py-3 font-medium min-h-[44px] touch-manipulation active:opacity-70'
                 )}
               >
                 <Upload className={DesignTokens.icons.button.size.full} />
@@ -825,19 +825,9 @@ export default function FilesTab({ onTabChange }) {
                 onChange={(e) => setDocumentSearchQuery(e.target.value)}
                 className={combineClasses(
                   DesignTokens.components.input.base,
-                  DesignTokens.components.input.withIcon,
-                  documentSearchQuery && 'pr-10'
+                  DesignTokens.components.input.withIcon
                 )}
               />
-              {documentSearchQuery && (
-                <button
-                  onClick={() => setDocumentSearchQuery('')}
-                  className={combineClasses('absolute right-3 top-1/2 -translate-y-1/2', DesignTokens.colors.neutral.text[400], 'hover:text-gray-600', DesignTokens.transitions.default)}
-                  aria-label="Clear search"
-                >
-                  <X className={DesignTokens.icons.standard.size.full} />
-                </button>
-              )}
             </div>
             
             {/* Filtered Documents */}
@@ -940,7 +930,7 @@ export default function FilesTab({ onTabChange }) {
                       <p className={combineClasses(DesignTokens.typography.body.base, 'font-semibold truncate')}>{fileName}</p>
                       <p className={combineClasses(DesignTokens.typography.body.xs, 'mt-0.5', DesignTokens.colors.neutral.text[700])}>{iconConfig.label}</p>
                       {doc.note && (
-                        <p className={combineClasses(DesignTokens.typography.body.sm, 'text-yellow-600', 'mt-1 sm:mt-0.5 italic break-words line-clamp-2 sm:line-clamp-none')}>{doc.note}</p>
+                        <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.app.text[600], 'mt-1 sm:mt-0.5 italic break-words line-clamp-2 sm:line-clamp-none')}>{doc.note}</p>
                       )}
                       <p className={combineClasses(DesignTokens.typography.body.xs, 'mt-0.5', DesignTokens.colors.neutral.text[500])}>
                         {(() => {
@@ -985,12 +975,11 @@ export default function FilesTab({ onTabChange }) {
                         target="_blank"
                         rel="noopener noreferrer"
                         className={combineClasses(
-                        'px-3 py-1.5 text-white font-medium rounded-lg',
+                        DesignTokens.components.button.primary,
+                        'px-3 py-1.5 font-medium rounded-lg',
                         DesignTokens.typography.body.sm,
                         DesignTokens.spacing.touchTarget,
                         'flex items-center justify-center touch-manipulation active:opacity-70 whitespace-nowrap',
-                        'bg-yellow-600',
-                        'hover:bg-yellow-700',
                         DesignTokens.transitions.default
                       )}
                         onClick={(e) => e.stopPropagation()}
@@ -1135,8 +1124,8 @@ export default function FilesTab({ onTabChange }) {
               className={combineClasses(
                 'flex items-center',
                 DesignTokens.spacing.gap.sm,
-                'text-yellow-600',
-                'hover:text-yellow-700',
+                DesignTokens.colors.app.text[600],
+                'hover:' + DesignTokens.colors.app.text[700],
                 DesignTokens.transitions.default
               )}
             >
@@ -1164,7 +1153,7 @@ export default function FilesTab({ onTabChange }) {
 
         {isLoadingNotebook ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 text-yellow-600 animate-spin" />
+            <Loader2 className={combineClasses('w-8 h-8 animate-spin', DesignTokens.colors.app.text[600])} />
           </div>
         ) : (
           <>
@@ -1179,19 +1168,9 @@ export default function FilesTab({ onTabChange }) {
                   onChange={(e) => setNotebookSearchQuery(e.target.value)}
                   className={combineClasses(
                     DesignTokens.components.input.base,
-                    DesignTokens.components.input.withIcon,
-                    notebookSearchQuery && 'pr-10'
+                    DesignTokens.components.input.withIcon
                   )}
                 />
-                {notebookSearchQuery && (
-                  <button
-                    onClick={() => setNotebookSearchQuery('')}
-                    className={combineClasses('absolute right-3 top-1/2 -translate-y-1/2', DesignTokens.colors.neutral.text[400], 'hover:text-gray-600', DesignTokens.transitions.default)}
-                    aria-label="Clear search"
-                  >
-                    <X className={DesignTokens.icons.standard.size.full} />
-                  </button>
-                )}
               </div>
             )}
             

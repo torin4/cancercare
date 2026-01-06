@@ -365,7 +365,7 @@ export default function ProfileTab({ onTabChange }) {
                 };
                 input.click();
               }}
-              className={combineClasses('absolute bottom-0 right-0 w-8 h-8 sm:w-12 sm:h-12', 'bg-gray-800', DesignTokens.borders.radius.full, 'flex items-center justify-center text-white', DesignTokens.shadows.lg, 'hover:bg-gray-700', 'active:bg-gray-700', DesignTokens.transitions.all, 'transform active:scale-95', DesignTokens.spacing.touchTarget)}
+              className={combineClasses('absolute bottom-0 right-0 w-8 h-8 sm:w-12 sm:h-12', DesignTokens.colors.app[900], DesignTokens.borders.radius.full, 'flex items-center justify-center text-white', DesignTokens.shadows.lg, 'hover:' + DesignTokens.colors.app[800], 'active:' + DesignTokens.colors.app[800], DesignTokens.transitions.all, 'transform active:scale-95', DesignTokens.spacing.touchTarget)}
               title="Change profile picture"
               aria-label="Change profile picture"
             >
@@ -396,7 +396,7 @@ export default function ProfileTab({ onTabChange }) {
               </div>
               <button
                 onClick={() => setShowEditInfo(true)}
-                className={combineClasses('p-2 -mr-2', DesignTokens.spacing.touchTarget, 'flex items-center justify-center', 'text-gray-800', 'hover:text-gray-900', 'active:text-gray-900', DesignTokens.transitions.default)}
+                className={combineClasses('p-2 -mr-2', DesignTokens.spacing.touchTarget, 'flex items-center justify-center', DesignTokens.colors.app.text[900], 'hover:' + DesignTokens.colors.app.text[900], 'active:' + DesignTokens.colors.app.text[900], DesignTokens.transitions.default)}
                 aria-label="Edit patient information"
               >
                 <Edit2 className={DesignTokens.icons.standard.size.full} />
@@ -409,8 +409,8 @@ export default function ProfileTab({ onTabChange }) {
         <div className={combineClasses('grid grid-cols-2', DesignTokens.spacing.gap.md, 'mt-4')}>
               {patientProfile.age && (
                 <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, DesignTokens.typography.body.sm)}>
-                  <div className={combineClasses(DesignTokens.spacing.iconContainer.mobile, 'bg-gray-100', DesignTokens.borders.radius.sm, 'flex items-center justify-center flex-shrink-0')}>
-                    <User className={combineClasses(DesignTokens.icons.standard.size.full, 'text-gray-800')} />
+                  <div className={combineClasses(DesignTokens.spacing.iconContainer.mobile, DesignTokens.colors.primary[50], DesignTokens.borders.radius.sm, 'flex items-center justify-center flex-shrink-0')}>
+                    <User className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.primary.text[600])} />
                   </div>
                   <div>
                     <p className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>Age</p>
@@ -420,7 +420,7 @@ export default function ProfileTab({ onTabChange }) {
               )}
               {patientProfile.dateOfBirth && (
                 <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, DesignTokens.typography.body.sm)}>
-                  <div className={combineClasses(DesignTokens.spacing.iconContainer.mobile, DesignTokens.colors.accent[100], DesignTokens.borders.radius.sm, 'flex items-center justify-center flex-shrink-0')}>
+                  <div className={combineClasses(DesignTokens.spacing.iconContainer.mobile, DesignTokens.colors.accent[50], DesignTokens.borders.radius.sm, 'flex items-center justify-center flex-shrink-0')}>
                     <Calendar className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.accent.text[600])} />
                   </div>
                   <div>
@@ -437,8 +437,8 @@ export default function ProfileTab({ onTabChange }) {
               )}
               {patientProfile.country && (
                 <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, DesignTokens.typography.body.sm)}>
-                  <div className={combineClasses(DesignTokens.spacing.iconContainer.mobile, 'bg-medical-secondary-100', DesignTokens.borders.radius.sm, 'flex items-center justify-center flex-shrink-0')}>
-                    <MapPin className={combineClasses(DesignTokens.icons.standard.size.full, 'text-medical-secondary-600')} />
+                  <div className={combineClasses(DesignTokens.spacing.iconContainer.mobile, DesignTokens.moduleAccent.files.bg, DesignTokens.borders.radius.sm, 'flex items-center justify-center flex-shrink-0')}>
+                    <MapPin className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.moduleAccent.files.text)} />
                   </div>
                   <div>
                     <p className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>Location</p>
@@ -470,8 +470,8 @@ export default function ProfileTab({ onTabChange }) {
               )}
               {patientProfile.weight && (
                 <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, DesignTokens.typography.body.sm)}>
-                  <div className={combineClasses(DesignTokens.spacing.iconContainer.mobile, DesignTokens.borders.radius.sm, 'flex items-center justify-center flex-shrink-0', 'bg-gray-100')}>
-                    <Activity className={combineClasses(DesignTokens.icons.standard.size.full, 'text-gray-800')} />
+                  <div className={combineClasses(DesignTokens.spacing.iconContainer.mobile, DesignTokens.moduleAccent.health.bg, DesignTokens.borders.radius.sm, 'flex items-center justify-center flex-shrink-0')}>
+                    <Activity className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.moduleAccent.health.text)} />
                   </div>
                   <div>
                     <p className={combineClasses('text-xs', DesignTokens.colors.neutral.text[500])}>Weight</p>
@@ -483,17 +483,17 @@ export default function ProfileTab({ onTabChange }) {
       </div>
 
       {/* Current Status - Full Width */}
-      <div className={combineClasses(DesignTokens.components.card.containerLarge, 'border-medical-accent-200')}>
+      <div className={DesignTokens.components.card.containerLarge}>
         <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.header.mobile)}>
           <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.md)}>
-            <div className={combineClasses(DesignTokens.colors.accent[50], DesignTokens.spacing.iconContainer.full, DesignTokens.borders.radius.sm)}>
-              <Activity className={combineClasses(DesignTokens.icons.header.size.full, DesignTokens.colors.accent.text[600])} />
+            <div className={combineClasses(DesignTokens.components.header.iconContainer)}>
+              <Activity className={combineClasses(DesignTokens.icons.header.size.full, DesignTokens.components.header.icon)} />
             </div>
             <h2 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[800])}>Current Status</h2>
           </div>
           <button
             onClick={() => setShowUpdateStatus(true)}
-            className={combineClasses('p-2 -mr-2', DesignTokens.colors.accent.text[600], `hover:${DesignTokens.colors.accent.text[700]}`, `active:${DesignTokens.colors.accent.text[700]}`, DesignTokens.spacing.touchTarget, 'flex items-center justify-center', DesignTokens.transitions.default)}
+            className={combineClasses('p-2 -mr-2', DesignTokens.colors.app.text[900], 'hover:' + DesignTokens.colors.app.text[900], 'active:' + DesignTokens.colors.app.text[900], DesignTokens.spacing.touchTarget, 'flex items-center justify-center', DesignTokens.transitions.default)}
             aria-label="Update current status"
           >
             <Edit2 className={DesignTokens.icons.standard.size.full} />
@@ -628,7 +628,7 @@ export default function ProfileTab({ onTabChange }) {
                 );
               })}
               {genomicProfile.tmb && (
-                <span className={combineClasses('px-3 py-1', DesignTokens.borders.radius.full, DesignTokens.typography.body.xs, 'font-medium', 'bg-gray-100', 'text-gray-800')}>
+                <span className={combineClasses('px-3 py-1', DesignTokens.borders.radius.full, DesignTokens.typography.body.xs, 'font-medium', DesignTokens.colors.app[100], DesignTokens.colors.app.text[900])}>
                   TMB: {genomicProfile.tmb}
                 </span>
               )}
@@ -785,9 +785,9 @@ export default function ProfileTab({ onTabChange }) {
                 )}
 
                 {genomicProfile.tmb && (
-                  <div className={combineClasses('p-2 border rounded', 'bg-gray-50', 'border-gray-200')}>
+                  <div className={combineClasses('p-2 border rounded', DesignTokens.colors.app[50], DesignTokens.colors.app.border[200])}>
                     <p className={combineClasses('text-xs mb-1', DesignTokens.colors.neutral.text[600])}>TMB</p>
-                    <p className={combineClasses('text-lg font-bold', 'text-gray-800')}>{genomicProfile.tmb}</p>
+                    <p className={combineClasses('text-lg font-bold', DesignTokens.colors.app.text[900])}>{genomicProfile.tmb}</p>
                     <p className={combineClasses('text-xs font-medium', DesignTokens.colors.primary.text[700])}>
                       {parseFloat(genomicProfile.tmb) >= 10 ? 'High (≥10 mut/Mb)' : 'Low (<10 mut/Mb)'}
                     </p>
@@ -923,7 +923,7 @@ export default function ProfileTab({ onTabChange }) {
       {/* Medical Team & Emergency Contacts - Side by Side */}
       <div className="flex flex-col sm:flex-row gap-4">
         {/* Medical Team */}
-        <div className="flex-1 bg-white rounded-lg sm:rounded-xl shadow-sm p-4 border-2 border-medical-primary-200">
+        <div className={combineClasses(DesignTokens.components.card.container, 'flex-1')}>
           {(patientProfile.oncologist || patientProfile.hospital || patientProfile.clinicalTrialCoordinator || patientProfile.caregiverName) && (
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
@@ -934,7 +934,7 @@ export default function ProfileTab({ onTabChange }) {
               </div>
               <button
                 onClick={() => setShowEditMedicalTeam(true)}
-                className="p-2 -mr-2 text-medical-primary-600 hover:text-medical-primary-700 active:text-medical-primary-800 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+                className={combineClasses('p-2 -mr-2', DesignTokens.colors.app.text[900], 'hover:' + DesignTokens.colors.app.text[900], 'active:' + DesignTokens.colors.app.text[900], 'touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center', DesignTokens.transitions.default)}
                 aria-label="Edit medical team"
               >
                 <Edit2 size={20} />
@@ -978,7 +978,7 @@ export default function ProfileTab({ onTabChange }) {
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <button
                   onClick={() => setShowEditMedicalTeam(true)}
-                  className="px-6 py-3 min-h-[44px] bg-medical-primary-500 text-white rounded-lg hover:bg-medical-primary-600 active:bg-medical-primary-700 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md flex items-center justify-center gap-2 touch-manipulation"
+                  className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-3', DesignTokens.spacing.gap.sm)}
                 >
                   <Plus className="w-4 h-4" />
                   Add Medical Team
@@ -1128,7 +1128,7 @@ export default function ProfileTab({ onTabChange }) {
                       }
                     }}
                     className={`relative inline-flex h-7 w-12 sm:h-6 sm:w-11 items-center rounded-full transition-colors flex-shrink-0 ml-4 touch-manipulation ${
-                      patientProfile?.isPatient !== false ? 'bg-medical-primary-600' : 'bg-gray-300'
+                      patientProfile?.isPatient !== false ? DesignTokens.colors.app[700] : DesignTokens.colors.app[300]
                     }`}
                     aria-label={patientProfile?.isPatient !== false ? 'Switch to caregiver mode' : 'Switch to patient mode'}
                   >

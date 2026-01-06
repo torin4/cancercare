@@ -70,14 +70,4 @@
   .badge-info {
     @apply px-3 py-1 bg-medical-primary-100 text-medical-primary-700 rounded-full text-xs font-medium;
   }
-  
-  /* Hide scrollbar utility */
-  .scrollbar-hide {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
-  }
-  
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;  /* Chrome, Safari and Opera */
-  }
 }

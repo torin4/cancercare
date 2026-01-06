@@ -195,7 +195,7 @@ export default function EditLabModal({
     <div className={combineClasses(DesignTokens.components.modal.backdrop, 'z-[101] animate-in fade-in duration-200')}>
       <div className={combineClasses('bg-white max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col', DesignTokens.borders.radius.lg, DesignTokens.shadows.xl)}>
         {/* Header */}
-        <div className={combineClasses('flex items-center justify-between border-b', DesignTokens.components.modal.header, DesignTokens.colors.neutral.border[200], 'bg-medical-primary-50')}>
+        <div className={DesignTokens.components.modal.header}>
           <h2 className={combineClasses(DesignTokens.typography.h1.full, DesignTokens.typography.h1.weight, DesignTokens.colors.primary.text[700])}>Edit Metric</h2>
           <button
             onClick={onClose}
@@ -217,7 +217,7 @@ export default function EditLabModal({
               type="text"
               value={labName}
               onChange={(e) => setLabName(e.target.value)}
-              className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500 focus:border-medical-primary-500')}
+              className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
               placeholder="Enter metric name"
               disabled={isSaving}
             />
@@ -232,7 +232,7 @@ export default function EditLabModal({
               type="text"
               value={labUnit}
               onChange={(e) => setLabUnit(e.target.value)}
-              className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500 focus:border-medical-primary-500')}
+              className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
               placeholder="Enter unit (e.g., mg/dL, U/mL)"
               disabled={isSaving}
             />
@@ -247,7 +247,7 @@ export default function EditLabModal({
               type="text"
               value={labNormalRange}
               onChange={(e) => setLabNormalRange(e.target.value)}
-              className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500 focus:border-medical-primary-500')}
+              className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
               placeholder="Enter normal range (e.g., <0.3, 0-35, 4.5-11.0)"
               disabled={isSaving}
             />
@@ -332,7 +332,7 @@ export default function EditLabModal({
           <button
             onClick={handleSave}
             disabled={isSaving || !labName.trim()}
-              className={combineClasses(DesignTokens.spacing.button.full, 'py-2.5 text-white', DesignTokens.borders.radius.sm, DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, DesignTokens.transitions.default, 'disabled:opacity-50 disabled:cursor-not-allowed flex items-center min-h-[44px] touch-manipulation active:opacity-70', DesignTokens.spacing.gap.sm, 'bg-gray-800 hover:bg-gray-700')}
+              className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation active:opacity-70')}
           >
             {isSaving ? (
               <>

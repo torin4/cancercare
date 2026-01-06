@@ -132,7 +132,7 @@ export default function EditMedicalTeamModal({
                 value={patientProfile.oncologist || ''}
                 onChange={(e) => setPatientProfile({ ...patientProfile, oncologist: e.target.value })}
                 placeholder="e.g., Dr. Jane Smith"
-                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                className={combineClasses(DesignTokens.components.input.base)}
               />
             </div>
 
@@ -144,7 +144,7 @@ export default function EditMedicalTeamModal({
                   value={patientProfile.oncologistPhone || ''}
                   onChange={(e) => setPatientProfile({ ...patientProfile, oncologistPhone: e.target.value })}
                   placeholder="e.g., (555) 123-4567"
-                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                  className={combineClasses(DesignTokens.components.input.base)}
                 />
               </div>
               <div>
@@ -154,7 +154,7 @@ export default function EditMedicalTeamModal({
                   value={patientProfile.oncologistEmail || ''}
                   onChange={(e) => setPatientProfile({ ...patientProfile, oncologistEmail: e.target.value })}
                   placeholder="e.g., doctor@hospital.com"
-                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                  className={combineClasses(DesignTokens.components.input.base)}
                 />
               </div>
             </div>
@@ -166,7 +166,7 @@ export default function EditMedicalTeamModal({
                 value={patientProfile.hospital || ''}
                 onChange={(e) => setPatientProfile({ ...patientProfile, hospital: e.target.value })}
                 placeholder="e.g., Seattle Cancer Care Alliance"
-                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                className={combineClasses(DesignTokens.components.input.base)}
               />
             </div>
 
@@ -179,7 +179,7 @@ export default function EditMedicalTeamModal({
                   value={patientProfile.clinicalTrialCoordinator || ''}
                   onChange={(e) => setPatientProfile({ ...patientProfile, clinicalTrialCoordinator: e.target.value })}
                   placeholder="e.g., Jane Smith, RN"
-                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                  className={combineClasses(DesignTokens.components.input.base)}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3 mt-3">
@@ -190,7 +190,7 @@ export default function EditMedicalTeamModal({
                     value={patientProfile.clinicalTrialCoordinatorPhone || ''}
                     onChange={(e) => setPatientProfile({ ...patientProfile, clinicalTrialCoordinatorPhone: e.target.value })}
                     placeholder="e.g., (555) 123-4567"
-                    className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                    className={combineClasses(DesignTokens.components.input.base)}
                   />
                 </div>
                 <div>
@@ -200,7 +200,7 @@ export default function EditMedicalTeamModal({
                     value={patientProfile.clinicalTrialCoordinatorEmail || ''}
                     onChange={(e) => setPatientProfile({ ...patientProfile, clinicalTrialCoordinatorEmail: e.target.value })}
                     placeholder="e.g., coordinator@trialcenter.com"
-                    className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                    className={combineClasses(DesignTokens.components.input.base)}
                   />
                 </div>
               </div>
@@ -244,7 +244,7 @@ export default function EditMedicalTeamModal({
                         setSelectedEmergencyContactId(e.target.value);
                         handleEmergencyContactSelect(e.target.value);
                       }}
-                      className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                      className={combineClasses(DesignTokens.components.input.base)}
                     >
                       <option value="">Select an emergency contact...</option>
                       {emergencyContacts.map((contact) => (
@@ -266,7 +266,7 @@ export default function EditMedicalTeamModal({
                       value={patientProfile.caregiverName || ''}
                       onChange={(e) => setPatientProfile({ ...patientProfile, caregiverName: e.target.value })}
                       placeholder="e.g., John Doe"
-                      className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                      className={combineClasses(DesignTokens.components.input.base)}
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3 mt-3">
@@ -277,7 +277,7 @@ export default function EditMedicalTeamModal({
                         value={patientProfile.caregiverPhone || ''}
                         onChange={(e) => setPatientProfile({ ...patientProfile, caregiverPhone: e.target.value })}
                         placeholder="e.g., (555) 123-4567"
-                        className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                        className={combineClasses(DesignTokens.components.input.base)}
                       />
                     </div>
                     <div>
@@ -287,7 +287,7 @@ export default function EditMedicalTeamModal({
                         value={patientProfile.caregiverEmail || ''}
                         onChange={(e) => setPatientProfile({ ...patientProfile, caregiverEmail: e.target.value })}
                         placeholder="e.g., caregiver@email.com"
-                        className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                        className={combineClasses(DesignTokens.components.input.base)}
                       />
                     </div>
                   </div>
@@ -308,7 +308,7 @@ export default function EditMedicalTeamModal({
             </button>
             <button
               onClick={handleSave}
-              className={combineClasses('flex-1 text-white py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2', DesignTokens.colors.primary[600], DesignTokens.colors.primary[700].replace('bg-', 'hover:bg-'))}
+              className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed')}
             >
               <Check className="w-4 h-4" />
               Save Changes

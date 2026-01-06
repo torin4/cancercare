@@ -322,8 +322,8 @@ export default function EditDocumentNoteModal({
   return (
     <div className={combineClasses(DesignTokens.components.modal.backdrop, 'z-[101] animate-in fade-in duration-200')}>
       <div className={combineClasses('w-full h-full md:h-auto md:rounded-xl md:max-w-md md:max-h-[90vh] overflow-hidden flex flex-col animate-slide-up', DesignTokens.components.modal.container)}>
-        <div className={combineClasses('flex-shrink-0 border-b p-4 flex items-center justify-between', DesignTokens.components.modal.header, 'bg-yellow-50')}>
-          <h3 className={combineClasses('text-lg font-semibold', 'text-yellow-800')}>Edit Document</h3>
+        <div className={DesignTokens.components.modal.header}>
+          <h3 className={DesignTokens.components.modal.title}>Edit Document</h3>
           <button
             onClick={handleClose}
             className={combineClasses('transition', DesignTokens.components.modal.closeButton)}
@@ -348,7 +348,7 @@ export default function EditDocumentNoteModal({
               onChange={(e) => setDocumentFileNameEdit(e.target.value)}
               placeholder="Enter file name"
               disabled={isSaving}
-              className={combineClasses('w-full rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base, isSaving ? DesignTokens.components.input.disabled : '')}
+              className={combineClasses(DesignTokens.components.input.base, isSaving ? DesignTokens.components.input.disabled : '')}
               maxLength={255}
             />
             <p className={combineClasses('text-xs mt-1', DesignTokens.colors.neutral.text[500])}>
@@ -369,7 +369,7 @@ export default function EditDocumentNoteModal({
                     checked={keepOriginalDate}
                     onChange={(e) => setKeepOriginalDate(e.target.checked)}
                     disabled={isSaving}
-                    className={combineClasses('w-4 h-4 rounded focus:ring-medical-primary-500', DesignTokens.colors.primary[600] ? DesignTokens.colors.primary[600].replace('bg-', 'text-') : 'text-medical-primary-600', DesignTokens.colors.neutral.border[300], isSaving ? 'disabled:opacity-50' : '')}
+                    className={combineClasses('w-4 h-4 rounded focus:ring-anchor-900', DesignTokens.colors.app.text[600], DesignTokens.colors.neutral.border[300], isSaving ? 'disabled:opacity-50' : '')}
                   />
                   <span className={combineClasses('text-xs', DesignTokens.colors.neutral.text[600])}>Keep original date</span>
                 </label>
@@ -395,7 +395,7 @@ export default function EditDocumentNoteModal({
                         checked={acknowledgeOverwrite}
                         onChange={(e) => setAcknowledgeOverwrite(e.target.checked)}
                         disabled={isSaving}
-                        className={combineClasses('w-4 h-4 rounded focus:ring-amber-500 mt-0.5', DesignTokens.colors.accent[600] ? DesignTokens.colors.accent[600].replace('bg-', 'text-') : 'text-medical-accent-600', DesignTokens.colors.neutral.border[300], isSaving ? 'disabled:opacity-50' : '')}
+                        className={combineClasses('w-4 h-4 rounded focus:ring-anchor-900 mt-0.5', DesignTokens.colors.app.text[600], DesignTokens.colors.neutral.border[300], isSaving ? 'disabled:opacity-50' : '')}
                       />
                       <span className={combineClasses('text-xs', DesignTokens.components.alert.text.warning)}>
                         I understand this will overwrite all dates with a single date
@@ -455,7 +455,7 @@ export default function EditDocumentNoteModal({
               placeholder="e.g., Before starting treatment, After cycle 2, Post-surgery..."
               rows={3}
               disabled={isSaving}
-              className={combineClasses('w-full rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500 resize-none', DesignTokens.components.input.base, DesignTokens.components.input.textarea, isSaving ? DesignTokens.components.input.disabled : '')}
+              className={combineClasses(DesignTokens.components.input.base, DesignTokens.components.input.textarea, isSaving ? DesignTokens.components.input.disabled : '')}
             />
             <p className={combineClasses('text-xs mt-1', DesignTokens.colors.neutral.text[500])}>
               {documentNoteEdit.length}/200 characters
@@ -474,7 +474,7 @@ export default function EditDocumentNoteModal({
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className={combineClasses('flex-1 text-white py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed', 'bg-gray-800 hover:bg-gray-700')}
+              className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed')}
             >
               {isSaving ? (
                 <>

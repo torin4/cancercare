@@ -88,7 +88,7 @@ export default function DocumentMetadataModal({ show, document, onClose }) {
 
         <button
           onClick={onClose}
-          className={combineClasses('mt-6 w-full py-3', DesignTokens.borders.radius.md, DesignTokens.typography.h2.weight, 'text-white', DesignTokens.transitions.default, DesignTokens.colors.primary[600], DesignTokens.colors.primary[700].replace('bg-', 'hover:bg-'))}
+          className={combineClasses(DesignTokens.components.button.primary, 'mt-6 w-full py-3 font-medium disabled:opacity-50 disabled:cursor-not-allowed')}
         >
           Close
         </button>

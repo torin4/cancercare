@@ -942,8 +942,8 @@ export default function ChatTab({ onTabChange }) {
         )}>
           <div className={combineClasses('flex items-center justify-between w-full', DesignTokens.spacing.gap.sm)}>
             <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'sm:gap-3')}>
-              <div className={combineClasses('bg-medical-secondary-50 p-2 sm:p-2.5 rounded-lg')}>
-                <MessageSquare className={combineClasses('w-5 h-5 sm:w-6 sm:h-6 text-medical-secondary-600')} />
+              <div className={combineClasses(DesignTokens.components.header.iconContainer)}>
+                <MessageSquare className={combineClasses(DesignTokens.icons.header.size.full, DesignTokens.components.header.icon)} />
               </div>
               <div>
                 <h1 className={combineClasses(DesignTokens.components.header.title, 'mb-0')}>Chat</h1>
@@ -1376,11 +1376,12 @@ export default function ChatTab({ onTabChange }) {
 
                 // Map background colors to text colors
                 const getTextColor = (bgColor) => {
-                  if (bgColor.includes('medical-secondary')) return 'text-medical-secondary-600';
+                  if (bgColor.includes('medical-secondary')) return DesignTokens.colors.app.text[900];
                   if (bgColor.includes('medical-primary')) return 'text-medical-primary-600';
                   if (bgColor.includes('yellow')) return 'text-yellow-600';
                   if (bgColor.includes('medical-accent')) return 'text-medical-accent-600';
-                  return 'text-gray-600';
+                  if (bgColor.includes('anchor')) return DesignTokens.colors.app.text[900];
+                  return DesignTokens.colors.app.text[700];
                 };
 
                 return (
@@ -1531,11 +1532,11 @@ export default function ChatTab({ onTabChange }) {
 
                   // Map background colors to text colors
                   const getTextColor = (bgColor) => {
-                    if (bgColor.includes('medical-secondary')) return 'text-medical-secondary-600';
+                    if (bgColor.includes('medical-secondary')) return DesignTokens.colors.app.text[900];
                     if (bgColor.includes('medical-primary')) return 'text-medical-primary-600';
                     if (bgColor.includes('yellow')) return 'text-yellow-600';
                     if (bgColor.includes('medical-accent')) return 'text-medical-accent-600';
-                    return 'text-gray-600';
+                    return DesignTokens.colors.app.text[700];
                   };
 
                   return (
@@ -1596,14 +1597,7 @@ export default function ChatTab({ onTabChange }) {
                   'w-full rounded-full px-3 py-2.5 sm:px-4 sm:py-2.5 text-sm sm:text-base transition-all duration-200 min-h-[44px]',
                   'border border-medical-neutral-200',
                   inputText && 'pr-10',
-                  'focus:outline-none focus:ring-2',
-                  currentTrialContext
-                    ? 'focus:ring-medical-accent-500 focus:border-medical-accent-500'
-                    : currentHealthContext
-                      ? 'focus:ring-medical-primary-500 focus:border-medical-primary-500'
-                      : currentNotebookContext
-                        ? 'focus:ring-yellow-500 focus:border-yellow-500'
-                        : 'focus:ring-medical-secondary-500 focus:border-medical-secondary-500'
+                  'focus:outline-none focus:ring-2 focus:ring-anchor-900 focus:border-anchor-900'
                 )}
               />
               {inputText && (
@@ -1620,9 +1614,7 @@ export default function ChatTab({ onTabChange }) {
               onClick={handleSendMessage}
               className={combineClasses(
                 'w-11 h-11 sm:w-10 sm:h-10 rounded-full transition flex-shrink-0 flex items-center justify-center min-h-[44px] min-w-[44px] touch-manipulation active:opacity-90',
-                'bg-medical-secondary-500',
-                'text-white',
-                'hover:bg-medical-secondary-600',
+                DesignTokens.components.button.primary,
                 DesignTokens.shadows.sm
               )}
             >

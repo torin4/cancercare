@@ -552,8 +552,8 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
         'flex items-center'
       )}>
         <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'sm:gap-3')}>
-          <div className={Layouts.headerIcon}>
-            <ClipboardList className={DesignTokens.components.header.icon} />
+          <div className={combineClasses(DesignTokens.moduleAccent.health.bg, 'p-2 sm:p-2.5 rounded-lg')}>
+            <ClipboardList className={combineClasses('w-5 h-5 sm:w-6 sm:h-6', DesignTokens.moduleAccent.health.text)} />
           </div>
           <div>
             <h1 className={combineClasses(DesignTokens.components.header.title, 'mb-0')}>Health</h1>
@@ -624,20 +624,20 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                     {!hasRealLabData && Object.keys(labsData).length === 0 && (
                       <div className={combineClasses(
                         DesignTokens.components.card.container,
-                        DesignTokens.components.card.withColoredBorder('border-medical-primary-500'),
+                        DesignTokens.components.card.container,
                         'text-center'
                       )}>
                         <div className="flex flex-col items-center gap-3">
-                          <BarChart className="w-10 h-10 sm:w-12 sm:h-12 text-medical-primary-400" />
+                          <BarChart className={combineClasses('w-10 h-10 sm:w-12 sm:h-12', DesignTokens.colors.app.text[400])} />
                           <div>
-                            <h3 className="text-base sm:text-lg font-semibold text-medical-primary-900 mb-1">No Lab Data Yet</h3>
-                            <p className="text-xs sm:text-sm text-medical-primary-700 mb-4">
+                            <h3 className={combineClasses('text-base sm:text-lg font-semibold mb-1', DesignTokens.colors.app.text[900])}>No Lab Data Yet</h3>
+                            <p className={combineClasses('text-xs sm:text-sm mb-4', DesignTokens.colors.app.text[700])}>
                               Start tracking your lab values by uploading a report or adding a metric manually
                             </p>
                             <div className="flex flex-col sm:flex-row gap-3 justify-center">
                               <button
                                 onClick={() => setShowAddLab(true)}
-                                className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2 min-h-[44px] touch-manipulation active:opacity-70"
+                                className={combineClasses(DesignTokens.components.button.outline.primary, DesignTokens.spacing.button.full, 'py-2.5 text-sm font-medium', DesignTokens.spacing.gap.sm, 'min-h-[44px] touch-manipulation active:opacity-70')}
                               >
                                 <Edit2 className="w-4 h-4" />
                                 Manual Enter
@@ -1424,9 +1424,9 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                     'relative cursor-pointer',
                                     DesignTokens.transitions.all,
                                     metricSelectionMode && selectedMetrics.has(key)
-                                      ? combineClasses(DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[600] || 'border-medical-primary-500'), DesignTokens.colors.primary[50])
+                                      ? combineClasses(DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[600] || 'border-medical-primary-500'), DesignTokens.colors.app[50])
                                       : selectedLab === key && !metricSelectionMode
-                                      ? combineClasses(DesignTokens.components.card.withColoredBorder('border-medical-primary-500'), 'bg-medical-primary-50')
+                                      ? combineClasses(DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[600] || 'border-medical-primary-500'), DesignTokens.colors.app[50])
                                       : combineClasses(DesignTokens.components.card.nestedWithShadow, 'hover:border-medical-neutral-300', DesignTokens.shadows.hover)
                                   )}
                                   onClick={() => {
@@ -1449,7 +1449,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                         type="checkbox"
                                         checked={selectedMetrics.has(key)}
                                         onChange={() => {}}
-                                        className={combineClasses('w-5 h-5 rounded pointer-events-none', DesignTokens.colors.primary.text[600], 'focus:ring-medical-primary-500', DesignTokens.colors.neutral.border[300])}
+                                        className={combineClasses('w-5 h-5 rounded pointer-events-none', DesignTokens.colors.app.text[600], 'focus:ring-anchor-900', DesignTokens.colors.neutral.border[300])}
                                       />
                                     </div>
                                   )}
@@ -1489,7 +1489,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                 description: labDescription
                                               });
                                             }}
-                                            className="text-medical-primary-500 hover:text-medical-primary-700 transition-colors"
+                                            className={combineClasses(DesignTokens.colors.app.text[500], 'hover:' + DesignTokens.colors.app.text[700], DesignTokens.transitions.default)}
                                             title="Learn more about this lab value"
                                           >
                                             <Info className="w-3.5 h-3.5" />
@@ -1636,7 +1636,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                     'relative cursor-pointer',
                                     DesignTokens.transitions.all,
                                     metricSelectionMode && selectedMetrics.has(key)
-                                      ? combineClasses(DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[600] || 'border-medical-primary-500'), DesignTokens.colors.primary[50])
+                                      ? combineClasses(DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[600] || 'border-medical-primary-500'), DesignTokens.colors.app[50])
                                       : combineClasses(DesignTokens.components.card.nestedWithShadow, 'hover:border-medical-neutral-300', DesignTokens.shadows.hover)
                                   )}
                                   onClick={() => {
@@ -1657,7 +1657,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                         type="checkbox"
                                         checked={selectedMetrics.has(key)}
                                         onChange={() => {}}
-                                        className={combineClasses('w-5 h-5 rounded pointer-events-none', DesignTokens.colors.primary.text[600], 'focus:ring-medical-primary-500', DesignTokens.colors.neutral.border[300])}
+                                        className={combineClasses('w-5 h-5 rounded pointer-events-none', DesignTokens.colors.app.text[600], 'focus:ring-anchor-900', DesignTokens.colors.neutral.border[300])}
                                       />
                                     </div>
                                   )}
@@ -1970,7 +1970,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                       value={labSearchQuery}
                                       onChange={(e) => setLabSearchQuery(e.target.value)}
                                       placeholder="Search labs by name..."
-                                      className={combineClasses("block w-full pl-10 pr-3 py-2.5 border rounded-lg leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-medical-primary-500 focus:border-medical-primary-500 text-sm", DesignTokens.colors.neutral.border[300], DesignTokens.colors.neutral.text[500], 'focus:placeholder-gray-400')}
+                                      className={combineClasses(DesignTokens.components.input.base, "block w-full pl-10 pr-3 py-2.5 rounded-lg leading-5 text-sm", DesignTokens.colors.neutral.text[500], 'focus:placeholder-gray-400')}
                                     />
                                     {labSearchQuery && (
                                       <button
@@ -2060,7 +2060,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                         setHideEmptyMetrics(e.target.checked);
                                                         setOpenEmptyMetricsMenu(false);
                                                       }}
-                                                      className={combineClasses("w-4 h-4 text-medical-primary-600 rounded focus:ring-medical-primary-500 focus:ring-2 cursor-pointer", DesignTokens.colors.neutral.border[300])}
+                                                      className={combineClasses("w-4 h-4 rounded focus:ring-anchor-900 focus:ring-2 cursor-pointer", DesignTokens.colors.app.text[600], DesignTokens.colors.neutral.border[300])}
                                                     />
                                                     <div className="flex items-center gap-2 flex-1">
                                                       {hideEmptyMetrics ? (
@@ -2391,14 +2391,14 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                     {Object.keys(allVitalsData).length === 0 && (
                       <div className={combineClasses(
                         DesignTokens.components.card.container,
-                        DesignTokens.components.card.withColoredBorder('border-medical-primary-500'),
+                        DesignTokens.components.card.container,
                         'text-center'
                       )}>
                         <div className="flex flex-col items-center gap-3">
-                          <Heart className="w-10 h-10 sm:w-12 sm:h-12 text-medical-primary-400" />
+                          <Heart className={combineClasses('w-10 h-10 sm:w-12 sm:h-12', DesignTokens.colors.app.text[400])} />
                           <div>
-                            <h3 className="text-base sm:text-lg font-semibold text-medical-primary-900 mb-1">No Vital Signs Data Yet</h3>
-                            <p className="text-xs sm:text-sm text-medical-primary-700 mb-4">
+                            <h3 className={combineClasses('text-base sm:text-lg font-semibold mb-1', DesignTokens.colors.app.text[900])}>No Vital Signs Data Yet</h3>
+                            <p className={combineClasses('text-xs sm:text-sm mb-4', DesignTokens.colors.app.text[700])}>
                               Track blood pressure, heart rate, weight, and more
                             </p>
                             <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -2407,7 +2407,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                   setIsEditingVital(false);
                                   setShowAddVital(true);
                                 }}
-                                className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2 min-h-[44px] touch-manipulation active:opacity-70"
+                                className={combineClasses(DesignTokens.components.button.outline.primary, DesignTokens.spacing.button.full, 'py-2.5 text-sm font-medium', DesignTokens.spacing.gap.sm, 'min-h-[44px] touch-manipulation active:opacity-70')}
                               >
                                 <Edit2 className="w-4 h-4" />
                                 Manual Enter
@@ -2524,7 +2524,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                   <p>No vital data available for {getVitalDisplayName(selectedVital)}</p>
                                   <button
                                     onClick={() => onTabChange('chat')}
-                                    className="mt-4 bg-medical-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition"
+                                    className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2 mt-4')}
                                   >
                                     Go to Chat to Add Data
                                   </button>
@@ -3488,7 +3488,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                     'relative cursor-pointer',
                                     DesignTokens.transitions.all,
                                     selectedVital === key
-                                      ? combineClasses(DesignTokens.components.card.withColoredBorder('border-medical-primary-500'), 'bg-medical-primary-50')
+                                      ? combineClasses(DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[600] || 'border-medical-primary-500'), DesignTokens.colors.app[50])
                                       : combineClasses(DesignTokens.components.card.nestedWithShadow, 'hover:border-medical-neutral-300', DesignTokens.shadows.hover)
                                   )}
                                   onClick={() => setSelectedVital(key)}
@@ -3691,25 +3691,25 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
       {healthSection === 'symptoms' && (
         <div className="space-y-4">
                 {symptoms.length === 0 ? (
-                  <div className="border-2 border-medical-primary-500 rounded-lg p-4 sm:p-6 text-center bg-white">
+                  <div className={combineClasses(DesignTokens.components.card.container, 'p-4 sm:p-6 text-center')}>
                     <div className="flex flex-col items-center gap-3">
-                      <Thermometer className="w-10 h-10 sm:w-12 sm:h-12 text-medical-primary-400" />
+                      <Thermometer className={combineClasses('w-10 h-10 sm:w-12 sm:h-12', DesignTokens.colors.app.text[400])} />
                       <div>
-                        <h3 className="text-base sm:text-lg font-semibold text-medical-primary-900 mb-1">No Symptoms Tracked Yet</h3>
-                        <p className="text-xs sm:text-sm text-medical-primary-700 mb-4">
+                        <h3 className={combineClasses('text-base sm:text-lg font-semibold mb-1', DesignTokens.colors.app.text[900])}>No Symptoms Tracked Yet</h3>
+                        <p className={combineClasses('text-xs sm:text-sm mb-4', DesignTokens.colors.app.text[700])}>
                           Track symptoms to identify patterns and correlations with your health data
                         </p>
                         <div className="flex flex-col sm:flex-row gap-3 justify-center">
                           <button
                             onClick={() => setShowAddSymptomModal(true)}
-                            className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2 min-h-[44px] touch-manipulation active:opacity-70"
+                            className={combineClasses(DesignTokens.components.button.outline.primary, DesignTokens.spacing.button.full, 'py-2.5 text-sm font-medium', DesignTokens.spacing.gap.sm, 'min-h-[44px] touch-manipulation active:opacity-70')}
                           >
                             <Edit2 className="w-4 h-4" />
                             Manual Enter
                           </button>
                     <button
                       onClick={() => onTabChange('chat')}
-                            className="bg-medical-primary-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center justify-center gap-2 min-h-[44px] touch-manipulation active:opacity-90"
+                            className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5', DesignTokens.spacing.gap.sm, DesignTokens.shadows.sm)}
                     >
                             <MessageSquare className="w-4 h-4" />
                             Add via Chat
@@ -3760,7 +3760,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                           setSymptomCalendarDate(localToday);
                           setSelectedDate(localToday.getDate().toString());
                         }}
-                        className="px-2 py-1 text-xs text-medical-primary-600 hover:bg-medical-primary-50 rounded transition min-h-[32px] touch-manipulation active:opacity-70 whitespace-nowrap"
+                        className={combineClasses('px-2 py-1 text-xs rounded transition min-h-[32px] touch-manipulation active:opacity-70 whitespace-nowrap', DesignTokens.colors.app.text[600], 'hover:' + DesignTokens.colors.app[50])}
                       >
                         Today
                       </button>
@@ -3873,13 +3873,13 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                               }
                             }}
                             className={`h-8 sm:h-10 rounded flex flex-col items-center justify-center text-[10px] sm:text-xs transition-all relative ${isToday
-                              ? 'bg-medical-primary-50 border border-medical-primary-500 font-semibold'
+                              ? combineClasses(DesignTokens.moduleAccent.health.bg, 'border', DesignTokens.moduleAccent.health.border, 'font-semibold')
                               : hasSymptoms
                                 ? combineClasses('hover:bg-medical-neutral-100 border', DesignTokens.colors.neutral.border[200])
                                 : combineClasses('border border-transparent', DesignTokens.colors.neutral.text[300])
-                              } ${selectedDate === dayStr ? 'ring-1 ring-medical-primary-500 bg-medical-primary-50' : ''}`}
+                              } ${selectedDate === dayStr ? combineClasses('ring-1 ring-anchor-900', DesignTokens.colors.app[50]) : ''}`}
                           >
-                            <span className={combineClasses(isToday ? 'text-medical-primary-700' : hasSymptoms ? DesignTokens.colors.neutral.text[900] : DesignTokens.colors.neutral.text[400], 'leading-tight')}>{day}</span>
+                            <span className={combineClasses(isToday ? DesignTokens.moduleAccent.health.text : hasSymptoms ? DesignTokens.colors.neutral.text[900] : DesignTokens.colors.neutral.text[400], 'leading-tight')}>{day}</span>
 
                             {/* Symptom dots */}
                             {hasSymptoms && (
@@ -4029,12 +4029,12 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
       {healthSection === 'medications' && (
         <div className="space-y-4">
                 {medications.length === 0 ? (
-                  <div className="border-2 border-medical-primary-500 rounded-lg p-4 sm:p-6 text-center bg-white">
+                  <div className={combineClasses(DesignTokens.components.card.container, 'p-4 sm:p-6 text-center')}>
                     <div className="flex flex-col items-center gap-3">
-                      <Pill className="w-10 h-10 sm:w-12 sm:h-12 text-medical-primary-400" />
+                      <Pill className={combineClasses('w-10 h-10 sm:w-12 sm:h-12', DesignTokens.colors.app.text[400])} />
                       <div>
-                        <h3 className="text-base sm:text-lg font-semibold text-medical-primary-900 mb-1">No Medications Tracked Yet</h3>
-                        <p className="text-xs sm:text-sm text-medical-primary-700 mb-4">
+                        <h3 className={combineClasses('text-base sm:text-lg font-semibold mb-1', DesignTokens.colors.app.text[900])}>No Medications Tracked Yet</h3>
+                        <p className={combineClasses('text-xs sm:text-sm mb-4', DesignTokens.colors.app.text[700])}>
                           Track your medications to monitor adherence and schedule doses
                         </p>
                         <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -4043,14 +4043,14 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                               setEditingMedication(null);
                               setShowAddMedication(true);
                             }}
-                            className="bg-white border-2 border-medical-primary-500 text-medical-primary-600 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-medical-primary-50 transition shadow-sm flex items-center justify-center gap-2 min-h-[44px] touch-manipulation active:opacity-70"
+                            className={combineClasses(DesignTokens.components.button.outline.primary, DesignTokens.spacing.button.full, 'py-2.5 text-sm font-medium', DesignTokens.spacing.gap.sm, 'min-h-[44px] touch-manipulation active:opacity-70')}
                           >
                             <Edit2 className="w-4 h-4" />
                             Manual Enter
                           </button>
                           <button
                             onClick={() => onTabChange('chat')}
-                            className="bg-medical-primary-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-medical-primary-600 transition shadow-sm flex items-center justify-center gap-2 min-h-[44px] touch-manipulation active:opacity-90"
+                            className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5', DesignTokens.spacing.gap.sm, DesignTokens.shadows.sm)}
                           >
                             <MessageSquare className="w-4 h-4" />
                             Add via Chat
@@ -4233,7 +4233,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                   setEditingMedication(med);
                                   setShowAddMedication(true);
                                 }}
-                                className="p-1.5 text-medical-primary-600 hover:bg-medical-primary-50 rounded-lg transition min-w-[32px] min-h-[32px] flex items-center justify-center touch-manipulation"
+                                className={combineClasses('p-1.5 rounded-lg transition min-w-[32px] min-h-[32px] flex items-center justify-center touch-manipulation', DesignTokens.colors.app.text[600], 'hover:' + DesignTokens.colors.app[50])}
                                 aria-label="Edit medication"
                               >
                                 <Edit2 className="w-4 h-4" />

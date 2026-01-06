@@ -259,7 +259,7 @@ export default function AddVitalModal({
   return (
     <div className={combineClasses("fixed inset-0 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-0 md:p-4", DesignTokens.components.modal.backdrop)}>
       <div className={combineClasses("w-full h-full md:h-auto", DesignTokens.borders.radius.lg, "md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up", DesignTokens.components.modal.container)}>
-        <div className={combineClasses("flex-shrink-0 border-b", DesignTokens.components.modal.header, DesignTokens.colors.neutral.border[200], 'bg-medical-primary-50')}>
+        <div className={DesignTokens.components.modal.header}>
           <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, DesignTokens.colors.primary.text[700])}>{isEditingVital ? 'Edit Vital Value' : 'Log Vital Reading'}</h3>
           <button
             onClick={handleCancel}
@@ -290,7 +290,7 @@ export default function AddVitalModal({
             <select
               value={newVital.vitalType || ''}
               onChange={(e) => setNewVital({ ...newVital, vitalType: e.target.value, value: '', systolic: '', diastolic: '' })}
-              className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+              className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
             >
               <option value="">Select vital sign...</option>
               {(() => {
@@ -345,7 +345,7 @@ export default function AddVitalModal({
                   value={newVital.customLabel || ''}
                   onChange={(e) => setNewVital({ ...newVital, customLabel: e.target.value })}
                   placeholder="e.g., Peak Flow, Steps"
-                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                 />
               </div>
 
@@ -357,7 +357,7 @@ export default function AddVitalModal({
                     value={newVital.customNormalRange || ''}
                     onChange={(e) => setNewVital({ ...newVital, customNormalRange: e.target.value })}
                     placeholder="e.g., >400, 60-100"
-                    className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                    className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                   />
                 </div>
 
@@ -368,7 +368,7 @@ export default function AddVitalModal({
                     value={newVital.customUnit || ''}
                     onChange={(e) => setNewVital({ ...newVital, customUnit: e.target.value })}
                     placeholder="e.g., L/min, steps"
-                    className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                    className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                   />
                 </div>
               </div>
@@ -387,14 +387,14 @@ export default function AddVitalModal({
                     placeholder="Systolic"
                     value={newVital.systolic || ''}
                     onChange={(e) => setNewVital({ ...newVital, systolic: e.target.value })}
-                    className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                    className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                   />
                   <input
                     type="number"
                     placeholder="Diastolic"
                     value={newVital.diastolic || ''}
                     onChange={(e) => setNewVital({ ...newVital, diastolic: e.target.value })}
-                    className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                    className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                   />
                 </div>
                 <p className={combineClasses(DesignTokens.typography.body.xs, 'mt-1', DesignTokens.colors.neutral.text[500])}>For blood pressure, enter both values</p>
@@ -410,7 +410,7 @@ export default function AddVitalModal({
                   value={newVital.value || ''}
                   onChange={(e) => setNewVital({ ...newVital, value: e.target.value })}
                   placeholder="Enter reading"
-                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                 />
               </div>
             )
@@ -427,7 +427,7 @@ export default function AddVitalModal({
                 value={newVital.value || ''}
                 onChange={(e) => setNewVital({ ...newVital, value: e.target.value })}
                 placeholder="Enter reading"
-                className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
               />
             </div>
           )}
@@ -452,7 +452,7 @@ export default function AddVitalModal({
                       setDateOnly(currentDate);
                     }
                   }}
-                  className={combineClasses('w-4 h-4', DesignTokens.borders.radius.sm, 'focus:ring-blue-500', DesignTokens.colors.primary[600].replace('bg-', 'text-'), DesignTokens.colors.neutral.border[300])}
+                  className={combineClasses('w-4 h-4', DesignTokens.borders.radius.sm, 'focus:ring-anchor-900', DesignTokens.colors.app.text[600], DesignTokens.colors.neutral.border[300])}
                 />
                 <span className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[700])}>All Day</span>
               </label>
@@ -484,7 +484,7 @@ export default function AddVitalModal({
               value={newVital.notes || ''}
               onChange={(e) => setNewVital({ ...newVital, notes: e.target.value })}
               placeholder="e.g., Taken after rest, morning reading"
-              className={combineClasses(DesignTokens.components.input.base, DesignTokens.components.input.textarea, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+              className={combineClasses(DesignTokens.components.input.base, DesignTokens.components.input.textarea, DesignTokens.borders.radius.sm)}
             ></textarea>
           </div>
         </div>
@@ -500,7 +500,15 @@ export default function AddVitalModal({
             </button>
             <button
               onClick={handleSave}
-              className={combineClasses('flex-1 text-white py-2.5', DesignTokens.borders.radius.sm, DesignTokens.typography.h3.weight, DesignTokens.transitions.default, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, 'bg-gray-800 hover:bg-gray-700')}
+              disabled={
+                !newVital.vitalType || 
+                (newVital.vitalType === 'custom' && (!newVital.customLabel?.trim() || !newVital.customNormalRange?.trim() || !newVital.customUnit?.trim() || !newVital.value)) ||
+                (newVital.vitalType === 'bp' && (!newVital.systolic || !newVital.diastolic)) ||
+                (newVital.vitalType && newVital.vitalType !== 'custom' && newVital.vitalType !== 'bp' && !newVital.value) ||
+                (!isAllDay && !newVital.dateTime) ||
+                (isAllDay && !dateOnly)
+              }
+              className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed')}
             >
               <Heart className={DesignTokens.icons.standard.size.full} />
               {isEditingVital ? 'Save' : 'Log Reading'}

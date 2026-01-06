@@ -232,7 +232,7 @@ export default function RescanDocumentModal({
     <div className={combineClasses(DesignTokens.components.modal.backdrop, 'z-[101] animate-in fade-in duration-200')}>
       <div className={combineClasses('bg-white', DesignTokens.borders.radius.lg, 'max-w-md w-full', DesignTokens.spacing.card.desktop, DesignTokens.shadows.lg, 'animate-fade-scale')}>
         <div className={combineClasses('w-12 h-12', DesignTokens.borders.radius.full, 'flex items-center justify-center', DesignTokens.spacing.header.mobile, 'mx-auto', 'bg-yellow-100')}>
-          <RefreshCw className={combineClasses('text-yellow-600')} size={24} />
+          <RefreshCw className={combineClasses(DesignTokens.colors.app.text[600])} size={24} />
         </div>
 
         <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, 'text-center mb-2', DesignTokens.colors.neutral.text[900])}>
@@ -270,7 +270,7 @@ export default function RescanDocumentModal({
                         checked={acknowledgeOverwrite}
                         onChange={(e) => setAcknowledgeOverwrite(e.target.checked)}
                         disabled={isProcessing}
-                        className={combineClasses('w-4 h-4 rounded focus:ring-medical-primary-500 disabled:opacity-50 mt-0.5', DesignTokens.components.status.low.icon, DesignTokens.colors.neutral.border[300])}
+                        className={combineClasses('w-4 h-4 rounded focus:ring-anchor-900 disabled:opacity-50 mt-0.5', DesignTokens.colors.app.text[600], DesignTokens.colors.neutral.border[300])}
                       />
                       <span className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.components.status.low.text.replace('600', '900'))}>
                         I understand this will overwrite all dates with a single date
@@ -312,7 +312,7 @@ export default function RescanDocumentModal({
               disabled={isProcessing}
               placeholder="Add a note about this document (optional)"
               rows={3}
-              className={combineClasses(DesignTokens.components.input.base, DesignTokens.components.input.textarea, DesignTokens.components.input.disabled, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500 focus:border-medical-primary-500')}
+              className={combineClasses(DesignTokens.components.input.base, DesignTokens.components.input.textarea, DesignTokens.components.input.disabled, DesignTokens.borders.radius.sm)}
             />
             <p className={combineClasses(DesignTokens.typography.body.xs, 'mt-1', DesignTokens.colors.neutral.text[500])}>
               {editedNote.length}/200 characters
@@ -346,7 +346,7 @@ export default function RescanDocumentModal({
           <button
             onClick={handleConfirm}
             disabled={isProcessing}
-            className={combineClasses('w-full py-3', DesignTokens.borders.radius.md, DesignTokens.typography.h2.weight, 'text-white', DesignTokens.transitions.all, DesignTokens.shadows.lg, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, 'active:scale-[0.98]', isProcessing ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-800 hover:bg-gray-700')}
+            className={combineClasses(DesignTokens.components.button.primary, 'w-full py-3 font-medium', DesignTokens.borders.radius.md, DesignTokens.shadows.lg, 'flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed')}
           >
             {isProcessing ? (
               <>

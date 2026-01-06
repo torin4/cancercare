@@ -84,8 +84,11 @@ export default function AddSymptomModal({
   return (
     <div className={combineClasses(DesignTokens.components.modal.backdrop, 'z-50')}>
       <div className={combineClasses('w-full h-full md:h-auto', DesignTokens.borders.radius.lg, 'md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up', DesignTokens.components.modal.container)}>
-        <div className={combineClasses('flex-shrink-0 border-b', DesignTokens.components.modal.header, DesignTokens.colors.neutral.border[200], 'bg-medical-primary-50')}>
-          <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, DesignTokens.colors.primary.text[700])}>Log Symptom</h3>
+        <div className={DesignTokens.components.modal.header}>
+          <h3 className={combineClasses(DesignTokens.components.modal.title, 'flex items-center gap-2')}>
+            <Activity className={combineClasses('w-5 h-5', DesignTokens.moduleAccent.health.text)} />
+            Log Symptom
+          </h3>
           <button
             onClick={(e) => {
               e.preventDefault();
@@ -126,7 +129,7 @@ export default function AddSymptomModal({
                     setSymptomForm({...symptomForm, name: e.target.value, customSymptomName: ''});
                   }
                 }}
-                className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
               >
                 <option value="">Select symptom type...</option>
                 <option value="Fatigue">Fatigue</option>
@@ -146,7 +149,7 @@ export default function AddSymptomModal({
                   value={symptomForm.customSymptomName || ''}
                   onChange={(e) => setSymptomForm({...symptomForm, customSymptomName: e.target.value})}
                   placeholder="Enter symptom name..."
-                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500 mt-2')}
+                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'mt-2')}
                 />
               )}
             </div>
@@ -191,7 +194,7 @@ export default function AddSymptomModal({
                     type="checkbox"
                     checked={isAllDay}
                     onChange={(e) => setIsAllDay(e.target.checked)}
-                    className={combineClasses('w-4 h-4', DesignTokens.borders.radius.sm, 'focus:ring-blue-500', DesignTokens.colors.primary[600].replace('bg-', 'text-'), DesignTokens.colors.neutral.border[300])}
+                    className={combineClasses('w-4 h-4', DesignTokens.borders.radius.sm, 'focus:ring-anchor-900', DesignTokens.colors.app.text[600], DesignTokens.colors.neutral.border[300])}
                   />
                   <span className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[700])}>All Day</span>
                 </label>
@@ -215,7 +218,7 @@ export default function AddSymptomModal({
                       type="time"
                       value={symptomForm.time}
                       onChange={(e) => setSymptomForm({...symptomForm, time: e.target.value})}
-                      className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                      className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                     />
                   </div>
                 )}
@@ -231,7 +234,7 @@ export default function AddSymptomModal({
                 value={symptomForm.notes}
                 onChange={(e) => setSymptomForm({...symptomForm, notes: e.target.value})}
                 placeholder="Additional details about the symptom..."
-                className={combineClasses(DesignTokens.components.input.base, DesignTokens.components.input.textarea, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                className={combineClasses(DesignTokens.components.input.base, DesignTokens.components.input.textarea, DesignTokens.borders.radius.sm)}
               ></textarea>
             </div>
 
@@ -289,7 +292,8 @@ export default function AddSymptomModal({
             </button>
             <button
               onClick={handleSave}
-              className={combineClasses('flex-1 text-white py-2.5', DesignTokens.borders.radius.sm, DesignTokens.typography.h3.weight, DesignTokens.transitions.default, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, 'bg-gray-800 hover:bg-gray-700')}
+              disabled={!symptomForm.name || !symptomForm.severity || !symptomForm.date || (symptomForm.name === 'Other' && !symptomForm.customSymptomName?.trim())}
+              className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed')}
             >
               <Activity className={DesignTokens.icons.standard.size.full} />
               Log Symptom

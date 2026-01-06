@@ -68,13 +68,13 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
               return (
                 <div
                   key={entry.dateKey}
-                  className="relative pl-8 pb-3 border-l-2 border-yellow-300 last:border-transparent last:pb-0"
+                  className={combineClasses('relative pl-8 pb-3 border-l-2 last:border-transparent last:pb-0', DesignTokens.moduleAccent.files.border)}
                 >
                   {/* Timeline Dot */}
-                  <div className="absolute left-0 top-0 w-4 h-4 rounded-full border-2 bg-yellow-500 border-yellow-200 -ml-[9px]" />
+                  <div className={combineClasses('absolute left-0 top-0 w-4 h-4 rounded-full border-2 -ml-[9px]', 'bg-medical-secondary-600', DesignTokens.moduleAccent.files.border)} />
 
                   {/* Entry Card */}
-                  <div className="bg-white rounded-lg border-2 border-yellow-300 shadow-sm hover:shadow-md transition-all">
+                  <div className={combineClasses('bg-white rounded-lg border-2 shadow-sm hover:shadow-md transition-all', DesignTokens.moduleAccent.files.border)}>
                     {/* Date Header - Always visible */}
                     <div className="p-4">
                       <div className="flex items-center justify-between">
@@ -133,7 +133,7 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
                                   e.stopPropagation();
                                   onAddNote(entry.date);
                                 }}
-                                className="flex items-center gap-1 px-2 py-1 text-xs text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 rounded transition-colors"
+                                className={combineClasses('flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors', DesignTokens.moduleAccent.files.text, `hover:${DesignTokens.moduleAccent.files.text.replace('600', '700')}`, `hover:${DesignTokens.moduleAccent.files.bg}`)}
                               >
                                 <Plus className="w-3 h-3" />
                                 Add Note
@@ -170,7 +170,7 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
                                               e.stopPropagation();
                                               onEditNote(note.sourceId, entry.date, note.source);
                                             }}
-                                            className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 p-1.5 rounded transition-colors"
+                                            className={combineClasses('p-1.5 rounded transition-colors', DesignTokens.moduleAccent.files.text, `hover:${DesignTokens.moduleAccent.files.text.replace('600', '700')}`, `hover:${DesignTokens.moduleAccent.files.bg}`)}
                                             title="Edit note"
                                           >
                                             <Edit2 className="w-4 h-4" />
@@ -203,7 +203,7 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
                                   e.stopPropagation();
                                   onAddNote(entry.date);
                                 }}
-                                className="mt-2 flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm font-medium mx-auto"
+                                className={combineClasses('mt-2 flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-colors text-sm font-medium mx-auto', DesignTokens.components.button.primary)}
                               >
                                 <Plus className="w-4 h-4" />
                                 Add Note
@@ -222,10 +222,10 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
                               {entry.documents.map((doc) => (
                                 <div
                                   key={doc.id}
-                                  className={combineClasses('flex items-center justify-between rounded-lg p-3 border', 'bg-yellow-50', 'border-yellow-100')}
+                                  className={combineClasses('flex items-center justify-between rounded-lg p-3 border', DesignTokens.moduleAccent.files.bg, DesignTokens.moduleAccent.files.border)}
                                 >
                                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                                    <FileIcon className={combineClasses('w-4 h-4 flex-shrink-0', 'text-yellow-600')} />
+                                    <FileIcon className={combineClasses('w-4 h-4 flex-shrink-0', DesignTokens.moduleAccent.files.text)} />
                                     <div className="flex-1 min-w-0">
                                       <p className="text-sm font-medium text-medical-neutral-900 truncate">
                                         {doc.name}
@@ -241,7 +241,7 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
                                       href={doc.fileUrl}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className={combineClasses('text-yellow-600', 'hover:text-yellow-700', 'flex-shrink-0 ml-2', DesignTokens.transitions.default)}
+                                      className={combineClasses('flex-shrink-0 ml-2', DesignTokens.moduleAccent.files.text, `hover:${DesignTokens.moduleAccent.files.text.replace('600', '700')}`, DesignTokens.transitions.default)}
                                       onClick={(e) => e.stopPropagation()}
                                     >
                                       <Eye className="w-4 h-4" />

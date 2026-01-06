@@ -113,7 +113,7 @@ export default function UpdateStatusModal({
                   });
                   setUpdateStatusSubtypeCustom(false);
                 }}
-                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                className={combineClasses(DesignTokens.components.input.base)}
               >
                 <option value="">Select cancer type</option>
                 {CANCER_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -136,7 +136,7 @@ export default function UpdateStatusModal({
                       setUpdateStatusSubtypeCustom(false);
                     }
                   }}
-                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                  className={combineClasses(DesignTokens.components.input.base)}
                 >
                   <option value="">Select subtype (optional)</option>
                   {CANCER_SUBTYPES[currentStatus.diagnosis].map(s => (
@@ -148,7 +148,7 @@ export default function UpdateStatusModal({
                     type="text"
                     value={currentStatus.subtype === 'Other (specify)' ? '' : currentStatus.subtype}
                     onChange={(e) => setCurrentStatus({ ...currentStatus, subtype: e.target.value })}
-                    className={combineClasses('w-full mt-2 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                    className={combineClasses(DesignTokens.components.input.base, 'mt-2')}
                     placeholder="Specify subtype"
                   />
                 )}
@@ -161,7 +161,7 @@ export default function UpdateStatusModal({
               <select
                 value={currentStatus.stage || ''}
                 onChange={(e) => setCurrentStatus({...currentStatus, stage: e.target.value})}
-                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                className={combineClasses(DesignTokens.components.input.base)}
               >
                 <option value="">Select stage</option>
                 {STAGE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -194,7 +194,7 @@ export default function UpdateStatusModal({
                     setUpdateStatusTreatmentCustom(false);
                   }
                 }}
-                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                className={combineClasses(DesignTokens.components.input.base)}
               >
                 <option value="">Select treatment status</option>
                 {TREATMENT_STATUS_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
@@ -204,7 +204,7 @@ export default function UpdateStatusModal({
                   type="text"
                   value={currentStatus.treatmentLine === 'Other (specify)' ? '' : currentStatus.treatmentLine}
                   onChange={(e) => setCurrentStatus({ ...currentStatus, treatmentLine: e.target.value })}
-                  className={combineClasses('w-full mt-2 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                  className={combineClasses(DesignTokens.components.input.base, 'w-full mt-2 text-sm')}
                   placeholder="Specify treatment status"
                 />
               )}
@@ -218,7 +218,7 @@ export default function UpdateStatusModal({
                 value={currentStatus.currentRegimen || ''}
                 onChange={(e) => setCurrentStatus({...currentStatus, currentRegimen: e.target.value})}
                 placeholder="e.g., Carboplatin + Paclitaxel"
-                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                className={combineClasses(DesignTokens.components.input.base)}
               />
             </div>
 
@@ -228,7 +228,7 @@ export default function UpdateStatusModal({
               <select
                 value={currentStatus.performanceStatus || ''}
                 onChange={(e) => setCurrentStatus({...currentStatus, performanceStatus: e.target.value})}
-                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                className={combineClasses(DesignTokens.components.input.base)}
               >
                 <option value="">Select ECOG</option>
                 {PERFORMANCE_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
@@ -241,7 +241,7 @@ export default function UpdateStatusModal({
               <select
                 value={currentStatus.diseaseStatus || ''}
                 onChange={(e) => setCurrentStatus({...currentStatus, diseaseStatus: e.target.value})}
-                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                className={combineClasses(DesignTokens.components.input.base)}
               >
                 <option value="">Select status</option>
                 {DISEASE_STATUS_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
@@ -256,7 +256,7 @@ export default function UpdateStatusModal({
                 step="any"
                 value={currentStatus.baselineCa125 || ''}
                 onChange={(e) => setCurrentStatus({...currentStatus, baselineCa125: e.target.value})}
-                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                className={combineClasses(DesignTokens.components.input.base)}
               />
             </div>
           </div>
@@ -273,7 +273,7 @@ export default function UpdateStatusModal({
             </button>
             <button
               onClick={handleSave}
-              className={combineClasses('flex-1 text-white py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2', DesignTokens.colors.primary[600], DesignTokens.colors.primary[700].replace('bg-', 'hover:bg-'))}
+              className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed')}
             >
               <Check className="w-4 h-4" />
               Save Changes

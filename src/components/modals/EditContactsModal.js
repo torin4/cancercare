@@ -117,35 +117,35 @@ export default function EditContactsModal({
                     value={c.name || ''}
                     onChange={(e) => setEditContacts(prev => prev.map((item, idx) => idx === i ? { ...item, name: e.target.value } : item))}
                     placeholder="Contact name"
-                    className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                    className={combineClasses(DesignTokens.components.input.base)}
                   />
                   <input
                     type="text"
                     value={c.relationship || ''}
                     onChange={(e) => setEditContacts(prev => prev.map((item, idx) => idx === i ? { ...item, relationship: e.target.value } : item))}
                     placeholder="Relationship"
-                    className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                    className={combineClasses(DesignTokens.components.input.base)}
                   />
                   <input
                     type="tel"
                     value={c.phone || ''}
                     onChange={(e) => setEditContacts(prev => prev.map((item, idx) => idx === i ? { ...item, phone: e.target.value } : item))}
                     placeholder="Phone number"
-                    className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                    className={combineClasses(DesignTokens.components.input.base)}
                   />
                   <input
                     type="email"
                     value={c.email || ''}
                     onChange={(e) => setEditContacts(prev => prev.map((item, idx) => idx === i ? { ...item, email: e.target.value } : item))}
                     placeholder="Email (optional)"
-                    className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                    className={combineClasses(DesignTokens.components.input.base)}
                   />
                   <input
                     type="text"
                     value={c.address || ''}
                     onChange={(e) => setEditContacts(prev => prev.map((item, idx) => idx === i ? { ...item, address: e.target.value } : item))}
                     placeholder="Address (street)"
-                    className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                    className={combineClasses(DesignTokens.components.input.base)}
                   />
                   <div className="grid grid-cols-3 gap-2">
                     <input
@@ -153,21 +153,21 @@ export default function EditContactsModal({
                       value={c.city || ''}
                       onChange={(e) => setEditContacts(prev => prev.map((item, idx) => idx === i ? { ...item, city: e.target.value } : item))}
                       placeholder="City"
-                      className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                      className={combineClasses(DesignTokens.components.input.base)}
                     />
                     <input
                       type="text"
                       value={c.state || ''}
                       onChange={(e) => setEditContacts(prev => prev.map((item, idx) => idx === i ? { ...item, state: e.target.value } : item))}
                       placeholder="State"
-                      className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                      className={combineClasses(DesignTokens.components.input.base)}
                     />
                     <input
                       type="text"
                       value={c.zip || ''}
                       onChange={(e) => setEditContacts(prev => prev.map((item, idx) => idx === i ? { ...item, zip: e.target.value } : item))}
                       placeholder="ZIP"
-                      className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                      className={combineClasses(DesignTokens.components.input.base)}
                     />
                   </div>
                 </div>
@@ -197,7 +197,7 @@ export default function EditContactsModal({
             </button>
             <button
               onClick={handleSave}
-              className={combineClasses('flex-1 text-white py-2.5 rounded-lg font-medium transition flex items-center justify-center gap-2', DesignTokens.colors.primary[600], DesignTokens.colors.primary[700].replace('bg-', 'hover:bg-'))}
+              className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed')}
             >
               <Check className="w-4 h-4" />
               Save Changes

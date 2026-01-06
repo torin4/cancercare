@@ -75,38 +75,44 @@ import { DesignTokens, Layouts, combineClasses } from '../design/designTokens';
 
 ## Colors
 
-### Primary Colors (HealthTab Only)
-**Note**: Primary blue colors (`medical-primary`) are now reserved for HealthTab only. All other app-level UI uses the App Theme (dark gray).
+### Module Accent Colors (Health / Chat / Trials / Files)
+**Note**: Module colors (medical-primary/secondary/accent) are ACCENTS only. They are used for icon containers, badges, small highlights, and thin active indicators. They must NOT be used for primary buttons, nav background, default text, or input focus.
+
+**Module Accent Mapping (Accent-only):**
+- HealthTab: `medical-primary` (blue)
+- ChatTab: `medical-secondary` (teal)
+- TrialsTab: green accent (currently `medical-accent` until `care-*` is added to Tailwind)
+- FilesTab: `medical-secondary` (teal)
 
 - **50**: Light background (`bg-medical-primary-50`) - `DesignTokens.colors.primary[50]`
 - **100**: Hover states (`bg-medical-primary-100`) - `DesignTokens.colors.primary[100]`
 - **200**: Borders (`bg-medical-primary-200`) - `DesignTokens.colors.primary[200]`
-- **500**: Primary button (`bg-medical-primary-500`) - `DesignTokens.colors.primary[500]`
-- **600**: Primary button hover (`bg-medical-primary-600`) - `DesignTokens.colors.primary[600]`
-- **700**: Active/pressed states (`bg-medical-primary-700`) - `DesignTokens.colors.primary[700]`
+- **500**: Accent (`bg-medical-primary-500`) - `DesignTokens.colors.primary[500]`
+- **600**: Accent hover (`bg-medical-primary-600`) - `DesignTokens.colors.primary[600]`
+- **700**: Active/pressed accent (`bg-medical-primary-700`) - `DesignTokens.colors.primary[700]`
 
 ### Text Colors
 - Use `DesignTokens.colors.primary.text[50-700]` for text colors (HealthTab only)
 - Use `DesignTokens.colors.primary.border[200|600]` for border colors (HealthTab only)
 
-### App Theme (Dark Gray) - Navigation & App-Level UI
+### Anchor Theme (App Chrome) - Navigation & App-Level UI
 **Used for**: Navigation bar, general app UI, modals, buttons, links (NOT HealthTab)
 
-- **50**: Light background (`bg-gray-50`) - `DesignTokens.colors.app[50]`
-- **100**: Hover states (`bg-gray-100`) - `DesignTokens.colors.app[100]`
-- **200**: Borders (`bg-gray-200`) - `DesignTokens.colors.app[200]`
-- **500**: Medium gray (`bg-gray-500`) - `DesignTokens.colors.app[500]`
-- **600**: Medium-dark gray (`bg-gray-600`) - `DesignTokens.colors.app[600]`
-- **700**: Dark gray (`bg-gray-700`) - `DesignTokens.colors.app[700]`
-- **800**: Very dark gray (`bg-gray-800`) - `DesignTokens.colors.app[800]` - **Primary app color**
-- **900**: Darkest gray (`bg-gray-900`) - `DesignTokens.colors.app[900]`
+- **50**: Light background (`bg-anchor-50`) - `DesignTokens.colors.app[50]`
+- **100**: Hover states (`bg-anchor-100`) - `DesignTokens.colors.app[100]`
+- **200**: Borders (`bg-anchor-200`) - `DesignTokens.colors.app[200]`
+- **300**: Subtle borders/dividers (`bg-anchor-300`) - `DesignTokens.colors.app[300]`
+- **500**: Muted text/icon (`bg-anchor-500`) - `DesignTokens.colors.app[500]`
+- **700**: Secondary text (`bg-anchor-700`) - `DesignTokens.colors.app[700]`
+- **900**: Anchor / primary action (`bg-anchor-900`) - `DesignTokens.colors.app[900]` - **Primary button + app chrome**
 
 ### App Theme Text Colors
 - Use `DesignTokens.colors.app.text[50-900]` for text colors
 - Use `DesignTokens.colors.app.border[200|300]` for border colors
 
+
 ### Accent Colors
-- Used for Clinical Trials and special highlights
+- Used for module accents and special highlights (not primary actions).
 - Same scale as primary (50-700)
 - Access via `DesignTokens.colors.accent[50-700]`
 
@@ -114,16 +120,17 @@ import { DesignTokens, Layouts, combineClasses } from '../design/designTokens';
 - **50-100**: Backgrounds - `DesignTokens.colors.neutral[50|100]`
 - **200-300**: Borders - `DesignTokens.colors.neutral.border[200|300]`
 - **500-700**: Text (secondary) - `DesignTokens.colors.neutral.text[500|600|700]`
-- **900**: Primary text (`text-medical-neutral-900`) - `DesignTokens.colors.neutral.text[900]`
+- **900**: Neutral darkest (reserve for HealthTab-only text if needed) - `DesignTokens.colors.neutral.text[900]`
+- **Anchor 900**: Primary app text (`text-anchor-900`) - `DesignTokens.colors.anchor.text[900]`
 
 ## Typography
 
 ### Heading 1 (Page Headers)
 - **Size**: `text-xl sm:text-2xl md:text-3xl` - `DesignTokens.typography.h1.full`
 - **Weight**: `font-bold` - `DesignTokens.typography.h1.weight`
-- **Color**: `text-medical-neutral-900` - `DesignTokens.typography.h1.color`
+- **Color**: `text-anchor-900` - `DesignTokens.typography.h1.color`
 - **Margin Bottom**: `mb-0.5 sm:mb-1` - `DesignTokens.typography.h1.marginBottom`
-- **Complete**: `text-xl sm:text-2xl md:text-3xl font-bold text-medical-neutral-900 mb-0.5 sm:mb-1`
+- **Complete**: `text-xl sm:text-2xl md:text-3xl font-bold text-anchor-900 mb-0.5 sm:mb-1`
 - **Token**: `DesignTokens.typography.h1.complete` or `Layouts.headerTitle`
 
 ### Heading 2
@@ -133,7 +140,7 @@ import { DesignTokens, Layouts, combineClasses } from '../design/designTokens';
 ### Heading 3
 - **Size**: `text-sm sm:text-base md:text-lg` - `DesignTokens.typography.h3.full`
 - **Weight**: `font-semibold` - `DesignTokens.typography.h3.weight`
-- **Color**: `text-medical-neutral-900` - `DesignTokens.typography.h3.color`
+- **Color**: `text-anchor-900` - `DesignTokens.typography.h3.color`
 
 ### Body Text
 - **Extra Small**: `text-xs` - `DesignTokens.typography.body.xs`
@@ -171,7 +178,7 @@ import { DesignTokens, Layouts, combineClasses } from '../design/designTokens';
 ### Common Border Combinations
 - **Card**: `border border-medical-neutral-200` - `DesignTokens.borders.card`
 - **Divider**: `border-b border-medical-neutral-200` - `DesignTokens.borders.divider`
-- **Active Tab**: `border-b-2 border-medical-primary-600` - `DesignTokens.borders.active`
+- **Active Tab (Default)**: `border-b-2 border-gray-900` - `DesignTokens.borders.active`
 
 ## Shadows
 
@@ -201,11 +208,11 @@ Access via `DesignTokens.zIndex[base|dropdown|sticky|overlay|modal|tooltip|notif
 **Current Implementation** (hardcoded):
 ```javascript
 <div className="mb-4 sm:mb-6 flex items-center gap-2 sm:gap-3">
-  <div className="bg-medical-primary-50 p-2 sm:p-2.5 rounded-lg">
-    <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-medical-primary-600" />
+  <div className="bg-gray-100 p-2 sm:p-2.5 rounded-lg">
+    <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-900" />
   </div>
   <div>
-    <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-medical-neutral-900 mb-0.5 sm:mb-1">
+    <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-anchor-900 mb-0.5 sm:mb-1">
       Title
     </h1>
   </div>
@@ -232,8 +239,8 @@ Access via `DesignTokens.zIndex[base|dropdown|sticky|overlay|modal|tooltip|notif
   <button className={combineClasses(
     'pb-3 px-2 sm:px-4 font-medium transition-all duration-200 flex items-center gap-1 sm:gap-2 min-h-[44px] touch-manipulation active:opacity-70 whitespace-nowrap flex-shrink-0',
     isActive 
-      ? 'text-medical-primary-600 border-b-2 border-medical-primary-600'
-      : 'text-medical-neutral-600 hover:text-medical-primary-600'
+      ? 'text-gray-900 border-b-2 border-gray-900'
+      : 'text-medical-neutral-600 hover:text-gray-900'
   )}>
     Tab Label
   </button>
@@ -262,6 +269,8 @@ Access via `DesignTokens.zIndex[base|dropdown|sticky|overlay|modal|tooltip|notif
   Button Text
 </button>
 ```
+
+**Primary button color is anchor-dark (not module colors).** If you see a screen stacking `DesignTokens.components.button.primary` with `bg-medical-*` or `bg-yellow-*`, refactor it.
 
 ### Secondary Button (Icon Button)
 ```javascript
@@ -484,11 +493,11 @@ When updating existing code:
 ```javascript
 <div className="p-3 sm:p-4 md:p-6 mb-4 sm:mb-6">
   <div className="mb-4 sm:mb-6 flex items-center gap-2 sm:gap-3">
-    <div className="bg-medical-primary-50 p-2 sm:p-2.5 rounded-lg">
-      <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-medical-primary-600" />
+    <div className="bg-gray-100 p-2 sm:p-2.5 rounded-lg">
+      <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-900" />
     </div>
     <div>
-      <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-medical-neutral-900 mb-0.5 sm:mb-1">
+      <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-anchor-900 mb-0.5 sm:mb-1">
         Title
       </h1>
     </div>

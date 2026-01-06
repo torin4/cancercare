@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Activity, TrendingUp, Upload, AlertCircle, ClipboardList, Info, Dna, Bookmark, ChevronRight, Search, MessageSquare, X, Heart, Loader2, BarChart, Home } from 'lucide-react';
+import { Activity, TrendingUp, Upload, AlertCircle, ClipboardList, Info, Dna, Bookmark, ChevronRight, Search, MessageSquare, X, Heart, Loader2, BarChart, Home, FileText, Plus, FolderOpen, User, Calendar } from 'lucide-react';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
 import { useBanner } from '../../contexts/BannerContext';
 import { getSavedTrials } from '../../services/clinicalTrials/clinicalTrialsService';
-import { parseMutation, getTodayLocalDate } from '../../utils/helpers';
+import { parseMutation, getTodayLocalDate, formatDateString } from '../../utils/helpers';
 import { formatLabel } from '../../utils/formatters';
+import { documentService } from '../../firebase/services';
+import { getNotebookEntries } from '../../services/notebookService';
 import { normalizeLabName, getLabDisplayName, labValueDescriptions, normalizeVitalName, getVitalDisplayName, vitalDescriptions, labKeyMap } from '../../utils/normalizationUtils';
 import { getLabStatus, getVitalStatus } from '../../utils/healthUtils';
 import { processDocument, generateChatSummary } from '../../services/documentProcessor';
@@ -15,6 +17,9 @@ import { uploadDocument } from '../../firebase/storage';
 import AddSymptomModal from '../modals/AddSymptomModal';
 import AddLabModal from '../modals/AddLabModal';
 import AddVitalModal from '../modals/AddVitalModal';
+import AddVitalValueModal from '../modals/AddVitalValueModal';
+import AddLabValueModal from '../modals/AddLabValueModal';
+import AddJournalNoteModal from '../modals/AddJournalNoteModal';
 import DocumentUploadOnboarding from '../modals/DocumentUploadOnboarding';
 import UploadProgressOverlay from '../UploadProgressOverlay';
 import LabTooltipModal from '../modals/LabTooltipModal';
@@ -32,6 +37,20 @@ export default function DashboardTab({ onTabChange }) {
   const [showAddSymptomModal, setShowAddSymptomModal] = useState(false);
   const [showAddLabModal, setShowAddLabModal] = useState(false);
   const [showAddVitalModal, setShowAddVitalModal] = useState(false);
+  const [showAddJournalNoteModal, setShowAddJournalNoteModal] = useState(false);
+  const [showAddVitalValueModal, setShowAddVitalValueModal] = useState(false);
+  const [showAddLabValueModal, setShowAddLabValueModal] = useState(false);
+  const [selectedVitalForValue, setSelectedVitalForValue] = useState(null);
+  const [selectedLabForValue, setSelectedLabForValue] = useState(null);
+  const [newVitalValue, setNewVitalValue] = useState({ value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
+  const [newLabValue, setNewLabValue] = useState({ value: '', date: getTodayLocalDate(), notes: '' });
+  const [isEditingVitalValue, setIsEditingVitalValue] = useState(false);
+  const [isEditingLabValue, setIsEditingLabValue] = useState(false);
+  const [editingVitalValueId, setEditingVitalValueId] = useState(null);
+  const [editingLabValueId, setEditingLabValueId] = useState(null);
+  const [recentDocuments, setRecentDocuments] = useState([]);
+  const [recentNotebookEntries, setRecentNotebookEntries] = useState([]);
+  const [isLoadingFilesSummary, setIsLoadingFilesSummary] = useState(false);
   const [newVital, setNewVital] = useState({
     vitalType: '',
     value: '',
@@ -98,6 +117,43 @@ export default function DashboardTab({ onTabChange }) {
     return () => {
       isMountedRef.current = false;
     };
+  }, [user]);
+
+  // Load recent documents and notebook entries for Files summary
+  useEffect(() => {
+    const loadFilesSummary = async () => {
+      if (!user?.uid) return;
+      
+      setIsLoadingFilesSummary(true);
+      try {
+        const [docs, entries] = await Promise.all([
+          documentService.getDocuments(user.uid),
+          getNotebookEntries(user.uid, { limit: 3 })
+        ]);
+        
+        // Sort documents by date (most recent first) and take top 3
+        const sortedDocs = docs
+          .sort((a, b) => {
+            const dateA = a.date ? new Date(a.date) : new Date(0);
+            const dateB = b.date ? new Date(b.date) : new Date(0);
+            return dateB - dateA;
+          })
+          .slice(0, 3);
+        
+        if (isMountedRef.current) {
+          setRecentDocuments(sortedDocs);
+          setRecentNotebookEntries(entries.slice(0, 3));
+        }
+      } catch (error) {
+        console.error('Failed to load files summary:', error);
+      } finally {
+        if (isMountedRef.current) {
+          setIsLoadingFilesSummary(false);
+        }
+      }
+    };
+    
+    loadFilesSummary();
   }, [user]);
 
   // Helper function to open document onboarding
@@ -371,561 +427,611 @@ setIsUploading(false);
           </div>
         )}
 
-        {/* Key Metrics - Only show if there are favorites */}
-        {hasRealLabData || hasRealVitalData ? (() => {
-          // Check if user has favorited any metrics
-          const favoriteLabs = patientProfile?.favoriteMetrics?.labs || [];
-          const favoriteVitals = patientProfile?.favoriteMetrics?.vitals || [];
-          const hasFavorites = favoriteLabs.length > 0 || favoriteVitals.length > 0;
-
-          // Helper function to render a metric item
-          const renderMetricItem = (item, itemType) => {
-            const data = item.data;
-            let latestValue = (data.data && data.data.length > 0)
-              ? data.data[data.data.length - 1]?.value
-              : data.current;
-            
-            // Calculate proper status using healthUtils functions
-            let statusInfo = { status: 'normal', color: 'green', label: 'Normal' };
-            const numValue = typeof latestValue === 'string' && latestValue.includes('/') 
-              ? latestValue 
-              : parseFloat(latestValue);
-            
-            if (itemType === 'lab' && !isNaN(numValue) && data.normalRange) {
-              statusInfo = getLabStatus(numValue, data.normalRange);
-            } else if (itemType === 'vital' && data.normalRange) {
-              const vitalKey = normalizeVitalName(item.key) || item.key;
-              statusInfo = getVitalStatus(latestValue, data.normalRange, vitalKey);
-            } else {
-              // Fallback to data.status if available
-              const dataStatus = data.status || 'normal';
-              if (dataStatus === 'warning') {
-                statusInfo = { status: 'warning', color: 'yellow', label: 'Above normal' };
-              } else if (dataStatus === 'danger') {
-                statusInfo = { status: 'danger', color: 'red', label: 'High' };
-              }
-            }
-            
-            // Get description using normalized system (for labs and vitals)
-            let description = '';
-            let displayName = data.name;
-            if (itemType === 'lab') {
-              const canonicalKey = normalizeLabName(data.name || item.key);
-              if (canonicalKey && labValueDescriptions[canonicalKey]) {
-                description = labValueDescriptions[canonicalKey];
-                displayName = getLabDisplayName(data.name || item.key);
-              }
-            } else if (itemType === 'vital') {
-              const canonicalKey = normalizeVitalName(data.name || item.key);
-              if (canonicalKey && vitalDescriptions[canonicalKey]) {
-                description = vitalDescriptions[canonicalKey];
-                displayName = getVitalDisplayName(data.name || item.key);
-              }
-            }
-            
-            // Determine color classes based on status
-            const statusColorClass = 
-              statusInfo.color === 'red' ? DesignTokens.components.status.high.icon :
-              statusInfo.color === 'yellow' ? DesignTokens.components.status.low.icon :
-              statusInfo.color === 'green' ? DesignTokens.components.status.normal.icon :
-              'text-medical-accent-500';
-            
-            const statusTextColorClass = 
-              statusInfo.color === 'red' ? DesignTokens.components.alert.text.error :
-              statusInfo.color === 'yellow' ? DesignTokens.components.alert.text.warning :
-              statusInfo.color === 'green' ? DesignTokens.components.status.normal.text :
-              'text-medical-neutral-600';
-            
-            return (
-              <div key={`${itemType}-${item.key}`} className={combineClasses(
-                'text-center',
-                DesignTokens.spacing.card.full,
-                'bg-white',
-                DesignTokens.borders.radius.sm,
-                DesignTokens.borders.card,
-                DesignTokens.shadows.sm,
-                DesignTokens.shadows.hover,
-                DesignTokens.transitions.all
-              )}>
-                <div className={combineClasses('flex items-center justify-center', DesignTokens.spacing.gap.xs, 'mb-2')}>
-                  <span className={combineClasses(DesignTokens.typography.body.xs, 'font-medium', DesignTokens.colors.neutral.text[700])}>{displayName}</span>
-                  <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.xs)}>
-                    <Activity className={combineClasses(DesignTokens.icons.small.size.full, statusColorClass)} />
-                    {description && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setLabTooltip({
-                            labName: displayName,
-                            description: description
-                          });
-                        }}
-                        className={combineClasses(
-                          'p-1.5 -m-1.5',
-                          DesignTokens.colors.primary.text[500],
-                          'hover:text-medical-primary-700 active:text-medical-primary-800',
-                          DesignTokens.transitions.default,
-                          'touch-manipulation min-w-[32px] min-h-[32px] flex items-center justify-center'
-                        )}
-                        title="Learn more about this value"
-                        aria-label="Learn more about this value"
-                      >
-                        <Info className={DesignTokens.icons.small.size.full} />
-                      </button>
-                    )}
-                  </div>
+        {/* Tab Summaries Grid */}
+        <div className={combineClasses('grid grid-cols-1 md:grid-cols-2', DesignTokens.spacing.gap.md)}>
+          
+          {/* Health Tab Summary - Full Row */}
+          <div className={combineClasses(
+            'md:col-span-2',
+            DesignTokens.components.card.container,
+            DesignTokens.components.card.withColoredBorder(DesignTokens.moduleAccent.health.border)
+          )}>
+            <div className={combineClasses('flex items-center justify-between mb-4')}>
+              <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm)}>
+                <div className={combineClasses(DesignTokens.moduleAccent.health.bg, DesignTokens.spacing.iconContainer.mobile, DesignTokens.borders.radius.sm)}>
+                  <Activity className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.moduleAccent.health.text)} />
                 </div>
-                <p className={combineClasses(DesignTokens.typography.body.lg, 'font-bold', DesignTokens.colors.neutral.text[900])}>{latestValue}{data.unit ? ` ${data.unit}` : ''}</p>
-                <p className={combineClasses(DesignTokens.typography.body.xs, 'mt-1 font-medium', statusTextColorClass)}>
-                  {statusInfo.label}
-                </p>
+                <h3 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, DesignTokens.colors.app.text[900])}>
+                  Health
+                </h3>
               </div>
-            );
-          };
+              <button
+                onClick={() => onTabChange('health')}
+                className={combineClasses(
+                  DesignTokens.typography.body.sm,
+                  'font-medium',
+                  DesignTokens.colors.app.text[600],
+                  `hover:${DesignTokens.colors.app.text[700]}`,
+                  DesignTokens.transitions.default,
+                  'flex items-center',
+                  DesignTokens.spacing.gap.xs
+                )}
+              >
+                View All <ChevronRight className={DesignTokens.icons.small.size.full} />
+              </button>
+            </div>
 
-          // Prepare Key Labs - show favorites if they exist, otherwise show defaults
-          const getKeyLabItems = () => {
-            if (!hasRealLabData) return null;
-            
-            // If there are favorite labs, use those
-            if (favoriteLabs.length > 0) {
-              const favoriteLabItems = favoriteLabs
-                .filter(key => labsData[key] && ((labsData[key].data && labsData[key].data.length > 0) || labsData[key].current))
-                .map(key => ({ type: 'lab', key, data: labsData[key] }))
-                .slice(0, 4);
-              if (favoriteLabItems.length > 0) return favoriteLabItems;
-            }
-            
-            // Otherwise, use default important labs
-            const keyLabKeys = Object.keys(labsData)
-              .filter(key => {
-                const lab = labsData[key];
-                return lab && ((lab.data && lab.data.length > 0) || lab.current) && lab.relevanceScore >= 1;
-              })
-              .sort((a, b) => {
-                const labA = labsData[a];
-                const labB = labsData[b];
-                if (labB.relevanceScore !== labA.relevanceScore) {
-                  return labB.relevanceScore - labA.relevanceScore;
+            {/* Key Metrics & Recent Data */}
+            {hasRealLabData || hasRealVitalData ? (() => {
+              const favoriteLabs = patientProfile?.favoriteMetrics?.labs || [];
+              const favoriteVitals = patientProfile?.favoriteMetrics?.vitals || [];
+              
+              // Get key metrics (favorites or high-relevance, up to 6 total)
+              const getKeyMetrics = () => {
+                const allMetrics = [];
+                
+                // Get favorite labs
+                if (favoriteLabs.length > 0 && hasRealLabData) {
+                  favoriteLabs.forEach(key => {
+                    const lab = labsData[key];
+                    if (lab && ((lab.data && lab.data.length > 0) || lab.current)) {
+                      allMetrics.push({ type: 'lab', key, data: lab });
+                    }
+                  });
                 }
-                const criticalOrder = ['ca125', 'cea', 'wbc', 'hemoglobin', 'platelets', 'creatinine', 'alt', 'ast', 'albumin', 'ldh'];
-                const idxA = criticalOrder.indexOf(a.toLowerCase());
-                const idxB = criticalOrder.indexOf(b.toLowerCase());
-                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                if (idxA !== -1) return -1;
-                if (idxB !== -1) return 1;
-                return 0;
-              })
-              .slice(0, 4);
-
-            const displayLabKeys = keyLabKeys.length > 0 
-              ? keyLabKeys
-              : Object.keys(labsData)
+                
+                // Get favorite vitals
+                if (favoriteVitals.length > 0 && hasRealVitalData) {
+                  favoriteVitals.forEach(key => {
+                    const vital = vitalsData[key];
+                    if (vital && ((vital.data && Array.isArray(vital.data) && vital.data.length > 0) || vital.current)) {
+                      allMetrics.push({ type: 'vital', key, data: vital });
+                    }
+                  });
+                }
+                
+                // If we have favorites, return up to 6
+                if (allMetrics.length > 0) {
+                  return allMetrics.slice(0, 6);
+                }
+                
+                // Otherwise, get high-relevance labs and important vitals
+                const keyLabs = Object.keys(labsData)
                   .filter(key => {
                     const lab = labsData[key];
-                    return lab && ((lab.data && lab.data.length > 0) || lab.current);
+                    return lab && ((lab.data && lab.data.length > 0) || lab.current) && lab.relevanceScore >= 1;
                   })
-                  .slice(0, 4);
-
-            if (displayLabKeys.length === 0) return null;
-            return displayLabKeys.map(key => ({ type: 'lab', key, data: labsData[key] }));
-          };
-
-          // Prepare Key Vitals - show favorites if they exist, otherwise show defaults
-          const getKeyVitalItems = () => {
-            if (!hasRealVitalData) return null;
-            
-            // If there are favorite vitals, use those
-            if (favoriteVitals.length > 0) {
-              const favoriteVitalItems = favoriteVitals
-                .filter(key => {
-                  const vital = vitalsData[key];
-                  if (!vital) return false;
-                  const hasData = vital.data && Array.isArray(vital.data) && vital.data.length > 0;
-                  const hasCurrent = vital.current !== null && vital.current !== undefined && vital.current !== '';
-                  return hasData || hasCurrent;
-                })
-                .map(key => ({ type: 'vital', key, data: vitalsData[key] }))
-                .slice(0, 4);
-              if (favoriteVitalItems.length > 0) return favoriteVitalItems;
-            }
-            
-            // Otherwise, use default important vitals
-            const keyVitalKeys = Object.keys(vitalsData)
-              .filter(key => {
-                const vital = vitalsData[key];
-                return vital && ((vital.data && vital.data.length > 0) || vital.current);
-              })
-              .filter(key => ['weight', 'bp', 'bloodpressure', 'temperature', 'temp', 'heartrate', 'hr', 'pulse'].includes(key.toLowerCase()))
-              .slice(0, 4);
-
-            const displayVitalKeys = keyVitalKeys.length > 0
-              ? keyVitalKeys
-              : Object.keys(vitalsData)
+                  .sort((a, b) => {
+                    const labA = labsData[a];
+                    const labB = labsData[b];
+                    if (labB.relevanceScore !== labA.relevanceScore) {
+                      return labB.relevanceScore - labA.relevanceScore;
+                    }
+                    const criticalOrder = ['ca125', 'cea', 'wbc', 'hemoglobin', 'platelets', 'creatinine', 'alt', 'ast', 'albumin', 'ldh'];
+                    const idxA = criticalOrder.indexOf(a.toLowerCase());
+                    const idxB = criticalOrder.indexOf(b.toLowerCase());
+                    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                    if (idxA !== -1) return -1;
+                    if (idxB !== -1) return 1;
+                    return 0;
+                  })
+                  .slice(0, 4)
+                  .map(key => ({ type: 'lab', key, data: labsData[key] }));
+                
+                const keyVitals = Object.keys(vitalsData)
                   .filter(key => {
                     const vital = vitalsData[key];
                     return vital && ((vital.data && vital.data.length > 0) || vital.current);
                   })
-                  .slice(0, 4);
+                  .filter(key => ['weight', 'bp', 'bloodpressure', 'temperature', 'temp', 'heartrate', 'hr', 'pulse'].includes(key.toLowerCase()))
+                  .slice(0, 2)
+                  .map(key => ({ type: 'vital', key, data: vitalsData[key] }));
+                
+                return [...keyLabs, ...keyVitals].slice(0, 6);
+              };
+              
+              const getKeyLabItems = () => {
+                if (!hasRealLabData) return null;
+                if (favoriteLabs.length > 0) {
+                  const items = favoriteLabs
+                    .filter(key => labsData[key] && ((labsData[key].data && labsData[key].data.length > 0) || labsData[key].current))
+                    .map(key => ({ type: 'lab', key, data: labsData[key] }))
+                    .slice(0, 2);
+                  if (items.length > 0) return items;
+                }
+                const keys = Object.keys(labsData)
+                  .filter(key => {
+                    const lab = labsData[key];
+                    return lab && ((lab.data && lab.data.length > 0) || lab.current);
+                  })
+                  .slice(0, 2);
+                if (keys.length === 0) return null;
+                return keys.map(key => ({ type: 'lab', key, data: labsData[key] }));
+              };
 
-            if (displayVitalKeys.length === 0) return null;
-            return displayVitalKeys.map(key => ({ type: 'vital', key, data: vitalsData[key] }));
-          };
+              const getKeyVitalItems = () => {
+                if (!hasRealVitalData) return null;
+                if (favoriteVitals.length > 0) {
+                  const items = favoriteVitals
+                    .filter(key => {
+                      const vital = vitalsData[key];
+                      return vital && ((vital.data && Array.isArray(vital.data) && vital.data.length > 0) || vital.current);
+                    })
+                    .map(key => ({ type: 'vital', key, data: vitalsData[key] }))
+                    .slice(0, 2);
+                  if (items.length > 0) return items;
+                }
+                const keys = Object.keys(vitalsData)
+                  .filter(key => {
+                    const vital = vitalsData[key];
+                    return vital && ((vital.data && vital.data.length > 0) || vital.current);
+                  })
+                  .slice(0, 2);
+                if (keys.length === 0) return null;
+                return keys.map(key => ({ type: 'vital', key, data: vitalsData[key] }));
+              };
 
-          const keyLabItems = getKeyLabItems();
-          const keyVitalItems = getKeyVitalItems();
-          const showKeyLabs = keyLabItems !== null;
-          const showKeyVitals = keyVitalItems !== null;
+              const keyMetrics = getKeyMetrics();
+              const keyLabItems = getKeyLabItems();
+              const keyVitalItems = getKeyVitalItems();
+              
+              const renderMetricItem = (item, itemType) => {
+                const data = item.data;
+                let latestValue = (data.data && data.data.length > 0)
+                  ? data.data[data.data.length - 1]?.value
+                  : data.current;
+                
+                let statusInfo = { status: 'normal', color: 'green', label: 'Normal' };
+                const numValue = typeof latestValue === 'string' && latestValue.includes('/') 
+                  ? latestValue 
+                  : parseFloat(latestValue);
+                
+                if (itemType === 'lab' && !isNaN(numValue) && data.normalRange) {
+                  statusInfo = getLabStatus(numValue, data.normalRange);
+                } else if (itemType === 'vital' && data.normalRange) {
+                  const vitalKey = normalizeVitalName(item.key) || item.key;
+                  statusInfo = getVitalStatus(latestValue, data.normalRange, vitalKey);
+                }
+                
+                let displayName = data.name;
+                if (itemType === 'lab') {
+                  displayName = getLabDisplayName(data.name || item.key);
+                } else if (itemType === 'vital') {
+                  displayName = getVitalDisplayName(data.name || item.key);
+                }
+                
+                const statusColorClass = 
+                  statusInfo.color === 'red' ? DesignTokens.components.status.high.icon :
+                  statusInfo.color === 'yellow' ? DesignTokens.components.status.low.icon :
+                  DesignTokens.components.status.normal.icon;
+                
+                return (
+                  <div key={`${itemType}-${item.key}`} className={combineClasses(
+                    'p-2 rounded-lg',
+                    DesignTokens.colors.app[50],
+                    'border',
+                    DesignTokens.colors.app.border[200]
+                  )}>
+                    <div className={combineClasses('flex items-center justify-between mb-1')}>
+                      <span className={combineClasses(DesignTokens.typography.body.xs, 'font-medium', DesignTokens.colors.app.text[700])}>
+                        {displayName}
+                      </span>
+                      <Activity className={combineClasses(DesignTokens.icons.small.size.full, statusColorClass)} />
+                    </div>
+                    <p className={combineClasses(DesignTokens.typography.body.sm, 'font-bold', DesignTokens.colors.app.text[900])}>
+                      {latestValue}{data.unit ? ` ${data.unit}` : ''}
+                    </p>
+                  </div>
+                );
+              };
 
-          return (
-            <>
-              {/* Key Labs and Key Vitals Cards - Side by side on desktop, stacked on mobile */}
-              {(showKeyLabs || showKeyVitals) && (
-                <div className={combineClasses('grid grid-cols-1 lg:grid-cols-2', DesignTokens.spacing.gap.md)}>
-                  {/* Key Labs Card */}
-                  {showKeyLabs && (
-                    <div className={combineClasses(
-                      DesignTokens.components.card.container,
-                      DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[200])
-                    )}>
-                      <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.section.mobile)}>
-                        <h3 className={combineClasses(
-                          DesignTokens.typography.h3.full,
-                          DesignTokens.typography.h3.weight,
-                          DesignTokens.typography.h3.color,
-                          'flex items-center',
-                          DesignTokens.spacing.gap.sm
-                        )}>
-                          <div className={combineClasses(DesignTokens.colors.primary[50], DesignTokens.spacing.iconContainer.mobile, DesignTokens.borders.radius.sm)}>
-                            <BarChart className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.primary.text[600])} />
-                          </div>
-                          Key Labs
-                        </h3>
-                        <button
-                          onClick={() => {
-                            sessionStorage.setItem('healthSection', 'labs');
-                            onTabChange('health');
-                          }}
-                          className={combineClasses(
-                            DesignTokens.typography.body.sm,
-                            'font-medium',
-                            DesignTokens.colors.primary.text[600],
-                            'hover:text-medical-primary-700 active:text-medical-primary-800',
-                            DesignTokens.transitions.default,
-                            'touch-manipulation flex items-center',
-                            DesignTokens.spacing.gap.xs
-                          )}
-                        >
-                          View All <ChevronRight className={DesignTokens.icons.small.size.full} />
-                        </button>
+              return (
+                <div className={combineClasses('space-y-4 mb-4')}>
+                  {/* Key Metrics Section */}
+                  {keyMetrics && keyMetrics.length > 0 && (
+                    <div>
+                      <p className={combineClasses(DesignTokens.typography.body.xs, 'font-semibold mb-2', DesignTokens.colors.app.text[600], 'uppercase')}>
+                        Key Metrics
+                      </p>
+                      <div className={combineClasses('grid grid-cols-2 sm:grid-cols-3', DesignTokens.spacing.gap.sm)}>
+                        {keyMetrics.map((item) => renderMetricItem(item, item.type))}
                       </div>
-                      <div className={combineClasses('grid grid-cols-2 sm:grid-cols-4', DesignTokens.spacing.gap.sm)}>
+                    </div>
+                  )}
+                  
+                  {/* Recent Labs */}
+                  {keyLabItems && keyLabItems.length > 0 && (
+                    <div>
+                      <p className={combineClasses(DesignTokens.typography.body.xs, 'font-semibold mb-2', DesignTokens.colors.app.text[600], 'uppercase')}>
+                        Recent Labs
+                      </p>
+                      <div className={combineClasses('grid grid-cols-2', DesignTokens.spacing.gap.sm)}>
                         {keyLabItems.map((item) => renderMetricItem(item, 'lab'))}
                       </div>
                     </div>
                   )}
-
-                  {/* Key Vitals Card */}
-                  {showKeyVitals && (
-                    <div className={combineClasses(
-                      DesignTokens.components.card.container,
-                      DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[200])
-                    )}>
-                      <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.section.mobile)}>
-                        <h3 className={combineClasses(
-                          DesignTokens.typography.h3.full,
-                          DesignTokens.typography.h3.weight,
-                          DesignTokens.typography.h3.color,
-                          'flex items-center',
-                          DesignTokens.spacing.gap.sm
-                        )}>
-                          <div className={combineClasses(DesignTokens.colors.primary[50], DesignTokens.spacing.iconContainer.mobile, DesignTokens.borders.radius.sm)}>
-                            <Heart className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.primary.text[600])} />
-                          </div>
-                          Key Vitals
-                        </h3>
-                        <button
-                          onClick={() => {
-                            sessionStorage.setItem('healthSection', 'vitals');
-                            onTabChange('health');
-                          }}
-                          className={combineClasses(
-                            DesignTokens.typography.body.sm,
-                            'font-medium',
-                            DesignTokens.colors.primary.text[600],
-                            'hover:text-medical-primary-700 active:text-medical-primary-800',
-                            DesignTokens.transitions.default,
-                            'touch-manipulation flex items-center',
-                            DesignTokens.spacing.gap.xs
-                          )}
-                        >
-                          View All <ChevronRight className={DesignTokens.icons.small.size.full} />
-                        </button>
-                      </div>
-                      <div className={combineClasses('grid grid-cols-2 sm:grid-cols-4', DesignTokens.spacing.gap.sm)}>
+                  
+                  {/* Recent Vitals */}
+                  {keyVitalItems && keyVitalItems.length > 0 && (
+                    <div>
+                      <p className={combineClasses(DesignTokens.typography.body.xs, 'font-semibold mb-2', DesignTokens.colors.app.text[600], 'uppercase')}>
+                        Recent Vitals
+                      </p>
+                      <div className={combineClasses('grid grid-cols-2', DesignTokens.spacing.gap.sm)}>
                         {keyVitalItems.map((item) => renderMetricItem(item, 'vital'))}
                       </div>
                     </div>
                   )}
                 </div>
-              )}
-            </>
-          );
-        })() : (
-          <div className={combineClasses(
-            DesignTokens.components.emptyState.container,
-            DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[200]),
-            DesignTokens.shadows.sm
-          )}>
-            <div className={combineClasses(DesignTokens.components.emptyState.iconContainer, DesignTokens.colors.primary[100], 'rounded-full')}>
-              <ClipboardList className={combineClasses(DesignTokens.icons.header.size.full, DesignTokens.colors.primary.text[600])} />
-            </div>
-            <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, DesignTokens.typography.h3.color, 'mb-2')}>No health data tracked yet</h3>
-            <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[600], 'mb-6')}>Start by uploading lab results or chatting with the AI assistant</p>
-            <div className={combineClasses(DesignTokens.components.emptyState.actions)}>
+              );
+            })() : (
+              <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.app.text[500], 'mb-4')}>
+                No health data yet
+              </p>
+            )}
+
+            {/* Quick Actions */}
+            <div className={combineClasses('flex flex-wrap gap-2 pt-3 border-t', DesignTokens.colors.app.border[200])}>
               <button
-                onClick={() => onTabChange('chat')}
+                onClick={() => {
+                  const availableVitals = Object.keys(vitalsData || {}).filter(key => {
+                    const vital = vitalsData[key];
+                    return vital && (vital.data?.length > 0 || vital.current);
+                  }).map(key => ({
+                    id: key,
+                    name: getVitalDisplayName(key),
+                    type: key === 'bp' ? 'bp' : 'single',
+                    unit: vitalsData[key]?.unit || '',
+                    normalRange: vitalsData[key]?.normalRange || ''
+                  }));
+                  if (availableVitals.length === 0) {
+                    showError('No vitals available. Please add a vital first.');
+                    return;
+                  }
+                  setSelectedVitalForValue(availableVitals[0]);
+                  setShowAddVitalValueModal(true);
+                }}
                 className={combineClasses(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
                   DesignTokens.components.button.outline.primary,
-                  DesignTokens.spacing.button.full,
-                  'py-3'
+                  'hover:shadow-sm active:scale-[0.98]'
                 )}
               >
-                <MessageSquare className={DesignTokens.icons.button.size.full} />
-                Chat with AI
+                <Heart className="w-3.5 h-3.5" />
+                <span>Add Vital</span>
               </button>
               <button
                 onClick={() => {
-                  if (!hasUploadedDocument) {
-                    openDocumentOnboarding('labs');
-                  } else {
-                    onTabChange('files');
+                  const availableLabs = Object.keys(labsData || {}).filter(key => {
+                    const lab = labsData[key];
+                    return lab && (lab.data?.length > 0 || lab.current);
+                  }).map(key => ({
+                    id: key,
+                    name: getLabDisplayName(key),
+                    unit: labsData[key]?.unit || '',
+                    normalRange: labsData[key]?.normalRange || ''
+                  }));
+                  if (availableLabs.length === 0) {
+                    showError('No labs available. Please add a lab first.');
+                    return;
                   }
+                  setSelectedLabForValue(availableLabs[0]);
+                  setShowAddLabValueModal(true);
                 }}
                 className={combineClasses(
-                  DesignTokens.components.button.primary,
-                  DesignTokens.spacing.button.full,
-                  'py-3'
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                  DesignTokens.components.button.outline.primary,
+                  'hover:shadow-sm active:scale-[0.98]'
                 )}
               >
-                <Upload className={DesignTokens.icons.button.size.full} />
-                Upload Labs
+                <ClipboardList className="w-3.5 h-3.5" />
+                <span>Add Lab</span>
+              </button>
+              <button
+                onClick={() => setShowAddSymptomModal(true)}
+                className={combineClasses(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                  DesignTokens.components.button.outline.primary,
+                  'hover:shadow-sm active:scale-[0.98]'
+                )}
+              >
+                <Activity className="w-3.5 h-3.5" />
+                <span>Log Symptom</span>
               </button>
             </div>
           </div>
-        )}
 
-        {/* Two Column Layout on larger screens */}
-        <div className={combineClasses('grid grid-cols-1 lg:grid-cols-2', DesignTokens.spacing.gap.sm)}>
-          {/* Genomic Profile Card */}
+          {/* Trials Tab Summary */}
           <div className={combineClasses(
-            'w-full',
             DesignTokens.components.card.container,
-            'border-purple-200',
-            DesignTokens.shadows.sm,
-            'lg:col-span-2'
+            DesignTokens.components.card.withColoredBorder(DesignTokens.moduleAccent.trials.border)
           )}>
-            {genomicProfile && genomicProfile.mutations && genomicProfile.mutations.length > 0 && (
-              <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.section.mobile)}>
-                <h3 className={combineClasses(
-                  DesignTokens.typography.h3.full,
-                  DesignTokens.typography.h3.weight,
-                  DesignTokens.typography.h3.color,
-                  'flex items-center',
-                  DesignTokens.spacing.gap.sm
-                )}>
-                  <div className={combineClasses('bg-gradient-to-br from-purple-50 to-pink-50', DesignTokens.spacing.iconContainer.mobile, DesignTokens.borders.radius.sm)}>
-                    <Dna className={combineClasses(DesignTokens.icons.standard.size.full, 'text-purple-600')} />
-                  </div>
-                  Genomic Profile
+            <div className={combineClasses('flex items-center justify-between mb-4')}>
+              <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm)}>
+                <div className={combineClasses(DesignTokens.moduleAccent.trials.bg, DesignTokens.spacing.iconContainer.mobile, DesignTokens.borders.radius.sm)}>
+                  <Bookmark className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.moduleAccent.trials.text)} />
+                </div>
+                <h3 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, DesignTokens.colors.app.text[900])}>
+                  Clinical Trials
                 </h3>
-                <button
-                  onClick={() => onTabChange('profile')}
-                  className={combineClasses(
-                    DesignTokens.typography.body.sm,
-                    'font-medium',
-                    DesignTokens.colors.primary.text[600],
-                    'hover:text-medical-primary-700 active:text-medical-primary-800',
-                    DesignTokens.transitions.default,
-                    'touch-manipulation flex items-center',
-                    DesignTokens.spacing.gap.xs
-                  )}
-                >
-                  View Details <ChevronRight className={DesignTokens.icons.small.size.full} />
-                </button>
               </div>
-            )}
-            {genomicProfile && ((genomicProfile.mutations && genomicProfile.mutations.length > 0) || (genomicProfile.cnvs && genomicProfile.cnvs.length > 0)) ? (
-              <>
-                <div className={combineClasses(DesignTokens.components.card.nested, 'mb-3')}>
-                  <div className="flex flex-wrap gap-2">
-                    {genomicProfile.mutations && genomicProfile.mutations.slice(0, 5).map((mutation, idx) => (
-                      <span key={idx} className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
-                        {mutation.gene} {formatLabel(mutation.variant || mutation.type)}
-                      </span>
-                    ))}
-                    {genomicProfile.cnvs && genomicProfile.cnvs.slice(0, 3).map((cnv, idx) => {
-                      const cnvType = cnv.type === 'amplification' || cnv.type === 'gain' || (cnv.copyNumber && cnv.copyNumber > 2) ? 'Amp' : 'Del';
-                      return (
-                        <span key={`cnv-${idx}`} className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">
-                          {cnv.gene} {cnvType}
-                        </span>
-                      );
-                    })}
-                    {genomicProfile.tmb && (
-                      <span className={combineClasses('px-3 py-1 rounded-full text-xs font-medium', DesignTokens.colors.primary[100], DesignTokens.colors.primary.text[700])}>
-                        TMB: {genomicProfile.tmb}
-                      </span>
-                    )}
-                    {genomicProfile.msi && (
-                      <span className={combineClasses('px-3 py-1 rounded-full text-xs font-medium', DesignTokens.components.status.normal.bg, DesignTokens.components.status.normal.text)}>
-                        MSI: {genomicProfile.msi}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className={DesignTokens.components.emptyState.container}>
-                <div className={combineClasses(DesignTokens.components.emptyState.iconContainer, 'bg-gradient-to-br from-purple-100 to-pink-100 rounded-full')}>
-                  <Dna className={combineClasses(DesignTokens.icons.header.size.full, 'text-purple-600')} />
-                </div>
-                <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, DesignTokens.typography.h3.color, 'mb-2')}>No genomic data yet</h3>
-                <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[600], 'mb-6')}>Upload your genomic test report to match with targeted therapies and clinical trials</p>
-                <div className={DesignTokens.components.emptyState.actions}>
-                  <button
-                    onClick={() => {
-                      if (!hasUploadedDocument) {
-                        openDocumentOnboarding('genomic');
-                      } else {
-                        onTabChange('files');
-                      }
-                    }}
-                    className={combineClasses(
-                      'px-6 py-3',
-                      DesignTokens.spacing.touchTarget,
-                      'bg-purple-600 text-white',
-                      DesignTokens.borders.radius.sm,
-                      'hover:bg-purple-700 active:bg-purple-800',
-                      DesignTokens.transitions.all,
-                      DesignTokens.typography.body.sm,
-                      'font-semibold',
-                      DesignTokens.shadows.sm,
-                      DesignTokens.shadows.hover,
-                      'flex items-center justify-center',
-                      DesignTokens.spacing.gap.sm,
-                      'touch-manipulation'
-                    )}
-                  >
-                    <Upload className={DesignTokens.icons.button.size.full} />
-                    Upload Genomic Report
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Saved Trials */}
-        <div className={combineClasses(
-          DesignTokens.components.card.withColoredBorder(DesignTokens.colors.accent.border[200]),
-          DesignTokens.shadows.sm
-        )}>
-          {!loadingSavedTrials && savedTrials.length > 0 && (
-            <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.section.mobile)}>
-              <h3 className={combineClasses(
-                DesignTokens.typography.h3.full,
-                DesignTokens.typography.h3.weight,
-                DesignTokens.typography.h3.color,
-                'flex items-center',
-                DesignTokens.spacing.gap.sm
-              )}>
-                <div className={combineClasses(DesignTokens.colors.accent[50], DesignTokens.spacing.iconContainer.mobile, DesignTokens.borders.radius.sm)}>
-                  <Bookmark className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.accent.text[600])} />
-                </div>
-                Saved Trials
-              </h3>
               <button
                 onClick={() => onTabChange('trials')}
                 className={combineClasses(
                   DesignTokens.typography.body.sm,
                   'font-medium',
-                  DesignTokens.colors.primary.text[600],
-                  'hover:text-medical-primary-700 active:text-medical-primary-800',
+                  DesignTokens.colors.app.text[600],
+                  `hover:${DesignTokens.colors.app.text[700]}`,
                   DesignTokens.transitions.default,
-                  'touch-manipulation flex items-center',
+                  'flex items-center',
                   DesignTokens.spacing.gap.xs
                 )}
               >
-                View Details <ChevronRight className={DesignTokens.icons.small.size.full} />
+                View All <ChevronRight className={DesignTokens.icons.small.size.full} />
               </button>
             </div>
-          )}
-          {loadingSavedTrials ? (
-            <div className="text-center py-8">
-              <p className="text-medical-neutral-600 text-sm">Loading saved trials...</p>
-            </div>
-          ) : savedTrials.length > 0 ? (
-            <div className="space-y-3">
-              {savedTrials.map((trial) => (
-                <div
-                  key={trial.id}
-                  className="border border-medical-neutral-200 rounded-lg p-3 sm:p-4 hover:border-medical-accent-300 hover:shadow-sm active:bg-medical-neutral-100 transition-all cursor-pointer bg-medical-neutral-50/50 touch-manipulation min-h-[60px]"
-                  onClick={() => onTabChange('trials')}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      onTabChange('trials');
-                    }
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-medical-neutral-900 text-sm sm:text-base mb-1.5 truncate">
-                        {trial.title || trial.titleJa || 'Untitled Trial'}
-                      </h4>
-                      {trial.matchResult && (
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-xs text-medical-neutral-600 font-medium">
-                            Match: {trial.matchResult.matchPercentage}%
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-medical-neutral-400 ml-2 flex-shrink-0" />
+
+            {/* Saved Trials Preview */}
+            {loadingSavedTrials ? (
+              <div className="text-center py-4">
+                <Loader2 className={combineClasses('w-5 h-5 animate-spin mx-auto mb-2', DesignTokens.colors.app.text[400])} />
+                <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.app.text[500])}>Loading...</p>
+              </div>
+            ) : savedTrials.length > 0 ? (
+              <div className={combineClasses('space-y-2 mb-4')}>
+                {savedTrials.slice(0, 2).map((trial) => (
+                  <div
+                    key={trial.id}
+                    className={combineClasses(
+                      'p-3 rounded-lg border cursor-pointer transition-all',
+                      DesignTokens.colors.app[50],
+                      DesignTokens.colors.app.border[200],
+                      'hover:shadow-sm'
+                    )}
+                    onClick={() => onTabChange('trials')}
+                  >
+                    <h4 className={combineClasses(DesignTokens.typography.body.sm, 'font-semibold mb-1', DesignTokens.colors.app.text[900], 'line-clamp-1')}>
+                      {trial.title || trial.titleJa || 'Untitled Trial'}
+                    </h4>
+                    {trial.matchResult && (
+                      <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.app.text[600])}>
+                        Match: {trial.matchResult.matchPercentage}%
+                      </p>
+                    )}
                   </div>
+                ))}
+              </div>
+            ) : (
+              <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.app.text[500], 'mb-4')}>
+                No saved trials yet
+              </p>
+            )}
+
+            {/* Quick Actions */}
+            <div className={combineClasses('flex flex-wrap gap-2 pt-3 border-t', DesignTokens.colors.app.border[200])}>
+              <button
+                onClick={() => onTabChange('trials')}
+                className={combineClasses(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                  DesignTokens.components.button.outline.primary,
+                  'hover:shadow-sm active:scale-[0.98]'
+                )}
+              >
+                <Search className="w-3.5 h-3.5" />
+                <span>Search Trials</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Files Tab Summary */}
+          <div className={combineClasses(
+            DesignTokens.components.card.container,
+            DesignTokens.components.card.withColoredBorder(DesignTokens.moduleAccent.files.border)
+          )}>
+            <div className={combineClasses('flex items-center justify-between mb-4')}>
+              <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm)}>
+                <div className={combineClasses(DesignTokens.moduleAccent.files.bg, DesignTokens.spacing.iconContainer.mobile, DesignTokens.borders.radius.sm)}>
+                  <FolderOpen className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.moduleAccent.files.text)} />
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className={DesignTokens.components.emptyState.container}>
-              <div className={combineClasses(DesignTokens.components.emptyState.iconContainer, DesignTokens.colors.accent[100], 'rounded-full')}>
-                <Bookmark className={combineClasses(DesignTokens.icons.header.size.full, DesignTokens.colors.accent.text[600])} />
+                <h3 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, DesignTokens.colors.app.text[900])}>
+                  Files & Notes
+                </h3>
               </div>
-              <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, DesignTokens.typography.h3.color, 'mb-2')}>No saved trials yet</h3>
-              <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[600], 'mb-6')}>Search and save clinical trials that match your profile</p>
-              <div className={DesignTokens.components.emptyState.actions}>
-                <button
-                  onClick={() => onTabChange('trials')}
-                  className={combineClasses(
-                    DesignTokens.components.button.primary,
-                    DesignTokens.spacing.button.full,
-                    'py-3',
-                    DesignTokens.colors.accent[500],
-                    'hover:bg-medical-accent-600 active:bg-medical-accent-700',
-                    'text-white'
-                  )}
-                >
-                  <Search className={DesignTokens.icons.button.size.full} />
-                  Search Clinical Trials
-                </button>
-              </div>
+              <button
+                onClick={() => onTabChange('files')}
+                className={combineClasses(
+                  DesignTokens.typography.body.sm,
+                  'font-medium',
+                  DesignTokens.colors.app.text[600],
+                  `hover:${DesignTokens.colors.app.text[700]}`,
+                  DesignTokens.transitions.default,
+                  'flex items-center',
+                  DesignTokens.spacing.gap.xs
+                )}
+              >
+                View All <ChevronRight className={DesignTokens.icons.small.size.full} />
+              </button>
             </div>
-          )}
+
+            {/* Recent Documents & Notes Preview */}
+            {isLoadingFilesSummary ? (
+              <div className="text-center py-4">
+                <Loader2 className={combineClasses('w-5 h-5 animate-spin mx-auto mb-2', DesignTokens.colors.app.text[400])} />
+                <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.app.text[500])}>Loading...</p>
+              </div>
+            ) : (
+              <div className={combineClasses('space-y-3 mb-4')}>
+                {recentDocuments.length > 0 && (
+                  <div>
+                    <p className={combineClasses(DesignTokens.typography.body.xs, 'font-semibold mb-2', DesignTokens.colors.app.text[600], 'uppercase')}>
+                      Recent Documents
+                    </p>
+                    <div className={combineClasses('space-y-2')}>
+                      {recentDocuments.slice(0, 2).map((doc) => (
+                        <div
+                          key={doc.id}
+                          className={combineClasses(
+                            'p-2 rounded-lg border flex items-center gap-2',
+                            DesignTokens.colors.app[50],
+                            DesignTokens.colors.app.border[200]
+                          )}
+                        >
+                          <FileText className={combineClasses('w-4 h-4 flex-shrink-0', DesignTokens.colors.app.text[500])} />
+                          <div className="flex-1 min-w-0">
+                            <p className={combineClasses(DesignTokens.typography.body.xs, 'font-medium truncate', DesignTokens.colors.app.text[900])}>
+                              {doc.name || 'Untitled Document'}
+                            </p>
+                            {doc.date && (
+                              <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.app.text[500])}>
+                                {formatDateString(doc.date)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {recentNotebookEntries.length > 0 && (
+                  <div>
+                    <p className={combineClasses(DesignTokens.typography.body.xs, 'font-semibold mb-2', DesignTokens.colors.app.text[600], 'uppercase')}>
+                      Recent Notes
+                    </p>
+                    <div className={combineClasses('space-y-2')}>
+                      {recentNotebookEntries.slice(0, 2).map((entry) => (
+                        <div
+                          key={entry.dateKey}
+                          className={combineClasses(
+                            'p-2 rounded-lg border',
+                            DesignTokens.colors.app[50],
+                            DesignTokens.colors.app.border[200]
+                          )}
+                        >
+                          <div className={combineClasses('flex items-center gap-2 mb-1')}>
+                            <Calendar className={combineClasses('w-3.5 h-3.5', DesignTokens.colors.app.text[500])} />
+                            <p className={combineClasses(DesignTokens.typography.body.xs, 'font-medium', DesignTokens.colors.app.text[700])}>
+                              {formatDateString(entry.date)}
+                            </p>
+                          </div>
+                          {entry.notes.length > 0 && (
+                            <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.app.text[600], 'line-clamp-2')}>
+                              {entry.notes[0].content}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {recentDocuments.length === 0 && recentNotebookEntries.length === 0 && (
+                  <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.app.text[500])}>
+                    No documents or notes yet
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Quick Actions */}
+            <div className={combineClasses('flex flex-wrap gap-2 pt-3 border-t', DesignTokens.colors.app.border[200])}>
+              <button
+                onClick={() => {
+                  if (!hasUploadedDocument) {
+                    setDocumentOnboardingMethod('picker');
+                    setShowDocumentOnboarding(true);
+                  } else {
+                    onTabChange('files');
+                  }
+                }}
+                className={combineClasses(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                  DesignTokens.components.button.outline.primary,
+                  'hover:shadow-sm active:scale-[0.98]'
+                )}
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Upload File</span>
+              </button>
+              <button
+                onClick={() => setShowAddJournalNoteModal(true)}
+                className={combineClasses(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                  DesignTokens.components.button.outline.primary,
+                  'hover:shadow-sm active:scale-[0.98]'
+                )}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Add Note</span>
+              </button>
+            </div>
+          </div>
+
         </div>
       </div>
+
+      {/* Lab Tooltip Modal */}
+      <LabTooltipModal
+        show={!!labTooltip}
+        labTooltip={labTooltip}
+        onClose={() => setLabTooltip(null)}
+      />
+
+      {/* Modals */}
+      <AddSymptomModal
+        show={showAddSymptomModal}
+        onClose={() => {
+          setShowAddSymptomModal(false);
+          // Reset form when closing
+          setSymptomForm({
+            name: '',
+            severity: '',
+            date: getTodayLocalDate(),
+            time: new Date().toTimeString().slice(0, 5),
+            notes: '',
+            customSymptomName: '',
+            tags: []
+          });
+        }}
+        symptomForm={symptomForm}
+        setSymptomForm={setSymptomForm}
+        user={user}
+      />
+
+      {showDocumentOnboarding && (
+        <DocumentUploadOnboarding
+          isOnboarding={!hasUploadedDocument}
+          onClose={() => setShowDocumentOnboarding(false)}
+          onUploadClick={async (documentType, documentDate = null, documentNote = null, fileOrFiles = null) => {
+            setShowDocumentOnboarding(false);
+            // Store document date and note for use in upload
+            setPendingDocumentDate(documentDate);
+            setPendingDocumentNote(documentNote);
+            
+            // If file(s) is provided (from component's file picker), upload it/them directly
+            if (fileOrFiles) {
+              if (Array.isArray(fileOrFiles)) {
+                // Multiple files - process sequentially
+                for (let i = 0; i < fileOrFiles.length; i++) {
+                  await handleRealFileUpload(fileOrFiles[i], documentType);
+                }
+              } else {
+                // Single file
+                handleRealFileUpload(fileOrFiles, documentType);
+              }
+            } else {
+              // Otherwise, open file picker (fallback)
+              const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+              
+              if (documentOnboardingMethod === 'camera') {
+                simulateCameraUpload(documentType);
+              } else if (isMobile) {
+                simulateCameraUpload(documentType);
+              } else {
+                simulateDocumentUpload(documentType);
+              }
+            }
+          }}
+        />
+      )}
 
       {/* Lab Tooltip Modal */}
       <LabTooltipModal
@@ -1031,6 +1137,66 @@ setIsUploading(false);
             const maxWeight = 24.9 * heightInMeters * heightInMeters;
             return `${Math.round(minWeight)}-${Math.round(maxWeight)} kg`;
           }}
+        />
+      )}
+
+      {/* Add Journal Note Modal */}
+      <AddJournalNoteModal
+        show={showAddJournalNoteModal}
+        onClose={() => setShowAddJournalNoteModal(false)}
+        user={user}
+        onNoteAdded={() => {
+          // Reload if needed
+        }}
+      />
+
+      {/* Add Vital Value Modal */}
+      {showAddVitalValueModal && selectedVitalForValue && (
+        <AddVitalValueModal
+          show={showAddVitalValueModal}
+          onClose={() => {
+            setShowAddVitalValueModal(false);
+            setSelectedVitalForValue(null);
+            setIsEditingVitalValue(false);
+            setEditingVitalValueId(null);
+            setNewVitalValue({ value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
+          }}
+          user={user}
+          selectedVitalForValue={selectedVitalForValue}
+          newVitalValue={newVitalValue}
+          setNewVitalValue={setNewVitalValue}
+          isEditingVitalValue={isEditingVitalValue}
+          editingVitalValueId={editingVitalValueId}
+          setIsEditingVitalValue={setIsEditingVitalValue}
+          setEditingVitalValueId={setEditingVitalValueId}
+          setSelectedVitalForValue={setSelectedVitalForValue}
+          reloadHealthData={reloadHealthData}
+          vitalsData={vitalsData}
+        />
+      )}
+
+      {/* Add Lab Value Modal */}
+      {showAddLabValueModal && selectedLabForValue && (
+        <AddLabValueModal
+          show={showAddLabValueModal}
+          onClose={() => {
+            setShowAddLabValueModal(false);
+            setSelectedLabForValue(null);
+            setIsEditingLabValue(false);
+            setEditingLabValueId(null);
+            setNewLabValue({ value: '', date: getTodayLocalDate(), notes: '' });
+          }}
+          user={user}
+          selectedLabForValue={selectedLabForValue}
+          setSelectedLabForValue={setSelectedLabForValue}
+          newLabValue={newLabValue}
+          setNewLabValue={setNewLabValue}
+          isEditingLabValue={isEditingLabValue}
+          setIsEditingLabValue={setIsEditingLabValue}
+          editingLabValueId={editingLabValueId}
+          setEditingLabValueId={setEditingLabValueId}
+          reloadHealthData={reloadHealthData}
+          setSelectedLab={null}
         />
       )}
 

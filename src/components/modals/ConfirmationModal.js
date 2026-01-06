@@ -14,7 +14,7 @@ export default function ConfirmationModal({
   icon: Icon = RefreshCw,
   iconColor = DesignTokens.colors.primary.text[600],
   iconBgColor = DesignTokens.colors.primary[100],
-  confirmButtonColor = `${DesignTokens.colors.primary[600]} ${DesignTokens.colors.primary[700].replace('bg-', 'hover:bg-')}`
+  confirmButtonColor = DesignTokens.components.button.primary
 }) {
   if (!show) return null;
 
@@ -37,7 +37,7 @@ export default function ConfirmationModal({
           <button
             onClick={onConfirm}
             disabled={isProcessing}
-            className={combineClasses('w-full py-3', DesignTokens.borders.radius.md, DesignTokens.typography.h2.weight, 'text-white', DesignTokens.transitions.all, DesignTokens.shadows.lg, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, isProcessing ? DesignTokens.colors.neutral[300] : `${confirmButtonColor} active:scale-[0.98]`)}
+            className={combineClasses(confirmButtonColor, 'w-full py-3 font-medium', DesignTokens.borders.radius.md, DesignTokens.shadows.lg, 'flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed')}
           >
             {isProcessing ? (
               <>

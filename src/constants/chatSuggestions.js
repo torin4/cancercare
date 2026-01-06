@@ -2,12 +2,12 @@ import { Thermometer, BarChart, Heart, Pill, Info, FileText, TrendingUp, AlertCi
 
 // General suggestions (shown when no context is active) - general questions, not data-specific
 export const generalSuggestions = [
-  { text: "Tell me about my diagnosis", populateText: "Tell [patient] about [patient] diagnosis", icon: Info, color: "bg-medical-secondary-500/80" },
-  { text: "What treatment options are available?", populateText: "What treatment options are available for [condition]?", icon: Pill, color: "bg-medical-secondary-500/80" },
-  { text: "What are common side effects?", populateText: "What are common side effects of [medication]?", icon: AlertCircle, color: "bg-medical-secondary-500/80" },
-  { text: "What questions should I ask my doctor?", populateText: "What questions should [patient] ask [patient] doctor about?", icon: MessageSquare, color: "bg-medical-secondary-500/80" },
-  { text: "Tell me about my condition", populateText: "Tell [patient] about [patient] condition", icon: Info, color: "bg-medical-secondary-500/80" },
-  { text: "What should I expect from treatment?", populateText: "What should [patient] expect from treatment?", icon: TrendingUp, color: "bg-medical-secondary-500/80" },
+  { text: "Tell me about my diagnosis", populateText: "Tell [patient] about [patient] diagnosis", icon: Info, color: "bg-anchor-900/80" },
+  { text: "What treatment options are available?", populateText: "What treatment options are available for [condition]?", icon: Pill, color: "bg-anchor-900/80" },
+  { text: "What are common side effects?", populateText: "What are common side effects of [medication]?", icon: AlertCircle, color: "bg-anchor-900/80" },
+  { text: "What questions should I ask my doctor?", populateText: "What questions should [patient] ask [patient] doctor about?", icon: MessageSquare, color: "bg-anchor-900/80" },
+  { text: "Tell me about my condition", populateText: "Tell [patient] about [patient] condition", icon: Info, color: "bg-anchor-900/80" },
+  { text: "What should I expect from treatment?", populateText: "What should [patient] expect from treatment?", icon: TrendingUp, color: "bg-anchor-900/80" },
 ];
 
 // Chat suggestions for adding data (shown when no context, but these are action-oriented)

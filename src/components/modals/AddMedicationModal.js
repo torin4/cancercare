@@ -317,7 +317,7 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
                 placeholder="e.g., Paclitaxel, Ibuprofen"
                 value={formData.name}
                 onChange={(e) => setFormData({...formData, name: e.target.value})}
-                className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
               />
             </div>
 
@@ -331,7 +331,7 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
                   placeholder="e.g., 20"
                   value={formData.dosage}
                   onChange={(e) => setFormData({...formData, dosage: e.target.value})}
-                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                 />
               </div>
 
@@ -342,7 +342,7 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
                 <select 
                   value={formData.unit}
                   onChange={(e) => setFormData({...formData, unit: e.target.value})}
-                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                 >
                   <option value="">Select...</option>
                   <option value="mg">mg</option>
@@ -367,7 +367,7 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
                   placeholder="e.g., 2"
                   value={formData.quantity}
                   onChange={(e) => setFormData({...formData, quantity: e.target.value})}
-                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
                 />
                 <p className={combineClasses(DesignTokens.typography.body.xs, 'mt-1', DesignTokens.colors.neutral.text[500])}>How many to take</p>
               </div>
@@ -380,7 +380,7 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
               <select 
                 value={formData.frequency}
                 onChange={(e) => setFormData({...formData, frequency: e.target.value})}
-                className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
               >
                 <option value="">Select frequency...</option>
                 <option value="Once daily">Once daily</option>
@@ -407,7 +407,7 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
                     type="checkbox"
                     checked={selectedTimes.morning}
                     onChange={(e) => setSelectedTimes({...selectedTimes, morning: e.target.checked})}
-                    className={combineClasses('w-4 h-4', DesignTokens.borders.radius.sm, 'focus:ring-blue-500', DesignTokens.colors.primary[600].replace('bg-', 'text-'), DesignTokens.colors.neutral.border[300])}
+                    className={combineClasses('w-4 h-4', DesignTokens.borders.radius.sm, 'focus:ring-anchor-900', DesignTokens.colors.app.text[600], DesignTokens.colors.neutral.border[300])}
                   />
                   <span className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[700])}>Morning</span>
                 </label>
@@ -416,7 +416,7 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
                     type="checkbox"
                     checked={selectedTimes.afternoon}
                     onChange={(e) => setSelectedTimes({...selectedTimes, afternoon: e.target.checked})}
-                    className={combineClasses('w-4 h-4', DesignTokens.borders.radius.sm, 'focus:ring-blue-500', DesignTokens.colors.primary[600].replace('bg-', 'text-'), DesignTokens.colors.neutral.border[300])}
+                    className={combineClasses('w-4 h-4', DesignTokens.borders.radius.sm, 'focus:ring-anchor-900', DesignTokens.colors.app.text[600], DesignTokens.colors.neutral.border[300])}
                   />
                   <span className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[700])}>Afternoon</span>
                 </label>
@@ -425,7 +425,7 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
                     type="checkbox"
                     checked={selectedTimes.evening}
                     onChange={(e) => setSelectedTimes({...selectedTimes, evening: e.target.checked})}
-                    className={combineClasses('w-4 h-4', DesignTokens.borders.radius.sm, 'focus:ring-blue-500', DesignTokens.colors.primary[600].replace('bg-', 'text-'), DesignTokens.colors.neutral.border[300])}
+                    className={combineClasses('w-4 h-4', DesignTokens.borders.radius.sm, 'focus:ring-anchor-900', DesignTokens.colors.app.text[600], DesignTokens.colors.neutral.border[300])}
                   />
                   <span className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[700])}>Evening</span>
                 </label>
@@ -439,7 +439,7 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
               <select 
                 value={formData.purpose}
                 onChange={(e) => setFormData({...formData, purpose: e.target.value})}
-                className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
               >
                 <option value="">Select purpose...</option>
                 <option value="Chemotherapy">Chemotherapy</option>
@@ -474,7 +474,7 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
                 placeholder="e.g., Take with food, Avoid grapefruit"
                 value={formData.notes}
                 onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                className={combineClasses(DesignTokens.components.input.base, DesignTokens.components.input.textarea, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                className={combineClasses(DesignTokens.components.input.base, DesignTokens.components.input.textarea, DesignTokens.borders.radius.sm)}
               ></textarea>
             </div>
           </div>
@@ -491,8 +491,8 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
             </button>
             <button
               onClick={handleSave}
-              disabled={isSaving}
-              className={combineClasses('flex-1 text-white py-2.5', DesignTokens.borders.radius.sm, DesignTokens.typography.h3.weight, DesignTokens.transitions.default, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, 'disabled:opacity-50 disabled:cursor-not-allowed', 'bg-gray-800 hover:bg-gray-700')}
+              disabled={isSaving || !formData.name?.trim() || !formData.dosage?.trim() || !formData.unit || !formData.frequency || !formData.purpose}
+              className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed')}
             >
               {isSaving ? (
                 <>

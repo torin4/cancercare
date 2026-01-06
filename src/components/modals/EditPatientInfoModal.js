@@ -89,7 +89,7 @@ export default function EditPatientInfoModal({
                   type="text"
                   value={patientProfile.firstName || ''}
                   onChange={(e) => setPatientProfile({ ...patientProfile, firstName: e.target.value })}
-                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                  className={combineClasses(DesignTokens.components.input.base)}
                 />
               </div>
               <div>
@@ -98,7 +98,7 @@ export default function EditPatientInfoModal({
                   type="text"
                   value={patientProfile.middleName || ''}
                   onChange={(e) => setPatientProfile({ ...patientProfile, middleName: e.target.value })}
-                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                  className={combineClasses(DesignTokens.components.input.base)}
                 />
               </div>
               <div>
@@ -107,7 +107,7 @@ export default function EditPatientInfoModal({
                   type="text"
                   value={patientProfile.lastName || ''}
                   onChange={(e) => setPatientProfile({ ...patientProfile, lastName: e.target.value })}
-                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                  className={combineClasses(DesignTokens.components.input.base)}
                 />
               </div>
             </div>
@@ -119,7 +119,7 @@ export default function EditPatientInfoModal({
                   type="number"
                   value={patientProfile.age}
                   onChange={(e) => setPatientProfile({ ...patientProfile, age: e.target.value })}
-                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                  className={combineClasses(DesignTokens.components.input.base)}
                 />
               </div>
 
@@ -139,7 +139,7 @@ export default function EditPatientInfoModal({
               <select
                 value={patientProfile.gender || ''}
                 onChange={(e) => setPatientProfile({ ...patientProfile, gender: e.target.value })}
-                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                className={combineClasses(DesignTokens.components.input.base, 'w-full text-sm')}
               >
                 <option value="">Select gender</option>
                 <option value="Male">Male</option>
@@ -155,7 +155,7 @@ export default function EditPatientInfoModal({
                   type="number"
                   value={patientProfile.height}
                   onChange={(e) => setPatientProfile({ ...patientProfile, height: e.target.value })}
-                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                  className={combineClasses(DesignTokens.components.input.base)}
                 />
               </div>
 
@@ -166,7 +166,7 @@ export default function EditPatientInfoModal({
                   step="0.1"
                   value={patientProfile.weight}
                   onChange={(e) => setPatientProfile({ ...patientProfile, weight: e.target.value })}
-                  className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                  className={combineClasses(DesignTokens.components.input.base)}
                 />
               </div>
             </div>
@@ -176,7 +176,7 @@ export default function EditPatientInfoModal({
               <select
                 value={patientProfile.country || 'United States'}
                 onChange={(e) => setPatientProfile({ ...patientProfile, country: e.target.value })}
-                className={combineClasses('w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-medical-primary-500', DesignTokens.components.input.base)}
+                className={combineClasses(DesignTokens.components.input.base, 'w-full text-sm')}
               >
                 <option value="United States">United States</option>
                 <option value="United Kingdom">United Kingdom</option>
@@ -204,7 +204,7 @@ export default function EditPatientInfoModal({
             </button>
             <button
               onClick={handleSave}
-              className={combineClasses('flex-1 text-white py-2.5', DesignTokens.borders.radius.sm, DesignTokens.typography.h3.weight, DesignTokens.transitions.default, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, DesignTokens.colors.primary[600], DesignTokens.colors.primary[700].replace('bg-', 'hover:bg-'))}
+              className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed')}
             >
               <Check className={DesignTokens.icons.standard.size.full} />
               Save Changes

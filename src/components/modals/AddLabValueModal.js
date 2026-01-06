@@ -109,7 +109,7 @@ export default function AddLabValueModal({
   return (
     <div className={combineClasses(DesignTokens.components.modal.backdrop, 'z-50')}>
       <div className={combineClasses('bg-white w-full h-full md:h-auto', DesignTokens.borders.radius.lg, 'md:max-w-md md:max-h-[85vh] overflow-hidden flex flex-col animate-slide-up')}>
-        <div className={combineClasses('flex-shrink-0 border-b', DesignTokens.components.modal.header, DesignTokens.colors.neutral.border[200], 'bg-medical-primary-50')}>
+        <div className={DesignTokens.components.modal.header}>
           <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, DesignTokens.colors.primary.text[700])}>{isEditingLabValue ? 'Edit Metric Value' : `Add ${selectedLabForValue.name} Value`}</h3>
           <button
             onClick={handleClose}
@@ -132,7 +132,7 @@ export default function AddLabValueModal({
                 value={newLabValue.value}
                 onChange={(e) => setNewLabValue({ ...newLabValue, value: e.target.value })}
                 placeholder={`Enter ${selectedLabForValue.name} value`}
-                className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
               />
               {selectedLabForValue.unit && (
                 <p className={combineClasses(DesignTokens.typography.body.xs, 'mt-1', DesignTokens.colors.neutral.text[500])}>Unit: {selectedLabForValue.unit}</p>
@@ -160,7 +160,7 @@ export default function AddLabValueModal({
                 value={newLabValue.notes}
                 onChange={(e) => setNewLabValue({ ...newLabValue, notes: e.target.value })}
                 placeholder="Add any context about this reading..."
-                className={combineClasses(DesignTokens.components.input.base, DesignTokens.components.input.textarea, DesignTokens.borders.radius.sm, 'focus:ring-2 focus:ring-medical-primary-500')}
+                className={combineClasses(DesignTokens.components.input.base, DesignTokens.components.input.textarea, DesignTokens.borders.radius.sm)}
               />
             </div>
           </div>
@@ -177,7 +177,8 @@ export default function AddLabValueModal({
             </button>
             <button
               onClick={handleSave}
-              className={combineClasses('flex-1 text-white py-2.5', DesignTokens.borders.radius.sm, DesignTokens.typography.h3.weight, DesignTokens.transitions.default, 'flex items-center justify-center', DesignTokens.spacing.gap.sm, DesignTokens.colors.primary[600], DesignTokens.colors.primary[700].replace('bg-', 'hover:bg-'))}
+              disabled={!newLabValue.value || !newLabValue.date}
+              className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed')}
             >
               <Check className={DesignTokens.icons.standard.size.full} />
               {isEditingLabValue ? 'Save' : 'Add Value'}
