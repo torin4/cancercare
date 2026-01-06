@@ -21,12 +21,12 @@ export const chatSuggestions = [
 
 // Trial-specific suggestions (shown when discussing a trial)
 export const trialSuggestions = [
-  { text: "What drugs are used?", populateText: "What drugs or treatments are used in this trial?", icon: Pill, color: "bg-medical-accent-500/80" },
-  { text: "What phase is this?", populateText: "What phase is this clinical trial?", icon: Info, color: "bg-medical-accent-500/80" },
-  { text: "Am I eligible?", populateText: "Am I eligible for this clinical trial?", icon: Check, color: "bg-medical-accent-500/80" },
-  { text: "What are the side effects?", populateText: "What are the potential side effects of this trial?", icon: AlertCircle, color: "bg-medical-accent-500/80" },
-  { text: "How long does it take?", populateText: "How long does this clinical trial take?", icon: Clock, color: "bg-medical-accent-500/80" },
-  { text: "Where is it located?", populateText: "Where is this clinical trial located?", icon: MapPin, color: "bg-medical-accent-500/80" },
+  { text: "What drugs are used?", populateText: "What drugs or treatments are used in this trial?", icon: Pill, color: "bg-care-600/80" },
+  { text: "What phase is this?", populateText: "What phase is this clinical trial?", icon: Info, color: "bg-care-600/80" },
+  { text: "Am I eligible?", populateText: "Am I eligible for this clinical trial?", icon: Check, color: "bg-care-600/80" },
+  { text: "What are the side effects?", populateText: "What are the potential side effects of this trial?", icon: AlertCircle, color: "bg-care-600/80" },
+  { text: "How long does it take?", populateText: "How long does this clinical trial take?", icon: Clock, color: "bg-care-600/80" },
+  { text: "Where is it located?", populateText: "Where is this clinical trial located?", icon: MapPin, color: "bg-care-600/80" },
 ];
 
 // Health data-specific suggestions (shown when health context is active)

@@ -1037,9 +1037,11 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                           })()}
                                           fill="none"
                                           stroke="#3b82f6"
-                                          strokeWidth="3"
+                                          strokeWidth="4"
                                           strokeLinecap="round"
                                           strokeLinejoin="round"
+                                          shapeRendering="geometricPrecision"
+                                          vectorEffect="non-scaling-stroke"
                                         />
                                       </svg>
 
@@ -1349,15 +1351,24 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                     }
                                   });
 
-                                  // For mobile: show first, middle (if 3+), and last (max 3 labels)
+                                  // Progressive truncation based on screen size
+                                  // Mobile (< 640px): first, middle, last (max 3)
+                                  // Small tablet (640px-768px): first, third, two-thirds, last (max 4)
+                                  // Tablet (768px-1024px): first, quarter, middle, three-quarter, last (max 5)
+                                  // Large tablet (1024px-1280px): first, sixth, third, half, two-thirds, five-sixths, last (max 7)
+                                  // Desktop (>= 1280px): all labels
                                   let mobileLabels = [];
+                                  let smallTabletLabels = [];
+                                  let tabletLabels = [];
+                                  let largeTabletLabels = [];
+                                  
                                   if (monthYearData.length > 0) {
+                                    // Mobile labels (first, middle, last) - 3 labels
                                     if (monthYearData.length === 1) {
                                       mobileLabels = [monthYearData[0]];
                                     } else if (monthYearData.length === 2) {
                                       mobileLabels = [monthYearData[0], monthYearData[1]];
                                     } else {
-                                      // Show first, middle, and last
                                       const midIndex = Math.floor(monthYearData.length / 2);
                                       mobileLabels = [
                                         monthYearData[0],
@@ -1365,11 +1376,110 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                         monthYearData[monthYearData.length - 1]
                                       ];
                                     }
+                                    
+                                    // Small tablet labels (first, third, two-thirds, last) - 4 labels
+                                    if (monthYearData.length <= 3) {
+                                      smallTabletLabels = monthYearData;
+                                    } else if (monthYearData.length === 4) {
+                                      smallTabletLabels = monthYearData;
+                                    } else {
+                                      const thirdIndex = Math.floor(monthYearData.length / 3);
+                                      const twoThirdsIndex = Math.floor(monthYearData.length * 2 / 3);
+                                      smallTabletLabels = [
+                                        monthYearData[0],
+                                        monthYearData[thirdIndex],
+                                        monthYearData[twoThirdsIndex],
+                                        monthYearData[monthYearData.length - 1]
+                                      ];
+                                    }
+                                    
+                                    // Tablet labels (first, quarter, middle, three-quarter, last) - 5 labels
+                                    if (monthYearData.length <= 4) {
+                                      tabletLabels = monthYearData;
+                                    } else if (monthYearData.length <= 5) {
+                                      tabletLabels = monthYearData;
+                                    } else {
+                                      const quarterIndex = Math.floor(monthYearData.length / 4);
+                                      const midIndex = Math.floor(monthYearData.length / 2);
+                                      const threeQuarterIndex = Math.floor(monthYearData.length * 3 / 4);
+                                      tabletLabels = [
+                                        monthYearData[0],
+                                        monthYearData[quarterIndex],
+                                        monthYearData[midIndex],
+                                        monthYearData[threeQuarterIndex],
+                                        monthYearData[monthYearData.length - 1]
+                                      ];
+                                    }
+                                    
+                                    // Large tablet labels (first, sixth, third, half, two-thirds, five-sixths, last) - 7 labels
+                                    if (monthYearData.length <= 5) {
+                                      largeTabletLabels = monthYearData;
+                                    } else if (monthYearData.length <= 7) {
+                                      largeTabletLabels = monthYearData;
+                                    } else {
+                                      const sixthIndex = Math.floor(monthYearData.length / 6);
+                                      const thirdIndex = Math.floor(monthYearData.length / 3);
+                                      const midIndex = Math.floor(monthYearData.length / 2);
+                                      const twoThirdsIndex = Math.floor(monthYearData.length * 2 / 3);
+                                      const fiveSixthsIndex = Math.floor(monthYearData.length * 5 / 6);
+                                      largeTabletLabels = [
+                                        monthYearData[0],
+                                        monthYearData[sixthIndex],
+                                        monthYearData[thirdIndex],
+                                        monthYearData[midIndex],
+                                        monthYearData[twoThirdsIndex],
+                                        monthYearData[fiveSixthsIndex],
+                                        monthYearData[monthYearData.length - 1]
+                                      ];
+                                    }
                                   }
 
                                   return (
                                     <>
-                                      {monthLabels}
+                                      {/* Desktop (xl and up): Show all labels */}
+                                      {monthLabels.map((label, idx) => {
+                                        const originalStyle = label.props.style;
+                                        return (
+                                          <span
+                                            key={`desktop-${idx}`}
+                                            className="absolute hidden xl:inline whitespace-nowrap"
+                                            style={originalStyle}
+                                          >
+                                            {label.props.children}
+                                          </span>
+                                        );
+                                      })}
+                                      {/* Large tablet (lg to xl): Show 7 labels */}
+                                      {largeTabletLabels.map((item, idx) => (
+                                        <span
+                                          key={`large-tablet-${item.index}`}
+                                          className="absolute hidden lg:inline xl:hidden whitespace-nowrap"
+                                          style={{ left: `${item.position}%`, transform: 'translateX(-50%)' }}
+                                        >
+                                          {item.label}
+                                        </span>
+                                      ))}
+                                      {/* Tablet (md to lg): Show 5 labels */}
+                                      {tabletLabels.map((item, idx) => (
+                                        <span
+                                          key={`tablet-${item.index}`}
+                                          className="absolute hidden md:inline lg:hidden whitespace-nowrap"
+                                          style={{ left: `${item.position}%`, transform: 'translateX(-50%)' }}
+                                        >
+                                          {item.label}
+                                        </span>
+                                      ))}
+                                      {/* Small tablet (sm to md): Show 4 labels */}
+                                      {smallTabletLabels.map((item, idx) => (
+                                        <span
+                                          key={`small-tablet-${item.index}`}
+                                          className="absolute hidden sm:inline md:hidden whitespace-nowrap"
+                                          style={{ left: `${item.position}%`, transform: 'translateX(-50%)' }}
+                                        >
+                                          {item.label}
+                                        </span>
+                                      ))}
+                                      {/* Mobile (< sm): Show 3 labels */}
                                       {mobileLabels.map((item, idx) => (
                                         <span
                                           key={`mobile-${item.index}`}
@@ -2993,9 +3103,11 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                                 })()}
                                                 fill="none"
                                                 stroke="#3b82f6"
-                                                strokeWidth="3"
+                                                strokeWidth="2"
                                                 strokeLinecap="round"
                                                 strokeLinejoin="round"
+                                                shapeRendering="geometricPrecision"
+                                                vectorEffect="non-scaling-stroke"
                                               />
                                             </svg>
 
@@ -3371,15 +3483,24 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                           }
                                         });
 
-                                        // For mobile: show first, middle (if 3+), and last (max 3 labels)
+                                        // Progressive truncation based on screen size
+                                        // Mobile (< 640px): first, middle, last (max 3)
+                                        // Small tablet (640px-768px): first, third, two-thirds, last (max 4)
+                                        // Tablet (768px-1024px): first, quarter, middle, three-quarter, last (max 5)
+                                        // Large tablet (1024px-1280px): first, sixth, third, half, two-thirds, five-sixths, last (max 7)
+                                        // Desktop (>= 1280px): all labels
                                         let mobileLabels = [];
+                                        let smallTabletLabels = [];
+                                        let tabletLabels = [];
+                                        let largeTabletLabels = [];
+                                        
                                         if (monthYearData.length > 0) {
+                                          // Mobile labels (first, middle, last) - 3 labels
                                           if (monthYearData.length === 1) {
                                             mobileLabels = [monthYearData[0]];
                                           } else if (monthYearData.length === 2) {
                                             mobileLabels = [monthYearData[0], monthYearData[1]];
                                           } else {
-                                            // Show first, middle, and last
                                             const midIndex = Math.floor(monthYearData.length / 2);
                                             mobileLabels = [
                                               monthYearData[0],
@@ -3387,15 +3508,114 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
                                               monthYearData[monthYearData.length - 1]
                                             ];
                                           }
+                                          
+                                          // Small tablet labels (first, third, two-thirds, last) - 4 labels
+                                          if (monthYearData.length <= 3) {
+                                            smallTabletLabels = monthYearData;
+                                          } else if (monthYearData.length === 4) {
+                                            smallTabletLabels = monthYearData;
+                                          } else {
+                                            const thirdIndex = Math.floor(monthYearData.length / 3);
+                                            const twoThirdsIndex = Math.floor(monthYearData.length * 2 / 3);
+                                            smallTabletLabels = [
+                                              monthYearData[0],
+                                              monthYearData[thirdIndex],
+                                              monthYearData[twoThirdsIndex],
+                                              monthYearData[monthYearData.length - 1]
+                                            ];
+                                          }
+                                          
+                                          // Tablet labels (first, quarter, middle, three-quarter, last) - 5 labels
+                                          if (monthYearData.length <= 4) {
+                                            tabletLabels = monthYearData;
+                                          } else if (monthYearData.length <= 5) {
+                                            tabletLabels = monthYearData;
+                                          } else {
+                                            const quarterIndex = Math.floor(monthYearData.length / 4);
+                                            const midIndex = Math.floor(monthYearData.length / 2);
+                                            const threeQuarterIndex = Math.floor(monthYearData.length * 3 / 4);
+                                            tabletLabels = [
+                                              monthYearData[0],
+                                              monthYearData[quarterIndex],
+                                              monthYearData[midIndex],
+                                              monthYearData[threeQuarterIndex],
+                                              monthYearData[monthYearData.length - 1]
+                                            ];
+                                          }
+                                          
+                                          // Large tablet labels (first, sixth, third, half, two-thirds, five-sixths, last) - 7 labels
+                                          if (monthYearData.length <= 5) {
+                                            largeTabletLabels = monthYearData;
+                                          } else if (monthYearData.length <= 7) {
+                                            largeTabletLabels = monthYearData;
+                                          } else {
+                                            const sixthIndex = Math.floor(monthYearData.length / 6);
+                                            const thirdIndex = Math.floor(monthYearData.length / 3);
+                                            const midIndex = Math.floor(monthYearData.length / 2);
+                                            const twoThirdsIndex = Math.floor(monthYearData.length * 2 / 3);
+                                            const fiveSixthsIndex = Math.floor(monthYearData.length * 5 / 6);
+                                            largeTabletLabels = [
+                                              monthYearData[0],
+                                              monthYearData[sixthIndex],
+                                              monthYearData[thirdIndex],
+                                              monthYearData[midIndex],
+                                              monthYearData[twoThirdsIndex],
+                                              monthYearData[fiveSixthsIndex],
+                                              monthYearData[monthYearData.length - 1]
+                                            ];
+                                          }
                                         }
 
                                         return (
                                           <>
-                                            {monthLabels}
+                                            {/* Desktop (xl and up): Show all labels */}
+                                            {monthLabels.map((label, idx) => {
+                                              const originalStyle = label.props.style;
+                                              return (
+                                                <span
+                                                  key={`desktop-${idx}`}
+                                                  className="absolute hidden xl:inline whitespace-nowrap"
+                                                  style={originalStyle}
+                                                >
+                                                  {label.props.children}
+                                                </span>
+                                              );
+                                            })}
+                                            {/* Large tablet (lg to xl): Show 7 labels */}
+                                            {largeTabletLabels.map((item, idx) => (
+                                              <span
+                                                key={`large-tablet-${item.index}`}
+                                                className="absolute hidden lg:inline xl:hidden whitespace-nowrap"
+                                                style={{ left: `${item.position}%`, transform: 'translateX(-50%)' }}
+                                              >
+                                                {item.label}
+                                              </span>
+                                            ))}
+                                            {/* Tablet (md to lg): Show 5 labels */}
+                                            {tabletLabels.map((item, idx) => (
+                                              <span
+                                                key={`tablet-${item.index}`}
+                                                className="absolute hidden md:inline lg:hidden whitespace-nowrap"
+                                                style={{ left: `${item.position}%`, transform: 'translateX(-50%)' }}
+                                              >
+                                                {item.label}
+                                              </span>
+                                            ))}
+                                            {/* Small tablet (sm to md): Show 4 labels */}
+                                            {smallTabletLabels.map((item, idx) => (
+                                              <span
+                                                key={`small-tablet-${item.index}`}
+                                                className="absolute hidden sm:inline md:hidden whitespace-nowrap"
+                                                style={{ left: `${item.position}%`, transform: 'translateX(-50%)' }}
+                                              >
+                                                {item.label}
+                                              </span>
+                                            ))}
+                                            {/* Mobile (< sm): Show 3 labels */}
                                             {mobileLabels.map((item, idx) => (
                                               <span
                                                 key={`mobile-${item.index}`}
-                                                className="absolute sm:hidden"
+                                                className="absolute sm:hidden whitespace-nowrap"
                                                 style={{ left: `${item.position}%`, transform: 'translateX(-50%)' }}
                                               >
                                                 {item.label}

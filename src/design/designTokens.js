@@ -420,13 +420,13 @@ export const DesignTokens = {
     
     // Button Styles
     button: {
-      primary: 'bg-anchor-900 text-white rounded-lg hover:bg-anchor-800 transition-colors font-medium min-h-[44px] touch-manipulation active:opacity-70',
-      secondary: 'bg-white text-anchor-900 rounded-lg hover:bg-anchor-50 transition font-medium border border-anchor-300 min-h-[44px] touch-manipulation active:opacity-70',
-      iconButton: 'bg-white text-anchor-900 px-3 sm:px-6 py-2.5 rounded-lg hover:bg-anchor-50 transition font-medium flex items-center gap-2 shadow-sm border border-anchor-300 min-h-[44px] touch-manipulation active:opacity-70 flex-shrink-0',
+      primary: 'bg-anchor-900 text-white rounded-lg hover:bg-anchor-800 transition-colors font-medium min-h-[44px] touch-manipulation active:opacity-70 cursor-pointer',
+      secondary: 'bg-white text-anchor-900 rounded-lg hover:bg-anchor-50 transition font-medium border border-anchor-300 min-h-[44px] touch-manipulation active:opacity-70 cursor-pointer',
+      iconButton: 'bg-white text-anchor-900 px-3 sm:px-6 py-2.5 rounded-lg hover:bg-anchor-50 transition font-medium flex items-center gap-2 shadow-sm border border-anchor-300 min-h-[44px] touch-manipulation active:opacity-70 flex-shrink-0 cursor-pointer',
       outline: {
-        primary: 'border-2 border-anchor-900 text-anchor-900 rounded-lg hover:bg-anchor-50 transition font-medium min-h-[44px] touch-manipulation active:opacity-70 flex items-center justify-center gap-2',
-        accent: 'border-2 border-medical-accent-500 text-medical-accent-600 rounded-lg hover:bg-medical-accent-50 transition font-medium min-h-[44px] touch-manipulation active:opacity-70 flex items-center justify-center gap-2',
-        neutral: 'border-2 border-medical-neutral-500 text-medical-neutral-700 rounded-lg hover:bg-medical-neutral-50 transition font-medium min-h-[44px] touch-manipulation active:opacity-70 flex items-center justify-center gap-2',
+        primary: 'border-2 border-anchor-900 text-anchor-900 rounded-lg hover:bg-anchor-50 transition font-medium min-h-[44px] touch-manipulation active:opacity-70 flex items-center justify-center gap-2 cursor-pointer',
+        accent: 'border-2 border-medical-accent-500 text-medical-accent-600 rounded-lg hover:bg-medical-accent-50 transition font-medium min-h-[44px] touch-manipulation active:opacity-70 flex items-center justify-center gap-2 cursor-pointer',
+        neutral: 'border-2 border-medical-neutral-500 text-medical-neutral-700 rounded-lg hover:bg-medical-neutral-50 transition font-medium min-h-[44px] touch-manipulation active:opacity-70 flex items-center justify-center gap-2 cursor-pointer',
       },
       // Small chip/action buttons
       chip: {

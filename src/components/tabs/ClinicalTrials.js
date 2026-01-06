@@ -328,7 +328,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
   const getEligibilityBadge = (level) => {
     switch (level) {
       case 'highly_eligible':
-        return <span className={combineClasses('px-2 sm:px-3 py-0.5 sm:py-1', DesignTokens.borders.radius.full, DesignTokens.typography.body.sm, 'font-medium flex items-center', DesignTokens.spacing.gap.xs, 'bg-medical-accent-100 text-medical-accent-700')}><CheckCircle className={DesignTokens.icons.small.size.full} /> <span className="whitespace-nowrap">Highly Eligible</span></span>;
+        return <span className={combineClasses('px-2 sm:px-3 py-0.5 sm:py-1', DesignTokens.borders.radius.full, DesignTokens.typography.body.sm, 'font-medium flex items-center', DesignTokens.spacing.gap.xs, DesignTokens.moduleAccent.trials.bg, DesignTokens.moduleAccent.trials.text)}><CheckCircle className={DesignTokens.icons.small.size.full} /> <span className="whitespace-nowrap">Highly Eligible</span></span>;
       case 'potentially_eligible':
         return <span className={combineClasses('px-2 sm:px-3 py-0.5 sm:py-1', DesignTokens.borders.radius.full, DesignTokens.typography.body.sm, 'font-medium flex items-center', DesignTokens.spacing.gap.xs, DesignTokens.components.status.low.bg, DesignTokens.components.alert.text.warning)}><AlertTriangle className={DesignTokens.icons.small.size.full} /> <span className="whitespace-nowrap">Potentially Eligible</span></span>;
       case 'unlikely_eligible':
@@ -432,7 +432,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             {!isSaved && !savedTrialIds.has(trial.id) ? (
               <button
                 onClick={() => handleSaveTrial(trial)}
-                className={combineClasses('p-1.5 sm:p-1.5', `hover:${DesignTokens.colors.accent[50]}`, DesignTokens.borders.radius.sm, DesignTokens.transitions.default, 'relative group', DesignTokens.spacing.touchTarget, 'min-w-[44px] flex items-center justify-center', 'active:opacity-70')}
+                className={combineClasses('p-1.5 sm:p-1.5', `hover:${DesignTokens.colors.accent[50]}`, DesignTokens.borders.radius.sm, DesignTokens.transitions.default, 'relative group cursor-pointer', DesignTokens.spacing.touchTarget, 'min-w-[44px] flex items-center justify-center', 'active:opacity-70')}
                 title="Save Trial"
               >
                 <Bookmark className={combineClasses(DesignTokens.icons.button.size.full, DesignTokens.colors.accent.text[600])} />
@@ -443,7 +443,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             ) : !isSaved ? (
               <button
                 disabled
-                className={combineClasses('p-1.5 sm:p-1.5', DesignTokens.borders.radius.sm, 'cursor-not-allowed relative group', DesignTokens.spacing.touchTarget, 'min-w-[44px] flex items-center justify-center')}
+                className={combineClasses('p-1.5 sm:p-1.5', DesignTokens.borders.radius.sm, 'cursor-default relative group', DesignTokens.spacing.touchTarget, 'min-w-[44px] flex items-center justify-center')}
                 title="Trial saved"
               >
                 <Bookmark className={combineClasses(DesignTokens.icons.button.size.full, DesignTokens.colors.accent.text[600], DesignTokens.colors.accent.text[600].replace('text-', 'fill-'))} />
@@ -454,7 +454,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             ) : (
               <button
                 onClick={() => handleRemoveTrial(trial.id)}
-                className={combineClasses('p-1.5 sm:p-1.5', DesignTokens.borders.radius.sm, DesignTokens.transitions.default, 'relative group', DesignTokens.spacing.touchTarget, 'min-w-[44px] flex items-center justify-center', 'active:opacity-70', `hover:${DesignTokens.components.status.high.bg}`)}
+                className={combineClasses('p-1.5 sm:p-1.5', DesignTokens.borders.radius.sm, DesignTokens.transitions.default, 'relative group cursor-pointer', DesignTokens.spacing.touchTarget, 'min-w-[44px] flex items-center justify-center', 'active:opacity-70', `hover:${DesignTokens.components.status.high.bg}`)}
                 title="Remove from saved"
               >
                 <Bookmark className={combineClasses(DesignTokens.icons.button.size.full, DesignTokens.components.status.high.text, DesignTokens.components.status.high.text.replace('text-', 'fill-'))} />
@@ -622,8 +622,8 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
         'flex items-center'
       )}>
         <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'sm:gap-3')}>
-          <div className={combineClasses('bg-medical-accent-50 p-2 sm:p-2.5 rounded-lg')}>
-            <FlaskConical className={combineClasses('w-5 h-5 sm:w-6 sm:h-6 text-medical-accent-600')} />
+          <div className={combineClasses(DesignTokens.moduleAccent.trials.bg, 'p-2 sm:p-2.5 rounded-lg')}>
+            <FlaskConical className={combineClasses('w-5 h-5 sm:w-6 sm:h-6', DesignTokens.moduleAccent.trials.text)} />
           </div>
           <div>
             <h1 className={combineClasses(DesignTokens.components.header.title, 'mb-0')}>Clinical Trials</h1>
@@ -665,13 +665,13 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
         <div>
           {/* Search Info */}
           <div className={combineClasses(
-            DesignTokens.components.card.withColoredBorder(DesignTokens.colors.accent.border[200]),
+            DesignTokens.components.card.withColoredBorder(DesignTokens.moduleAccent.trials.border),
             Layouts.section
           )}>
             <h3 className={combineClasses(
               DesignTokens.typography.h3.full,
               DesignTokens.typography.h3.weight,
-              DesignTokens.colors.accent.text[700],
+              DesignTokens.moduleAccent.trials.text,
               'mb-2'
             )}>Search Criteria</h3>
             <div className={combineClasses(

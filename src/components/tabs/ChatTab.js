@@ -260,12 +260,12 @@ export default function ChatTab({ onTabChange }) {
   const [pendingDocumentNote, setPendingDocumentNote] = useState(null);
   const [documents, setDocuments] = useState([]);
 
-  // Load profile image from user photoURL or patient profile
+  // Load profile image: prioritize uploaded profileImage, then Google photoURL
   useEffect(() => {
-    if (user?.photoURL) {
+    if (patientProfile?.profileImage) {
+      setProfileImage(patientProfile.profileImage);
+    } else if (user?.photoURL) {
       setProfileImage(user.photoURL);
-    } else if (patientProfile?.photoURL) {
-      setProfileImage(patientProfile.photoURL);
     } else {
       setProfileImage(null);
     }
@@ -1286,10 +1286,10 @@ export default function ChatTab({ onTabChange }) {
 
         {/* Trial Context Indicator */}
         {currentTrialContext && (
-          <div className="p-2.5 sm:p-3 bg-medical-accent-50 border-b border-medical-accent-200 flex items-center justify-between gap-2">
+          <div className={combineClasses('p-2.5 sm:p-3 border-b flex items-center justify-between gap-2', DesignTokens.moduleAccent.trials.bg, DesignTokens.moduleAccent.trials.border)}>
             <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
-              <span className="text-medical-accent-600 text-xs sm:text-sm font-medium flex-shrink-0">Discussing:</span>
-              <span className="text-medical-accent-800 text-xs sm:text-sm truncate">{currentTrialContext.title || 'Trial'}</span>
+              <span className={combineClasses('text-xs sm:text-sm font-medium flex-shrink-0', DesignTokens.moduleAccent.trials.text)}>Discussing:</span>
+              <span className={combineClasses('text-xs sm:text-sm truncate', DesignTokens.moduleAccent.trials.text)}>{currentTrialContext.title || 'Trial'}</span>
             </div>
             <button
               onClick={() => {
@@ -1299,7 +1299,7 @@ export default function ChatTab({ onTabChange }) {
                   text: 'Trial context cleared. You can now ask general questions or ask about a different trial.'
                 }]);
               }}
-              className="text-medical-accent-600 hover:text-medical-accent-800 text-xs sm:text-sm underline flex-shrink-0 min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70"
+              className={combineClasses('text-xs sm:text-sm underline flex-shrink-0 min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70', DesignTokens.moduleAccent.trials.text, `hover:${DesignTokens.moduleAccent.trials.text.replace('text-', 'text-').replace('600', '800')}`)}
             >
               Clear
             </button>
@@ -1379,6 +1379,7 @@ export default function ChatTab({ onTabChange }) {
                   if (bgColor.includes('medical-secondary')) return DesignTokens.colors.app.text[900];
                   if (bgColor.includes('medical-primary')) return 'text-medical-primary-600';
                   if (bgColor.includes('yellow')) return 'text-yellow-600';
+                  if (bgColor.includes('care')) return 'text-care-600';
                   if (bgColor.includes('medical-accent')) return 'text-medical-accent-600';
                   if (bgColor.includes('anchor')) return DesignTokens.colors.app.text[900];
                   return DesignTokens.colors.app.text[700];
@@ -1535,6 +1536,7 @@ export default function ChatTab({ onTabChange }) {
                     if (bgColor.includes('medical-secondary')) return DesignTokens.colors.app.text[900];
                     if (bgColor.includes('medical-primary')) return 'text-medical-primary-600';
                     if (bgColor.includes('yellow')) return 'text-yellow-600';
+                    if (bgColor.includes('care')) return 'text-care-600';
                     if (bgColor.includes('medical-accent')) return 'text-medical-accent-600';
                     return DesignTokens.colors.app.text[700];
                   };

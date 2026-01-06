@@ -46,6 +46,27 @@ service firebase.storage {
       allow list: if isOwner(userId);
     }
     
+    // Profile images - users can only access their own profile images
+    // Allow image files only, with size limits
+    match /profile-images/{userId}/{allPaths=**} {
+      // Read: Only authenticated owner can read their profile images
+      allow read: if isOwner(userId);
+      
+      // Write: Only authenticated owner can upload profile images (images only, max 5MB)
+      // Support common image formats including HEIC/HEIF from Apple devices
+      allow write: if isOwner(userId) &&
+                      request.resource.size > 1024 && // At least 1KB
+                      request.resource.size < 5 * 1024 * 1024 && // Max 5MB for profile images
+                      request.resource.contentType.matches('image/.*') &&
+                      request.resource.name.matches('.*\\.(jpg|jpeg|JPG|JPEG|png|PNG|gif|GIF|heic|HEIC|heif|HEIF|webp|WEBP)$');
+      
+      // Delete: Only authenticated owner can delete their profile images
+      allow delete: if isOwner(userId);
+      
+      // List: Only authenticated owner can list their profile images
+      allow list: if isOwner(userId);
+    }
+    
     // Deny all other paths by default
     match /{allPaths=**} {
       allow read, write, delete, list: if false;

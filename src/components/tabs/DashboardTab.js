@@ -638,30 +638,6 @@ setIsUploading(false);
                       </div>
                     </div>
                   )}
-                  
-                  {/* Recent Labs */}
-                  {keyLabItems && keyLabItems.length > 0 && (
-                    <div>
-                      <p className={combineClasses(DesignTokens.typography.body.xs, 'font-semibold mb-2', DesignTokens.colors.app.text[600], 'uppercase')}>
-                        Recent Labs
-                      </p>
-                      <div className={combineClasses('grid grid-cols-2', DesignTokens.spacing.gap.sm)}>
-                        {keyLabItems.map((item) => renderMetricItem(item, 'lab'))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Recent Vitals */}
-                  {keyVitalItems && keyVitalItems.length > 0 && (
-                    <div>
-                      <p className={combineClasses(DesignTokens.typography.body.xs, 'font-semibold mb-2', DesignTokens.colors.app.text[600], 'uppercase')}>
-                        Recent Vitals
-                      </p>
-                      <div className={combineClasses('grid grid-cols-2', DesignTokens.spacing.gap.sm)}>
-                        {keyVitalItems.map((item) => renderMetricItem(item, 'vital'))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               );
             })() : (
@@ -779,7 +755,7 @@ setIsUploading(false);
               </div>
             ) : savedTrials.length > 0 ? (
               <div className={combineClasses('space-y-2 mb-4')}>
-                {savedTrials.slice(0, 2).map((trial) => (
+                {savedTrials.slice(0, 3).map((trial) => (
                   <div
                     key={trial.id}
                     className={combineClasses(

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, MessageSquare, FolderOpen, User, Home, Send, Camera, AlertCircle, TrendingUp, TrendingDown, Minus, MapPin, Search, Activity, Plus, X, Edit2, ChevronRight, Star, Bookmark, Paperclip, Target, Heart, Droplet, Zap, Info, ChevronDown, ChevronUp, MoreVertical, Trash2, Calendar, Globe, Scale, Ruler, Clock, FileText, Users, Phone, Dna, UserCircle, ClipboardList, MessageCircle, Bot, Thermometer, Pill, BarChart, Check, LogOut, ChevronLeft, Save, Link2, Loader2, Unlink, Settings, FlaskConical, RefreshCw } from 'lucide-react';
+import logoSecondary from './assets/logo_secondary.svg';
 import ReactMarkdown from 'react-markdown';
 import { onAuthStateChanged, signOut, deleteUser, linkWithPopup, unlink, GoogleAuthProvider } from 'firebase/auth';
 import { uploadDocument, deleteUserDirectory, deleteDocument } from './firebase/storage';
@@ -854,7 +855,7 @@ export default function CancerCareApp() {
       <div className="min-h-screen bg-medical-neutral-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-            <Activity className="w-8 h-8 text-gray-800 animate-pulse" />
+            <img src={logoSecondary} alt="CancerCare" className="w-10 h-10" />
           </div>
           <h1 className="text-2xl font-bold text-medical-neutral-900 mb-2">CancerCare</h1>
           <p className="text-medical-neutral-600">Loading...</p>

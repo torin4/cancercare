@@ -3,8 +3,20 @@ import { Activity, User, Home, MessageSquare, ClipboardList, FlaskConical, FileT
 import { DesignTokens, combineClasses } from '../design/designTokens';
 import logoPrimary from '../assets/logo_primary.svg';
 import logoSecondary from '../assets/logo_secondary.svg';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Navigation({ activeTab, setActiveTab, patientProfile, onSidebarHover }) {
+  const { user } = useAuth();
+  
+  // Helper to get profile image URL: prioritize uploaded profileImage, then Google photoURL
+  const getProfileImageUrl = () => {
+    if (patientProfile?.profileImage) {
+      return patientProfile.profileImage;
+    } else if (user?.photoURL) {
+      return user.photoURL;
+    }
+    return null;
+  };
   const [isExpanded, setIsExpanded] = useState(false);
   
   // Helper to get first name from full name
@@ -48,7 +60,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
         <div className="flex items-center justify-between">
           <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.md)}>
             <div className={combineClasses('w-10 h-10 sm:w-12 sm:h-12 bg-white/20', DesignTokens.borders.radius.full, 'flex items-center justify-center', DesignTokens.shadows.sm)}>
-              <Activity className={combineClasses(DesignTokens.icons.button.size.full, 'text-white')} />
+              <img src={logoSecondary} alt="CancerCare" className="w-6 h-6 sm:w-8 sm:h-8" />
             </div>
             <div>
               {activeTab === 'profile' ? (
@@ -83,7 +95,15 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
             onClick={() => setActiveTab('profile')}
             className={combineClasses('p-2 hover:bg-white/20', DesignTokens.borders.radius.sm, DesignTokens.transitions.all)}
           >
-            <User className="w-6 h-6 sm:w-6 sm:h-6 text-white" />
+            {getProfileImageUrl() ? (
+              <img 
+                src={getProfileImageUrl()} 
+                alt="Profile" 
+                className="w-6 h-6 sm:w-6 sm:h-6 rounded-full object-cover"
+              />
+            ) : (
+              <User className="w-6 h-6 sm:w-6 sm:h-6 text-white" />
+            )}
           </button>
         </div>
       </div>
@@ -202,7 +222,15 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
             title={!isExpanded ? 'Profile' : ''}
           >
             <div className="flex-shrink-0 w-20 flex justify-center">
-              <User className={DesignTokens.icons.button.size.full} />
+              {getProfileImageUrl() ? (
+                <img 
+                  src={getProfileImageUrl()} 
+                  alt="Profile" 
+                  className={combineClasses(DesignTokens.icons.button.size.full, DesignTokens.borders.radius.full, 'object-cover')}
+                />
+              ) : (
+                <User className={DesignTokens.icons.button.size.full} />
+              )}
             </div>
             <span className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'whitespace-nowrap', DesignTokens.transitions.slow, 'overflow-hidden', DesignTokens.spacing.gap.md, isExpanded ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0')}>
               Profile
@@ -221,9 +249,11 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
           <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-            className={combineClasses('flex flex-col items-center justify-center', DesignTokens.spacing.gap.xs, 'px-2.5 py-2.5', DesignTokens.borders.radius.md, DesignTokens.transitions.all, 'min-h-[44px] flex-1', isActive ? combineClasses(DesignTokens.colors.app.text[900], DesignTokens.colors.app[100]) : combineClasses(DesignTokens.colors.app.text[600], 'hover:' + DesignTokens.colors.app.text[900], 'hover:' + DesignTokens.colors.app[50]))}
+            className={combineClasses('flex flex-col items-center justify-center', DesignTokens.spacing.gap.xs, 'px-2.5 py-2.5', DesignTokens.transitions.all, 'min-h-[44px] flex-1 relative', isActive ? DesignTokens.colors.app.text[900] : combineClasses(DesignTokens.colors.app.text[600], 'hover:' + DesignTokens.colors.app.text[900]))}
           >
-                <Icon className="w-5 h-5 sm:w-5 sm:h-5" />
+                <div className={combineClasses('relative flex items-center justify-center', isActive ? combineClasses(DesignTokens.colors.app[200], DesignTokens.borders.radius.full, 'px-3 py-1.5') : '')}>
+                  <Icon className="w-5 h-5 sm:w-5 sm:h-5" />
+                </div>
                 <span className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.typography.h3.weight)}>{item.label}</span>
           </button>
             );

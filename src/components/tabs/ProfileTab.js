@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, User, Calendar, MapPin, TrendingUp, Activity, Edit2, Dna, Upload, AlertCircle, Users, Phone, Plus, Settings, Link2, Loader2, Unlink, LogOut, Trash2, Sliders, Shield, HeartHandshake, Copy } from 'lucide-react';
+import { Camera, User, Calendar, MapPin, TrendingUp, Activity, Edit2, Dna, Upload, AlertCircle, Users, Phone, Plus, Settings, Link2, Loader2, Unlink, LogOut, Trash2, Sliders, Shield, HeartHandshake, Copy, MoreVertical } from 'lucide-react';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { signOut, linkWithPopup, unlink, GoogleAuthProvider, deleteUser } from 'firebase/auth';
 import { auth } from '../../firebase/config';
@@ -39,6 +39,8 @@ export default function ProfileTab({ onTabChange }) {
 
   // Tab-specific state
   const [profileImage, setProfileImage] = useState(null);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const profileMenuRef = useRef(null);
   const [currentStatus, setCurrentStatus] = useState({
     diagnosis: '',
     diagnosisDate: '',
@@ -61,6 +63,22 @@ export default function ProfileTab({ onTabChange }) {
       isMountedRef.current = false;
     };
   }, []);
+
+  // Close profile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+        setShowProfileMenu(false);
+      }
+    };
+
+    if (showProfileMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showProfileMenu]);
   
   // Check if we should expand genomic profile (e.g., after genomic upload)
   useEffect(() => {
@@ -123,8 +141,17 @@ export default function ProfileTab({ onTabChange }) {
           baselineCa125: ''
         });
       }
+      
+      // Load profile image: prioritize uploaded profileImage, then Google photoURL
+      if (patientProfile.profileImage) {
+        setProfileImage(patientProfile.profileImage);
+      } else if (user?.photoURL) {
+        setProfileImage(user.photoURL);
+      } else {
+        setProfileImage(null);
+      }
     }
-  }, [patientProfile]);
+  }, [patientProfile, user]);
 
   // Load emergency contacts
   useEffect(() => {
@@ -350,27 +377,209 @@ export default function ProfileTab({ onTabChange }) {
                 })()}
               </div>
             )}
-            <button
-              onClick={() => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = 'image/*';
-                input.onchange = (e) => {
-                  const file = e.target.files[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => setProfileImage(e.target.result);
-                    reader.readAsDataURL(file);
-                  }
-                };
-                input.click();
-              }}
-              className={combineClasses('absolute bottom-0 right-0 w-8 h-8 sm:w-12 sm:h-12', DesignTokens.colors.app[900], DesignTokens.borders.radius.full, 'flex items-center justify-center text-white', DesignTokens.shadows.lg, 'hover:' + DesignTokens.colors.app[800], 'active:' + DesignTokens.colors.app[800], DesignTokens.transitions.all, 'transform active:scale-95', DesignTokens.spacing.touchTarget)}
-              title="Change profile picture"
-              aria-label="Change profile picture"
-            >
-              <Camera className={DesignTokens.icons.button.size.full} />
-            </button>
+            {/* Three-dot menu button */}
+            <div className="absolute bottom-0 right-0" ref={profileMenuRef}>
+              <button
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className={combineClasses('w-8 h-8 sm:w-12 sm:h-12', DesignTokens.colors.app[900], DesignTokens.borders.radius.full, 'flex items-center justify-center text-white', DesignTokens.shadows.lg, 'hover:' + DesignTokens.colors.app[800], 'active:' + DesignTokens.colors.app[800], DesignTokens.transitions.all, 'transform active:scale-95', DesignTokens.spacing.touchTarget)}
+                title="Profile options"
+                aria-label="Profile options"
+              >
+                <MoreVertical className={DesignTokens.icons.button.size.full} />
+              </button>
+              
+              {/* Dropdown menu */}
+              {showProfileMenu && (
+                <div className={combineClasses('absolute bottom-full right-0 mb-2 min-w-[160px]', DesignTokens.colors.app[50], DesignTokens.borders.width.default, DesignTokens.colors.app.border[200], DesignTokens.borders.radius.md, DesignTokens.shadows.lg, 'py-1 z-50')}>
+                  <button
+                    onClick={async () => {
+                      setShowProfileMenu(false);
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = 'image/*';
+                      input.onchange = async (e) => {
+                        const file = e.target.files[0];
+                        if (file && user) {
+                          try {
+                            let fileToUpload = file;
+                            let previewDataUrl = null;
+                            
+                            // Check if file is HEIC/HEIF and convert to JPEG
+                            const fileName = file.name.toLowerCase();
+                            const isHeic = fileName.endsWith('.heic') || fileName.endsWith('.heif') || 
+                                          file.type === 'image/heic' || file.type === 'image/heif';
+                            
+                            if (isHeic) {
+                              try {
+                                // Convert HEIC to JPEG using heic-to (better format support)
+                                const { heicTo } = await import('heic-to');
+                                const convertedBlob = await heicTo({ blob: file });
+                                
+                                // heic-to returns a Blob directly
+                                fileToUpload = convertedBlob;
+                                
+                                // Create preview from converted blob
+                                const reader = new FileReader();
+                                previewDataUrl = await new Promise((resolve) => {
+                                  reader.onload = (e) => resolve(e.target.result);
+                                  reader.readAsDataURL(fileToUpload);
+                                });
+                              } catch (heicError) {
+                                console.error('HEIC conversion error:', heicError);
+                                // If conversion fails, show helpful error message
+                                showError('Unable to convert HEIC image. Please convert it to JPEG or PNG first, or try a different image.');
+                                return;
+                              }
+                            } else {
+                              // For non-HEIC files, create preview normally
+                              const reader = new FileReader();
+                              previewDataUrl = await new Promise((resolve) => {
+                                reader.onload = (e) => resolve(e.target.result);
+                                reader.readAsDataURL(file);
+                              });
+                            }
+                            
+                            // Show preview immediately
+                            setProfileImage(previewDataUrl);
+                            
+                            // Upload to Firebase Storage (always use .jpg for converted HEIC files)
+                            const { ref, uploadBytesResumable, getDownloadURL } = await import('firebase/storage');
+                            const { storage } = await import('../../firebase/config');
+                            
+                            const timestamp = Date.now();
+                            // Use .jpg for HEIC conversions, otherwise use original extension
+                            const fileExtension = isHeic ? '.jpg' : (file.name.includes('.') 
+                              ? file.name.substring(file.name.lastIndexOf('.'))
+                              : '.jpg');
+                            const storagePath = `profile-images/${user.uid}/profile_${timestamp}${fileExtension}`;
+                            const storageRef = ref(storage, storagePath);
+                            
+                            // Convert blob to File if needed and ensure correct MIME type
+                            // Firebase Storage uses the File's type property for content type validation
+                            if (fileToUpload instanceof Blob && !(fileToUpload instanceof File)) {
+                              fileToUpload = new File([fileToUpload], `profile_${timestamp}.jpg`, { 
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                              });
+                            } else if (fileToUpload instanceof File) {
+                              // Ensure the File has the correct MIME type for JPEG
+                              if (isHeic && fileToUpload.type !== 'image/jpeg') {
+                                fileToUpload = new File([fileToUpload], `profile_${timestamp}.jpg`, { 
+                                  type: 'image/jpeg',
+                                  lastModified: fileToUpload.lastModified
+                                });
+                              }
+                            }
+                            
+                            // Ensure file type is set correctly (critical for storage rules validation)
+                            if (!fileToUpload.type || fileToUpload.type === '') {
+                              fileToUpload = new File([fileToUpload], fileToUpload.name, { 
+                                type: 'image/jpeg',
+                                lastModified: fileToUpload.lastModified || Date.now()
+                              });
+                            }
+                            
+                            // Upload with explicit metadata to ensure content type is set correctly
+                            const uploadTask = uploadBytesResumable(storageRef, fileToUpload, {
+                              contentType: 'image/jpeg'
+                            });
+                            
+                            // Wait for upload to complete
+                            const snapshot = await new Promise((resolve, reject) => {
+                              uploadTask.on('state_changed',
+                                (snapshot) => {
+                                  // Progress tracking (optional)
+                                },
+                                (error) => {
+                                  reject(error);
+                                },
+                                () => {
+                                  resolve(uploadTask.snapshot);
+                                }
+                              );
+                            });
+                            const downloadURL = await getDownloadURL(snapshot.ref);
+                            
+                            // Save URL to patient profile
+                            const { patientService } = await import('../../firebase/services');
+                            await patientService.updatePatient(user.uid, { profileImage: downloadURL });
+                            
+                            // Update local state with the URL (not the data URL)
+                            setProfileImage(downloadURL);
+                            
+                            // Refresh patient profile
+                            await refreshPatient();
+                            
+                            showSuccess('Profile image updated successfully');
+                          } catch (error) {
+                            console.error('Error uploading profile image:', error);
+                            showError('Failed to upload profile image. Please try again.');
+                          }
+                        }
+                      };
+                      input.click();
+                    }}
+                    className={combineClasses('w-full px-4 py-2 text-left', DesignTokens.typography.body.sm, DesignTokens.colors.app.text[900], 'hover:' + DesignTokens.colors.app[100], DesignTokens.transitions.all, 'flex items-center gap-2')}
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span>Change photo</span>
+                  </button>
+                  
+                  {patientProfile?.profileImage && (
+                    <button
+                      onClick={async () => {
+                        setShowProfileMenu(false);
+                        if (!user) return;
+                        
+                        try {
+                          // Delete from Firebase Storage if it's an uploaded image
+                          const profileImageUrl = patientProfile.profileImage;
+                          if (profileImageUrl && profileImageUrl.includes('profile-images/')) {
+                            // Extract storage path from URL
+                            // URL format: https://firebasestorage.googleapis.com/v0/b/.../o/profile-images%2FuserId%2Ffilename?alt=media&token=...
+                            try {
+                              const { ref, deleteObject } = await import('firebase/storage');
+                              const { storage } = await import('../../firebase/config');
+                              
+                              // Extract the path from the URL
+                              const urlParts = profileImageUrl.split('/o/');
+                              if (urlParts.length > 1) {
+                                const pathWithParams = urlParts[1].split('?')[0];
+                                const storagePath = decodeURIComponent(pathWithParams);
+                                const storageRef = ref(storage, storagePath);
+                                await deleteObject(storageRef);
+                              }
+                            } catch (storageError) {
+                              // If storage deletion fails, continue anyway (might already be deleted)
+                              console.warn('Could not delete from storage:', storageError);
+                            }
+                          }
+                          
+                          // Clear profileImage from patient profile
+                          const { patientService } = await import('../../firebase/services');
+                          await patientService.updatePatient(user.uid, { profileImage: null });
+                          
+                          // Update local state
+                          setProfileImage(null);
+                          
+                          // Refresh patient profile
+                          await refreshPatient();
+                          
+                          showSuccess('Profile image removed successfully');
+                        } catch (error) {
+                          console.error('Error removing profile image:', error);
+                          showError('Failed to remove profile image. Please try again.');
+                        }
+                      }}
+                      className={combineClasses('w-full px-4 py-2 text-left', DesignTokens.typography.body.sm, 'text-red-600 hover:bg-red-50', DesignTokens.transitions.all, 'flex items-center gap-2')}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Remove photo</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Profile Information */}
