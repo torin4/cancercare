@@ -102,7 +102,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
                 className="w-6 h-6 sm:w-6 sm:h-6 rounded-full object-cover"
               />
             ) : (
-              <User className="w-6 h-6 sm:w-6 sm:h-6 text-white" />
+            <User className="w-6 h-6 sm:w-6 sm:h-6 text-white" />
             )}
           </button>
         </div>
@@ -174,16 +174,16 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
                   <div className={combineClasses('h-6 w-px', DesignTokens.colors.app[700], 'mr-3 flex-shrink-0')} />
                   <div className="flex-1 min-w-0 pr-2">
                     <p className={combineClasses(DesignTokens.typography.body.xs, 'font-medium text-white truncate leading-tight')}>
-                      {patientProfile?.firstName || patientProfile?.lastName 
-                        ? `${patientProfile.firstName || ''} ${patientProfile.lastName || ''}`.trim()
-                        : patientProfile?.name || 'Patient'}
-                    </p>
-                    {patientProfile?.isPatient === false && patientProfile?.caregiverName && (
+                    {patientProfile?.firstName || patientProfile?.lastName 
+                      ? `${patientProfile.firstName || ''} ${patientProfile.lastName || ''}`.trim()
+                      : patientProfile?.name || 'Patient'}
+                  </p>
+                  {patientProfile?.isPatient === false && patientProfile?.caregiverName && (
                       <p className={combineClasses(DesignTokens.typography.body.xs, 'text-white/70 truncate flex items-center', DesignTokens.spacing.gap.xs, 'mt-0.5 leading-tight')}>
                         <HeartHandshake className="w-3 h-3 flex-shrink-0" />
                         <span className="truncate">{getFirstAndLastName(patientProfile.caregiverName)}</span>
-                      </p>
-                    )}
+                    </p>
+                  )}
                   </div>
                 </div>
               )}
@@ -229,7 +229,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
                   className={combineClasses(DesignTokens.icons.button.size.full, DesignTokens.borders.radius.full, 'object-cover')}
                 />
               ) : (
-                <User className={DesignTokens.icons.button.size.full} />
+              <User className={DesignTokens.icons.button.size.full} />
               )}
             </div>
             <span className={combineClasses(DesignTokens.typography.body.sm, 'font-semibold', 'whitespace-nowrap', DesignTokens.transitions.slow, 'overflow-hidden', DesignTokens.spacing.gap.md, isExpanded ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0')}>
@@ -252,7 +252,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
             className={combineClasses('flex flex-col items-center justify-center', DesignTokens.spacing.gap.xs, 'px-2.5 py-2.5', DesignTokens.transitions.all, 'min-h-[44px] flex-1 relative', isActive ? DesignTokens.colors.app.text[900] : combineClasses(DesignTokens.colors.app.text[600], 'hover:' + DesignTokens.colors.app.text[900]))}
           >
                 <div className={combineClasses('relative flex items-center justify-center', isActive ? combineClasses(DesignTokens.colors.app[200], DesignTokens.borders.radius.full, 'px-3 py-1.5') : '')}>
-                  <Icon className="w-5 h-5 sm:w-5 sm:h-5" />
+                <Icon className="w-5 h-5 sm:w-5 sm:h-5" />
                 </div>
                 <span className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.typography.h3.weight)}>{item.label}</span>
           </button>

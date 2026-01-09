@@ -231,53 +231,53 @@ export const getFileUrl = async (storagePath, userId = null, documentId = null) 
 export const downloadFileAsBlob = async (storagePath, existingUrl = null, userId = null, documentId = null) => {
   // Get storage reference
   const storageRef = ref(storage, storagePath);
-  
+
   // Get download URL (use existing or get fresh one)
   // Note: Firebase Storage URLs are signed tokens that require authentication
   let downloadUrl = existingUrl;
   if (!downloadUrl) {
     downloadUrl = await getDownloadURL(storageRef);
   }
-  
+
   // SECURITY: Log document download for audit trail
   if (userId && documentId) {
     await logDocumentAccess(userId, documentId, 'download', {
       storagePath: storagePath
     });
   }
-  
+
   // Firebase Storage has CORS restrictions, so we need to use a proxy
   // Use server-side proxy to bypass CORS (required for browser downloads)
   // In production on Vercel, this uses the /api/storage-proxy serverless function
   // For local development, use the proxy server or set REACT_APP_PROXY_URL
   const proxyBaseUrl = process.env.REACT_APP_PROXY_URL || '';
-  const proxyUrl = proxyBaseUrl 
+  const proxyUrl = proxyBaseUrl
     ? `${proxyBaseUrl}/api/storage-proxy?url=${encodeURIComponent(downloadUrl)}`
     : `/api/storage-proxy?url=${encodeURIComponent(downloadUrl)}`;
-  
-  
+
+
   try {
-    // Increase timeout for large files (120 seconds)
+    // Increase timeout for large files (240 seconds / 4 minutes for very large PDFs)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000);
-    
+    const timeoutId = setTimeout(() => controller.abort(), 240000);
+
     const response = await fetch(proxyUrl, {
       method: 'GET',
       mode: 'cors',
       credentials: 'omit',
       signal: controller.signal
     });
-    
+
     clearTimeout(timeoutId);
-    
+
     if (!response.ok) {
       const errorText = await response.text();
-      const proxyInfo = proxyBaseUrl 
+      const proxyInfo = proxyBaseUrl
         ? `Make sure the proxy server is running on ${proxyBaseUrl}`
         : 'Make sure the proxy server is running (npm run start:proxy) or the Vercel serverless function is available';
       throw new Error(`Proxy server returned error ${response.status}: ${response.statusText}. ${proxyInfo}`);
     }
-    
+
     return await response.blob();
   } catch (proxyError) {
     // Note: Direct Firebase SDK download (getBytes) doesn't work in browsers due to CORS
@@ -285,15 +285,15 @@ export const downloadFileAsBlob = async (storagePath, existingUrl = null, userId
     const proxyInfo = proxyBaseUrl
       ? `Cannot connect to proxy server at ${proxyBaseUrl}. Please ensure the proxy server is running.`
       : 'Cannot connect to proxy. For localhost: run "npm run start:proxy" in a separate terminal. For production: ensure Vercel serverless functions are deployed.';
-    
+
     if (proxyError.name === 'AbortError' || proxyError.message.includes('timeout') || proxyError.message.includes('504')) {
-      throw new Error(`Download failed: Proxy request timed out after 120 seconds. The file may be too large or the proxy server is slow. ${proxyInfo}`);
+      throw new Error(`Download failed: Proxy request timed out after 240 seconds. The file may be too large or the proxy server is slow. ${proxyInfo}`);
     }
-    
+
     if (proxyError.message.includes('Failed to fetch') || proxyError.message.includes('NetworkError')) {
       throw new Error(`${proxyInfo} Network error: ${proxyError.message}`);
     }
-    
+
     throw new Error(`Failed to download file via proxy: ${proxyError.message}. ${proxyInfo}`);
   }
 };

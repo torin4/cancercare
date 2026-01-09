@@ -52,6 +52,13 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
     setFilePreviews(newPreviews);
   }, [selectedFiles]);
 
+  // Reset onlyExistingMetrics to false for genomic documents (always extract all)
+  useEffect(() => {
+    if (selectedType === 'genomic-profile') {
+      setOnlyExistingMetrics(false);
+    }
+  }, [selectedType]);
+
   const documentTypes = [
     {
       id: 'blood-test',
@@ -187,9 +194,13 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
     // Pass all files to onUploadClick
     try {
       if (selectedFiles.length === 1) {
-        await onUploadClick(selectedType, normalizedDate, normalizedNote, selectedFiles[0], onlyExistingMetrics);
+        // For genomic documents, always extract all data (ignore onlyExistingMetrics)
+        const shouldUseOnlyExisting = selectedType === 'genomic-profile' ? false : onlyExistingMetrics;
+        await onUploadClick(selectedType, normalizedDate, normalizedNote, selectedFiles[0], shouldUseOnlyExisting);
       } else {
-        await onUploadClick(selectedType, normalizedDate, normalizedNote, selectedFiles, onlyExistingMetrics);
+        // For genomic documents, always extract all data (ignore onlyExistingMetrics)
+        const shouldUseOnlyExisting = selectedType === 'genomic-profile' ? false : onlyExistingMetrics;
+        await onUploadClick(selectedType, normalizedDate, normalizedNote, selectedFiles, shouldUseOnlyExisting);
       }
     } catch (error) {
     }
@@ -475,8 +486,8 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                     </p>
                   </div>
                   
-                  {/* Only extract existing metrics checkbox - only show for blood-test type and if user has existing metrics */}
-                  {selectedType === 'blood-test' && (hasRealLabData || hasRealVitalData) && (
+                  {/* Only extract existing metrics checkbox - only show for blood-test type (NOT genomic) and if user has existing metrics */}
+                  {selectedType === 'blood-test' && selectedType !== 'genomic-profile' && (hasRealLabData || hasRealVitalData) && (
                     <div className={combineClasses('mt-4 pt-4', DesignTokens.borders.divider)}>
                       <label className="flex items-start gap-3 cursor-pointer group">
                         <input

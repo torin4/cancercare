@@ -445,27 +445,27 @@ setIsUploading(false);
                   Health
                 </h3>
               </div>
-              <button
+                      <button
                 onClick={() => onTabChange('health')}
-                className={combineClasses(
+                        className={combineClasses(
                   DesignTokens.typography.body.sm,
                   'font-medium',
                   DesignTokens.colors.app.text[600],
                   `hover:${DesignTokens.colors.app.text[700]}`,
-                  DesignTokens.transitions.default,
+                          DesignTokens.transitions.default,
                   'flex items-center',
                   DesignTokens.spacing.gap.xs
-                )}
-              >
+                        )}
+                      >
                 View All <ChevronRight className={DesignTokens.icons.small.size.full} />
-              </button>
-            </div>
+                      </button>
+                  </div>
 
             {/* Key Metrics & Recent Data */}
             {hasRealLabData || hasRealVitalData ? (() => {
               const favoriteLabs = patientProfile?.favoriteMetrics?.labs || [];
               const favoriteVitals = patientProfile?.favoriteMetrics?.vitals || [];
-              
+
               // Get key metrics (favorites or high-relevance, up to 6 total)
               const getKeyMetrics = () => {
                 const allMetrics = [];
@@ -493,31 +493,31 @@ setIsUploading(false);
                 // If we have favorites, return up to 6
                 if (allMetrics.length > 0) {
                   return allMetrics.slice(0, 6);
-                }
-                
+            }
+            
                 // Otherwise, get high-relevance labs and important vitals
                 const keyLabs = Object.keys(labsData)
-                  .filter(key => {
-                    const lab = labsData[key];
-                    return lab && ((lab.data && lab.data.length > 0) || lab.current) && lab.relevanceScore >= 1;
-                  })
-                  .sort((a, b) => {
-                    const labA = labsData[a];
-                    const labB = labsData[b];
-                    if (labB.relevanceScore !== labA.relevanceScore) {
-                      return labB.relevanceScore - labA.relevanceScore;
-                    }
-                    const criticalOrder = ['ca125', 'cea', 'wbc', 'hemoglobin', 'platelets', 'creatinine', 'alt', 'ast', 'albumin', 'ldh'];
-                    const idxA = criticalOrder.indexOf(a.toLowerCase());
-                    const idxB = criticalOrder.indexOf(b.toLowerCase());
-                    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                    if (idxA !== -1) return -1;
-                    if (idxB !== -1) return 1;
-                    return 0;
-                  })
+              .filter(key => {
+                const lab = labsData[key];
+                return lab && ((lab.data && lab.data.length > 0) || lab.current) && lab.relevanceScore >= 1;
+              })
+              .sort((a, b) => {
+                const labA = labsData[a];
+                const labB = labsData[b];
+                if (labB.relevanceScore !== labA.relevanceScore) {
+                  return labB.relevanceScore - labA.relevanceScore;
+                }
+                const criticalOrder = ['ca125', 'cea', 'wbc', 'hemoglobin', 'platelets', 'creatinine', 'alt', 'ast', 'albumin', 'ldh'];
+                const idxA = criticalOrder.indexOf(a.toLowerCase());
+                const idxB = criticalOrder.indexOf(b.toLowerCase());
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                return 0;
+              })
                   .slice(0, 4)
                   .map(key => ({ type: 'lab', key, data: labsData[key] }));
-                
+
                 const keyVitals = Object.keys(vitalsData)
                   .filter(key => {
                     const vital = vitalsData[key];
@@ -547,33 +547,33 @@ setIsUploading(false);
                   .slice(0, 2);
                 if (keys.length === 0) return null;
                 return keys.map(key => ({ type: 'lab', key, data: labsData[key] }));
-              };
+          };
 
-              const getKeyVitalItems = () => {
-                if (!hasRealVitalData) return null;
-                if (favoriteVitals.length > 0) {
+          const getKeyVitalItems = () => {
+            if (!hasRealVitalData) return null;
+            if (favoriteVitals.length > 0) {
                   const items = favoriteVitals
-                    .filter(key => {
-                      const vital = vitalsData[key];
+                .filter(key => {
+                  const vital = vitalsData[key];
                       return vital && ((vital.data && Array.isArray(vital.data) && vital.data.length > 0) || vital.current);
-                    })
-                    .map(key => ({ type: 'vital', key, data: vitalsData[key] }))
+                })
+                .map(key => ({ type: 'vital', key, data: vitalsData[key] }))
                     .slice(0, 2);
                   if (items.length > 0) return items;
-                }
+            }
                 const keys = Object.keys(vitalsData)
-                  .filter(key => {
-                    const vital = vitalsData[key];
-                    return vital && ((vital.data && vital.data.length > 0) || vital.current);
-                  })
+              .filter(key => {
+                const vital = vitalsData[key];
+                return vital && ((vital.data && vital.data.length > 0) || vital.current);
+              })
                   .slice(0, 2);
                 if (keys.length === 0) return null;
                 return keys.map(key => ({ type: 'vital', key, data: vitalsData[key] }));
-              };
+          };
 
               const keyMetrics = getKeyMetrics();
-              const keyLabItems = getKeyLabItems();
-              const keyVitalItems = getKeyVitalItems();
+          const keyLabItems = getKeyLabItems();
+          const keyVitalItems = getKeyVitalItems();
               
               const renderMetricItem = (item, itemType) => {
                 const data = item.data;
@@ -604,24 +604,24 @@ setIsUploading(false);
                   statusInfo.color === 'red' ? DesignTokens.components.status.high.icon :
                   statusInfo.color === 'yellow' ? DesignTokens.components.status.low.icon :
                   DesignTokens.components.status.normal.icon;
-                
-                return (
+
+          return (
                   <div key={`${itemType}-${item.key}`} className={combineClasses(
                     'p-2 rounded-lg',
                     DesignTokens.colors.app[50],
                     'border',
                     DesignTokens.colors.app.border[200]
-                  )}>
+                    )}>
                     <div className={combineClasses('flex items-center justify-between mb-1')}>
                       <span className={combineClasses(DesignTokens.typography.body.xs, 'font-medium', DesignTokens.colors.app.text[700])}>
                         {displayName}
                       </span>
                       <Activity className={combineClasses(DesignTokens.icons.small.size.full, statusColorClass)} />
-                    </div>
+                          </div>
                     <p className={combineClasses(DesignTokens.typography.body.sm, 'font-bold', DesignTokens.colors.app.text[900])}>
                       {latestValue}{data.unit ? ` ${data.unit}` : ''}
                     </p>
-                  </div>
+                      </div>
                 );
               };
 
@@ -638,7 +638,7 @@ setIsUploading(false);
                       </div>
                     </div>
                   )}
-                </div>
+                          </div>
               );
             })() : (
               <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.app.text[500], 'mb-4')}>
@@ -648,8 +648,8 @@ setIsUploading(false);
 
             {/* Quick Actions */}
             <div className={combineClasses('flex flex-wrap gap-2 pt-3 border-t', DesignTokens.colors.app.border[200])}>
-              <button
-                onClick={() => {
+                        <button
+                          onClick={() => {
                   const availableVitals = Object.keys(vitalsData || {}).filter(key => {
                     const vital = vitalsData[key];
                     return vital && (vital.data?.length > 0 || vital.current);
@@ -666,16 +666,16 @@ setIsUploading(false);
                   }
                   setSelectedVitalForValue(availableVitals[0]);
                   setShowAddVitalValueModal(true);
-                }}
-                className={combineClasses(
+                          }}
+                          className={combineClasses(
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
                   DesignTokens.components.button.outline.primary,
                   'hover:shadow-sm active:scale-[0.98]'
-                )}
-              >
+                          )}
+                        >
                 <Heart className="w-3.5 h-3.5" />
                 <span>Add Vital</span>
-              </button>
+                        </button>
               <button
                 onClick={() => {
                   const availableLabs = Object.keys(labsData || {}).filter(key => {
@@ -726,26 +726,26 @@ setIsUploading(false);
               <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm)}>
                 <div className={combineClasses(DesignTokens.moduleAccent.trials.bg, DesignTokens.spacing.iconContainer.mobile, DesignTokens.borders.radius.sm)}>
                   <Bookmark className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.moduleAccent.trials.text)} />
-                </div>
+                  </div>
                 <h3 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, DesignTokens.colors.app.text[900])}>
                   Clinical Trials
                 </h3>
               </div>
-              <button
+                <button
                 onClick={() => onTabChange('trials')}
-                className={combineClasses(
-                  DesignTokens.typography.body.sm,
-                  'font-medium',
+                  className={combineClasses(
+                    DesignTokens.typography.body.sm,
+                    'font-medium',
                   DesignTokens.colors.app.text[600],
                   `hover:${DesignTokens.colors.app.text[700]}`,
-                  DesignTokens.transitions.default,
+                    DesignTokens.transitions.default,
                   'flex items-center',
-                  DesignTokens.spacing.gap.xs
-                )}
-              >
+                    DesignTokens.spacing.gap.xs
+                  )}
+                >
                 View All <ChevronRight className={DesignTokens.icons.small.size.full} />
-              </button>
-            </div>
+                </button>
+              </div>
 
             {/* Saved Trials Preview */}
             {loadingSavedTrials ? (
@@ -776,7 +776,7 @@ setIsUploading(false);
                     )}
                   </div>
                 ))}
-              </div>
+                </div>
             ) : (
               <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.app.text[500], 'mb-4')}>
                 No saved trials yet
@@ -785,22 +785,22 @@ setIsUploading(false);
 
             {/* Quick Actions */}
             <div className={combineClasses('flex flex-wrap gap-2 pt-3 border-t', DesignTokens.colors.app.border[200])}>
-              <button
+                  <button
                 onClick={() => onTabChange('trials')}
-                className={combineClasses(
+                    className={combineClasses(
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
                   DesignTokens.components.button.outline.primary,
                   'hover:shadow-sm active:scale-[0.98]'
-                )}
-              >
+                    )}
+                  >
                 <Search className="w-3.5 h-3.5" />
                 <span>Search Trials</span>
-              </button>
-            </div>
+                  </button>
           </div>
+        </div>
 
           {/* Files Tab Summary */}
-          <div className={combineClasses(
+        <div className={combineClasses(
             DesignTokens.components.card.container,
             DesignTokens.components.card.withColoredBorder(DesignTokens.moduleAccent.files.border)
           )}>
@@ -811,7 +811,7 @@ setIsUploading(false);
                 </div>
                 <h3 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, DesignTokens.colors.app.text[900])}>
                   Files & Notes
-                </h3>
+              </h3>
               </div>
               <button
                 onClick={() => onTabChange('files')}
@@ -834,7 +834,7 @@ setIsUploading(false);
               <div className="text-center py-4">
                 <Loader2 className={combineClasses('w-5 h-5 animate-spin mx-auto mb-2', DesignTokens.colors.app.text[400])} />
                 <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.app.text[500])}>Loading...</p>
-              </div>
+            </div>
             ) : (
               <div className={combineClasses('space-y-3 mb-4')}>
                 {recentDocuments.length > 0 && (
@@ -851,22 +851,29 @@ setIsUploading(false);
                             DesignTokens.colors.app[50],
                             DesignTokens.colors.app.border[200]
                           )}
-                        >
+                >
                           <FileText className={combineClasses('w-4 h-4 flex-shrink-0', DesignTokens.colors.app.text[500])} />
-                          <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0">
                             <p className={combineClasses(DesignTokens.typography.body.xs, 'font-medium truncate', DesignTokens.colors.app.text[900])}>
                               {doc.name || 'Untitled Document'}
                             </p>
-                            {doc.date && (
-                              <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.app.text[500])}>
-                                {formatDateString(doc.date)}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                            <div className="flex items-center gap-2">
+                              {doc.date && (
+                                <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.app.text[500])}>
+                                  {formatDateString(doc.date)}
+                                </p>
+                              )}
+                              {doc.dataPointCount !== undefined && doc.dataPointCount !== null && doc.dataPointCount > 0 && (
+                                <span className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.moduleAccent.files.text, 'font-medium')}>
+                                  • {doc.dataPointCount} point{doc.dataPointCount !== 1 ? 's' : ''}
+                          </span>
+                      )}
                     </div>
                   </div>
+                </div>
+              ))}
+            </div>
+              </div>
                 )}
                 {recentNotebookEntries.length > 0 && (
                   <div>
@@ -909,7 +916,7 @@ setIsUploading(false);
 
             {/* Quick Actions */}
             <div className={combineClasses('flex flex-wrap gap-2 pt-3 border-t', DesignTokens.colors.app.border[200])}>
-              <button
+                <button
                 onClick={() => {
                   if (!hasUploadedDocument) {
                     setDocumentOnboardingMethod('picker');
@@ -918,7 +925,7 @@ setIsUploading(false);
                     onTabChange('files');
                   }
                 }}
-                className={combineClasses(
+                  className={combineClasses(
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
                   DesignTokens.components.button.outline.primary,
                   'hover:shadow-sm active:scale-[0.98]'
@@ -933,13 +940,13 @@ setIsUploading(false);
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
                   DesignTokens.components.button.outline.primary,
                   'hover:shadow-sm active:scale-[0.98]'
-                )}
-              >
+                  )}
+                >
                 <FileText className="w-3.5 h-3.5" />
                 <span>Add Note</span>
-              </button>
+                </button>
+              </div>
             </div>
-          </div>
 
         </div>
       </div>

@@ -379,7 +379,7 @@ export default function ProfileTab({ onTabChange }) {
             )}
             {/* Three-dot menu button */}
             <div className="absolute bottom-0 right-0" ref={profileMenuRef}>
-              <button
+            <button
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                 className={combineClasses('w-8 h-8 sm:w-12 sm:h-12', DesignTokens.colors.app[900], DesignTokens.borders.radius.full, 'flex items-center justify-center text-white', DesignTokens.shadows.lg, 'hover:' + DesignTokens.colors.app[800], 'active:' + DesignTokens.colors.app[800], DesignTokens.transitions.all, 'transform active:scale-95', DesignTokens.spacing.touchTarget)}
                 title="Profile options"
@@ -394,11 +394,11 @@ export default function ProfileTab({ onTabChange }) {
                   <button
                     onClick={async () => {
                       setShowProfileMenu(false);
-                      const input = document.createElement('input');
-                      input.type = 'file';
-                      input.accept = 'image/*';
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
                       input.onchange = async (e) => {
-                        const file = e.target.files[0];
+                  const file = e.target.files[0];
                         if (file && user) {
                           try {
                             let fileToUpload = file;
@@ -419,7 +419,7 @@ export default function ProfileTab({ onTabChange }) {
                                 fileToUpload = convertedBlob;
                                 
                                 // Create preview from converted blob
-                                const reader = new FileReader();
+                    const reader = new FileReader();
                                 previewDataUrl = await new Promise((resolve) => {
                                   reader.onload = (e) => resolve(e.target.result);
                                   reader.readAsDataURL(fileToUpload);
@@ -435,7 +435,7 @@ export default function ProfileTab({ onTabChange }) {
                               const reader = new FileReader();
                               previewDataUrl = await new Promise((resolve) => {
                                 reader.onload = (e) => resolve(e.target.result);
-                                reader.readAsDataURL(file);
+                    reader.readAsDataURL(file);
                               });
                             }
                             
@@ -515,15 +515,15 @@ export default function ProfileTab({ onTabChange }) {
                             console.error('Error uploading profile image:', error);
                             showError('Failed to upload profile image. Please try again.');
                           }
-                        }
-                      };
-                      input.click();
-                    }}
+                  }
+                };
+                input.click();
+              }}
                     className={combineClasses('w-full px-4 py-2 text-left', DesignTokens.typography.body.sm, DesignTokens.colors.app.text[900], 'hover:' + DesignTokens.colors.app[100], DesignTokens.transitions.all, 'flex items-center gap-2')}
-                  >
+            >
                     <Camera className="w-4 h-4" />
                     <span>Change photo</span>
-                  </button>
+            </button>
                   
                   {patientProfile?.profileImage && (
                     <button

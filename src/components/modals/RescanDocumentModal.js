@@ -205,6 +205,13 @@ export default function RescanDocumentModal({
       setEditedDate(dateValue);
       setEditedNote(document.note || document.note || ''); // Ensure note is set even if undefined
       setAcknowledgeOverwrite(false); // Reset acknowledgment when document changes
+      
+      // For genomic documents, always extract all data (force onlyExistingMetrics to false)
+      const docType = document.documentType || document.type || '';
+      const isGenomic = docType.toLowerCase() === 'genomic' || docType.toLowerCase() === 'genetic' || docType.toLowerCase() === 'genomic-profile';
+      if (isGenomic) {
+        setOnlyExistingMetrics(false);
+      }
     } else {
       // Reset when document is null
       setEditedDate('');
@@ -221,10 +228,15 @@ export default function RescanDocumentModal({
   const docType = document.documentType || document.type || 'document';
 
   const handleConfirm = () => {
+    // For genomic documents, always extract all data (force onlyExistingMetrics to false)
+    const docType = document?.documentType || document?.type || '';
+    const isGenomic = docType.toLowerCase() === 'genomic' || docType.toLowerCase() === 'genetic' || docType.toLowerCase() === 'genomic-profile';
+    const shouldUseOnlyExisting = isGenomic ? false : onlyExistingMetrics;
+    
     onConfirm({
       date: editedDate || null,
       note: editedNote || null,
-      onlyExistingMetrics
+      onlyExistingMetrics: shouldUseOnlyExisting
     });
   };
 
@@ -319,26 +331,32 @@ export default function RescanDocumentModal({
             </p>
           </div>
 
-          {/* Extract Only Existing Metrics Option */}
-          <div className={combineClasses(DesignTokens.spacing.card.mobile, DesignTokens.borders.width.default, DesignTokens.borders.radius.sm, DesignTokens.colors.neutral[50], DesignTokens.colors.neutral.border[200])}>
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={onlyExistingMetrics}
-                onChange={(e) => setOnlyExistingMetrics(e.target.checked)}
-                disabled={isProcessing}
-                className={combineClasses('mt-1', DesignTokens.components.input.checkbox)}
-              />
-              <div className="flex-1">
-                <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-1', DesignTokens.colors.neutral.text[900])}>
-                  Extract only metrics that exist in my profile
-                </p>
-                <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.neutral.text[600])}>
-                  Only extract lab values and vitals that you've already added to your health profile. This helps avoid creating duplicate entries for tests you don't track.
-                </p>
+          {/* Extract Only Existing Metrics Option - Hide for genomic documents (always extract all) */}
+          {(() => {
+            const docType = document?.documentType || document?.type || '';
+            const isGenomic = docType.toLowerCase() === 'genomic' || docType.toLowerCase() === 'genetic' || docType.toLowerCase() === 'genomic-profile';
+            return !isGenomic ? (
+              <div className={combineClasses(DesignTokens.spacing.card.mobile, DesignTokens.borders.width.default, DesignTokens.borders.radius.sm, DesignTokens.colors.neutral[50], DesignTokens.colors.neutral.border[200])}>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={onlyExistingMetrics}
+                    onChange={(e) => setOnlyExistingMetrics(e.target.checked)}
+                    disabled={isProcessing}
+                    className={combineClasses('mt-1', DesignTokens.components.input.checkbox)}
+                  />
+                  <div className="flex-1">
+                    <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-1', DesignTokens.colors.neutral.text[900])}>
+                      Extract only metrics that exist in my profile
+                    </p>
+                    <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.neutral.text[600])}>
+                      Only extract lab values and vitals that you've already added to your health profile. This helps avoid creating duplicate entries for tests you don't track.
+                    </p>
+                  </div>
+                </label>
               </div>
-            </label>
-          </div>
+            ) : null;
+          })()}
         </div>
 
         {/* Action Buttons */}

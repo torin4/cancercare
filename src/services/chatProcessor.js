@@ -6,201 +6,17 @@ import { parseLocalDate } from '../utils/helpers';
 
 const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY || process.env.GEMINI_API_KEY);
 
+// ============================================================================
+// HELPER FUNCTIONS - Context Builders
+// ============================================================================
+
 /**
- * Process a chat message to extract and save medical data
- * @param {string} message - User's message
- * @param {string} userId - User ID
- * @param {Array} conversationHistory - Previous conversation messages
- * @param {Object} trialContext - Optional trial context (when asking about a specific trial)
- * @param {Object} healthContext - Optional health context (labs, vitals, symptoms)
- * @param {Object} notebookContext - Optional notebook context (timeline entries, journal notes, documents)
- * @param {Object} patientProfile - Patient demographics (age, gender, weight) for normal range adjustments
+ * Build patient demographics context section
  */
-export async function processChatMessage(message, userId, conversationHistory = [], trialContext = null, healthContext = null, notebookContext = null, patientProfile = null) {
-  try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-
-    // Detect if message requires trial data (but not if trialContext is already provided)
-    const requiresTrialData = !trialContext && /(saved trial|saved trials|my trial|my trials|clinical trial|clinical trials|trial i saved|trials i saved|what trials|which trials|show me trials|tell me about trials)/i.test(message);
-    
-    // Check if saved trials exist (only if question requires trial data)
-    if (requiresTrialData && userId) {
-      try {
-        const savedTrials = await getSavedTrials(userId);
-        if (!savedTrials || savedTrials.length === 0) {
-          const noTrialDataResponse = `I'd be happy to help you with your saved clinical trials! However, I don't see any saved trials in your profile yet.
-
-To get started, you can:
-- **Search for clinical trials** on the Clinical Trials tab
-- **Save trials** that match your profile by clicking the bookmark icon
-- **Ask about specific trials** after you've saved them
-
-Once you have saved trials, I can help you:
-- Understand what each trial involves
-- Explain the drugs and treatments being tested
-- Discuss eligibility criteria
-- Answer questions about trial phases, side effects, and locations
-
-Would you like to search for clinical trials now?`;
-
-          return {
-            response: noTrialDataResponse,
-            extractedData: null
-          };
-        }
-      } catch (error) {
-        // Continue with normal processing if there's an error
-      }
-    }
-
-    // Detect if user is ADDING data (not asking about it)
-    // These patterns indicate the user is providing new data to be saved
-    const isAddingData = /(my (ca-125|hemoglobin|wbc|platelets|blood pressure|heart rate|temperature|temp|weight|bp|hr) (was|is)|i (had|have|started|am taking|took)|i'm (experiencing|taking)|my (symptom|symptoms)|started taking|taking [a-z]+ (mg|ml|units?)|log|add|record|note (that|down)|journal|write down)/i.test(message);
-    
-    // Detect if message requires health data ANALYSIS (asking about existing data, not adding)
-    // Only trigger if user is asking questions, not adding data
-    const requiresHealthData = !isAddingData && /(explain|analyze|what does|how is|trend|progress|mean|interpret|show me|tell me about|what are|what is|why is|when did|where is|my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications) (mean|show|indicate|tell|say)|what do my|how are my|how's my)/i.test(message);
-    
-    // Check if health data is available
-    const hasLabs = healthContext?.labs && healthContext.labs.length > 0;
-    const hasVitals = healthContext?.vitals && healthContext.vitals.length > 0;
-    const hasSymptoms = healthContext?.symptoms && healthContext.symptoms.length > 0;
-    const hasHealthData = hasLabs || hasVitals || hasSymptoms;
-    
-    // If question requires health data analysis but none is available, provide helpful response
-    // BUT skip this if user is adding data (they're providing it now)
-    if (requiresHealthData && !hasHealthData) {
-      const noDataResponse = `I'd be happy to help you understand your health data! However, I don't see any health data tracked yet in your profile.
-
-To get started, you can:
-- **Upload lab reports** or **add lab values** via chat (e.g., "My CA-125 was 68 on December 15")
-- **Log vital signs** like blood pressure, heart rate, or weight
-- **Track symptoms** you're experiencing
-- **Add medications** you're taking
-
-Once you have data, I can help you:
-- Understand what your values mean
-- Analyze trends over time
-- Explain how your treatment is progressing
-- Identify patterns in your health data
-
-Would you like to start by adding some health data?`;
-
-      return {
-        response: noDataResponse,
-        extractedData: null
-      };
-    }
-    
-    // Check if question requires specific data type that isn't available
-    // Only check if user is asking about data, not adding it
-    const requiresLabs = !isAddingData && /(lab|labs|ca-125|hemoglobin|wbc|platelets|blood test|test result)/i.test(message);
-    const requiresVitals = !isAddingData && /(vital|vitals|blood pressure|heart rate|pulse|temperature|temp|weight|oxygen|spo2)/i.test(message);
-    const requiresSymptoms = !isAddingData && /(symptom|symptoms|feeling|pain|nausea|fatigue)/i.test(message);
-    
-    if (requiresLabs && !hasLabs && hasHealthData) {
-      const noLabDataResponse = `I'd be happy to explain your lab results! However, I don't see any lab values tracked in your profile yet.
-
-You can add lab values by:
-- **Uploading lab reports** through the Files tab
-- **Telling me in chat** (e.g., "My CA-125 was 68 on December 15")
-- **Using the Health tab** to manually enter values
-
-Once you have lab data, I can help explain what the values mean and track trends over time.`;
-
-      return {
-        response: noLabDataResponse,
-        extractedData: null
-      };
-    }
-    
-    if (requiresVitals && !hasVitals && hasHealthData) {
-      const noVitalDataResponse = `I'd be happy to help with your vital signs! However, I don't see any vital signs tracked in your profile yet.
-
-You can add vital signs by:
-- **Telling me in chat** (e.g., "My blood pressure was 125/80 this morning")
-- **Using the Health tab** to manually enter values
-
-Once you have vital sign data, I can help you understand what the values mean and track changes over time.`;
-
-      return {
-        response: noVitalDataResponse,
-        extractedData: null
-      };
-    }
-    
-    if (requiresSymptoms && !hasSymptoms && hasHealthData) {
-      const noSymptomDataResponse = `I'd be happy to help with your symptoms! However, I don't see any symptoms tracked in your profile yet.
-
-You can log symptoms by:
-- **Telling me in chat** (e.g., "I had mild nausea yesterday")
-- **Using the Health tab** to manually log symptoms
-- **Using the quick log** feature on the dashboard
-
-Once you have symptom data, I can help identify patterns and correlations with your other health data.`;
-
-      return {
-        response: noSymptomDataResponse,
-        extractedData: null
-      };
-    }
-
-    // Check for insufficient data for trend analysis
-    // Only check if user is asking about trends, not adding data
-    const requiresTrendAnalysis = !isAddingData && /(trend|progress|over time|changing|increasing|decreasing|pattern)/i.test(message);
-    if (requiresTrendAnalysis && hasHealthData) {
-      // Check if there's enough data for trend analysis (need at least 2-3 data points)
-      let hasEnoughData = false;
-      if (requiresLabs && hasLabs) {
-        const labWithMultipleValues = healthContext.labs.find(lab => 
-          (lab.values && lab.values.length >= 2) || 
-          (lab.data && lab.data.length >= 2)
-        );
-        hasEnoughData = !!labWithMultipleValues;
-      } else if (requiresVitals && hasVitals) {
-        const vitalWithMultipleValues = healthContext.vitals.find(vital => 
-          (vital.values && vital.values.length >= 2) || 
-          (vital.data && vital.data.length >= 2)
-        );
-        hasEnoughData = !!vitalWithMultipleValues;
-      } else {
-        // For general health questions, check if any category has enough data
-        const hasMultipleLabs = healthContext.labs?.some(lab => 
-          (lab.values && lab.values.length >= 2) || 
-          (lab.data && lab.data.length >= 2)
-        );
-        const hasMultipleVitals = healthContext.vitals?.some(vital => 
-          (vital.values && vital.values.length >= 2) || 
-          (vital.data && vital.data.length >= 2)
-        );
-        hasEnoughData = hasMultipleLabs || hasMultipleVitals || (healthContext.symptoms && healthContext.symptoms.length >= 2);
-      }
-      
-      if (!hasEnoughData) {
-        const insufficientDataResponse = `I'd be happy to analyze trends in your health data! However, I need more data points to identify meaningful trends and patterns.
-
-To analyze trends effectively, I typically need:
-- **At least 2-3 measurements over time** for labs or vitals
-- **Multiple symptom entries** to identify patterns
-
-You can add more data by:
-- **Uploading additional lab reports** through the Files tab
-- **Telling me in chat** (e.g., "My CA-125 was 68 on December 15, and 72 on January 1")
-- **Using the Health tab** to manually enter values over time
-
-Once you have more data points, I can help you see trends, identify patterns, and understand how your values are changing over time.`;
-
-        return {
-          response: insufficientDataResponse,
-          extractedData: null
-        };
-      }
-    }
-
-    // Build patient demographics section if provided
-    let patientDemographicsSection = '';
-    if (patientProfile) {
-      patientDemographicsSection = `
+function buildPatientDemographicsContext(patientProfile) {
+  if (!patientProfile) return '';
+  
+  return `
 
 ═══════════════════════════════════════════════════════════════════════════════
 PATIENT DEMOGRAPHICS: Use these for normal range adjustments
@@ -218,20 +34,23 @@ PATIENT DEMOGRAPHICS: Use these for normal range adjustments
 When interpreting lab values, adjust normal ranges based on these demographics (e.g., age and gender affect normal ranges for many tests).
 
 ═══════════════════════════════════════════════════════════════════════════════`;
-    }
+}
 
-    // Build trial context section if provided
-    let trialContextSection = '';
-    if (trialContext) {
-      const interventions = trialContext.interventions || [];
-      const drugs = interventions.map(int => {
-        if (typeof int === 'string') return int;
-        return int.name || int.description || JSON.stringify(int);
-      }).filter(Boolean).join(', ');
+/**
+ * Build trial context section
+ */
+function buildTrialContextSection(trialContext) {
+  if (!trialContext) return '';
+  
+  const interventions = trialContext.interventions || [];
+  const drugs = interventions.map(int => {
+    if (typeof int === 'string') return int;
+    return int.name || int.description || JSON.stringify(int);
+  }).filter(Boolean).join(', ');
 
-      const trialUrl = trialContext.url || (trialContext.id ? `https://clinicaltrials.gov/study/${trialContext.id}` : null);
-      
-      trialContextSection = `
+  const trialUrl = trialContext.url || (trialContext.id ? `https://clinicaltrials.gov/study/${trialContext.id}` : null);
+  
+  return `
 
 ═══════════════════════════════════════════════════════════════════════════════
 TRIAL CONTEXT: The user is asking about a specific clinical trial
@@ -270,246 +89,249 @@ When answering questions about this trial, you should:
     - Drug information databases (Drugs.com, MedlinePlus)
 
 ═══════════════════════════════════════════════════════════════════════════════`;
-    }
+}
 
-    // Build health context section if provided
-    let healthContextSection = '';
-    if (healthContext) {
-      // Helper function to format date as YYYY-MM-DD (avoids timezone issues)
-      const formatDateString = (date) => {
-        if (!date) return null;
-        try {
-          // Handle Firestore Timestamp
-          if (date.toDate) {
-            const d = date.toDate();
-            const year = d.getFullYear();
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-          }
-          // Handle Date object
-          if (date instanceof Date) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-          }
-          // Handle string (already in YYYY-MM-DD format or needs parsing)
-          if (typeof date === 'string') {
-            // If already in YYYY-MM-DD format, return as is
-            if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-              return date;
-            }
-            // Otherwise parse it
-            const d = new Date(date);
-            if (!isNaN(d.getTime())) {
-              const year = d.getFullYear();
-              const month = String(d.getMonth() + 1).padStart(2, '0');
-              const day = String(d.getDate()).padStart(2, '0');
-              return `${year}-${month}-${day}`;
-            }
-          }
-          return null;
-        } catch (e) {
-          return null;
-        }
-      };
-
-      // Fetch all documents to get document dates and date ranges
-      // This allows us to use the document date entered during upload, or date ranges for multi-date documents
-      let documentDateMap = {};
-      let documentDateRangeMap = {};
-      try {
-        const { documentService } = await import('../firebase/services');
-        const documents = await documentService.getDocuments(userId);
-        // Create maps of documentId -> document date and date ranges
-        documents.forEach(doc => {
-          if (doc.id) {
-            // For multi-date documents, use the date range
-            if (doc.hasMultipleDates && doc.minDate && doc.maxDate) {
-              const minDate = doc.minDate?.toDate ? doc.minDate.toDate() : new Date(doc.minDate);
-              const maxDate = doc.maxDate?.toDate ? doc.maxDate.toDate() : new Date(doc.maxDate);
-              const minDateStr = formatDateString(minDate);
-              const maxDateStr = formatDateString(maxDate);
-              if (minDateStr && maxDateStr) {
-                documentDateRangeMap[doc.id] = { minDate: minDateStr, maxDate: maxDateStr };
-                // Also store the range as a string for the date map
-                if (minDateStr === maxDateStr) {
-                  documentDateMap[doc.id] = minDateStr;
-                } else {
-                  documentDateMap[doc.id] = `${minDateStr} to ${maxDateStr}`;
-                }
-              }
-            } else if (doc.date) {
-              // Single date document
-              const docDate = formatDateString(doc.date);
-              if (docDate) {
-                documentDateMap[doc.id] = docDate;
-              }
-            }
-          }
-        });
-      } catch (error) {
-        // Continue without document dates - will fall back to value dates
+/**
+ * Build health context section (async due to document fetching)
+ */
+async function buildHealthContextSection(healthContext, userId) {
+  if (!healthContext) return '';
+  
+  // Helper function to format date as YYYY-MM-DD (avoids timezone issues)
+  const formatDateString = (date) => {
+    if (!date) return null;
+    try {
+      // Handle Firestore Timestamp
+      if (date.toDate) {
+        const d = date.toDate();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
       }
+      // Handle Date object
+      if (date instanceof Date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+      // Handle string (already in YYYY-MM-DD format or needs parsing)
+      if (typeof date === 'string') {
+        // If already in YYYY-MM-DD format, return as is
+        if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          return date;
+        }
+        // Otherwise parse it
+        const d = new Date(date);
+        if (!isNaN(d.getTime())) {
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        }
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  };
 
-      // Format labs data - show ALL historical values with dates and notes
-      // PRIORITY: Use document date if value has documentId, otherwise use value date
-      const labsCount = healthContext.labs ? healthContext.labs.length : 0;
-      const labsSummary = labsCount > 0
-        ? healthContext.labs.map(lab => {
-            const values = lab.values && Array.isArray(lab.values) && lab.values.length > 0
-              ? lab.values
-              : [];
-            
-            if (values.length === 0) {
-              // No values, just show current if available
-              return `${lab.label || lab.labType}: ${lab.currentValue || 'N/A'} ${lab.unit || ''} (no historical data)`;
+  // Fetch all documents to get document dates and date ranges
+  // This allows us to use the document date entered during upload, or date ranges for multi-date documents
+  let documentDateMap = {};
+  let documentDateRangeMap = {};
+  try {
+    const { documentService } = await import('../firebase/services');
+    const documents = await documentService.getDocuments(userId);
+    // Create maps of documentId -> document date and date ranges
+    documents.forEach(doc => {
+      if (doc.id) {
+        // For multi-date documents, use the date range
+        if (doc.hasMultipleDates && doc.minDate && doc.maxDate) {
+          const minDate = doc.minDate?.toDate ? doc.minDate.toDate() : new Date(doc.minDate);
+          const maxDate = doc.maxDate?.toDate ? doc.maxDate.toDate() : new Date(doc.maxDate);
+          const minDateStr = formatDateString(minDate);
+          const maxDateStr = formatDateString(maxDate);
+          if (minDateStr && maxDateStr) {
+            documentDateRangeMap[doc.id] = { minDate: minDateStr, maxDate: maxDateStr };
+            // Also store the range as a string for the date map
+            if (minDateStr === maxDateStr) {
+              documentDateMap[doc.id] = minDateStr;
+            } else {
+              documentDateMap[doc.id] = `${minDateStr} to ${maxDateStr}`;
             }
-            
-            // Format ALL values with dates and notes (sorted by date, newest first)
-            const sortedValues = [...values].sort((a, b) => {
-              const dateA = a.date?.toDate ? a.date.toDate().getTime() : (a.date ? new Date(a.date).getTime() : 0);
-              const dateB = b.date?.toDate ? b.date.toDate().getTime() : (b.date ? new Date(b.date).getTime() : 0);
-              return dateB - dateA; // Newest first
-            });
-            
-            const formattedValues = sortedValues.map((value) => {
-              const valueStr = `${value.value} ${lab.unit || ''}`;
-              
-              // Get date: prefer document date/range if value has documentId, otherwise use value date
-              let dateStr = null;
-              if (value?.documentId) {
-                // Check if document has a date range (multi-date document)
-                if (documentDateRangeMap[value.documentId]) {
-                  const range = documentDateRangeMap[value.documentId];
-                  dateStr = `${range.minDate} to ${range.maxDate}`;
-                } else if (documentDateMap[value.documentId]) {
-                  // Use document date entered during upload
-                  dateStr = documentDateMap[value.documentId];
-                } else if (value?.date) {
-                  // Fall back to value date
-                  dateStr = formatDateString(value.date);
-                }
-              } else if (value?.date) {
-                // Fall back to value date
-                dateStr = formatDateString(value.date);
-              }
-              
-              const dateDisplay = dateStr ? ` on ${dateStr}` : '';
-              
-              // Format note: extract just the context part if it's in "Extracted from document. Context: {note}" format
-              let noteStr = '';
-              if (value?.notes && value.notes !== 'Extracted from document') {
-                // If note contains "Context: ", extract just the context part for cleaner display
-                if (value.notes.includes('Context: ')) {
-                  const contextPart = value.notes.split('Context: ')[1];
-                  noteStr = ` (Note: ${contextPart})`;
-                } else {
-                  noteStr = ` (Note: ${value.notes})`;
-                }
-              }
-              
-              return `${valueStr}${dateDisplay}${noteStr}`;
-            }).join('; ');
-            
-            // Include normal range and status if available
-            const normalRangeStr = lab.normalRange ? ` (Normal range: ${lab.normalRange})` : '';
-            const statusStr = lab.status ? ` [Status: ${lab.status}]` : '';
-            
-            return `${lab.label || lab.labType}: ${formattedValues}${normalRangeStr}${statusStr}`;
-          }).join('\n')
-        : 'No lab data available';
+          }
+        } else if (doc.date) {
+          // Single date document
+          const docDate = formatDateString(doc.date);
+          if (docDate) {
+            documentDateMap[doc.id] = docDate;
+          }
+        }
+      }
+    });
+      } catch (error) {
+    // Continue without document dates - will fall back to value dates
+  }
 
-      // Format vitals data - show ALL historical values with dates and notes
-      // PRIORITY: Use document date if value has documentId, otherwise use value date
-      const vitalsCount = healthContext.vitals ? healthContext.vitals.length : 0;
-      const vitalsSummary = vitalsCount > 0
-        ? healthContext.vitals.map(vital => {
-            const values = vital.values && Array.isArray(vital.values) && vital.values.length > 0
-              ? vital.values
-              : [];
-            
-            if (values.length === 0) {
-              // No values, just show current if available
-              return `${vital.label || vital.vitalType}: ${vital.currentValue || 'N/A'} ${vital.unit || ''} (no historical data)`;
+  // Format labs data - show ALL historical values with dates and notes
+  // PRIORITY: Use document date if value has documentId, otherwise use value date
+  const labsCount = healthContext.labs ? healthContext.labs.length : 0;
+  const labsSummary = labsCount > 0
+    ? healthContext.labs.map(lab => {
+        const values = lab.values && Array.isArray(lab.values) && lab.values.length > 0
+          ? lab.values
+          : [];
+        
+        if (values.length === 0) {
+          // No values, just show current if available
+          return `${lab.label || lab.labType}: ${lab.currentValue || 'N/A'} ${lab.unit || ''} (no historical data)`;
+        }
+        
+        // Format ALL values with dates and notes (sorted by date, newest first)
+        const sortedValues = [...values].sort((a, b) => {
+          const dateA = a.date?.toDate ? a.date.toDate().getTime() : (a.date ? new Date(a.date).getTime() : 0);
+          const dateB = b.date?.toDate ? b.date.toDate().getTime() : (b.date ? new Date(b.date).getTime() : 0);
+          return dateB - dateA; // Newest first
+        });
+        
+        const formattedValues = sortedValues.map((value) => {
+          const valueStr = `${value.value} ${lab.unit || ''}`;
+          
+          // Get date: prefer document date/range if value has documentId, otherwise use value date
+          let dateStr = null;
+          if (value?.documentId) {
+            // Check if document has a date range (multi-date document)
+            if (documentDateRangeMap[value.documentId]) {
+              const range = documentDateRangeMap[value.documentId];
+              dateStr = `${range.minDate} to ${range.maxDate}`;
+            } else if (documentDateMap[value.documentId]) {
+              // Use document date entered during upload
+              dateStr = documentDateMap[value.documentId];
+            } else if (value?.date) {
+              // Fall back to value date
+              dateStr = formatDateString(value.date);
             }
-            
-            // Format ALL values with dates and notes (sorted by date, newest first)
-            const sortedValues = [...values].sort((a, b) => {
-              const dateA = a.date?.toDate ? a.date.toDate().getTime() : (a.date ? new Date(a.date).getTime() : 0);
-              const dateB = b.date?.toDate ? b.date.toDate().getTime() : (b.date ? new Date(b.date).getTime() : 0);
-              return dateB - dateA; // Newest first
-            });
-            
-            const formattedValues = sortedValues.map((value) => {
-              // Handle blood pressure specially (systolic/diastolic)
-              let valueStr = '';
-              if (vital.vitalType === 'bp' || vital.vitalType === 'bloodpressure') {
-                if (value.systolic && value.diastolic) {
-                  valueStr = `${value.systolic}/${value.diastolic}`;
-                } else if (value.value) {
-                  valueStr = value.value;
-                } else {
-                  valueStr = 'N/A';
-                }
-              } else {
-                valueStr = value.value || 'N/A';
-              }
-              valueStr += ` ${vital.unit || ''}`;
-              
-              // Get date: prefer document date/range if value has documentId, otherwise use value date
-              let dateStr = null;
-              if (value?.documentId) {
-                // Check if document has a date range (multi-date document)
-                if (documentDateRangeMap[value.documentId]) {
-                  const range = documentDateRangeMap[value.documentId];
-                  dateStr = `${range.minDate} to ${range.maxDate}`;
-                } else if (documentDateMap[value.documentId]) {
-                  // Use document date entered during upload
-                  dateStr = documentDateMap[value.documentId];
-                } else if (value?.date) {
-                  // Fall back to value date
-                  dateStr = formatDateString(value.date);
-                }
-              } else if (value?.date) {
-                // Fall back to value date
-                dateStr = formatDateString(value.date);
-              }
-              
-              const dateDisplay = dateStr ? ` on ${dateStr}` : '';
-              
-              // Format note: extract just the context part if it's in "Extracted from document. Context: {note}" format
-              let noteStr = '';
-              if (value?.notes && value.notes !== 'Extracted from document') {
-                // If note contains "Context: ", extract just the context part for cleaner display
-                if (value.notes.includes('Context: ')) {
-                  const contextPart = value.notes.split('Context: ')[1];
-                  noteStr = ` (Note: ${contextPart})`;
-                } else {
-                  noteStr = ` (Note: ${value.notes})`;
-                }
-              }
-              
-              return `${valueStr}${dateDisplay}${noteStr}`;
-            }).join('; ');
-            
-            // Include normal range if available
-            const normalRangeStr = vital.normalRange ? ` (Normal range: ${vital.normalRange})` : '';
-            
-            return `${vital.label || vital.vitalType}: ${formattedValues}${normalRangeStr}`;
-          }).join('\n')
-        : 'No vital signs data available';
+          } else if (value?.date) {
+            // Fall back to value date
+            dateStr = formatDateString(value.date);
+          }
+          
+          const dateDisplay = dateStr ? ` on ${dateStr}` : '';
+          
+          // Format note: extract just the context part if it's in "Extracted from document. Context: {note}" format
+          let noteStr = '';
+          if (value?.notes && value.notes !== 'Extracted from document') {
+            // If note contains "Context: ", extract just the context part for cleaner display
+            if (value.notes.includes('Context: ')) {
+              const contextPart = value.notes.split('Context: ')[1];
+              noteStr = ` (Note: ${contextPart})`;
+            } else {
+              noteStr = ` (Note: ${value.notes})`;
+            }
+          }
+          
+          return `${valueStr}${dateDisplay}${noteStr}`;
+        }).join('; ');
+        
+        // Include normal range and status if available
+        const normalRangeStr = lab.normalRange ? ` (Normal range: ${lab.normalRange})` : '';
+        const statusStr = lab.status ? ` [Status: ${lab.status}]` : '';
+        
+        return `${lab.label || lab.labType}: ${formattedValues}${normalRangeStr}${statusStr}`;
+      }).join('\n')
+    : 'No lab data available';
 
-      // Format symptoms data - show count and recent ones only
-      const symptomsCount = healthContext.symptoms ? healthContext.symptoms.length : 0;
-      const recentSymptoms = healthContext.symptoms && healthContext.symptoms.length > 0
-        ? healthContext.symptoms.slice(-5).map(symptom => {
-            return `${symptom.name} (${symptom.severity || 'Not specified'})`;
-          }).join(', ')
-        : 'No symptoms recorded';
+  // Format vitals data - show ALL historical values with dates and notes
+  // PRIORITY: Use document date if value has documentId, otherwise use value date
+  const vitalsCount = healthContext.vitals ? healthContext.vitals.length : 0;
+  const vitalsSummary = vitalsCount > 0
+    ? healthContext.vitals.map(vital => {
+        const values = vital.values && Array.isArray(vital.values) && vital.values.length > 0
+          ? vital.values
+          : [];
+        
+        if (values.length === 0) {
+          // No values, just show current if available
+          return `${vital.label || vital.vitalType}: ${vital.currentValue || 'N/A'} ${vital.unit || ''} (no historical data)`;
+        }
+        
+        // Format ALL values with dates and notes (sorted by date, newest first)
+        const sortedValues = [...values].sort((a, b) => {
+          const dateA = a.date?.toDate ? a.date.toDate().getTime() : (a.date ? new Date(a.date).getTime() : 0);
+          const dateB = b.date?.toDate ? b.date.toDate().getTime() : (b.date ? new Date(b.date).getTime() : 0);
+          return dateB - dateA; // Newest first
+        });
+        
+        const formattedValues = sortedValues.map((value) => {
+          // Handle blood pressure specially (systolic/diastolic)
+          let valueStr = '';
+          if (vital.vitalType === 'bp' || vital.vitalType === 'bloodpressure') {
+            if (value.systolic && value.diastolic) {
+              valueStr = `${value.systolic}/${value.diastolic}`;
+            } else if (value.value) {
+              valueStr = value.value;
+            } else {
+              valueStr = 'N/A';
+            }
+          } else {
+            valueStr = value.value || 'N/A';
+          }
+          valueStr += ` ${vital.unit || ''}`;
+          
+          // Get date: prefer document date/range if value has documentId, otherwise use value date
+          let dateStr = null;
+          if (value?.documentId) {
+            // Check if document has a date range (multi-date document)
+            if (documentDateRangeMap[value.documentId]) {
+              const range = documentDateRangeMap[value.documentId];
+              dateStr = `${range.minDate} to ${range.maxDate}`;
+            } else if (documentDateMap[value.documentId]) {
+              // Use document date entered during upload
+              dateStr = documentDateMap[value.documentId];
+            } else if (value?.date) {
+              // Fall back to value date
+              dateStr = formatDateString(value.date);
+            }
+          } else if (value?.date) {
+            // Fall back to value date
+            dateStr = formatDateString(value.date);
+          }
+          
+          const dateDisplay = dateStr ? ` on ${dateStr}` : '';
+          
+          // Format note: extract just the context part if it's in "Extracted from document. Context: {note}" format
+          let noteStr = '';
+          if (value?.notes && value.notes !== 'Extracted from document') {
+            // If note contains "Context: ", extract just the context part for cleaner display
+            if (value.notes.includes('Context: ')) {
+              const contextPart = value.notes.split('Context: ')[1];
+              noteStr = ` (Note: ${contextPart})`;
+            } else {
+              noteStr = ` (Note: ${value.notes})`;
+            }
+          }
+          
+          return `${valueStr}${dateDisplay}${noteStr}`;
+        }).join('; ');
+        
+        // Include normal range if available
+        const normalRangeStr = vital.normalRange ? ` (Normal range: ${vital.normalRange})` : '';
+        
+        return `${vital.label || vital.vitalType}: ${formattedValues}${normalRangeStr}`;
+      }).join('\n')
+    : 'No vital signs data available';
 
-      healthContextSection = `
+  // Format symptoms data - show count and recent ones only
+  const symptomsCount = healthContext.symptoms ? healthContext.symptoms.length : 0;
+  const recentSymptoms = healthContext.symptoms && healthContext.symptoms.length > 0
+    ? healthContext.symptoms.slice(-5).map(symptom => {
+        return `${symptom.name} (${symptom.severity || 'Not specified'})`;
+      }).join(', ')
+    : 'No symptoms recorded';
+
+  return `
 
 ═══════════════════════════════════════════════════════════════════════════════
 HEALTH CONTEXT: The user is asking about their health data (labs, vitals, symptoms)
@@ -537,80 +359,83 @@ When answering questions about the user's health data, you should:
 11. CRITICAL: When referring to dates, use the EXACT dates shown in the health context (format: YYYY-MM-DD). These dates are the DOCUMENT DATES entered by the user when uploading documents. Do NOT adjust or modify dates - use them exactly as provided. If a value shows "on 2025-12-24", refer to it as December 24, 2025, NOT December 25, 2025. The dates shown in the health context are the actual document dates from when the user uploaded the documents, which may differ from the test dates extracted from the document content.
 
 ═══════════════════════════════════════════════════════════════════════════════`;
-    }
+}
 
-    // Build notebook context section if provided
-    let notebookContextSection = '';
-    if (notebookContext) {
-      // Helper function to format date as YYYY-MM-DD
-      const formatDateString = (date) => {
-        if (!date) return null;
-        try {
-          if (date instanceof Date) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-          }
-          if (typeof date === 'string') {
-            if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-              return date;
-            }
-            const d = new Date(date);
-            if (!isNaN(d.getTime())) {
-              const year = d.getFullYear();
-              const month = String(d.getMonth() + 1).padStart(2, '0');
-              const day = String(d.getDate()).padStart(2, '0');
-              return `${year}-${month}-${day}`;
-            }
-          }
-          return null;
-        } catch (e) {
-          return null;
+/**
+ * Build notebook context section
+ */
+function buildNotebookContextSection(notebookContext) {
+  if (!notebookContext) return '';
+  
+  // Helper function to format date as YYYY-MM-DD
+  const formatDateString = (date) => {
+    if (!date) return null;
+    try {
+      if (date instanceof Date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+      if (typeof date === 'string') {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          return date;
         }
-      };
+        const d = new Date(date);
+        if (!isNaN(d.getTime())) {
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        }
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  };
 
-      const entries = notebookContext.entries || [];
-      const entriesCount = entries.length;
+  const entries = notebookContext.entries || [];
+  const entriesCount = entries.length;
+  
+  if (entriesCount > 0) {
+    // Format entries by date (newest first, already sorted)
+    const formattedEntries = entries.map(entry => {
+      const dateStr = formatDateString(entry.date) || entry.dateKey || 'Unknown date';
       
-      if (entriesCount > 0) {
-        // Format entries by date (newest first, already sorted)
-        const formattedEntries = entries.map(entry => {
-          const dateStr = formatDateString(entry.date) || entry.dateKey || 'Unknown date';
-          
-          const parts = [];
-          
-          // Notes section
-          if (entry.notes && entry.notes.length > 0) {
-            const noteList = entry.notes.map(note => {
-              const sourceLabel = note.sourceName || (note.source === 'journal' ? 'Journal Entry' : note.source === 'document' ? 'Document Note' : note.source === 'symptom' ? 'Symptom Note' : 'Note');
-              return `"${note.content}" (From: ${sourceLabel})`;
-            }).join('; ');
-            parts.push(`- Notes: ${noteList}`);
-          }
-          
-          // Documents section
-          if (entry.documents && entry.documents.length > 0) {
-            const docList = entry.documents.map(doc => {
-              const dataPointText = doc.dataPointCount > 0 ? ` (${doc.dataPointCount} data point${doc.dataPointCount !== 1 ? 's' : ''} extracted)` : '';
-              return `${doc.name} (${doc.type}${dataPointText})`;
-            }).join(', ');
-            parts.push(`- Documents: ${docList}`);
-          }
-          
-          // Symptoms section
-          if (entry.symptoms && entry.symptoms.length > 0) {
-            const symptomList = entry.symptoms.map(symptom => {
-              const severityText = symptom.severity ? ` (${symptom.severity})` : '';
-              return `${symptom.type}${severityText}`;
-            }).join(', ');
-            parts.push(`- Symptoms: ${symptomList}`);
-          }
-          
-          return `${dateStr}:\n${parts.length > 0 ? parts.join('\n') : '  (No entries for this date)'}`;
-        }).join('\n\n');
-        
-        notebookContextSection = `
+      const parts = [];
+      
+      // Notes section
+      if (entry.notes && entry.notes.length > 0) {
+        const noteList = entry.notes.map(note => {
+          const sourceLabel = note.sourceName || (note.source === 'journal' ? 'Journal Entry' : note.source === 'document' ? 'Document Note' : note.source === 'symptom' ? 'Symptom Note' : 'Note');
+          return `"${note.content}" (From: ${sourceLabel})`;
+        }).join('; ');
+        parts.push(`- Notes: ${noteList}`);
+      }
+      
+      // Documents section
+      if (entry.documents && entry.documents.length > 0) {
+        const docList = entry.documents.map(doc => {
+          const dataPointText = doc.dataPointCount > 0 ? ` (${doc.dataPointCount} data point${doc.dataPointCount !== 1 ? 's' : ''} extracted)` : '';
+          return `${doc.name} (${doc.type}${dataPointText})`;
+        }).join(', ');
+        parts.push(`- Documents: ${docList}`);
+      }
+      
+      // Symptoms section
+      if (entry.symptoms && entry.symptoms.length > 0) {
+        const symptomList = entry.symptoms.map(symptom => {
+          const severityText = symptom.severity ? ` (${symptom.severity})` : '';
+          return `${symptom.type}${severityText}`;
+        }).join(', ');
+        parts.push(`- Symptoms: ${symptomList}`);
+      }
+      
+      return `${dateStr}:\n${parts.length > 0 ? parts.join('\n') : '  (No entries for this date)'}`;
+    }).join('\n\n');
+    
+    return `
 
 ═══════════════════════════════════════════════════════════════════════════════
 NOTEBOOK CONTEXT: The user is asking about their health history/timeline
@@ -631,8 +456,8 @@ When answering questions about the user's health history, you should:
 8. When referring to dates, use the EXACT date format shown (YYYY-MM-DD)
 
 ═══════════════════════════════════════════════════════════════════════════════`;
-      } else {
-        notebookContextSection = `
+  } else {
+    return `
 
 ═══════════════════════════════════════════════════════════════════════════════
 NOTEBOOK CONTEXT: The user is asking about their health history/timeline
@@ -641,21 +466,178 @@ NOTEBOOK CONTEXT: The user is asking about their health history/timeline
 No journal entries found yet. The user can start building their health journal by uploading documents, logging symptoms, or adding journal notes.
 
 ═══════════════════════════════════════════════════════════════════════════════`;
-      }
-    }
+  }
+}
 
-    // Build prompt for extraction
-    // Determine user role for personalized responses
-    const isPatient = patientProfile?.isPatient !== false; // Default to true if not set
-    const userRoleContext = isPatient 
-      ? 'You are speaking directly with the patient. Address them in first person (e.g., "your", "you").'
-      : 'You are speaking with a caregiver who is helping manage the patient\'s care. Address them as a caregiver (e.g., "the patient", "their", "they") and acknowledge their role in supporting the patient.';
+// ============================================================================
+// HELPER FUNCTIONS - Intent Detection
+// ============================================================================
 
-    const prompt = `You are CancerCare's AI health assistant helping track medical data for a patient${patientProfile?.diagnosis ? ` with ${patientProfile.diagnosis}` : ''}.
+/**
+ * Detect chat intent from message and trial context
+ * Returns an object with boolean flags for different intent types
+ */
+function detectChatIntent(message, trialContext) {
+  // Detect if message requires trial data (but not if trialContext is already provided)
+  const requiresTrialData = !trialContext && /(saved trial|saved trials|my trial|my trials|clinical trial|clinical trials|trial i saved|trials i saved|what trials|which trials|show me trials|tell me about trials)/i.test(message);
+
+    // Detect if user is ADDING data (not asking about it)
+    // These patterns indicate the user is providing new data to be saved
+    const isAddingData = /(my (ca-125|hemoglobin|wbc|platelets|blood pressure|heart rate|temperature|temp|weight|bp|hr) (was|is)|i (had|have|started|am taking|took)|i'm (experiencing|taking)|my (symptom|symptoms)|started taking|taking [a-z]+ (mg|ml|units?)|log|add|record|note (that|down)|journal|write down)/i.test(message);
+    
+    // Detect if message requires health data ANALYSIS (asking about existing data, not adding)
+    // Only trigger if user is asking questions, not adding data
+    const requiresHealthData = !isAddingData && /(explain|analyze|what does|how is|trend|progress|mean|interpret|show me|tell me about|what are|what is|why is|when did|where is|my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications) (mean|show|indicate|tell|say)|what do my|how are my|how's my)/i.test(message);
+    
+  // Check if question requires specific data type that isn't available
+  // Only check if user is asking about data, not adding it
+  const requiresLabs = !isAddingData && /(lab|labs|ca-125|hemoglobin|wbc|platelets|blood test|test result)/i.test(message);
+  const requiresVitals = !isAddingData && /(vital|vitals|blood pressure|heart rate|pulse|temperature|temp|weight|oxygen|spo2)/i.test(message);
+  const requiresSymptoms = !isAddingData && /(symptom|symptoms|feeling|pain|nausea|fatigue)/i.test(message);
+  
+  // Check for insufficient data for trend analysis
+  // Only check if user is asking about trends, not adding data
+  const requiresTrendAnalysis = !isAddingData && /(trend|progress|over time|changing|increasing|decreasing|pattern)/i.test(message);
+  
+  return {
+    isAddingData,
+    requiresHealthData,
+    requiresLabs,
+    requiresVitals,
+    requiresSymptoms,
+    requiresTrendAnalysis,
+    requiresTrialData
+  };
+}
+
+// ============================================================================
+// HELPER FUNCTIONS - Early Exit Responses
+// ============================================================================
+
+/**
+ * Build response when no trial data is available
+ */
+function buildNoTrialDataResponse() {
+  return `I'd be happy to help you with your saved clinical trials! However, I don't see any saved trials in your profile yet.
+
+To get started, you can:
+- **Search for clinical trials** on the Clinical Trials tab
+- **Save trials** that match your profile by clicking the bookmark icon
+- **Ask about specific trials** after you've saved them
+
+Once you have saved trials, I can help you:
+- Understand what each trial involves
+- Explain the drugs and treatments being tested
+- Discuss eligibility criteria
+- Answer questions about trial phases, side effects, and locations
+
+Would you like to search for clinical trials now?`;
+}
+
+/**
+ * Build response when no health data is available
+ */
+function buildNoHealthDataResponse() {
+  return `I'd be happy to help you understand your health data! However, I don't see any health data tracked yet in your profile.
+
+To get started, you can:
+- **Upload lab reports** or **add lab values** via chat (e.g., "My CA-125 was 68 on December 15")
+- **Log vital signs** like blood pressure, heart rate, or weight
+- **Track symptoms** you're experiencing
+- **Add medications** you're taking
+
+Once you have data, I can help you:
+- Understand what your values mean
+- Analyze trends over time
+- Explain how your treatment is progressing
+- Identify patterns in your health data
+
+Would you like to start by adding some health data?`;
+}
+
+/**
+ * Build response when no lab data is available
+ */
+function buildNoLabDataResponse() {
+  return `I'd be happy to explain your lab results! However, I don't see any lab values tracked in your profile yet.
+
+You can add lab values by:
+- **Uploading lab reports** through the Files tab
+- **Telling me in chat** (e.g., "My CA-125 was 68 on December 15")
+- **Using the Health tab** to manually enter values
+
+Once you have lab data, I can help explain what the values mean and track trends over time.`;
+}
+
+/**
+ * Build response when no vital data is available
+ */
+function buildNoVitalDataResponse() {
+  return `I'd be happy to help with your vital signs! However, I don't see any vital signs tracked in your profile yet.
+
+You can add vital signs by:
+- **Telling me in chat** (e.g., "My blood pressure was 125/80 this morning")
+- **Using the Health tab** to manually enter values
+
+Once you have vital sign data, I can help you understand what the values mean and track changes over time.`;
+}
+
+/**
+ * Build response when no symptom data is available
+ */
+function buildNoSymptomDataResponse() {
+  return `I'd be happy to help with your symptoms! However, I don't see any symptoms tracked in your profile yet.
+
+You can log symptoms by:
+- **Telling me in chat** (e.g., "I had mild nausea yesterday")
+- **Using the Health tab** to manually log symptoms
+- **Using the quick log** feature on the dashboard
+
+Once you have symptom data, I can help identify patterns and correlations with your other health data.`;
+}
+
+/**
+ * Build response when insufficient data for trend analysis
+ */
+function buildInsufficientTrendDataResponse() {
+  return `I'd be happy to analyze trends in your health data! However, I need more data points to identify meaningful trends and patterns.
+
+To analyze trends effectively, I typically need:
+- **At least 2-3 measurements over time** for labs or vitals
+- **Multiple symptom entries** to identify patterns
+
+You can add more data by:
+- **Uploading additional lab reports** through the Files tab
+- **Telling me in chat** (e.g., "My CA-125 was 68 on December 15, and 72 on January 1")
+- **Using the Health tab** to manually enter values over time
+
+Once you have more data points, I can help you see trends, identify patterns, and understand how your values are changing over time.`;
+}
+
+// ============================================================================
+// HELPER FUNCTIONS - Prompt Construction
+// ============================================================================
+
+/**
+ * Build the final chat prompt
+ */
+function buildChatPrompt({
+  message,
+  conversationHistory,
+  patientProfile,
+  patientDemographicsSection,
+  trialContextSection,
+  healthContextSection,
+  notebookContextSection,
+  userRoleContext
+}) {
+  const isPatient = patientProfile?.isPatient !== false; // Default to true if not set
+  
+  return `You are CancerCare's AI health assistant helping track medical data for a patient${patientProfile?.diagnosis ? ` with ${patientProfile.diagnosis}` : ''}.
 
 ${userRoleContext}
 
-TASK: Analyze the user's message and extract any medical values they mentioned.${trialContext ? ' The user is asking about a specific clinical trial - provide detailed information about the trial, its drugs, phase, and eligibility.' : ''}${healthContext ? ' The user is asking about their health data - analyze their labs, vitals, and symptoms to provide insights and answer questions.' : ''}${notebookContext ? ' The user is asking about their health history/timeline - reference the journal entries, documents, notes, and symptoms organized by date.' : ''}
+TASK: Analyze the user's message and extract any medical values they mentioned.${trialContextSection ? ' The user is asking about a specific clinical trial - provide detailed information about the trial, its drugs, phase, and eligibility.' : ''}${healthContextSection ? ' The user is asking about their health data - analyze their labs, vitals, and symptoms to provide insights and answer questions.' : ''}${notebookContextSection ? ' The user is asking about their health history/timeline - reference the journal entries, documents, notes, and symptoms organized by date.' : ''}
 
 USER MESSAGE: "${message}"
 ${patientDemographicsSection}
@@ -754,6 +736,143 @@ DATE RECOGNITION EXAMPLES:
 
 CONVERSATION CONTEXT:
 ${conversationHistory.slice(-5).map(msg => `${msg.role}: ${msg.content}`).join('\n')}`;
+}
+
+/**
+ * Process a chat message to extract and save medical data
+ * @param {string} message - User's message
+ * @param {string} userId - User ID
+ * @param {Array} conversationHistory - Previous conversation messages
+ * @param {Object} trialContext - Optional trial context (when asking about a specific trial)
+ * @param {Object} healthContext - Optional health context (labs, vitals, symptoms)
+ * @param {Object} notebookContext - Optional notebook context (timeline entries, journal notes, documents)
+ * @param {Object} patientProfile - Patient demographics (age, gender, weight) for normal range adjustments
+ */
+export async function processChatMessage(message, userId, conversationHistory = [], trialContext = null, healthContext = null, notebookContext = null, patientProfile = null) {
+  try {
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+    // Detect intent from message
+    const { 
+      isAddingData, 
+      requiresHealthData, 
+      requiresLabs,
+      requiresVitals,
+      requiresSymptoms,
+      requiresTrendAnalysis,
+      requiresTrialData
+    } = detectChatIntent(message, trialContext);
+    
+    // Check if saved trials exist (only if question requires trial data)
+    if (requiresTrialData && userId) {
+      try {
+        const savedTrials = await getSavedTrials(userId);
+        if (!savedTrials || savedTrials.length === 0) {
+      return {
+            response: buildNoTrialDataResponse(),
+        extractedData: null
+      };
+        }
+      } catch (error) {
+        // Continue with normal processing if there's an error
+      }
+    }
+    
+    // Check if health data is available
+    const hasLabs = healthContext?.labs && healthContext.labs.length > 0;
+    const hasVitals = healthContext?.vitals && healthContext.vitals.length > 0;
+    const hasSymptoms = healthContext?.symptoms && healthContext.symptoms.length > 0;
+    const hasHealthData = hasLabs || hasVitals || hasSymptoms;
+    
+    // If question requires health data analysis but none is available, provide helpful response
+    // BUT skip this if user is adding data (they're providing it now)
+    if (requiresHealthData && !hasHealthData) {
+      return {
+        response: buildNoHealthDataResponse(),
+        extractedData: null
+      };
+    }
+    
+    if (requiresLabs && !hasLabs && hasHealthData) {
+      return {
+        response: buildNoLabDataResponse(),
+        extractedData: null
+      };
+    }
+    
+    if (requiresVitals && !hasVitals && hasHealthData) {
+      return {
+        response: buildNoVitalDataResponse(),
+        extractedData: null
+      };
+    }
+    
+    if (requiresSymptoms && !hasSymptoms && hasHealthData) {
+      return {
+        response: buildNoSymptomDataResponse(),
+        extractedData: null
+      };
+    }
+
+    if (requiresTrendAnalysis && hasHealthData) {
+      // Check if there's enough data for trend analysis (need at least 2-3 data points)
+      let hasEnoughData = false;
+      if (requiresLabs && hasLabs) {
+        const labWithMultipleValues = healthContext.labs.find(lab => 
+          (lab.values && lab.values.length >= 2) || 
+          (lab.data && lab.data.length >= 2)
+        );
+        hasEnoughData = !!labWithMultipleValues;
+      } else if (requiresVitals && hasVitals) {
+        const vitalWithMultipleValues = healthContext.vitals.find(vital => 
+          (vital.values && vital.values.length >= 2) || 
+          (vital.data && vital.data.length >= 2)
+        );
+        hasEnoughData = !!vitalWithMultipleValues;
+      } else {
+        // For general health questions, check if any category has enough data
+        const hasMultipleLabs = healthContext.labs?.some(lab => 
+          (lab.values && lab.values.length >= 2) || 
+          (lab.data && lab.data.length >= 2)
+        );
+        const hasMultipleVitals = healthContext.vitals?.some(vital => 
+          (vital.values && vital.values.length >= 2) || 
+          (vital.data && vital.data.length >= 2)
+        );
+        hasEnoughData = hasMultipleLabs || hasMultipleVitals || (healthContext.symptoms && healthContext.symptoms.length >= 2);
+      }
+      
+      if (!hasEnoughData) {
+        return {
+          response: buildInsufficientTrendDataResponse(),
+          extractedData: null
+        };
+      }
+    }
+
+    // Build context sections
+    const patientDemographicsSection = buildPatientDemographicsContext(patientProfile);
+    const trialContextSection = buildTrialContextSection(trialContext);
+    const healthContextSection = await buildHealthContextSection(healthContext, userId);
+    const notebookContextSection = buildNotebookContextSection(notebookContext);
+
+    // Build prompt for extraction
+    // Determine user role for personalized responses
+    const isPatient = patientProfile?.isPatient !== false; // Default to true if not set
+    const userRoleContext = isPatient 
+      ? 'You are speaking directly with the patient. Address them in first person (e.g., "your", "you").'
+      : 'You are speaking with a caregiver who is helping manage the patient\'s care. Address them as a caregiver (e.g., "the patient", "their", "they") and acknowledge their role in supporting the patient.';
+
+    const prompt = buildChatPrompt({
+      message,
+      conversationHistory,
+      patientProfile,
+      patientDemographicsSection,
+      trialContextSection,
+      healthContextSection,
+      notebookContextSection,
+      userRoleContext
+    });
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
@@ -763,11 +882,11 @@ ${conversationHistory.slice(-5).map(msg => `${msg.role}: ${msg.content}`).join('
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       // No JSON found, just return conversational response
-      return {
+        return {
         response: text,
-        extractedData: null
-      };
-    }
+          extractedData: null
+        };
+      }
 
     const parsed = JSON.parse(jsonMatch[0]);
 

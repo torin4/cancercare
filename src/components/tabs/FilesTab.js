@@ -40,6 +40,8 @@ export default function FilesTab({ onTabChange }) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
   const [aiStatus, setAiStatus] = useState(null);
+  const [extractedDataCounts, setExtractedDataCounts] = useState(null);
+  const [currentDocumentType, setCurrentDocumentType] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({
     show: false,
@@ -389,6 +391,8 @@ export default function FilesTab({ onTabChange }) {
       setIsUploading(false);
       setUploadProgress('');
       setAiStatus(null);
+      setExtractedDataCounts(null);
+      setCurrentDocumentType(null);
       
       if (successCount === totalFiles) {
         showSuccess(`Successfully processed all ${totalFiles} file${totalFiles !== 1 ? 's' : ''}!`);
@@ -406,6 +410,8 @@ export default function FilesTab({ onTabChange }) {
       setIsUploading(false);
       setUploadProgress('');
       setAiStatus(null);
+      setExtractedDataCounts(null);
+      setCurrentDocumentType(null);
     }
   };
 
@@ -448,7 +454,8 @@ export default function FilesTab({ onTabChange }) {
 
       // Step 1: Process document with AI to extract medical data
       setUploadProgress(`${fileProgressPrefix}Analyzing document with AI...`);
-      setAiStatus('Initializing AI analysis...');
+      setAiStatus('Analyzing document...');
+      setExtractedDataCounts(null); // Reset counts
       
       const processingResult = await processDocument(
         file,
@@ -463,10 +470,22 @@ export default function FilesTab({ onTabChange }) {
             setAiStatus(status);
           }
         },
-        onlyExistingMetrics
+        onlyExistingMetrics,
+        docType // Pass document type from modal to skip classification
       );
       
-      setAiStatus(null); // Clear AI status after analysis
+      // Extract data counts from processing result
+      if (processingResult.extractedData) {
+        const counts = {
+          labs: processingResult.extractedData.labs?.length || 0,
+          vitals: processingResult.extractedData.vitals?.length || 0,
+          mutations: processingResult.extractedData.genomic?.mutations?.length || 0,
+          medications: processingResult.extractedData.medications?.length || 0,
+          hasGenomic: !!processingResult.extractedData.genomic
+        };
+        setExtractedDataCounts(counts);
+        setCurrentDocumentType(processingResult.documentType);
+      }
 
       // Step 2: Upload file to Firebase Storage
       setUploadProgress(`${fileProgressPrefix}Uploading to secure storage...`);
@@ -540,6 +559,8 @@ export default function FilesTab({ onTabChange }) {
         setIsUploading(false);
         setUploadProgress('');
         setAiStatus(null);
+        setExtractedDataCounts(null);
+        setCurrentDocumentType(null);
         const dataPointText = processingResult.dataPointCount > 0
           ? ` ${processingResult.dataPointCount} data point${processingResult.dataPointCount !== 1 ? 's' : ''} extracted.`
           : '';
@@ -572,6 +593,8 @@ export default function FilesTab({ onTabChange }) {
         setIsUploading(false);
         setUploadProgress('');
         setAiStatus(null);
+        setExtractedDataCounts(null);
+        setCurrentDocumentType(null);
       }
       // Re-throw error so batch handler can catch it
       throw error;
@@ -928,7 +951,18 @@ export default function FilesTab({ onTabChange }) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={combineClasses(DesignTokens.typography.body.base, 'font-semibold truncate')}>{fileName}</p>
-                      <p className={combineClasses(DesignTokens.typography.body.xs, 'mt-0.5', DesignTokens.colors.neutral.text[700])}>{iconConfig.label}</p>
+                      <div className={combineClasses('flex items-center gap-2 mt-0.5 flex-wrap')}>
+                        <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.neutral.text[700])}>{iconConfig.label}</p>
+                        {doc.dataPointCount !== undefined && doc.dataPointCount !== null && doc.dataPointCount > 0 && (
+                          <span className={combineClasses(
+                            'px-2 py-0.5 rounded-full text-xs font-medium',
+                            DesignTokens.moduleAccent.files.bg,
+                            DesignTokens.moduleAccent.files.text
+                          )}>
+                            {doc.dataPointCount} data point{doc.dataPointCount !== 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
                       {doc.note && (
                         <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.app.text[600], 'mt-1 sm:mt-0.5 italic break-words line-clamp-2 sm:line-clamp-none')}>{doc.note}</p>
                       )}
@@ -1306,6 +1340,8 @@ export default function FilesTab({ onTabChange }) {
         show={isUploading}
         uploadProgress={uploadProgress}
         aiStatus={aiStatus}
+        documentType={currentDocumentType}
+        extractedDataCounts={extractedDataCounts}
       />
 
       <DeletionConfirmationModal
@@ -1357,17 +1393,27 @@ export default function FilesTab({ onTabChange }) {
             });
 
             setUploadProgress('Re-processing document...');
-            setAiStatus('Initializing AI analysis...');
+            setAiStatus('Analyzing document...');
+            setExtractedDataCounts(null); // Reset counts
             
             // Use the edited values from the modal (or null if empty)
             const docDate = date || null;
             const docNote = note || null;
             
+            // For genomic documents, always extract all data (ignore onlyExistingMetrics)
+            const existingDocType = rescanDocument.documentType || rescanDocument.type || null;
+            const isGenomic = existingDocType && (
+              existingDocType.toLowerCase() === 'genomic' || 
+              existingDocType.toLowerCase() === 'genetic' || 
+              existingDocType.toLowerCase() === 'genomic-profile'
+            );
+            const shouldUseOnlyExisting = isGenomic ? false : onlyExistingMetrics;
+            
             // Clean up old data before reprocessing
             // Use non-aggressive cleanup - only delete values with matching documentId (not all values)
             await cleanupDocumentData(rescanDocument.id, user.uid, false); // false = only delete matching documentId
             
-            // Re-process with edited values
+            // Re-process with edited values - use existing document type to skip classification
             const processingResult = await processDocument(
               file,
               user.uid,
@@ -1381,10 +1427,22 @@ export default function FilesTab({ onTabChange }) {
                   setAiStatus(status);
                 }
               },
-              onlyExistingMetrics
+              shouldUseOnlyExisting, // Force false for genomic documents
+              existingDocType // Pass existing document type to skip classification
             );
             
-            setAiStatus(null); // Clear AI status after analysis
+            // Extract data counts from processing result
+            if (processingResult.extractedData) {
+              const counts = {
+                labs: processingResult.extractedData.labs?.length || 0,
+                vitals: processingResult.extractedData.vitals?.length || 0,
+                mutations: processingResult.extractedData.genomic?.mutations?.length || 0,
+                medications: processingResult.extractedData.medications?.length || 0,
+                hasGenomic: !!processingResult.extractedData.genomic
+              };
+              setExtractedDataCounts(counts);
+              setCurrentDocumentType(processingResult.documentType);
+            }
 
             setUploadProgress('Refreshing your health data...');
             setAiStatus(null); // Clear AI status
@@ -1412,6 +1470,9 @@ export default function FilesTab({ onTabChange }) {
             // Already closed modal at start, just clean up state
             setIsUploading(false);
             setUploadProgress('');
+            setAiStatus(null);
+            setExtractedDataCounts(null);
+            setCurrentDocumentType(null);
 
             const dataPointText = processingResult.dataPointCount > 0
               ? ` ${processingResult.dataPointCount} data point${processingResult.dataPointCount !== 1 ? 's' : ''} extracted.`
@@ -1435,6 +1496,8 @@ export default function FilesTab({ onTabChange }) {
             setIsUploading(false);
             setUploadProgress('');
             setAiStatus(null);
+            setExtractedDataCounts(null);
+            setCurrentDocumentType(null);
           }
         }}
       />

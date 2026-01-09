@@ -2,6 +2,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { labService, vitalService, medicationService, genomicProfileService } from '../firebase/services';
 import { parseLocalDate } from '../utils/helpers';
 import { cleanupDocumentData, verifyCleanupComplete } from './documentCleanupService';
+import { buildDocumentPrompt } from '../processors/document/buildDocumentPrompt';
+import { classifyDocument } from '../processors/document/classifyDocument';
 
 // Check if API key is available
 const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
@@ -12,22 +14,23 @@ const genAI = new GoogleGenerativeAI(apiKey || '');
 
 /**
  * Process an uploaded medical document
- * - Identifies document type
+ * - Identifies document type (or uses provided type)
  * - Extracts medical data
  * - Saves to appropriate Firestore collections
  * @param {File} file - The document file
  * @param {string} userId - User ID
  * @param {Object} patientProfile - Patient demographics (age, gender, weight) for normal range adjustments
  * @param {string|null} documentDate - Optional date provided by user (YYYY-MM-DD format)
+ * @param {string|null} documentType - Optional document type (Lab, Genomic, Scan, etc.) - if provided, skips classification
  * @param {Function|null} onProgress - Optional callback for progress updates (message, aiStatus)
  */
-export async function processDocument(file, userId, patientProfile = null, documentDate = null, documentNote = null, documentId = null, onProgress = null, onlyExistingMetrics = false) {
+export async function processDocument(file, userId, patientProfile = null, documentDate = null, documentNote = null, documentId = null, onProgress = null, onlyExistingMetrics = false, documentType = null) {
   try {
     // Convert file to base64 for Gemini API
     const base64Data = await fileToBase64(file);
 
     // Step 1: Analyze document and extract data
-    const extractedData = await analyzeDocument(base64Data, file.type, patientProfile, documentDate, onProgress);
+    const extractedData = await analyzeDocument(base64Data, file.type, patientProfile, documentDate, onProgress, documentType);
 
     // Step 2: Extract a date from the document (for filename if user didn't provide one)
     // Priority: user-provided date > first lab date > first vital date > genomic test date > today
@@ -92,13 +95,32 @@ async function fileToBase64(file) {
  * @param {string} mimeType - MIME type of the document
  * @param {Object} patientProfile - Patient demographics for normal range adjustments
  * @param {string|null} documentDate - Optional date provided by user (YYYY-MM-DD format)
+ * @param {Function|null} onProgress - Progress callback
+ * @param {string|null} documentType - Optional document type (if provided, skips classification and uses type-specific prompt)
  */
-async function analyzeDocument(base64Data, mimeType, patientProfile = null, documentDate = null, onProgress = null) {
+async function analyzeDocument(base64Data, mimeType, patientProfile = null, documentDate = null, onProgress = null, documentType = null) {
   if (!apiKey) {
     throw new Error('Gemini API key is not configured. Please set REACT_APP_GEMINI_API_KEY in Vercel environment variables and redeploy.');
   }
   
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+  // Determine document type - use provided type or classify
+  let docType = 'unknown';
+  if (documentType) {
+    // Use provided document type (normalize to lowercase for prompt builder)
+    docType = documentType.toLowerCase();
+    // Map common document type names to prompt builder format
+    if (docType === 'lab' || docType === 'blood-test' || docType === 'vitals') docType = 'lab';
+    else if (docType === 'genomic' || docType === 'genetic') docType = 'genomic';
+    else if (docType === 'scan' || docType === 'imaging') docType = 'imaging';
+    else docType = 'unknown'; // Fallback for unknown types
+  } else {
+    // No document type provided - classify using filename/MIME/heuristic (fast, no AI call)
+    // For now, use 'unknown' which will use generic prompt
+    // TODO: Could add heuristic classification here if needed
+    docType = 'unknown';
+  }
 
   // Build patient demographics section if provided
   let patientDemographicsSection = '';
@@ -178,8 +200,21 @@ The user did not provide a document date. You MUST extract the date from the doc
 ═══════════════════════════════════════════════════════════════════════════════`;
   }
 
-  const prompt = `You are a medical document processing AI. Analyze this medical document and extract all relevant information.
+  // Add document type instruction if provided
+  const documentTypeInstruction = documentType 
+    ? `
+═══════════════════════════════════════════════════════════════════════════════
+DOCUMENT TYPE: ${documentType.toUpperCase()}
+═══════════════════════════════════════════════════════════════════════════════
 
+The user has specified this is a ${documentType} document. Use this document type in your JSON output.
+Extract data relevant to ${documentType} documents accordingly.
+
+═══════════════════════════════════════════════════════════════════════════════`
+    : '';
+
+  const prompt = `You are a medical document processing AI. Analyze this medical document and extract all relevant information.
+${documentTypeInstruction}
 ═══════════════════════════════════════════════════════════════════════════════
 LANGUAGE SUPPORT: This document may be in Japanese, English, or other languages
 ═══════════════════════════════════════════════════════════════════════════════
@@ -601,17 +636,27 @@ GENERAL RULES:
 - VALIDATION: Before returning JSON, verify that EVERY lab has a "date" field, EVERY vital has a "date" field, and genomic testInfo has a "testDate" field
 - If you cannot find dates after thorough search, you MUST still include date fields using today's date: ${parseLocalDate(new Date().toISOString().split('T')[0]).toISOString().split('T')[0]}`;
 
-  // Update progress: Starting AI analysis
+  // Update progress: Starting AI analysis (skip classification if documentType already provided)
   if (onProgress) {
-    onProgress(null, 'Identifying document type and structure...');
+    if (!documentType) {
+      onProgress(null, 'Identifying document type and structure...');
+    } else {
+      onProgress(null, 'Analyzing document...');
+    }
   }
 
+  // Use type-specific prompt if documentType provided, otherwise use full prompt
+  // For now, keep using the comprehensive prompt (buildDocumentPrompt can be integrated later)
+  // But we skip the classification step when documentType is provided
+  let finalPrompt = prompt;
+  
   // Log document info for debugging
   console.log('Sending document to AI:', {
     mimeType,
     base64Length: base64Data.length,
-    promptLength: prompt.length,
-    hasBase64Data: !!base64Data && base64Data.length > 0
+    promptLength: finalPrompt.length,
+    hasBase64Data: !!base64Data && base64Data.length > 0,
+    documentType: documentType || 'unknown (classifying)'
   });
 
   const result = await model.generateContent([
@@ -621,7 +666,7 @@ GENERAL RULES:
         data: base64Data
       }
     },
-    { text: prompt }
+    { text: finalPrompt }
   ]);
 
   // Update progress: AI is processing

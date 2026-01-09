@@ -1506,29 +1506,29 @@ export default function ChatTab({ onTabChange }) {
               <BookOpen className="w-3.5 h-3.5" />
               <span>Notebook</span>
             </button>
-            
+
             {/* Vertical Divider - Between Notebook and suggestions/upload */}
             <div className="h-6 w-px bg-medical-neutral-300 flex-shrink-0" />
             
             {/* Suggestions - Desktop Only, scrolls in this space */}
             <div className="hidden md:flex flex-1 gap-2 overflow-x-auto scrollbar-hide items-center min-w-0 px-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-              {(() => {
-                // Determine which suggestions to show based on active context
-                let suggestionsToShow = personalizedSuggestions;
-                if (currentTrialContext) {
-                  suggestionsToShow = personalizedTrialSuggestions;
-                } else if (currentHealthContext && !currentTrialContext && !currentNotebookContext) {
-                  suggestionsToShow = personalizedHealthSuggestions;
-                } else if (currentNotebookContext && !currentHealthContext && !currentTrialContext) {
-                  suggestionsToShow = personalizedTimelineSuggestions;
-                }
-                
-                return suggestionsToShow.map((suggestion, idx) => {
-                  // Store populateText in a const to ensure we capture the current value
-                  const currentPopulateText = suggestion.populateText || suggestion.text;
+            {(() => {
+              // Determine which suggestions to show based on active context
+              let suggestionsToShow = personalizedSuggestions;
+              if (currentTrialContext) {
+                suggestionsToShow = personalizedTrialSuggestions;
+              } else if (currentHealthContext && !currentTrialContext && !currentNotebookContext) {
+                suggestionsToShow = personalizedHealthSuggestions;
+              } else if (currentNotebookContext && !currentHealthContext && !currentTrialContext) {
+                suggestionsToShow = personalizedTimelineSuggestions;
+              }
+              
+              return suggestionsToShow.map((suggestion, idx) => {
+                // Store populateText in a const to ensure we capture the current value
+                const currentPopulateText = suggestion.populateText || suggestion.text;
 
-                  // Create a unique key that includes a hash of the populateText to force re-render
-                  const textHash = currentPopulateText.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                // Create a unique key that includes a hash of the populateText to force re-render
+                const textHash = currentPopulateText.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
                   const suggestionKey = `suggestion-desktop-${suggestionsKey}-${patientProfile?.isPatient}-${idx}-${textHash}`;
 
                   // Map background colors to text colors
@@ -1541,26 +1541,26 @@ export default function ChatTab({ onTabChange }) {
                     return DesignTokens.colors.app.text[700];
                   };
 
-                  return (
-                    <button
-                      key={suggestionKey}
-                      onClick={() => {
-                        setInputText(currentPopulateText);
-                        // Focus on input after setting text
-                        setTimeout(() => {
-                          const input = document.querySelector('input[type="text"]');
-                          if (input) input.focus();
-                        }, 0);
-                      }}
+                return (
+                  <button
+                    key={suggestionKey}
+                    onClick={() => {
+                      setInputText(currentPopulateText);
+                      // Focus on input after setting text
+                      setTimeout(() => {
+                        const input = document.querySelector('input[type="text"]');
+                        if (input) input.focus();
+                      }, 0);
+                    }}
                       className={combineClasses('px-2 py-1 text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 flex items-center gap-1.5 touch-manipulation', getTextColor(suggestion.color), 'hover:opacity-80')}
-                    >
+                  >
                       {suggestion.icon && <suggestion.icon className="w-3.5 h-3.5" />}
-                      {suggestion.text}
-                    </button>
-                  );
-                });
-              })()}
-            </div>
+                    {suggestion.text}
+                  </button>
+                );
+              });
+            })()}
+          </div>
             
             {/* Vertical Divider - Before Upload (desktop only) */}
             <div className="h-6 w-px bg-medical-neutral-300 flex-shrink-0 hidden md:block" />
@@ -1579,49 +1579,49 @@ export default function ChatTab({ onTabChange }) {
               <Paperclip className="w-3.5 h-3.5" />
               <span>Upload</span>
             </button>
-          </div>
-          
+        </div>
+
           <div className="flex gap-2 mt-3">
             <div className="relative flex-1">
-              <input
-                type="text"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                placeholder={
-                  currentTrialContext 
-                    ? `Ask about ${currentTrialContext.title || 'this trial'}...` 
-                    : currentHealthContext 
-                      ? "Ask about your labs, vitals, or symptoms..." 
-                      : "Ask about symptoms, treatments, or upload results..."
-                }
-                className={combineClasses(
+            <input
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+              placeholder={
+                currentTrialContext 
+                  ? `Ask about ${currentTrialContext.title || 'this trial'}...` 
+                  : currentHealthContext 
+                    ? "Ask about your labs, vitals, or symptoms..." 
+                    : "Ask about symptoms, treatments, or upload results..."
+              }
+              className={combineClasses(
                   'w-full rounded-full px-3 py-2.5 sm:px-4 sm:py-2.5 text-sm sm:text-base transition-all duration-200 min-h-[44px]',
                   'border border-medical-neutral-200',
                   inputText && 'pr-10',
                   'focus:outline-none focus:ring-2 focus:ring-anchor-900 focus:border-anchor-900'
-                )}
-              />
+              )}
+            />
               {inputText && (
-                <button
+              <button
                   onClick={() => setInputText('')}
                   className={combineClasses('absolute right-3 top-1/2 -translate-y-1/2', DesignTokens.colors.neutral.text[400], 'hover:text-gray-600', DesignTokens.transitions.default)}
                   aria-label="Clear input"
                 >
                   <X className={DesignTokens.icons.standard.size.full} />
-                </button>
+              </button>
               )}
             </div>
-            <button
-              onClick={handleSendMessage}
-              className={combineClasses(
-                'w-11 h-11 sm:w-10 sm:h-10 rounded-full transition flex-shrink-0 flex items-center justify-center min-h-[44px] min-w-[44px] touch-manipulation active:opacity-90',
+              <button
+                onClick={handleSendMessage}
+                className={combineClasses(
+                  'w-11 h-11 sm:w-10 sm:h-10 rounded-full transition flex-shrink-0 flex items-center justify-center min-h-[44px] min-w-[44px] touch-manipulation active:opacity-90',
                 DesignTokens.components.button.primary,
-                DesignTokens.shadows.sm
-              )}
-            >
-              <Send className="w-5 h-5" />
-            </button>
+                  DesignTokens.shadows.sm
+                )}
+              >
+                <Send className="w-5 h-5" />
+              </button>
           </div>
         </div>
       </div>

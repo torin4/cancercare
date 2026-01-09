@@ -1,247 +1,191 @@
 import React, { useState, useEffect } from 'react';
 import { DesignTokens, combineClasses } from '../design/designTokens';
+import { Loader2 } from 'lucide-react';
 
-export default function UploadProgressOverlay({ show, uploadProgress, aiStatus }) {
-  const [progressPercentage, setProgressPercentage] = useState(0);
-  const [smoothProgress, setSmoothProgress] = useState(0);
-  const [progressStartTime, setProgressStartTime] = useState(null);
-  const [currentStep, setCurrentStep] = useState('');
-  const [stepStartTime, setStepStartTime] = useState(null);
-  const [stepTargetProgress, setStepTargetProgress] = useState(0);
+export default function UploadProgressOverlay({ show, uploadProgress, aiStatus, documentType = null, extractedDataCounts = null }) {
+  const [currentMessage, setCurrentMessage] = useState('');
+  const [thinkingDots, setThinkingDots] = useState('');
+  const [isFlashing, setIsFlashing] = useState(true);
 
   // Reset when overlay is shown
   useEffect(() => {
     if (show) {
-      setProgressStartTime(Date.now());
-      setSmoothProgress(0);
-      setProgressPercentage(0);
-      setCurrentStep('');
-      setStepStartTime(null);
-      setStepTargetProgress(0);
+      setCurrentMessage('');
+      setThinkingDots('');
+      setIsFlashing(true);
     }
   }, [show]);
 
-  // Calculate progress percentage based on current step with time-based progression
+  // Animate thinking dots
   useEffect(() => {
     if (!show) return;
-    
-    const progress = uploadProgress || '';
-    const status = aiStatus || '';
-    const now = Date.now();
-    
-    // Determine current step and target progress
-    let step = '';
-    let targetProgress = 0;
-    let stepMin = 0;
-    let stepMax = 0;
-    
-    if (progress.includes('Reading') || progress.includes('Downloading')) {
-      step = 'reading';
-      stepMin = 5;
-      stepMax = 15;
-      targetProgress = 15;
-    } else if (progress.includes('Analyzing') || progress.includes('Re-processing')) {
-      step = 'analyzing';
-      stepMin = 20;
-      stepMax = 60;
-      // During AI analysis, progress from 20% to 60% based on AI status
-      if (status) {
-        if (status.includes('Identifying document type')) targetProgress = 30;
-        else if (status.includes('Extracting dates')) targetProgress = 40;
-        else if (status.includes('Extracting labs')) targetProgress = 50;
-        else if (status.includes('Extracting vitals')) targetProgress = 55;
-        else if (status.includes('Extracting genomic')) targetProgress = 58;
-        else if (status.includes('Validating data')) targetProgress = 60;
-        else targetProgress = 35; // General analyzing
-      } else {
-        targetProgress = 25; // Starting analysis
-      }
-    } else if (progress.includes('Uploading')) {
-      step = 'uploading';
-      stepMin = 65;
-      stepMax = 75;
-      targetProgress = 75;
-    } else if (progress.includes('Linking')) {
-      step = 'linking';
-      stepMin = 75;
-      stepMax = 80;
-      targetProgress = 80;
-    } else if (progress.includes('Saving')) {
-      step = 'saving';
-      stepMin = 80;
-      stepMax = 90;
-      targetProgress = 90;
-    } else if (progress.includes('Refreshing')) {
-      step = 'refreshing';
-      stepMin = 90;
-      stepMax = 100;
-      targetProgress = 100;
-    } else {
-      step = 'initializing';
-      stepMin = 0;
-      stepMax = 10;
-      targetProgress = 10;
-    }
-    
-    // If step changed, reset step timer
-    if (step !== currentStep) {
-      setCurrentStep(step);
-      setStepStartTime(now);
-      setStepTargetProgress(targetProgress);
-    }
-    
-    // Calculate time-based progress within current step
-    const stepElapsed = stepStartTime ? (now - stepStartTime) / 1000 : 0; // seconds
-    const stepDuration = step === 'analyzing' ? 30 : // AI analysis can take 30+ seconds
-                        step === 'saving' ? 10 : // Saving can take 10 seconds
-                        step === 'reading' ? 3 : // Reading/downloading usually quick
-                        step === 'uploading' ? 5 : // Upload usually quick
-                        step === 'linking' ? 2 : // Linking is quick
-                        step === 'refreshing' ? 3 : // Refreshing is quick
-                        2; // Default 2 seconds
-    
-    // Gradually increase progress within step bounds, but don't exceed target
-    let timeBasedProgress = stepMin + (stepMax - stepMin) * Math.min(stepElapsed / stepDuration, 0.9); // Cap at 90% of step range
-    timeBasedProgress = Math.min(timeBasedProgress, targetProgress);
-    
-    // Use the higher of time-based or target progress (target takes precedence when reached)
-    const finalProgress = Math.max(timeBasedProgress, progressPercentage);
-    
-    // Only update if progress actually increased
-    if (finalProgress > progressPercentage) {
-      setProgressPercentage(finalProgress);
-    }
-  }, [show, uploadProgress, aiStatus, currentStep, stepStartTime, progressPercentage]);
 
-  // Smooth progress animation with gradual increase
-  useEffect(() => {
-    if (!show) return;
-    
     const interval = setInterval(() => {
-      setSmoothProgress(prev => {
-        if (prev < progressPercentage) {
-          // Calculate smooth increment - faster when far behind, slower when close
-          const diff = progressPercentage - prev;
-          const increment = Math.max(diff * 0.15, 0.3); // At least 0.3% per frame, up to 15% of remaining
-          return Math.min(prev + increment, progressPercentage);
-        }
-        // If we're ahead (shouldn't happen), gradually catch up
-        if (prev > progressPercentage) {
-          const diff = prev - progressPercentage;
-          return Math.max(prev - diff * 0.2, progressPercentage);
-        }
-        return prev;
+      setThinkingDots(prev => {
+        if (prev === '...') return '';
+        return prev + '.';
       });
-    }, 50); // Update every 50ms for smooth animation
+    }, 500);
 
     return () => clearInterval(interval);
-  }, [show, progressPercentage]);
+  }, [show]);
+
+  // Flash/pulse animation for status labels at 1 second interval
+  useEffect(() => {
+    if (!show) return;
+
+    // Stop flashing if processing is complete
+    const isComplete = currentMessage && (
+      currentMessage.toLowerCase().includes('complete') || 
+      currentMessage.toLowerCase().includes('saved')
+    );
+
+    if (isComplete) {
+      setIsFlashing(true); // Reset to full opacity when complete
+      return;
+    }
+
+    const flashInterval = setInterval(() => {
+      setIsFlashing(prev => !prev);
+    }, 1000); // Flash every 1 second
+
+    return () => clearInterval(flashInterval);
+  }, [show, currentMessage]);
+
+  // Update current message based on progress and AI status
+  useEffect(() => {
+    if (!show) return;
+
+    // Prioritize AI status if available (more specific)
+    if (aiStatus) {
+      setCurrentMessage(aiStatus);
+      return;
+    }
+
+    // Otherwise use upload progress
+    if (uploadProgress) {
+      // Clean up progress messages to be more user-friendly
+      let cleanMessage = uploadProgress;
+      
+      // Remove file prefixes like [File 1/3]
+      cleanMessage = cleanMessage.replace(/\[File \d+\/\d+\]\s*/g, '');
+      
+      // Simplify technical messages
+      cleanMessage = cleanMessage
+        .replace(/Analyzing document with AI\.\.\./i, 'Analyzing document...')
+        .replace(/Reading document\.\.\./i, 'Reading document...')
+        .replace(/Uploading to secure storage\.\.\./i, 'Saving document...')
+        .replace(/Linking data to document\.\.\./i, 'Organizing data...')
+        .replace(/Refreshing your health data\.\.\./i, 'Updating records...')
+        .replace(/Processing file \d+ of \d+:/i, 'Processing:');
+      
+      setCurrentMessage(cleanMessage);
+      return;
+    }
+
+    // Default thinking message
+    setCurrentMessage('Processing your document...');
+  }, [show, uploadProgress, aiStatus]);
 
   if (!show) return null;
 
+  // Show extracted data summary if available
+  const showExtractedData = extractedDataCounts && (
+    extractedDataCounts.labs > 0 ||
+    extractedDataCounts.vitals > 0 ||
+    extractedDataCounts.mutations > 0 ||
+    extractedDataCounts.medications > 0 ||
+    extractedDataCounts.hasGenomic
+  );
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 animate-fade-scale">
+      <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
         <div className="text-center">
-          {/* Progress Bar */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className={combineClasses('text-xl font-bold', DesignTokens.colors.neutral.text[900])}>
-                {uploadProgress.includes('[File') 
-                  ? uploadProgress.match(/\[File \d+\/\d+\]/)?.[0] || 'Processing Documents'
-                  : 'Processing Document'}
-              </h3>
-              <span className={combineClasses('text-sm font-medium', DesignTokens.colors.neutral.text[600])}>{Math.round(smoothProgress)}%</span>
-            </div>
-            <div className={combineClasses('w-full h-3 rounded-full overflow-hidden', DesignTokens.colors.neutral[200])}>
-              <div 
-                className={combineClasses('h-full transition-all duration-300 ease-out rounded-full bg-gradient-to-r', 'from-gray-800', 'to-gray-700')}
-                style={{ width: `${smoothProgress}%` }}
-              />
+          {/* Thinking Animation */}
+          <div className="mb-6 flex justify-center">
+            <div className="relative">
+              <Loader2 className={combineClasses('w-12 h-12 animate-spin', DesignTokens.colors.app.text[600])} />
             </div>
           </div>
 
-          {/* Progress text - Show aiStatus if available (more specific), otherwise show uploadProgress */}
-          {aiStatus && (uploadProgress.includes('Saving') || uploadProgress.includes('Analyzing') || uploadProgress.includes('Re-processing')) ? (
-            <div className={combineClasses('mb-4 p-3 rounded-lg', 'bg-gray-50', DesignTokens.borders.width.default, 'border-gray-200')}>
-              <p className={combineClasses('text-lg font-medium flex items-center gap-2', 'text-gray-800')}>
-                <span className={combineClasses('w-2 h-2 rounded-full animate-pulse', 'bg-gray-800')}></span>
-                {aiStatus}
+          {/* Status Message */}
+          <div className="mb-4">
+            <h3 
+              className={combineClasses(
+                'text-xl font-semibold mb-2 transition-opacity duration-500',
+                DesignTokens.colors.neutral.text[900],
+                isFlashing ? 'opacity-100' : 'opacity-60'
+              )}
+            >
+              {currentMessage || 'Processing...'}
+            </h3>
+            
+            {/* Thinking indicator when processing */}
+            {currentMessage && !currentMessage.toLowerCase().includes('complete') && !currentMessage.toLowerCase().includes('saved') && (
+              <div className="flex items-center justify-center gap-1 mt-2">
+                <span 
+                  className={combineClasses(
+                    'text-sm transition-opacity duration-500',
+                    DesignTokens.colors.neutral.text[500],
+                    isFlashing ? 'opacity-100' : 'opacity-60'
+                  )}
+                >
+                  {thinkingDots || '.'}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Extracted Data Summary - Show immediately when available */}
+          {showExtractedData && (
+            <div className={combineClasses(
+              'mt-4 p-4 rounded-lg border',
+              'bg-green-50',
+              DesignTokens.borders.width.default,
+              'border-green-200'
+            )}>
+              <p 
+                className={combineClasses(
+                  'text-sm font-medium mb-1 transition-opacity duration-500',
+                  'text-green-800',
+                  isFlashing ? 'opacity-100' : 'opacity-60'
+                )}
+              >
+                Found:
               </p>
+              <div className={combineClasses('text-xs space-y-1', 'text-green-700')}>
+                {extractedDataCounts.labs > 0 && (
+                  <p className={combineClasses('transition-opacity duration-500', isFlashing ? 'opacity-100' : 'opacity-70')}>
+                    • {extractedDataCounts.labs} lab result{extractedDataCounts.labs !== 1 ? 's' : ''}
+                  </p>
+                )}
+                {extractedDataCounts.vitals > 0 && (
+                  <p className={combineClasses('transition-opacity duration-500', isFlashing ? 'opacity-100' : 'opacity-70')}>
+                    • {extractedDataCounts.vitals} vital sign{extractedDataCounts.vitals !== 1 ? 's' : ''}
+                  </p>
+                )}
+                {extractedDataCounts.mutations > 0 && (
+                  <p className={combineClasses('transition-opacity duration-500', isFlashing ? 'opacity-100' : 'opacity-70')}>
+                    • {extractedDataCounts.mutations} mutation{extractedDataCounts.mutations !== 1 ? 's' : ''}
+                  </p>
+                )}
+                {extractedDataCounts.hasGenomic && extractedDataCounts.mutations === 0 && (
+                  <p className={combineClasses('transition-opacity duration-500', isFlashing ? 'opacity-100' : 'opacity-70')}>
+                    • Genomic profile
+                  </p>
+                )}
+                {extractedDataCounts.medications > 0 && (
+                  <p className={combineClasses('transition-opacity duration-500', isFlashing ? 'opacity-100' : 'opacity-70')}>
+                    • {extractedDataCounts.medications} medication{extractedDataCounts.medications !== 1 ? 's' : ''}
+                  </p>
+                )}
+              </div>
             </div>
-          ) : (
-            <p className={combineClasses('mb-4 text-lg font-medium', DesignTokens.colors.neutral.text[600])}>{uploadProgress}</p>
           )}
 
-          {/* Progress steps */}
-          <div className={combineClasses('space-y-2 text-left rounded-lg p-4', DesignTokens.colors.neutral[50])}>
-            {/* Step 1: Reading/Downloading */}
-            <div className="flex items-center gap-3 text-sm">
-              <div className={combineClasses(
-                'w-2 h-2 rounded-full',
-                uploadProgress.includes('Reading') || uploadProgress.includes('Downloading') ? combineClasses('animate-pulse', 'bg-gray-800') :
-                uploadProgress.includes('Analyzing') || uploadProgress.includes('Re-processing') || uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? 'bg-green-600' :
-                DesignTokens.colors.neutral[300]
-              )}></div>
-              <span className={combineClasses(
-                'text-sm',
-                uploadProgress.includes('Reading') || uploadProgress.includes('Downloading') || uploadProgress.includes('Analyzing') || uploadProgress.includes('Re-processing') || uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? DesignTokens.colors.neutral.text[900] : DesignTokens.colors.neutral.text[500]
-              )}>Reading document</span>
-            </div>
-            {/* Step 2: Analyzing/Re-processing */}
-            <div className="flex items-center gap-3 text-sm">
-              <div className={combineClasses(
-                'w-2 h-2 rounded-full',
-                uploadProgress.includes('Analyzing') || uploadProgress.includes('Re-processing') ? combineClasses('animate-pulse', 'bg-gray-800') :
-                uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? 'bg-green-600' :
-                DesignTokens.colors.neutral[300]
-              )}></div>
-              <span className={combineClasses(
-                'text-sm',
-                uploadProgress.includes('Analyzing') || uploadProgress.includes('Re-processing') || uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') ? DesignTokens.colors.neutral.text[900] : DesignTokens.colors.neutral.text[500]
-              )}>Analyzing with AI</span>
-            </div>
-            {/* Step 3: Uploading (skipped for rescan) */}
-            <div className="flex items-center gap-3 text-sm">
-              <div className={combineClasses(
-                'w-2 h-2 rounded-full',
-                uploadProgress.includes('Uploading') ? combineClasses('animate-pulse', 'bg-gray-800') :
-                uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') || uploadProgress.includes('Re-processing') ? 'bg-green-600' :
-                DesignTokens.colors.neutral[300]
-              )}></div>
-              <span className={combineClasses(
-                'text-sm',
-                uploadProgress.includes('Uploading') || uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') || uploadProgress.includes('Re-processing') ? DesignTokens.colors.neutral.text[900] : DesignTokens.colors.neutral.text[500]
-              )}>Uploading to storage</span>
-            </div>
-            {/* Step 4: Saving */}
-            <div className="flex items-center gap-3 text-sm">
-              <div className={combineClasses(
-                'w-2 h-2 rounded-full',
-                uploadProgress.includes('Saving') || (uploadProgress.includes('Re-processing') && !uploadProgress.includes('Refreshing')) ? combineClasses('animate-pulse', 'bg-gray-800') :
-                uploadProgress.includes('Refreshing') ? 'bg-green-600' :
-                DesignTokens.colors.neutral[300]
-              )}></div>
-              <span className={combineClasses(
-                'text-sm',
-                uploadProgress.includes('Saving') || uploadProgress.includes('Refreshing') || uploadProgress.includes('Re-processing') ? DesignTokens.colors.neutral.text[900] : DesignTokens.colors.neutral.text[500]
-              )}>Saving extracted data</span>
-            </div>
-            {/* Step 5: Refreshing */}
-            <div className="flex items-center gap-3 text-sm">
-              <div className={combineClasses(
-                'w-2 h-2 rounded-full',
-                uploadProgress.includes('Refreshing') ? combineClasses('animate-pulse', 'bg-gray-800') :
-                DesignTokens.colors.neutral[300]
-              )}></div>
-              <span className={combineClasses(
-                'text-sm',
-                uploadProgress.includes('Refreshing') ? DesignTokens.colors.neutral.text[900] : DesignTokens.colors.neutral.text[500]
-              )}>Updating dashboard</span>
-            </div>
-          </div>
-
-          <p className={combineClasses('text-xs mt-4', DesignTokens.colors.neutral.text[500])}>
+          {/* Helpful hint */}
+          <p className={combineClasses('text-xs mt-6', DesignTokens.colors.neutral.text[500])}>
             Please don't close this window
           </p>
         </div>
@@ -249,4 +193,3 @@ export default function UploadProgressOverlay({ show, uploadProgress, aiStatus }
     </div>
   );
 }
-
