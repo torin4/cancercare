@@ -336,25 +336,25 @@ export default function RescanDocumentModal({
             const docType = document?.documentType || document?.type || '';
             const isGenomic = docType.toLowerCase() === 'genomic' || docType.toLowerCase() === 'genetic' || docType.toLowerCase() === 'genomic-profile';
             return !isGenomic ? (
-              <div className={combineClasses(DesignTokens.spacing.card.mobile, DesignTokens.borders.width.default, DesignTokens.borders.radius.sm, DesignTokens.colors.neutral[50], DesignTokens.colors.neutral.border[200])}>
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={onlyExistingMetrics}
-                    onChange={(e) => setOnlyExistingMetrics(e.target.checked)}
-                    disabled={isProcessing}
-                    className={combineClasses('mt-1', DesignTokens.components.input.checkbox)}
-                  />
-                  <div className="flex-1">
-                    <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-1', DesignTokens.colors.neutral.text[900])}>
-                      Extract only metrics that exist in my profile
-                    </p>
-                    <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.neutral.text[600])}>
-                      Only extract lab values and vitals that you've already added to your health profile. This helps avoid creating duplicate entries for tests you don't track.
-                    </p>
-                  </div>
-                </label>
+          <div className={combineClasses(DesignTokens.spacing.card.mobile, DesignTokens.borders.width.default, DesignTokens.borders.radius.sm, DesignTokens.colors.neutral[50], DesignTokens.colors.neutral.border[200])}>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={onlyExistingMetrics}
+                onChange={(e) => setOnlyExistingMetrics(e.target.checked)}
+                disabled={isProcessing}
+                className={combineClasses('mt-1', DesignTokens.components.input.checkbox)}
+              />
+              <div className="flex-1">
+                <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-1', DesignTokens.colors.neutral.text[900])}>
+                  Extract only metrics that exist in my profile
+                </p>
+                <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.neutral.text[600])}>
+                  Only extract lab values and vitals that you've already added to your health profile. This helps avoid creating duplicate entries for tests you don't track.
+                </p>
               </div>
+            </label>
+          </div>
             ) : null;
           })()}
         </div>

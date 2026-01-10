@@ -124,7 +124,7 @@ export const labSynonymMap = {
   
   // Blood Counts
   'wbc': ['wbc'],
-  'rbc': ['rbc'],
+  'rbc': ['rbc', 'red blood cell count', 'red blood cells', 'red blood cell', 'redbloodcellcount', 'redbloodcells', 'redbloodcell', 'erythrocytes', 'erythrocyte count'],
   'hemoglobin': ['hemoglobin', 'hgb'],
   'hematocrit': ['hematocrit', 'hct'],
   'platelets': ['platelets', 'plt'],
@@ -350,6 +350,11 @@ export const normalizeLabName = (rawName) => {
   cleaned = cleaned.replace(/ca125/g, 'ca125');
   cleaned = cleaned.replace(/freet3/g, 'ft3');
   cleaned = cleaned.replace(/freet4/g, 'ft4');
+  
+  // Normalize red blood cell variations to rbc (before labKeyMap lookup)
+  if (cleaned.includes('redbloodcell') || cleaned.includes('erythrocyte') || cleaned === 'rbc') {
+    cleaned = 'rbc';
+  }
   
   // Look up in synonym map
   const canonicalKey = labKeyMap[cleaned];
