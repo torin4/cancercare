@@ -38,8 +38,9 @@ import LabTooltipModal from '../../../modals/LabTooltipModal';
 import { isLabEmpty, filterLabsBySearch } from '../utils/labFilters';
 import { calculateYAxisBounds, generateYAxisLabels, parseNormalRangeForChart, generateChartPoints } from '../utils/chartUtils';
 import { getTodayLocalDate, formatDateString } from '../../../../utils/helpers';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 
-export default function LabsSection({ 
+function LabsSection({ 
   onTabChange,
   openDocumentOnboarding,
   selectedDataPoint,
@@ -55,6 +56,8 @@ export default function LabsSection({
   // Labs-specific state
   const [selectedLab, setSelectedLab] = useState('ca125');
   const [labSearchQuery, setLabSearchQuery] = useState('');
+  // Debounce search query to avoid filtering on every keystroke
+  const debouncedSearchQuery = useDebouncedValue(labSearchQuery, 300);
   const [hideEmptyMetrics, setHideEmptyMetrics] = useState(false);
   const [isDeletingEmptyMetrics, setIsDeletingEmptyMetrics] = useState(false);
   const [showAddLab, setShowAddLab] = useState(false);
@@ -175,35 +178,94 @@ export default function LabsSection({
     }
   }, []);
 
-  // Get current lab, ensuring it exists
-  const currentLab = allLabData[selectedLab] || Object.values(allLabData).find(lab => lab.isNumeric) || Object.values(allLabData)[0] || {
-    name: 'No Data',
-    current: '--',
-    unit: '',
-    status: 'normal',
-    trend: 'stable',
-    normalRange: '--',
-    isNumeric: false,
-    data: []
-  };
+  // Memoize current lab calculation - recalculates only when selectedLab or allLabData changes
+  const currentLab = useMemo(() => {
+    return allLabData[selectedLab] || Object.values(allLabData).find(lab => lab.isNumeric) || Object.values(allLabData)[0] || {
+      name: 'No Data',
+      current: '--',
+      unit: '',
+      status: 'normal',
+      trend: 'stable',
+      normalRange: '--',
+      isNumeric: false,
+      data: []
+    };
+  }, [allLabData, selectedLab]);
 
   // Memoize categorized labs
   const categorizedLabs = useMemo(() => {
     return categorizeLabs(allLabData);
   }, [allLabData]);
 
-  // Filter labs by search and empty metrics
+  // Filter labs by search and empty metrics - use debounced search query
   const filteredCategorizedLabs = useMemo(() => {
     const filtered = {};
     Object.keys(categorizedLabs).forEach(category => {
       const categoryLabs = categorizedLabs[category];
-      const filteredLabs = filterLabsBySearch(categoryLabs, labSearchQuery, hideEmptyMetrics);
+      const filteredLabs = filterLabsBySearch(categoryLabs, debouncedSearchQuery, hideEmptyMetrics);
       if (filteredLabs.length > 0) {
         filtered[category] = filteredLabs;
       }
     });
     return filtered;
-  }, [categorizedLabs, labSearchQuery, hideEmptyMetrics]);
+  }, [categorizedLabs, debouncedSearchQuery, hideEmptyMetrics]);
+
+  // Memoize chart calculations for current lab
+  const chartData = useMemo(() => {
+    if (!currentLab || !currentLab.isNumeric || !currentLab.data || currentLab.data.length === 0) {
+      return null;
+    }
+
+    const values = currentLab.data
+      .map(d => parseFloat(d.value))
+      .filter(v => !isNaN(v) && isFinite(v));
+
+    if (values.length === 0) {
+      return null;
+    }
+
+    const bounds = calculateYAxisBounds(currentLab.data, currentLab.normalRange);
+    const { yMin, yMax, yRange } = bounds;
+    const normalRange = parseNormalRangeForChart(currentLab.normalRange, yMin, yRange);
+    const dataLength = Math.max(currentLab.data.length - 1, 1);
+    const points = generateChartPoints(currentLab.data, yMin, yRange, 400);
+
+    return {
+      bounds,
+      normalRange,
+      points,
+      dataLength,
+      hasData: true
+    };
+  }, [currentLab]);
+
+  // Memoize X-axis labels calculation
+  const xAxisLabels = useMemo(() => {
+    if (!currentLab || !currentLab.data || currentLab.data.length === 0) {
+      return [];
+    }
+
+    const seenMonthYears = new Set();
+    const monthYearData = [];
+    const dataLength = currentLab.data.length;
+
+    currentLab.data.forEach((d, i) => {
+      let dateObj = d.dateOriginal;
+      if (!dateObj && d.timestamp) {
+        dateObj = new Date(d.timestamp);
+      }
+      if (dateObj instanceof Date && !isNaN(dateObj.getTime())) {
+        const monthYear = dateObj.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+        if (!seenMonthYears.has(monthYear)) {
+          seenMonthYears.add(monthYear);
+          const leftPercent = (i / Math.max(dataLength - 1, 1)) * 100;
+          monthYearData.push({ label: monthYear, index: i, position: leftPercent });
+        }
+      }
+    });
+
+    return monthYearData;
+  }, [currentLab]);
 
   // Category order for display
   const categoryOrder = [
@@ -400,24 +462,19 @@ export default function LabsSection({
                   <div className="flex gap-2 sm:gap-3">
                     {/* Y-axis labels */}
                     <div className={combineClasses("flex flex-col justify-between text-xs font-medium py-2", DesignTokens.colors.neutral.text[600])} style={{ paddingBottom: '1.5rem' }}>
-                      {(() => {
-                        const values = currentLab.data
-                          .map(d => parseFloat(d.value))
-                          .filter(v => !isNaN(v) && isFinite(v));
-
-                        if (values.length === 0) {
-                          return <div className="text-right pr-2 w-10">--</div>;
-                        }
-
-                        const { yMin, yMax, yRange } = calculateYAxisBounds(currentLab.data, currentLab.normalRange);
-                        const step = (yMax - yMin) / 4;
-
-                        return [4, 3, 2, 1, 0].map(i => (
-                          <div key={i} className="text-right pr-2 w-10" style={{ lineHeight: '1' }}>
-                            {(yMin + (step * i)).toFixed(yMax > 100 ? 0 : 1)}
-                          </div>
-                        ));
-                      })()}
+                      {chartData ? (
+                        (() => {
+                          const { yMin, yMax } = chartData.bounds;
+                          const step = (yMax - yMin) / 4;
+                          return [4, 3, 2, 1, 0].map(i => (
+                            <div key={i} className="text-right pr-2 w-10" style={{ lineHeight: '1' }}>
+                              {(yMin + (step * i)).toFixed(yMax > 100 ? 0 : 1)}
+                            </div>
+                          ));
+                        })()
+                      ) : (
+                        <div className="text-right pr-2 w-10">--</div>
+                      )}
                     </div>
 
                     {/* Chart area */}
@@ -431,23 +488,7 @@ export default function LabsSection({
                         </div>
 
                         {/* SVG Graph */}
-                        {(() => {
-                          const values = currentLab.data
-                            .map(d => parseFloat(d.value))
-                            .filter(v => !isNaN(v) && isFinite(v));
-
-                          if (values.length === 0) {
-                            return (
-                              <div className={combineClasses("flex items-center justify-center h-full", DesignTokens.colors.neutral.text[300])}>
-                                <p>No numeric data available for charting</p>
-                              </div>
-                            );
-                          }
-
-                          const bounds = calculateYAxisBounds(currentLab.data, currentLab.normalRange);
-                          const { yMin, yMax, yRange } = bounds;
-
-                          return (
+                        {chartData ? (
                             <>
                               <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 400 160" preserveAspectRatio="none">
                                 <defs>
@@ -458,8 +499,8 @@ export default function LabsSection({
                                 </defs>
 
                                 {/* Normal range boundaries */}
-                                {(() => {
-                                  const normalRange = parseNormalRangeForChart(currentLab.normalRange, yMin, yRange);
+                                {chartData.normalRange && (() => {
+                                  const normalRange = chartData.normalRange;
                                   if (!normalRange) return null;
 
                                   if (normalRange.type === 'range') {
@@ -498,26 +539,13 @@ export default function LabsSection({
 
                                 {/* Area under line */}
                                 <polygon
-                                  points={(() => {
-                                    const dataLength = Math.max(currentLab.data.length - 1, 1);
-                                    const topPoints = currentLab.data.map((d, i) => {
-                                      const val = parseFloat(d.value);
-                                      return `${(i / dataLength) * 400},${160 - ((val - yMin) / yRange) * 160}`;
-                                    }).join(' ');
-                                    return `${topPoints} 400,160 0,160`;
-                                  })()}
+                                  points={`${chartData.points} 400,160 0,160`}
                                   fill={`url(#gradient-${selectedLab})`}
                                 />
 
                                 {/* Line */}
                                 <polyline
-                                  points={(() => {
-                                    const dataLength = Math.max(currentLab.data.length - 1, 1);
-                                    return currentLab.data.map((d, i) => {
-                                      const val = parseFloat(d.value);
-                                      return `${(i / dataLength) * 400},${160 - ((val - yMin) / yRange) * 160}`;
-                                    }).join(' ');
-                                  })()}
+                                  points={chartData.points}
                                   fill="none"
                                   stroke="#3b82f6"
                                   strokeWidth="4"
@@ -530,9 +558,10 @@ export default function LabsSection({
 
                               {/* Interactive data points with tooltips */}
                               {currentLab.data.map((d, i) => {
-                                const dataLength = Math.max(currentLab.data.length - 1, 1);
+                                const dataLength = chartData.dataLength;
                                 const x = (i / dataLength) * 100;
                                 const val = parseFloat(d.value);
+                                const { yMin, yRange } = chartData.bounds;
                                 const y = ((val - yMin) / yRange) * 100;
                                 const isLatest = i === currentLab.data.length - 1;
                                 
@@ -729,35 +758,21 @@ export default function LabsSection({
                                 );
                               })}
                             </>
-                          );
-                        })()}
+                          ) : (
+                            <div className={combineClasses("flex items-center justify-center h-full", DesignTokens.colors.neutral.text[300])}>
+                              <p>No numeric data available for charting</p>
+                            </div>
+                          )}
                       </div>
 
                       {/* X-axis labels - show unique month/year only */}
                       <div className={combineClasses("relative border-t pt-2 text-xs", DesignTokens.colors.neutral.border[300], DesignTokens.colors.neutral.text[600])} style={{ height: '20px' }}>
                         {(() => {
-                          if (!currentLab.data || currentLab.data.length === 0) {
+                          if (!xAxisLabels || xAxisLabels.length === 0) {
                             return <span>No data</span>;
                           }
 
-                          const seenMonthYears = new Set();
-                          const monthYearData = [];
-                          const dataLength = currentLab.data.length;
-
-                          currentLab.data.forEach((d, i) => {
-                            let dateObj = d.dateOriginal;
-                            if (!dateObj && d.timestamp) {
-                              dateObj = new Date(d.timestamp);
-                            }
-                            if (dateObj instanceof Date && !isNaN(dateObj.getTime())) {
-                              const monthYear = dateObj.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-                              if (!seenMonthYears.has(monthYear)) {
-                                seenMonthYears.add(monthYear);
-                                const leftPercent = (i / Math.max(dataLength - 1, 1)) * 100;
-                                monthYearData.push({ label: monthYear, index: i, position: leftPercent });
-                              }
-                            }
-                          });
+                          const monthYearData = xAxisLabels;
 
                           // Progressive truncation based on screen size
                           const getLabels = (count) => {
@@ -1833,3 +1848,17 @@ export default function LabsSection({
     </div>
   );
 }
+
+// Memoize component to prevent unnecessary re-renders
+// Only re-renders when props change
+export default React.memo(LabsSection, (prevProps, nextProps) => {
+  // Custom comparison function for optimal performance
+  return (
+    prevProps.selectedDataPoint?.id === nextProps.selectedDataPoint?.id &&
+    prevProps.hoveredDataPoint?.id === nextProps.hoveredDataPoint?.id &&
+    prevProps.onTabChange === nextProps.onTabChange &&
+    prevProps.openDocumentOnboarding === nextProps.openDocumentOnboarding &&
+    prevProps.setSelectedDataPoint === nextProps.setSelectedDataPoint &&
+    prevProps.setHoveredDataPoint === nextProps.setHoveredDataPoint
+  );
+});

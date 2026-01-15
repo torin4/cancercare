@@ -19,7 +19,7 @@ import { useBanner } from '../../../../contexts/BannerContext';
 import { medicationService, medicationLogService } from '../../../../firebase/services';
 import AddMedicationModal from '../../../modals/AddMedicationModal';
 
-export default function MedicationsSection({ onTabChange }) {
+function MedicationsSection({ onTabChange }) {
   const { user } = useAuth();
   const { showSuccess, showError } = useBanner();
 
@@ -439,3 +439,8 @@ export default function MedicationsSection({ onTabChange }) {
     </div>
   );
 }
+
+// Memoize component to prevent unnecessary re-renders
+export default React.memo(MedicationsSection, (prevProps, nextProps) => {
+  return prevProps.onTabChange === nextProps.onTabChange;
+});

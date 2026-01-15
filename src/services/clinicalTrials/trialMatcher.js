@@ -12,7 +12,8 @@ const MEDICAL_TERM_SYNONYMS = {
   'cancer': ['neoplasm', 'neoplasms', 'carcinoma', 'carcinomas', 'tumor', 'tumors', 'tumour', 'tumours', 'malignancy', 'malignancies'],
   'neoplasm': ['cancer', 'carcinoma', 'tumor', 'tumour', 'malignancy'],
   'neoplasms': ['cancer', 'carcinoma', 'tumor', 'tumour', 'malignancy'],
-  'carcinoma': ['cancer', 'neoplasm', 'tumor', 'tumour', 'malignancy'],
+  'carcinoma': ['cancer', 'neoplasm', 'tumor', 'tumour', 'malignancy', 'adenocarcinoma'],
+  'adenocarcinoma': ['carcinoma', 'cancer', 'neoplasm', 'tumor', 'tumour'],
   'tumor': ['cancer', 'neoplasm', 'carcinoma', 'tumour', 'malignancy'],
   'tumour': ['cancer', 'neoplasm', 'carcinoma', 'tumor', 'malignancy'],
   
@@ -26,15 +27,127 @@ const MEDICAL_TERM_SYNONYMS = {
   'lung cancer': ['lung neoplasm', 'lung neoplasms', 'lung carcinoma', 'lung tumor', 'lung tumour'],
   'colorectal cancer': ['colorectal neoplasm', 'colorectal neoplasms', 'colorectal carcinoma', 'colorectal tumor', 'colorectal tumour'],
   
-  // Subtype synonyms
-  'clear cell': ['clear cell carcinoma', 'clear cell cancer', 'clear cell neoplasm'],
-  'clear cell carcinoma': ['clear cell', 'clear cell cancer', 'clear cell neoplasm'],
-  'clear cell sarcoma': ['clear cell', 'clear cell cancer', 'clear cell neoplasm'],
+  // Subtype synonyms - Ovarian/Endometrial/Uterine subtypes
+  'clear cell': ['clear cell carcinoma', 'clear cell cancer', 'clear cell neoplasm', 'clear cell sarcoma'],
+  'clear cell carcinoma': ['clear cell', 'clear cell cancer', 'clear cell neoplasm', 'clear cell sarcoma'],
+  'clear cell sarcoma': ['clear cell', 'clear cell cancer', 'clear cell carcinoma', 'clear cell neoplasm'],
   'clear cell cancer': ['clear cell', 'clear cell carcinoma', 'clear cell sarcoma', 'clear cell neoplasm'],
   
-  'serous': ['serous carcinoma', 'serous cancer', 'serous neoplasm'],
-  'endometrioid': ['endometrioid carcinoma', 'endometrioid cancer', 'endometrioid neoplasm'],
-  'mucinous': ['mucinous carcinoma', 'mucinous cancer', 'mucinous neoplasm'],
+  'serous': ['serous carcinoma', 'serous cancer', 'serous neoplasm', 'high-grade serous', 'low-grade serous', 'high grade serous', 'low grade serous'],
+  'high-grade serous': ['serous', 'serous carcinoma', 'high grade serous', 'hgsc'],
+  'low-grade serous': ['serous', 'serous carcinoma', 'low grade serous', 'lgsc'],
+  'high grade serous': ['serous', 'high-grade serous', 'hgsc'],
+  'low grade serous': ['serous', 'low-grade serous', 'lgsc'],
+  'serous carcinoma': ['serous', 'serous cancer', 'serous neoplasm'],
+  'serous cancer': ['serous', 'serous carcinoma', 'serous neoplasm'],
+  
+  'endometrioid': ['endometrioid carcinoma', 'endometrioid cancer', 'endometrioid neoplasm', 'endometrial'],
+  'endometrioid carcinoma': ['endometrioid', 'endometrioid cancer', 'endometrioid neoplasm'],
+  'endometrioid cancer': ['endometrioid', 'endometrioid carcinoma', 'endometrioid neoplasm'],
+  
+  'mucinous': ['mucinous carcinoma', 'mucinous cancer', 'mucinous neoplasm', 'mucinous adenocarcinoma'],
+  'mucinous carcinoma': ['mucinous', 'mucinous cancer', 'mucinous adenocarcinoma'],
+  'mucinous adenocarcinoma': ['mucinous', 'mucinous carcinoma'],
+  'mucinous cancer': ['mucinous', 'mucinous carcinoma'],
+  
+  'carcinosarcoma': ['carcinosarcoma', 'malignant mixed mullerian tumor', 'mmmt'],
+  
+  // Lung cancer subtypes
+  'squamous': ['squamous cell carcinoma', 'squamous carcinoma', 'squamous cell', 'scc'],
+  'squamous cell carcinoma': ['squamous', 'squamous carcinoma', 'squamous cell', 'scc'],
+  'squamous cell': ['squamous', 'squamous cell carcinoma', 'scc'],
+  'squamous carcinoma': ['squamous', 'squamous cell carcinoma', 'scc'],
+  
+  'small cell': ['small cell lung cancer', 'small cell carcinoma', 'sclc'],
+  'small cell lung cancer': ['small cell', 'small cell carcinoma', 'sclc'],
+  'small cell carcinoma': ['small cell', 'small cell lung cancer', 'sclc'],
+  
+  'large cell': ['large cell carcinoma', 'large cell lung cancer', 'lclc'],
+  'large cell carcinoma': ['large cell', 'large cell lung cancer', 'lclc'],
+  
+  // Breast cancer subtypes
+  'ductal': ['invasive ductal', 'invasive ductal carcinoma', 'idc', 'ductal carcinoma'],
+  'invasive ductal': ['ductal', 'invasive ductal carcinoma', 'idc'],
+  'invasive ductal carcinoma': ['ductal', 'invasive ductal', 'idc'],
+  'idc': ['invasive ductal', 'invasive ductal carcinoma', 'ductal'],
+  
+  'lobular': ['invasive lobular', 'invasive lobular carcinoma', 'ilc', 'lobular carcinoma'],
+  'invasive lobular': ['lobular', 'invasive lobular carcinoma', 'ilc'],
+  'invasive lobular carcinoma': ['lobular', 'invasive lobular', 'ilc'],
+  'ilc': ['invasive lobular', 'invasive lobular carcinoma', 'lobular'],
+  
+  'triple-negative': ['triple negative', 'tnbc', 'triple negative breast cancer'],
+  'triple negative': ['triple-negative', 'tnbc'],
+  'tnbc': ['triple-negative', 'triple negative'],
+  
+  'her2+': ['her2 positive', 'her-2 positive', 'her2', 'her-2'],
+  'her2 positive': ['her2+', 'her-2 positive', 'her2'],
+  'her-2 positive': ['her2+', 'her2 positive', 'her-2'],
+  
+  'er+/pr+': ['er positive', 'pr positive', 'estrogen receptor positive', 'progesterone receptor positive'],
+  'er positive': ['er+/pr+', 'estrogen receptor positive'],
+  'pr positive': ['er+/pr+', 'progesterone receptor positive'],
+  
+  // Colorectal subtypes
+  'signet ring cell': ['signet ring cell carcinoma', 'signet ring', 'srcc'],
+  'signet ring cell carcinoma': ['signet ring cell', 'signet ring', 'srcc'],
+  
+  // Kidney/Renal subtypes
+  'clear cell rcc': ['clear cell renal cell carcinoma', 'clear cell renal', 'ccrcc'],
+  'clear cell renal cell carcinoma': ['clear cell rcc', 'clear cell renal', 'ccrcc'],
+  'clear cell renal': ['clear cell rcc', 'clear cell renal cell carcinoma', 'ccrcc'],
+  
+  'papillary rcc': ['papillary renal cell carcinoma', 'papillary renal', 'prcc'],
+  'papillary renal cell carcinoma': ['papillary rcc', 'papillary renal', 'prcc'],
+  
+  'chromophobe rcc': ['chromophobe renal cell carcinoma', 'chromophobe renal', 'chcc'],
+  'chromophobe renal cell carcinoma': ['chromophobe rcc', 'chromophobe renal', 'chcc'],
+  
+  // Thyroid subtypes
+  'papillary': ['papillary carcinoma', 'papillary thyroid carcinoma', 'ptc'],
+  'papillary carcinoma': ['papillary', 'papillary thyroid carcinoma', 'ptc'],
+  
+  'follicular': ['follicular carcinoma', 'follicular thyroid carcinoma', 'ftc'],
+  'follicular carcinoma': ['follicular', 'follicular thyroid carcinoma', 'ftc'],
+  
+  'medullary': ['medullary carcinoma', 'medullary thyroid carcinoma', 'mtc'],
+  'medullary carcinoma': ['medullary', 'medullary thyroid carcinoma', 'mtc'],
+  
+  'anaplastic': ['anaplastic carcinoma', 'anaplastic thyroid carcinoma', 'atc'],
+  'anaplastic carcinoma': ['anaplastic', 'anaplastic thyroid carcinoma', 'atc'],
+  
+  // Cervical subtypes
+  'adenosquamous': ['adenosquamous carcinoma', 'adenosquamous cancer'],
+  'adenosquamous carcinoma': ['adenosquamous'],
+  
+  // Bladder subtypes
+  'urothelial': ['urothelial carcinoma', 'transitional cell carcinoma', 'tcc'],
+  'urothelial carcinoma': ['urothelial', 'transitional cell carcinoma', 'tcc'],
+  'transitional cell carcinoma': ['urothelial', 'urothelial carcinoma', 'tcc'],
+  'tcc': ['urothelial', 'urothelial carcinoma', 'transitional cell carcinoma'],
+  
+  // Brain/CNS subtypes
+  'glioblastoma': ['gbm', 'glioblastoma multiforme'],
+  'gbm': ['glioblastoma', 'glioblastoma multiforme'],
+  
+  'astrocytoma': ['astrocytic tumor', 'astrocytic tumour'],
+  'oligodendroglioma': ['oligodendroglial tumor', 'oligodendroglial tumour'],
+  
+  // Pancreatic subtypes
+  'pancreatic ductal adenocarcinoma': ['pda', 'pdac', 'pancreatic adenocarcinoma'],
+  'pda': ['pancreatic ductal adenocarcinoma', 'pdac'],
+  'pdac': ['pancreatic ductal adenocarcinoma', 'pda'],
+  
+  'pancreatic neuroendocrine tumor': ['pnet', 'pancreatic net', 'pancreatic neuroendocrine'],
+  'pnet': ['pancreatic neuroendocrine tumor', 'pancreatic net'],
+  'pancreatic net': ['pancreatic neuroendocrine tumor', 'pnet'],
+  
+  // General term relationships
+  'neuroendocrine': ['neuroendocrine tumor', 'neuroendocrine carcinoma', 'net', 'nec'],
+  'neuroendocrine tumor': ['neuroendocrine', 'net'],
+  'neuroendocrine carcinoma': ['neuroendocrine', 'nec'],
+  'net': ['neuroendocrine', 'neuroendocrine tumor'],
+  'nec': ['neuroendocrine', 'neuroendocrine carcinoma'],
 };
 
 /**
@@ -135,6 +248,48 @@ function normalizeMedicalTerm(term) {
 }
 
 /**
+ * Check if a word appears in text, considering medical synonyms and compound terms
+ * For example, "carcinoma" should match "adenocarcinoma" (since adenocarcinoma contains carcinoma)
+ * Uses the MEDICAL_TERM_SYNONYMS system for comprehensive matching
+ * @param {string} word - Word to check
+ * @param {string} text - Text to search in
+ * @returns {boolean} - True if word appears directly, as substring, or via synonyms
+ */
+function wordAppearsInText(word, text) {
+  if (!word || !text) return false;
+  
+  const wordLower = word.toLowerCase().trim();
+  const textLower = text.toLowerCase();
+  
+  // First check if word appears directly (including as substring of compound terms)
+  if (textLower.includes(wordLower)) return true;
+  
+  // Check synonyms - if any synonym of the word appears in text
+  if (MEDICAL_TERM_SYNONYMS[wordLower]) {
+    const synonyms = MEDICAL_TERM_SYNONYMS[wordLower];
+    if (synonyms.some(syn => textLower.includes(syn.toLowerCase()))) return true;
+  }
+  
+  // Check reverse - if word is a synonym of something in the synonym map
+  for (const [key, synonyms] of Object.entries(MEDICAL_TERM_SYNONYMS)) {
+    if (synonyms.map(s => s.toLowerCase()).includes(wordLower)) {
+      // Word is a synonym - check if the key or other synonyms appear in text
+      if (textLower.includes(key.toLowerCase())) return true;
+      if (synonyms.some(syn => syn.toLowerCase() !== wordLower && textLower.includes(syn.toLowerCase()))) return true;
+    }
+  }
+  
+  // Check for compound terms (e.g., "carcinoma" in "adenocarcinoma")
+  // Use normalized synonyms to find related terms
+  const normalizedWord = normalizeMedicalTerm(word);
+  for (const norm of normalizedWord) {
+    if (norm !== wordLower && textLower.includes(norm)) return true;
+  }
+  
+  return false;
+}
+
+/**
  * Check if a term is generic (too broad to match specific subtypes)
  * @param {string} term - Medical term to check
  * @returns {boolean} - True if term is generic
@@ -150,6 +305,61 @@ function isGenericTerm(term) {
     'malignancy', 'malignancies'
   ];
   return genericTerms.includes(termLower);
+}
+
+/**
+ * Check if a term is a generic cancer type (location/organ + generic cancer word)
+ * Examples: "Ovarian Cancer", "Breast Cancer", "Lung Carcinoma" - these are cancer types, not subtypes
+ * @param {string} term - Term to check
+ * @returns {boolean} - True if term is a generic cancer type
+ */
+function isGenericCancerType(term) {
+  if (!term) return false;
+  const termLower = term.toLowerCase().trim();
+  
+  // List of common location/organ names
+  const locationTerms = [
+    'ovarian', 'breast', 'lung', 'colorectal', 'colon', 'rectal', 'prostate',
+    'pancreatic', 'pancreas', 'liver', 'hepatic', 'gastric', 'stomach',
+    'esophageal', 'esophagus', 'head', 'neck', 'brain', 'cerebral',
+    'skin', 'melanoma', 'kidney', 'renal', 'bladder', 'uterine', 'endometrial',
+    'cervical', 'testicular', 'thyroid', 'bone', 'sarcoma', 'soft tissue'
+  ];
+  
+  // List of generic cancer terms (standalone words that indicate generic cancer types)
+  // These should be the IMMEDIATE next word after a location term to count as generic
+  const genericCancerTerms = ['cancer', 'cancers', 'carcinoma', 'carcinomas', 'neoplasm', 'neoplasms', 'tumor', 'tumour', 'tumors', 'tumours', 'malignancy', 'malignancies'];
+  
+  // List of subtype/cell type modifiers - if present, it's a specific subtype, not generic
+  const subtypeModifiers = ['clear cell', 'serous', 'endometrioid', 'mucinous', 'squamous', 'adenocarcinoma', 'neuroendocrine', 'papillary', 'follicular', 'medullary'];
+  
+  // Check if term contains a subtype modifier - if so, it's NOT a generic cancer type
+  if (subtypeModifiers.some(modifier => termLower.includes(modifier))) {
+    return false;
+  }
+  
+  // Check if term matches pattern: [location] [generic cancer term] (e.g., "Ovarian Cancer", "Breast Carcinoma")
+  // This should be exactly 2 words (or the generic term immediately follows the location)
+  const words = termLower.split(/\s+/);
+  for (let i = 0; i < words.length; i++) {
+    if (locationTerms.includes(words[i])) {
+      // Check if the immediate next word is a generic cancer term (not a modifier)
+      if (i + 1 < words.length) {
+        const nextWord = words[i + 1];
+        if (genericCancerTerms.includes(nextWord)) {
+          // Found pattern like "Ovarian Cancer" or "Breast Carcinoma"
+          return true;
+        }
+      }
+      // Also check if remaining text (after location) is exactly a generic cancer term
+      const remaining = words.slice(i + 1).join(' ');
+      if (genericCancerTerms.includes(remaining)) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
 }
 
 /**
@@ -677,11 +887,74 @@ export function calculateTrialMatchScore(trial, patientProfile, genomicProfile =
 
   // 1a. Cancer Subtype Match (additional points if subtype matches) - Using medical term synonyms
   // Check both currentStatus.diagnosis and cancerType for subtype
-  const subtype = patientProfile.currentStatus?.diagnosis !== patientProfile.diagnosis 
+  // IMPORTANT: Subtype should be a specific subtype (e.g., "Clear Cell Carcinoma"), NOT a generic cancer type (e.g., "Ovarian Cancer")
+  let subtype = patientProfile.currentStatus?.diagnosis !== patientProfile.diagnosis 
     ? patientProfile.currentStatus?.diagnosis 
     : (patientProfile.cancerType || null);
   
-  if (trial.conditions && subtype) {
+  // Filter out generic cancer types - they are NOT subtypes
+  // If subtype is a generic cancer type (like "Ovarian Cancer"), treat it as null (no subtype)
+  if (subtype && isGenericCancerType(subtype)) {
+    subtype = null; // Don't treat generic cancer types as subtypes
+  }
+  
+  // Check if subtype is in exclusion criteria BEFORE awarding subtype match points
+  let subtypeExcluded = false;
+  if (subtype && trial.eligibilityCriteria && typeof trial.eligibilityCriteria === 'string') {
+    const eligibilityText = trial.eligibilityCriteria.toLowerCase();
+    const exclusionSection = eligibilityText.includes('exclusion criteria') 
+      ? eligibilityText.split('exclusion criteria')[1] || ''
+      : '';
+    
+    if (exclusionSection) {
+      const subtypeLower = subtype.toLowerCase().trim();
+      const subtypeNormalized = subtypeLower.replace(/\s+/g, ' ').replace(/-/g, ' ');
+      
+      // Simplified, more aggressive exclusion detection for JRCT
+      // Split subtype into significant words (length > 3 to avoid matching "cell", "the", etc.)
+      const subtypeWords = subtypeNormalized.split(/\s+/).filter(w => w.length > 3);
+      
+      // For multi-word subtypes (e.g., "clear cell carcinoma"), check if ALL significant words appear
+      // Use synonym system but be more direct - check if words (or synonyms) appear
+      let allWordsAppear = false;
+      if (subtypeWords.length >= 2) {
+        // Multi-word: all significant words must appear (using synonym matching)
+        allWordsAppear = subtypeWords.every(word => wordAppearsInText(word, exclusionSection));
+      } else if (subtypeWords.length === 1 && subtypeWords[0].length > 5) {
+        // Single word subtype (e.g., "carcinoma", "adenocarcinoma")
+        allWordsAppear = wordAppearsInText(subtypeWords[0], exclusionSection);
+      }
+      
+      if (allWordsAppear) {
+        // Subtype words appear - check for STRONG negation patterns only
+        // Only exclude if there's NO strong negation (patterns that mean "NOT excluding this")
+        // Strong negation patterns: "only [subtype]", "[subtype] only", "[subtype] exclusively", "[subtype] required"
+        const strongNegationPatterns = [
+          new RegExp(`(only|exclusively)\\s+${subtypeWords.map(w => `\\b${w}\\b`).join('|')}`, 'i'),
+          new RegExp(`${subtypeWords.map(w => `\\b${w}\\b`).join('|')}\\s+(only|exclusively|required|acceptable)`, 'i'),
+          new RegExp(`(include|including|accept|accepting|eligible\\s+for)\\s+${subtypeWords.map(w => `\\b${w}\\b`).join('|')}`, 'i')
+        ];
+        
+        const hasStrongNegation = strongNegationPatterns.some(pattern => pattern.test(exclusionSection));
+        
+        if (!hasStrongNegation) {
+          subtypeExcluded = true;
+        }
+      }
+      
+      if (subtypeExcluded) {
+        // Subtype is in exclusion criteria - add high severity issue and skip subtype matching
+        issues.push({
+          category: 'Diagnosis',
+          severity: 'high',
+          detail: `Patient's subtype "${subtype}" is listed in exclusion criteria - this trial excludes patients with this subtype`
+        });
+      }
+    }
+  }
+  
+  // Only proceed with subtype matching if subtype is not excluded
+  if (trial.conditions && subtype && !subtypeExcluded) {
     const subtypeLower = subtype.toLowerCase().trim();
     
     // First check for exact match (case-insensitive) - gives higher score
@@ -701,10 +974,14 @@ export function calculateTrialMatchScore(trial, patientProfile, genomicProfile =
         detail: `Exact match for cancer subtype: ${exactMatch}`
       });
     } else {
-      // Check for synonym match - but exclude generic terms
+      // Check for synonym match - but exclude generic terms AND generic cancer types
+      // Don't match generic terms or generic cancer types with specific subtypes
       const subtypeMatch = trial.conditions.some(condition => {
-        // Don't match generic terms with specific subtypes
         if (isGenericTerm(condition)) {
+          return false;
+        }
+        // Also check if condition is a generic cancer type (like "Ovarian Cancer")
+        if (isGenericCancerType(condition)) {
           return false;
         }
         return medicalTermsMatch(condition, subtype);
@@ -717,8 +994,10 @@ export function calculateTrialMatchScore(trial, patientProfile, genomicProfile =
         // Find which condition matched
         const matchedCondition = trial.conditions.find(condition => {
           if (isGenericTerm(condition)) return false;
+          if (isGenericCancerType(condition)) return false;
           return medicalTermsMatch(condition, subtype);
         });
+        
         matchDetails.push({
           category: 'Subtype',
           score: subtypeScore,
@@ -979,8 +1258,28 @@ export function calculateTrialMatchScore(trial, patientProfile, genomicProfile =
     }
   }
 
+  // Check if subtype is excluded (check issues array for exclusion message)
+  const hasSubtypeExclusion = issues.some(issue =>
+    issue.category === 'Diagnosis' &&
+    issue.severity === 'high' &&
+    issue.detail.includes('listed in exclusion criteria')
+  );
+  
+  // Check if mutations are excluded (check issues array for mutation exclusion messages)
+  const hasMutationExclusion = issues.some(issue =>
+    issue.category === 'Genomic' &&
+    issue.severity === 'high' &&
+    (issue.detail.includes('found in exclusion criteria') || 
+     issue.detail.includes('mentioned with "negative" context'))
+  );
+  
   // Calculate final match percentage
-  const matchPercentage = Math.round((totalScore / maxPossibleScore) * 100);
+  let matchPercentage = Math.round((totalScore / maxPossibleScore) * 100);
+  
+  // If subtype OR mutations are excluded, set match percentage to 0 (patient is ineligible)
+  if (hasSubtypeExclusion || hasMutationExclusion) {
+    matchPercentage = 0;
+  }
 
   // Determine eligibility level
   let eligibilityLevel;
@@ -989,6 +1288,11 @@ export function calculateTrialMatchScore(trial, patientProfile, genomicProfile =
   } else if (matchPercentage >= 60 && issues.filter(i => i.severity === 'high').length <= 1) {
     eligibilityLevel = 'potentially_eligible';
   } else {
+    eligibilityLevel = 'unlikely_eligible';
+  }
+  
+  // If subtype OR mutations are excluded, force unlikely_eligible regardless of percentage
+  if (hasSubtypeExclusion || hasMutationExclusion) {
     eligibilityLevel = 'unlikely_eligible';
   }
 
@@ -1458,6 +1762,142 @@ export function matchesTrialEligibility(trial, patientProfile, genomicProfile = 
         exclusionFound = true;
         exclusionReasons.push(`${patientProfile.gender} mentioned in exclusion criteria`);
       }
+    }
+  }
+  
+  // Check for subtype in exclusion criteria - if patient's subtype is in exclusion, disqualify the trial
+  const patientSubtype = patientProfile.currentStatus?.subtype || patientProfile.cancerType || '';
+  if (patientSubtype && exclusionSection) {
+    // Normalize subtype for matching (lowercase, handle hyphen variations)
+    const subtypeLower = patientSubtype.toLowerCase().trim();
+    const subtypeNormalized = subtypeLower.replace(/\s+/g, ' ').replace(/-/g, ' ');
+    
+    // Common subtype terms that might appear in exclusion (without negation)
+    const subtypeTerms = [
+      'clear cell', 'clear-cell', 'clear cell carcinoma',
+      'serous', 'endometrioid', 'mucinous', 'squamous',
+      'adenocarcinoma', 'neuroendocrine', 'papillary',
+      'follicular', 'medullary', 'lobular', 'ductal'
+    ];
+    
+    // Check if any subtype term matches what's in exclusion criteria
+    let subtypeInExclusion = subtypeTerms.some(term => {
+      // Create pattern for this subtype term
+      const termNormalized = term.replace(/\s+/g, ' ').replace(/-/g, ' ');
+      
+      // Check if patient's subtype contains this term or vice versa
+      if (subtypeNormalized.includes(termNormalized) || termNormalized.includes(subtypeNormalized)) {
+        // Check if it's mentioned in exclusion section
+        // Use word boundaries to avoid partial matches (e.g., "clear cell" not matching "clear-cell carcinoma")
+        const termPattern = new RegExp(`\\b${term.replace(/\s+/g, '[\\s-]+').replace(/-/g, '[\\s-]+')}\\b`, 'i');
+        if (termPattern.test(exclusionSection)) {
+          // Double-check it's not part of a negation (e.g., "not excluding clear cell")
+          // If it's just mentioned without proper negation context, it's an exclusion
+          const matchIndex = exclusionSection.search(termPattern);
+          const contextStart = Math.max(0, matchIndex - 50);
+          const contextEnd = Math.min(exclusionSection.length, matchIndex + term.length + 50);
+          const exclusionContext = exclusionSection.substring(contextStart, contextEnd);
+          const hasNegation = exclusionContext.match(/not\s+exclud|exclud\s+other|other\s+than|except|unless|without/i);
+          
+          // If no clear negation, it's an exclusion
+          if (!hasNegation) {
+            return true; // Subtype is in exclusion criteria
+          }
+        }
+      }
+      return false;
+    });
+    
+    // Also check if the exact subtype is mentioned in exclusion
+    if (!subtypeInExclusion && subtypeLower.length > 3) {
+      // Check if subtype words appear together in exclusion section
+      const subtypeWords = subtypeLower.split(/\s+/).filter(w => w.length > 3);
+      if (subtypeWords.length >= 2) {
+        // Check if all significant words of subtype appear in exclusion section
+        // Handle medical synonyms: "carcinoma" should match "adenocarcinoma" and vice versa
+        const allWordsInExclusion = subtypeWords.every(word => {
+          // Use synonym system to check if word (or its synonyms) appears in exclusion text
+          return wordAppearsInText(word, exclusionSection);
+        });
+        
+        if (allWordsInExclusion) {
+          // Check for negation context
+          // Find the best match position using synonym system
+          const firstSignificantWord = subtypeWords.find(w => wordAppearsInText(w, exclusionSection));
+          
+          if (firstSignificantWord) {
+            // Find match position - try direct match first, then synonyms
+            let matchIndex = exclusionSection.toLowerCase().indexOf(firstSignificantWord.toLowerCase());
+            if (matchIndex === -1) {
+              // Word might appear via synonyms - try to find any related term
+              const normalizedWord = normalizeMedicalTerm(firstSignificantWord);
+              for (const norm of normalizedWord) {
+                if (norm !== firstSignificantWord.toLowerCase()) {
+                  const synIndex = exclusionSection.toLowerCase().indexOf(norm);
+                  if (synIndex >= 0) {
+                    matchIndex = synIndex;
+                    break;
+                  }
+                }
+              }
+            }
+            
+            if (matchIndex >= 0) {
+              const contextStart = Math.max(0, matchIndex - 50);
+              const contextEnd = Math.min(exclusionSection.length, matchIndex + subtypeLower.length + 50);
+              const exclusionContext = exclusionSection.substring(contextStart, contextEnd);
+              const hasNegation = exclusionContext.match(/not\s+exclud|exclud\s+other|other\s+than|except|unless|without/i);
+              
+              if (!hasNegation) {
+                subtypeInExclusion = true;
+              }
+            }
+          }
+        }
+      } else if (subtypeWords.length === 1 && subtypeWords[0].length > 5) {
+        // Single word subtype - use synonym system
+        const word = subtypeWords[0];
+        
+        // Use synonym system to check if word (or its synonyms) appears in exclusion text
+        if (wordAppearsInText(word, exclusionSection)) {
+          // Find match position - try direct match first, then synonyms
+          let matchIndex = exclusionSection.toLowerCase().indexOf(word.toLowerCase());
+          if (matchIndex === -1) {
+            // Word might appear via synonyms - try to find any related term
+            const normalizedWord = normalizeMedicalTerm(word);
+            for (const norm of normalizedWord) {
+              if (norm !== word.toLowerCase()) {
+                const synIndex = exclusionSection.toLowerCase().indexOf(norm);
+                if (synIndex >= 0) {
+                  matchIndex = synIndex;
+                  break;
+                }
+              }
+            }
+            // If still not found, use 0 as fallback
+            if (matchIndex === -1) matchIndex = 0;
+          }
+          
+          const contextStart = Math.max(0, matchIndex - 50);
+          const contextEnd = Math.min(exclusionSection.length, matchIndex + word.length + 50);
+          const exclusionContext = exclusionSection.substring(contextStart, contextEnd);
+          const hasNegation = exclusionContext.match(/not\s+exclud|exclud\s+other|other\s+than|except|unless|without/i);
+          
+          if (!hasNegation) {
+            subtypeInExclusion = true;
+          }
+        }
+      }
+    }
+    
+    if (subtypeInExclusion) {
+      exclusionFound = true;
+      exclusionReasons.push(`Subtype "${patientSubtype}" found in exclusion criteria - patient has this subtype`);
+      issues.push({
+        category: 'Diagnosis',
+        severity: 'high',
+        detail: `Patient's subtype "${patientSubtype}" is listed in exclusion criteria - this trial excludes patients with this subtype`
+      });
     }
   }
   

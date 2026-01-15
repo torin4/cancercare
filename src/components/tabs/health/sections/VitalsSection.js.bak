@@ -1627,3 +1627,14 @@ export default React.memo(VitalsSection, (prevProps, nextProps) => {
     prevProps.setHoveredDataPoint === nextProps.setHoveredDataPoint
   );
 });
+
+// Memoize component to prevent unnecessary re-renders
+export default React.memo(VitalsSection, (prevProps, nextProps) => {
+  return (
+    prevProps.selectedDataPoint?.id === nextProps.selectedDataPoint?.id &&
+    prevProps.hoveredDataPoint?.id === nextProps.hoveredDataPoint?.id &&
+    prevProps.onTabChange === nextProps.onTabChange &&
+    prevProps.setSelectedDataPoint === nextProps.setSelectedDataPoint &&
+    prevProps.setHoveredDataPoint === nextProps.setHoveredDataPoint
+  );
+});

@@ -5,37 +5,149 @@ const { URL } = require('url');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
-const JRCT_HOST = 'https://jrct.niph.go.jp';
+
+// Disable Express ETag generation - we don't want caching
+app.set('etag', false);
 
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Note: Server timeout will be set after app.listen() is called
+
 // Import and use the serverless functions
 const trialsProxy = require('../api/trials-proxy');
 const storageProxy = require('../api/storage-proxy');
+const jrctSearch = require('../api/jrct/search');
+const jrctDetail = require('../api/jrct/detail');
 
-app.get('/api/jrct-proxy/*', async (req, res) => {
-  try {
-    const forwardPath = req.originalUrl.replace(/^\/api\/jrct-proxy/, '');
-    const target = `${JRCT_HOST}${forwardPath}`;
-
-    const response = await axios.get(target, {
-      headers: {
-        Accept: 'application/json',
-        'Accept-Language': 'en,ja',
-        'User-Agent': req.headers['user-agent'] || 'CancerCareProxy/1.0'
-      },
-      timeout: 20000
-    });
-
-    res.status(response.status).json(response.data);
-  } catch (error) {
-    if (error.response) {
-      res.status(error.response.status).json({ error: error.message, details: error.response.data });
-      return;
+// Handle JRCT search endpoint
+app.all('/api/jrct/search', async (req, res) => {
+  // Disable caching for search results - always get fresh data
+  // Remove any conditional request headers to force fresh request
+  delete req.headers['if-none-match'];
+  delete req.headers['if-modified-since'];
+  
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  // Don't set ETag - prevent conditional requests
+  
+  // Convert Express request to serverless function format
+  const protocol = req.protocol || 'http';
+  const host = req.get('host') || 'localhost:4000';
+  const fullUrl = `${protocol}://${host}${req.originalUrl || req.url}`;
+  
+  const serverlessReq = {
+    method: req.method,
+    url: fullUrl,
+    query: req.query,
+    headers: req.headers,
+    body: req.body
+  };
+  
+  // Create a mock response object that properly handles the serverless function format
+  let responseSent = false;
+  const serverlessRes = {
+    statusCode: 200,
+    headers: {},
+    setHeader: (key, value) => {
+      res.setHeader(key, value);
+    },
+    status: (code) => {
+      serverlessRes.statusCode = code;
+      return serverlessRes;
+    },
+    json: (data) => {
+      if (!responseSent) {
+        responseSent = true;
+        res.status(serverlessRes.statusCode).json(data);
+      }
+    },
+    send: (data) => {
+      if (!responseSent) {
+        responseSent = true;
+        res.status(serverlessRes.statusCode).send(data);
+      }
+    },
+    end: () => {
+      if (!responseSent) {
+        responseSent = true;
+        res.status(serverlessRes.statusCode).end();
+      }
     }
-    res.status(502).json({ error: 'JRCT proxy error', message: error.message });
+  };
+  
+  try {
+    await jrctSearch(serverlessReq, serverlessRes);
+    // If no response was sent, send a default response
+    if (!responseSent) {
+      res.status(500).json({ error: 'No response from JRCT search function' });
+    }
+  } catch (error) {
+    if (!responseSent) {
+      res.status(500).json({ error: 'Internal server error', message: error.message });
+    }
+  }
+});
+
+// Handle JRCT detail endpoint
+app.all('/api/jrct/detail', async (req, res) => {
+  // Convert Express request to serverless function format
+  const protocol = req.protocol || 'http';
+  const host = req.get('host') || 'localhost:4000';
+  const fullUrl = `${protocol}://${host}${req.originalUrl || req.url}`;
+  
+  const serverlessReq = {
+    method: req.method,
+    url: fullUrl,
+    query: req.query,
+    headers: req.headers,
+    body: req.body
+  };
+  
+  // Create a mock response object that properly handles the serverless function format
+  let responseSent = false;
+  const serverlessRes = {
+    statusCode: 200,
+    headers: {},
+    setHeader: (key, value) => {
+      res.setHeader(key, value);
+    },
+    status: (code) => {
+      serverlessRes.statusCode = code;
+      return serverlessRes;
+    },
+    json: (data) => {
+      if (!responseSent) {
+        responseSent = true;
+        res.status(serverlessRes.statusCode).json(data);
+      }
+    },
+    send: (data) => {
+      if (!responseSent) {
+        responseSent = true;
+        res.status(serverlessRes.statusCode).send(data);
+      }
+    },
+    end: () => {
+      if (!responseSent) {
+        responseSent = true;
+        res.status(serverlessRes.statusCode).end();
+      }
+    }
+  };
+  
+  try {
+    await jrctDetail(serverlessReq, serverlessRes);
+    // If no response was sent, send a default response
+    if (!responseSent) {
+      res.status(500).json({ error: 'No response from JRCT detail function' });
+    }
+  } catch (error) {
+    if (!responseSent) {
+      res.status(500).json({ error: 'Internal server error', message: error.message });
+    }
   }
 });
 
@@ -158,12 +270,23 @@ app.get('/', (req, res) => {
   res.json({ 
     message: 'Proxy server is running',
     endpoints: {
-      jrct: '/api/jrct-proxy/*',
+      jrctSearch: '/api/jrct/search?q=<query>&page=<page>',
+      jrctDetail: '/api/jrct/detail?id=<trialId>&q=<query>&page=<page>',
       trials: '/api/trials-proxy',
       storage: '/api/storage-proxy'
     }
   });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
+  console.log(`Proxy server is running on port ${PORT}`);
+  console.log(`Endpoints available:`);
+  console.log(`  - JRCT Search: http://localhost:${PORT}/api/jrct/search?q=<query>&page=<page>`);
+  console.log(`  - JRCT Detail: http://localhost:${PORT}/api/jrct/detail?id=<trialId>&q=<query>&page=<page>`);
+  console.log(`  - Trials Proxy: http://localhost:${PORT}/api/trials-proxy`);
+  console.log(`  - Storage Proxy: http://localhost:${PORT}/api/storage-proxy`);
 });
+
+// Increase server timeout for long-running requests (JRCT searches can take 11-13 seconds)
+server.timeout = 60000; // 60 seconds
+server.keepAliveTimeout = 65000; // Keep-alive timeout slightly longer than server timeout

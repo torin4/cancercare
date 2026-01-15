@@ -1040,7 +1040,7 @@ export default function ChatTab({ onTabChange }) {
         )}
         <div 
           ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 sm:space-y-3"
+          className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 sm:space-y-3 pb-48 md:pb-3"
         >
           {(() => {
             const filteredMessages = searchQuery.trim() 
@@ -1407,7 +1407,7 @@ export default function ChatTab({ onTabChange }) {
           </div>
         </div>
 
-        <div className="px-3 sm:px-4 pt-0 md:pt-2 lg:pt-3 pb-2 sm:pb-3 bg-white md:border-t md:border-medical-neutral-200">
+        <div className="fixed bottom-20 left-0 right-0 z-20 md:relative md:bottom-auto md:z-auto px-3 sm:px-4 pt-0 md:pt-2 lg:pt-3 pb-2 sm:pb-3 bg-white border-t border-medical-neutral-200 md:border-t-0 md:border-t">
           {/* Context Selector - Compact */}
           <div className="flex gap-2 items-center">
             <div className={combineClasses('flex items-center gap-1.5', DesignTokens.colors.neutral.text[600], 'whitespace-nowrap flex-shrink-0')}>

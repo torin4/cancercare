@@ -150,7 +150,227 @@ async function applyLocationFilters(trials, params) {
 }
 
 /**
- * Search clinical trials from available sources (currently ClinicalTrials.gov)
+ * Search JRCT (Japan Registry of Clinical Trials)
+ * @param {Object} params - Search parameters
+ * @returns {Promise<Object>} - Search results with normalized trial data
+ */
+async function searchJRCT(params) {
+  const onProgress = params?.onProgress;
+  const pageNumber = params?.pageNumber || 1;
+  
+  try {
+    // Progress message is handled by parent searchTrials function
+    // This allows showing multiple sources being queried simultaneously
+    
+    // Build search query from params
+    // IMPORTANT: JRCT has separate fields:
+    // - reg_plobrem_1 (対象疾患名 / Target Disease Name) for main disease (cond)
+    // - demo_1 (フリーワード検索 / Free Word Search) for subtype/keywords (term)
+    // We'll pass both separately: disease in 'q' param, subtype in 'term' param
+    let diseaseQuery = '';
+    let subtypeQuery = '';
+    try {
+      const { cond, term } = buildCTGovExpr(params || {});
+      // Use cond (disease/condition) for the disease field
+      diseaseQuery = (cond || '').trim();
+      // Use term (subtype) for the keyword/search field
+      // IMPORTANT: JRCT keyword search needs all words but lowercase
+      // Convert "Clear Cell Carcinoma" to "clear cell carcinoma" (all words, lowercase)
+      let rawSubtype = (term || '').trim();
+      if (rawSubtype) {
+        // Lowercase all words for better matching with JRCT database
+        subtypeQuery = rawSubtype.toLowerCase();
+      }
+    } catch (err) {
+      console.error('Error building JRCT query:', err.message);
+      return { success: false, source: 'JRCT', trials: [], totalResults: 0, error: 'Failed to build search query' };
+    }
+    
+    // If disease query is empty, skip JRCT search (not an error, just no results)
+    // Subtype can be empty (it's optional), but disease is required
+    if (!diseaseQuery || diseaseQuery.trim().length === 0) {
+      // Progress message is handled by parent searchTrials function
+      return { success: false, source: 'JRCT', trials: [], totalResults: 0 };
+    }
+    
+    // Query JRCT proxy endpoint
+    // Pass disease in 'q' param and subtype in 'term' param
+    const encodedDisease = encodeURIComponent(diseaseQuery);
+    const encodedSubtype = subtypeQuery ? encodeURIComponent(subtypeQuery) : '';
+    
+    // Build URL with optional term parameter
+    let proxyUrl = `/api/jrct/search?q=${encodedDisease}&page=${pageNumber}`;
+    if (encodedSubtype && encodedSubtype.length > 0 && encodedSubtype !== '%20') {
+      proxyUrl += `&term=${encodedSubtype}`;
+    }
+    
+    let response;
+    try {
+      response = await axios.get(proxyUrl, { 
+        timeout: 70000, // 70 seconds - JRCT searches can take 11-13 seconds, plus processing time
+        // Need buffer above proxy timeout (60s) to handle network latency
+        validateStatus: (status) => status < 500 // Accept 4xx as valid responses, but not 5xx
+      });
+    } catch (axiosError) {
+      // Handle axios errors (network, timeout, etc.)
+      if (axiosError.response) {
+        // Server responded with error status (including 400 for empty query)
+        const status = axiosError.response.status;
+        const errorData = axiosError.response.data;
+        
+        // Don't log 400 errors as they're expected for empty queries
+        if (status >= 500) {
+          console.error('JRCT search HTTP error:', status, errorData);
+        }
+        
+        return { 
+          success: false, 
+          source: 'JRCT', 
+          trials: [], 
+          totalResults: 0, 
+          error: errorData?.message || errorData?.error || `HTTP ${status}` 
+        };
+      } else {
+        // Network error, timeout, etc.
+        console.error('JRCT search network error:', axiosError.message);
+        return { 
+          success: false, 
+          source: 'JRCT', 
+          trials: [], 
+          totalResults: 0, 
+          error: axiosError.message 
+        };
+      }
+    }
+    
+    // Check for error response
+    if (response.status >= 400) {
+      // 400 errors are expected for empty queries, don't log as error
+      if (response.status >= 500) {
+        console.error('JRCT search error response:', response.status, response.data);
+      }
+      return { 
+        success: false, 
+        source: 'JRCT', 
+        trials: [], 
+        totalResults: 0, 
+        error: response.data?.message || response.data?.error || `HTTP ${response.status}` 
+      };
+    }
+    
+    if (!response.data || response.data.error) {
+      // Check if response indicates an error
+      return { 
+        success: false, 
+        source: 'JRCT', 
+        trials: [], 
+        totalResults: 0, 
+        error: response.data?.error || response.data?.message || 'Invalid response' 
+      };
+    }
+    
+    if (!response.data.results || !Array.isArray(response.data.results)) {
+      return { success: false, source: 'JRCT', trials: [], totalResults: 0, error: 'Invalid response format' };
+    }
+    
+    // Normalize JRCT results to match ClinicalTrials.gov format
+    // Note: Backend already filters by recruiting status (filterRecruiting=true by default)
+    // So we trust the backend filter and just normalize the data format
+    const trials = response.data.results
+          .map(result => {
+            // Map JRCT status from Japanese to English (matching ClinicalTrials.gov format - all caps)
+            const statusMap = {
+              '募集中': 'RECRUITING',
+              '受付中': 'RECRUITING',
+              '継続中': 'ONGOING',
+              '終了': 'COMPLETED',
+              '中止': 'TERMINATED',
+              '未開始': 'NOT_YET_RECRUITING'
+            };
+            
+            const normalizedStatus = statusMap[result.status] || result.status || 'UNKNOWN';
+            
+            // Try to extract phase from title or condition if available
+            const extractPhaseFromText = (text) => {
+              if (!text) return '';
+              const textNormalized = text.replace(/\s+/g, ' ').trim();
+              
+              // Combined phases: Phase I/II, Phase 1/2, etc.
+              const combinedMatch = textNormalized.match(/\bphase\s+([ivxlcdm]+|[1-4])\s*[/-]\s*([ivxlcdm]+|[1-4])\b/i);
+              if (combinedMatch) {
+                const numToRoman = { '1': 'I', '2': 'II', '3': 'III', '4': 'IV' };
+                const p1 = numToRoman[combinedMatch[1]] || combinedMatch[1].toUpperCase();
+                const p2 = numToRoman[combinedMatch[2]] || combinedMatch[2].toUpperCase();
+                return `Phase ${p1}/${p2}`;
+              }
+              
+              // Single phases: Phase I, Phase II, Phase 1, etc.
+              const singleMatch = textNormalized.match(/\bphase\s+([ivxlcdm]+|[1-4])\b/i);
+              if (singleMatch) {
+                const numToRoman = { '1': 'I', '2': 'II', '3': 'III', '4': 'IV' };
+                const phaseStr = numToRoman[singleMatch[1]] || singleMatch[1].toUpperCase();
+                return `Phase ${phaseStr}`;
+              }
+              
+              // Japanese: フェーズI, フェーズ1, etc.
+              const japaneseMatch = textNormalized.match(/フェーズ\s*([ivxlcdm]+|[1-4]|[一二三四])/i);
+              if (japaneseMatch) {
+                const jpToRoman = { '一': 'I', '二': 'II', '三': 'III', '四': 'IV' };
+                const numToRoman = { '1': 'I', '2': 'II', '3': 'III', '4': 'IV' };
+                const phaseStr = jpToRoman[japaneseMatch[1]] || numToRoman[japaneseMatch[1]] || japaneseMatch[1].toUpperCase();
+                return `Phase ${phaseStr}`;
+              }
+              
+              return '';
+            };
+            
+            // Try to extract phase from title or condition
+            let extractedPhase = extractPhaseFromText(result.title) || extractPhaseFromText(result.condition) || '';
+            
+            return {
+              id: result.id,
+              source: 'JRCT',
+              title: result.title,
+              titleJa: result.title, // Store Japanese title separately
+              conditions: result.condition ? [result.condition] : [],
+              status: normalizedStatus,
+              statusJa: result.status, // Keep original Japanese status
+              phase: extractedPhase, // Extract from title/condition if available, otherwise empty (will be populated from detail page)
+              summary: '', // Will be fetched from detail if needed
+              locations: [{ country: 'Japan' }], // JRCT trials are in Japan
+              country: 'Japan',
+              published: result.published,
+              url: result.detailUrl || `https://jrct.mhlw.go.jp/latest-detail/${result.id}`,
+              detailUrl: result.detailUrl,
+              // Store the search query that returned this trial for detail fetching
+              _searchQuery: diseaseQuery + (subtypeQuery ? ` ${subtypeQuery}` : ''), // Internal: used for fetching details later
+              // Store token data extracted from search results (for direct detail access)
+              _tokenData: result.tokenData || null // Internal: token from search results page
+            };
+          });
+    
+    const totalResults = response.data.total || trials.length;
+    const validTrials = trials.filter(t => t.id);
+    
+    return {
+      success: true,
+      source: 'JRCT',
+      trials: validTrials, // Filter out invalid trials
+      totalResults,
+      pagination: response.data.pages ? {
+        currentPage: pageNumber,
+        totalPages: Math.ceil(totalResults / 20), // JRCT typically shows 20 per page
+        hasMore: response.data.pages.some(p => p.label.toLowerCase().includes('next') || p.label.includes('次'))
+      } : null
+    };
+  } catch (error) {
+    // Silently fail JRCT search - don't block overall search
+    return { success: false, source: 'JRCT', trials: [], totalResults: 0, error: error.message };
+  }
+}
+
+/**
+ * Search clinical trials from available sources (ClinicalTrials.gov, JRCT, and WHO ICTRP)
  * @param {Object} params - Search parameters
  * @returns {Promise<Object>} - Search results with normalized trial data
  */
@@ -160,9 +380,28 @@ export async function searchTrials(params) {
   const pageNumber = params?.pageNumber || 1;
   const pageSize = params?.pageSize || 50;
   
-  // Currently queries ClinicalTrials.gov
+  // Track active searches for progress display
+  const activeSearches = new Set();
+  
+  // Helper to update progress message showing all active searches
+  const updateProgress = () => {
+    if (typeof onProgress === 'function' && activeSearches.size > 0) {
+      const sources = Array.from(activeSearches).sort();
+      if (sources.length === 1) {
+        onProgress(`Querying ${sources[0]}...`);
+      } else {
+        onProgress(`Querying ${sources.join(' and ')}...`);
+      }
+    }
+  };
+  
+  // Search both ClinicalTrials.gov and JRCT in parallel
+  const searchPromises = [];
+  
+  // Search ClinicalTrials.gov
   try {
-    if (typeof onProgress === 'function') onProgress(`Querying ClinicalTrials.gov (page ${pageNumber})`);
+    activeSearches.add('ClinicalTrials.gov');
+    updateProgress();
     attempted.push('ClinicalTrials.gov');
     
     // Build v2 API compatible query parameters
@@ -185,7 +424,7 @@ export async function searchTrials(params) {
     
     if (queryLength > maxUrlLength) {
       // Use POST request for long queries
-      if (typeof onProgress === 'function') onProgress('Sending search request (POST)');
+      // Progress message already shows active searches
       
       const postData = {
         source: 'ctgov',
@@ -258,17 +497,111 @@ export async function searchTrials(params) {
       }
       
       const ctResult = await searchCTGov({ ...params, _rawCTGovResponse: ctRaw });
-      if (ctResult.success && ctResult.trials.length > 0) {
-        if (typeof onProgress === 'function') onProgress(`ClinicalTrials.gov returned ${ctResult.trials.length} results`);
-        return { ...ctResult, attemptedSources: attempted };
-      } else {
-        // Log the raw response for debugging
-        if (ctRaw.StudyFieldsResponse) {
-        }
-      }
+      searchPromises.push(
+        Promise.resolve(ctResult).finally(() => {
+          activeSearches.delete('ClinicalTrials.gov');
+          updateProgress();
+        })
+      );
     } else {
+      activeSearches.delete('ClinicalTrials.gov');
+      updateProgress();
+      searchPromises.push(Promise.resolve({ success: false, source: 'ClinicalTrials.gov', trials: [], totalResults: 0 }));
     }
   } catch (e) {
+    activeSearches.delete('ClinicalTrials.gov');
+    updateProgress();
+    searchPromises.push(Promise.resolve({ success: false, source: 'ClinicalTrials.gov', trials: [], totalResults: 0, error: e.message }));
+  }
+  
+  // Search JRCT in parallel
+  try {
+    activeSearches.add('JRCT');
+    updateProgress();
+    searchPromises.push(
+      searchJRCT({ ...params, onProgress: null }).finally(() => {
+        activeSearches.delete('JRCT');
+        updateProgress();
+      })
+    );
+    attempted.push('JRCT');
+  } catch (e) {
+    activeSearches.delete('JRCT');
+    updateProgress();
+    // Silently skip JRCT if there's an error
+    searchPromises.push(Promise.resolve({ success: false, source: 'JRCT', trials: [], totalResults: 0 }));
+  }
+  
+  // Search WHO ICTRP in parallel (optional - may have overlap with JRCT and ClinicalTrials.gov)
+  // Only search if includeAllLocations is true (since WHO is global and aggregates from multiple sources)
+  if (params?.includeAllLocations) {
+    try {
+      activeSearches.add('WHO ICTRP');
+      updateProgress();
+      searchPromises.push(
+        searchWHO(params).finally(() => {
+          activeSearches.delete('WHO ICTRP');
+          updateProgress();
+        })
+      );
+      attempted.push('WHO-ICTRP');
+    } catch (e) {
+      activeSearches.delete('WHO ICTRP');
+      updateProgress();
+      // Silently skip WHO if there's an error
+      searchPromises.push(Promise.resolve({ success: false, source: 'WHO-ICTRP', trials: [], totalResults: 0 }));
+    }
+  }
+  
+  // Wait for all searches to complete
+  const results = await Promise.all(searchPromises);
+  
+  // Combine results from all sources
+  const allTrials = [];
+  const seenIds = new Set();
+  let totalResults = 0;
+  
+  results.forEach(result => {
+    if (result.success && result.trials && Array.isArray(result.trials)) {
+      totalResults += result.totalResults || result.trials.length;
+      result.trials.forEach(trial => {
+        // Deduplicate by trial ID (in case same trial appears in multiple sources)
+        if (trial.id && !seenIds.has(trial.id)) {
+          seenIds.add(trial.id);
+          allTrials.push(trial);
+        }
+      });
+    }
+  });
+  
+  // If we got results from any source, return success
+  if (allTrials.length > 0) {
+    // Determine pagination from the most comprehensive result
+    const ctResult = results.find(r => r.source === 'ClinicalTrials.gov' && r.success);
+    const pagination = ctResult?.pagination || (allTrials.length >= pageSize ? {
+      currentPage: pageNumber,
+      hasMore: true
+    } : null);
+    
+    if (typeof onProgress === 'function') {
+      const ctCount = results.find(r => r.source === 'ClinicalTrials.gov')?.trials?.length || 0;
+      const jrctCount = results.find(r => r.source === 'JRCT')?.trials?.length || 0;
+      const whoCount = results.find(r => r.source === 'WHO-ICTRP')?.trials?.length || 0;
+      const sourceParts = [];
+      if (ctCount > 0) sourceParts.push(`${ctCount} from ClinicalTrials.gov`);
+      if (jrctCount > 0) sourceParts.push(`${jrctCount} from JRCT`);
+      if (whoCount > 0) sourceParts.push(`${whoCount} from WHO`);
+      onProgress(`Found ${allTrials.length} trials${sourceParts.length > 0 ? ` (${sourceParts.join(', ')})` : ''}`);
+    }
+    
+    return {
+      success: true,
+      source: 'Aggregated',
+      attemptedSources: attempted,
+      totalResults: totalResults,
+      trials: allTrials,
+      pagination
+    };
   }
 
   return { success: false, source: 'Aggregated', attemptedSources: attempted, totalResults: 0, trials: [] };
@@ -704,99 +1037,388 @@ function buildCTGovExpr(params) {
 }
 
 /**
- * Placeholder: attempt WHO ICTRP search. The ICTRP public API/endpoint may vary.
- * We attempt a best-effort call and gracefully fail back to ClinicalTrials.gov.
+ * Search WHO ICTRP (International Clinical Trials Registry Platform)
+ * Note: WHO aggregates from multiple registries including JRCT and ClinicalTrials.gov
+ * This may have significant overlap with existing sources.
+ * @param {Object} params - Search parameters
+ * @returns {Promise<Object>} - Search results with normalized trial data
  */
-export async function searchWHO(params, rawResponse) {
+async function searchWHO(params) {
+  const onProgress = params?.onProgress;
+  const pageNumber = params?.pageNumber || 1;
+  const pageSize = params?.pageSize || 50;
+  
   try {
-    const { condition } = params || {};
-    let items = [];
-    if (rawResponse && (rawResponse.items || rawResponse.trials)) {
-      items = rawResponse.items || rawResponse.trials;
-    } else {
-      const url = `https://trialsearch.who.int/api/v1/trials?search=${encodeURIComponent(condition || '')}&pageSize=50`;
-      const res = await axios.get(url, { timeout: 15000 }).catch(() => null);
-      items = res?.data?.items || res?.data?.trials || [];
+    // Progress message is handled by parent searchTrials function
+    // This allows showing multiple sources being queried simultaneously
+    
+    // Build search query from params (same structure as JRCT and ClinicalTrials.gov)
+    let searchQuery = '';
+    try {
+      const { cond, term } = buildCTGovExpr(params || {});
+      // Combine cond and term for WHO search (WHO uses a single search parameter)
+      const queryParts = [];
+      if (cond) queryParts.push(cond.trim());
+      if (term && term.trim()) queryParts.push(term.trim());
+      searchQuery = queryParts.join(' ').trim();
+    } catch (err) {
+      console.error('Error building WHO query:', err.message);
+      return { success: false, source: 'WHO-ICTRP', trials: [], totalResults: 0, error: 'Failed to build search query' };
     }
-
-    const trials = (items || []).map(item => ({
-      id: item.trial_id || item.id || null,
-      source: 'WHO-ICTRP',
-      title: item.title || item.brief_title || item.name || '',
-      conditions: item.conditions || item.condition || [],
-      status: item.status || item.recruitment_status || '',
-      phase: item.phase || '',
-      summary: item.summary || item.brief_summary || item.description || '',
-      locations: item.locations || item.location || item.countries || [],
-      url: item.url || item.link || null
-    }));
-
+    
+    if (!searchQuery || searchQuery.trim().length === 0) {
+      // Progress message is handled by parent searchTrials function
+      return { success: false, source: 'WHO-ICTRP', trials: [], totalResults: 0 };
+    }
+    
+    // Try using the proxy first (if it supports WHO)
+    // Note: WHO API endpoint appears to have changed or is not publicly accessible
+    // The proxy may handle this, or we may need to skip WHO searches
+    let whoRaw;
+    try {
+      const proxyParams = new URLSearchParams({
+        source: 'who',
+        search: searchQuery,
+        pageSize: Math.min(pageSize, 100).toString(),
+        page: pageNumber.toString()
+      });
+      
+      const proxyUrl = `${PROXY_BASE}?${proxyParams.toString()}`;
+      whoRaw = await axios.get(proxyUrl, { 
+        timeout: 20000,
+        headers: {
+          'Accept': 'application/json'
+        }
+      }).then(r => r.data).catch(() => null);
+      
+      // If proxy fails or returns HTML (indicating API is not accessible), skip WHO
+      if (!whoRaw || (typeof whoRaw === 'string' && whoRaw.includes('<!DOCTYPE'))) {
+        return { success: false, source: 'WHO-ICTRP', trials: [], totalResults: 0, error: 'WHO API not accessible' };
+      }
+    } catch (e) {
+      return { success: false, source: 'WHO-ICTRP', trials: [], totalResults: 0, error: e.message };
+    }
+    
+    // Parse WHO response
+    let items = [];
+    if (whoRaw) {
+      if (Array.isArray(whoRaw)) {
+        items = whoRaw;
+      } else if (whoRaw.items && Array.isArray(whoRaw.items)) {
+        items = whoRaw.items;
+      } else if (whoRaw.trials && Array.isArray(whoRaw.trials)) {
+        items = whoRaw.trials;
+      } else if (whoRaw.data && Array.isArray(whoRaw.data)) {
+        items = whoRaw.data;
+      }
+    }
+    
+    if (items.length === 0) {
+      return { success: false, source: 'WHO-ICTRP', trials: [], totalResults: 0, error: 'No results from WHO API' };
+    }
+    
+    // Normalize WHO trial data to match our format
+    const trials = items.map(item => {
+      // WHO may use different field names - try multiple variations
+      const trialId = item.trial_id || item.id || item.primary_id || item.registry_id || null;
+      const title = item.title || item.brief_title || item.public_title || item.name || '';
+      const conditions = Array.isArray(item.conditions) 
+        ? item.conditions 
+        : (item.condition ? [item.condition] : []);
+      const status = item.status || item.recruitment_status || item.recruitmentStatus || '';
+      const phase = item.phase || item.phases || '';
+      const summary = item.summary || item.brief_summary || item.description || '';
+      
+      // Normalize status to match ClinicalTrials.gov format (all caps)
+      let normalizedStatus = status.toUpperCase();
+      if (normalizedStatus.includes('RECRUITING') || normalizedStatus.includes('OPEN')) {
+        normalizedStatus = 'RECRUITING';
+      } else if (normalizedStatus.includes('NOT_RECRUITING') || normalizedStatus.includes('CLOSED')) {
+        normalizedStatus = 'NOT_RECRUITING';
+      } else if (normalizedStatus.includes('COMPLETED')) {
+        normalizedStatus = 'COMPLETED';
+      } else if (normalizedStatus.includes('TERMINATED')) {
+        normalizedStatus = 'TERMINATED';
+      }
+      
+      // Extract locations
+      let locations = [];
+      if (Array.isArray(item.locations)) {
+        locations = item.locations;
+      } else if (item.location) {
+        locations = Array.isArray(item.location) ? item.location : [item.location];
+      } else if (item.countries && Array.isArray(item.countries)) {
+        locations = item.countries.map(c => ({ country: c }));
+      } else if (item.country) {
+        locations = [{ country: item.country }];
+      }
+      
+      // Extract URL
+      const url = item.url || item.link || item.trial_url || null;
+      
+      return {
+        id: trialId,
+        source: 'WHO-ICTRP',
+        title: title,
+        conditions: conditions,
+        status: normalizedStatus,
+        phase: phase,
+        summary: summary,
+        locations: locations,
+        country: locations[0]?.country || '',
+        url: url,
+        published: item.date_registered || item.registration_date || null
+      };
+    });
+    
+    // Apply location filters if specified
     const filtered = await applyLocationFilters(trials, params || {});
-    return { success: true, source: 'WHO-ICTRP', totalResults: filtered.length, trials: filtered };
+    
+    // Note: WHO aggregates from multiple sources, so there will be overlap with JRCT and ClinicalTrials.gov
+    // Deduplication happens in searchTrials function
+    
+    return {
+      success: true,
+      source: 'WHO-ICTRP',
+      totalResults: filtered.length,
+      trials: filtered
+    };
   } catch (error) {
-    return { success: false, source: 'WHO-ICTRP', totalResults: 0, trials: [], error: error.message };
+    console.error('WHO ICTRP search error:', error);
+    return { success: false, source: 'WHO-ICTRP', trials: [], totalResults: 0, error: error.message };
   }
 }
 
 /**
  * Get detailed information for a specific trial
- * @param {string} trialId - Trial ID (NCT number for ClinicalTrials.gov)
+ * @param {string} trialId - Trial ID (NCT number for ClinicalTrials.gov, jRCT ID for JRCT)
+ * @param {string} source - Trial source ('ClinicalTrials.gov' or 'JRCT') - optional, will be detected if not provided
+ * @param {string} searchQuery - Original search query (needed for JRCT detail fetch)
  * @returns {Promise<Object>} - Detailed trial information
  */
-export async function getTrialDetails(trialId) {
-  // Fetch full trial details from ClinicalTrials.gov API
+export async function getTrialDetails(trialId, source = null, searchQuery = '') {
   try {
     if (!trialId) {
       return { success: false, error: 'Trial ID is required' };
     }
 
-    // Use v2 API to get full trial details by searching for the specific NCT ID
-    // The query.term can search for NCT IDs
-    const url = `${PROXY_BASE}?source=ctgov&query.term=${encodeURIComponent(trialId)}&pageSize=1&fmt=json`;
-    const res = await axios.get(url, { timeout: 20000 });
-    const responseData = res.data;
-
-    if (responseData.studies && responseData.studies.length > 0) {
-      // Find the study that matches the trialId exactly
-      const study = responseData.studies.find(s => {
-        const nctId = s.protocolSection?.identificationModule?.nctId || s.nctId || s.id || '';
-        return nctId === trialId || nctId === `NCT${trialId}` || trialId === `NCT${nctId}`;
-      }) || responseData.studies[0];
+    // Detect source from trial ID format if not provided
+    const detectedSource = source || (trialId.match(/^jRCT/i) ? 'JRCT' : 'ClinicalTrials.gov');
+    
+    if (detectedSource === 'JRCT') {
+      // Fetch JRCT trial details
+      // METHOD 1: Use stored tokenData from search results (preferred - avoids rebuilding search page)
+      // METHOD 2: Rebuild search page and extract token (fallback)
       
-      const protocolSection = study.protocolSection || {};
-      const descriptionModule = protocolSection.descriptionModule || {};
+      // Check if searchQuery is actually a trial object with tokenData
+      let tokenData = null;
+      let storedDetailUrl = null;
+      let searchQueryToUse = '';
       
-      // Extract summary with proper handling
-      let briefSummary = '';
-      if (descriptionModule?.briefSummary) {
-        briefSummary = typeof descriptionModule.briefSummary === 'string' 
-          ? descriptionModule.briefSummary 
-          : (descriptionModule.briefSummary.text || descriptionModule.briefSummary.content || '');
+      if (typeof searchQuery === 'object' && searchQuery !== null) {
+        // searchQuery is actually a trial object
+        tokenData = searchQuery._tokenData || null;
+        storedDetailUrl = searchQuery.detailUrl || null;
+        searchQueryToUse = searchQuery._searchQuery || searchQuery.conditions?.[0] || searchQuery.title || '';
+      } else if (typeof searchQuery === 'string') {
+        searchQueryToUse = searchQuery.trim() || 'cancer';
+      } else {
+        searchQueryToUse = 'cancer';
       }
-      if (!briefSummary && descriptionModule?.detailedDescription) {
-        const detailedDesc = descriptionModule.detailedDescription;
-        briefSummary = typeof detailedDesc === 'string' 
-          ? detailedDesc 
-          : (detailedDesc.text || detailedDesc.content || '');
+      
+      let res;
+      let detailData;
+      
+      // METHOD 1: Try with stored tokenData first (if available)
+      if (tokenData && tokenData['_Token[fields]']) {
+        const tokenDataParam = encodeURIComponent(JSON.stringify(tokenData));
+        const detailUrlParam = storedDetailUrl ? `&detailUrl=${encodeURIComponent(storedDetailUrl)}` : '';
+        const detailUrl = `/api/jrct/detail?id=${encodeURIComponent(trialId)}&tokenData=${tokenDataParam}${detailUrlParam}`;
+        
+        try {
+          res = await axios.get(detailUrl, { 
+            timeout: 70000,
+            validateStatus: (status) => status < 600
+          });
+          detailData = res.data;
+          
+          if (res.status === 200 && !detailData.error) {
+            // Success with stored token
+          } else if (detailData?.error) {
+            // Token method failed, fall through to METHOD 2
+            tokenData = null; // Force fallback
+          }
+        } catch (tokenErr) {
+          // Token method failed, fall through to METHOD 2
+          tokenData = null; // Force fallback
+        }
       }
-
-      // Extract eligibility criteria
-      let eligibilityCriteria = '';
-      if (descriptionModule?.eligibilityCriteria) {
-        const elig = descriptionModule.eligibilityCriteria;
-        eligibilityCriteria = typeof elig === 'string' 
-          ? elig 
-          : (elig.text || elig.content || '');
+      
+      // METHOD 2: Fallback to search query method
+      if (!detailData || detailData?.error) {
+        const fallbackUrl = `/api/jrct/detail?id=${encodeURIComponent(trialId)}&q=${encodeURIComponent(searchQueryToUse)}&page=1`;
+        
+        try {
+          res = await axios.get(fallbackUrl, { 
+            timeout: 70000,
+            validateStatus: (status) => status < 600
+          });
+          detailData = res.data;
+        } catch (axiosErr) {
+          if (axiosErr.response) {
+            res = axiosErr.response;
+            detailData = res.data;
+          } else {
+            throw axiosErr;
+          }
+        }
       }
-
+      
+      // If still error, try with trial ID as query (last resort)
+      if (detailData && detailData.error && searchQueryToUse !== trialId) {
+        const isServerError = res.status >= 500 || (res.status >= 400 && (detailData.message || '').includes('not found in search results'));
+        
+        if (isServerError) {
+          const retryUrl = `/api/jrct/detail?id=${encodeURIComponent(trialId)}&q=${encodeURIComponent(trialId)}&page=1`;
+          try {
+            const retryRes = await axios.get(retryUrl, { 
+              timeout: 70000,
+              validateStatus: (status) => status < 600
+            });
+            
+            if (retryRes.status === 200 && !retryRes.data.error) {
+              res = retryRes;
+              detailData = retryRes.data;
+            }
+          } catch (retryErr) {
+            console.error('Retry with trial ID failed:', retryErr.message);
+          }
+        }
+      }
+      
+      if (detailData && detailData.error) {
+        return { 
+          success: false, 
+          error: detailData.error || detailData.message || 'Failed to fetch JRCT details', 
+          debug: detailData.debug,
+          httpStatus: res.status
+        };
+      }
+      
+      // Check if we have valid data
+      if (!detailData || res.status >= 400) {
+        const errorMsg = detailData?.error || detailData?.message || `Failed to fetch JRCT details (HTTP ${res.status})`;
+        const isNotFound = errorMsg.includes('not found in search results') || 
+                          errorMsg.includes('Could not find detail form') ||
+                          (detailData?.debug?.idFoundInSearchResults === false);
+        
+        return { 
+          success: false, 
+          error: isNotFound 
+            ? `Trial ${trialId} not found in JRCT search results. The search results page only shows basic information (ID, title, condition, status, published date). Detailed information (hospitals, eligibility, contacts, etc.) is only available on the detail page, which requires a valid token from the search results.`
+            : errorMsg,
+          debug: {
+            ...detailData?.debug,
+            httpStatus: res.status,
+            searchQueryUsed: searchQueryToUse,
+            usedStoredToken: !!tokenData,
+            suggestion: isNotFound 
+              ? `Visit https://jrct.mhlw.go.jp/latest-detail/${trialId} directly, or perform a new search to get fresh tokens.`
+              : 'This may be a temporary JRCT server issue. Try again later or visit the JRCT website directly.'
+          }
+        };
+      }
+      
+      // Success! JRCT detail endpoint now returns parsed JSON with all fields
+      // Map it to match ClinicalTrials.gov format for consistency
       return {
         success: true,
-        summary: briefSummary,
-        eligibilityCriteria: eligibilityCriteria
+        summary: detailData.summary || detailData.detailedDescription || '',
+        summaryJa: detailData.summaryJa || detailData.summary || '',
+        eligibilityCriteria: detailData.eligibilityCriteria || '',
+        eligibilityCriteriaJa: detailData.eligibilityCriteriaJa || '',
+        eligibility: detailData.eligibility || (detailData.eligibilityCriteria ? { criteria: detailData.eligibilityCriteria } : undefined),
+        // Include all additional fields for comprehensive display
+        locations: detailData.locations || [],
+        facilities: detailData.facilities || [],
+        sponsor: detailData.sponsor || detailData.sponsorInstitution || '',
+        sponsorInstitution: detailData.sponsorInstitution || '',
+        phase: detailData.phase || '',
+        status: detailData.status || '',
+        statusJa: detailData.statusJa || '',
+        enrollment: detailData.enrollment || '',
+        studyType: detailData.studyType || '',
+        intervention: detailData.intervention || '',
+        primaryOutcome: detailData.primaryOutcome || '',
+        secondaryOutcome: detailData.secondaryOutcome || '',
+        firstEnrollmentDate: detailData.firstEnrollmentDate || '',
+        completionDate: detailData.completionDate || '',
+        publishedDate: detailData.publishedDate || '',
+        contactName: detailData.contactName || '',
+        contactAffiliation: detailData.contactAffiliation || '',
+        contactAddress: detailData.contactAddress || '',
+        contactPhone: detailData.contactPhone || '',
+        contactEmail: detailData.contactEmail || '',
+        age: detailData.age || '',
+        gender: detailData.gender || '',
+        inclusionCriteria: detailData.inclusionCriteria || '',
+        exclusionCriteria: detailData.exclusionCriteria || '',
+        countriesOfRecruitment: detailData.countriesOfRecruitment || [],
+        conditions: detailData.conditions || [],
+        url: detailData.url || '',
+        urlJa: detailData.urlJa || '',
+        title: detailData.title || '', // Use full Public Title from details
+        titleJa: detailData.titleJa || detailData.title || '' // Use full title for Japanese too
       };
-    }
+    } else {
+      // Fetch ClinicalTrials.gov trial details (existing logic)
+      const url = `${PROXY_BASE}?source=ctgov&query.term=${encodeURIComponent(trialId)}&pageSize=1&fmt=json`;
+      const res = await axios.get(url, { timeout: 70000 });
+      const responseData = res.data;
 
-    return { success: false, error: 'Trial not found' };
+      if (responseData.studies && responseData.studies.length > 0) {
+        // Find the study that matches the trialId exactly
+        const study = responseData.studies.find(s => {
+          const nctId = s.protocolSection?.identificationModule?.nctId || s.nctId || s.id || '';
+          return nctId === trialId || nctId === `NCT${trialId}` || trialId === `NCT${nctId}`;
+        }) || responseData.studies[0];
+        
+        const protocolSection = study.protocolSection || {};
+        const descriptionModule = protocolSection.descriptionModule || {};
+        
+        // Extract summary with proper handling
+        let briefSummary = '';
+        if (descriptionModule?.briefSummary) {
+          briefSummary = typeof descriptionModule.briefSummary === 'string' 
+            ? descriptionModule.briefSummary 
+            : (descriptionModule.briefSummary.text || descriptionModule.briefSummary.content || '');
+        }
+        if (!briefSummary && descriptionModule?.detailedDescription) {
+          const detailedDesc = descriptionModule.detailedDescription;
+          briefSummary = typeof detailedDesc === 'string' 
+            ? detailedDesc 
+            : (detailedDesc.text || detailedDesc.content || '');
+        }
+
+        // Extract eligibility criteria
+        let eligibilityCriteria = '';
+        if (descriptionModule?.eligibilityCriteria) {
+          const elig = descriptionModule.eligibilityCriteria;
+          eligibilityCriteria = typeof elig === 'string' 
+            ? elig 
+            : (elig.text || elig.content || '');
+        }
+
+        return {
+          success: true,
+          summary: briefSummary,
+          eligibilityCriteria: eligibilityCriteria,
+          eligibility: eligibilityCriteria ? { criteria: eligibilityCriteria } : undefined
+        };
+      }
+
+      return { success: false, error: 'Trial not found' };
+    }
   } catch (error) {
     return { success: false, error: error.message || 'Failed to fetch trial details' };
   }
@@ -1225,7 +1847,8 @@ function extractGenomicCriteria(eligibilityText) {
 }
 
 // Legacy exports for backward compatibility
-export const searchJRCT = searchTrials;
+// JRCT search is now integrated into searchTrials
+// These exports maintain backwards compatibility
 export const searchJRCTByGenomicProfile = searchTrialsByGenomicProfile;
 export const matchesJRCTEligibility = matchesTrialEligibility;
 export const getJRCTTrial = getTrialDetails;

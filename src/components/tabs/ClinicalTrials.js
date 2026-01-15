@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { CheckCircle, AlertTriangle, XCircle, Search as SearchIcon, MapPin, Globe, X, MessageSquare, Bookmark, FlaskConical, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { CheckCircle, AlertTriangle, XCircle, Search as SearchIcon, MapPin, Globe, X, MessageSquare, Bookmark, FlaskConical, FileText, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { auth } from '../../firebase/config';
 import { patientService, genomicProfileService, clinicalTrialsService, trialLocationService } from '../../firebase/services';
 import { useBanner } from '../../contexts/BannerContext';
 import { getTrialDetails } from '../../services/clinicalTrials/trialSearchService';
+import { calculateTrialMatchScore } from '../../services/clinicalTrials/trialMatcher';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import EditLocationModal from '../modals/EditLocationModal';
 
@@ -50,11 +51,29 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
   const [genomicProfile, setGenomicProfile] = useState(null);
   const [trialLocation, setTrialLocation] = useState(null);
   const [showEditLocation, setShowEditLocation] = useState(false);
+  const [loadingDetailsInBackground, setLoadingDetailsInBackground] = useState(false);
 
   const [error, setError] = useState(null);
   
   // Track expanded conditions/interventions per trial
   const [expandedSections, setExpandedSections] = useState(() => new Set());
+  
+  // Sort search results: excluded trials (0% match) go to bottom, others sorted by match percentage (highest first)
+  const sortedSearchResults = useMemo(() => {
+    if (!searchResults || searchResults.length === 0) return [];
+    
+    return [...searchResults].sort((a, b) => {
+      const aMatch = a.matchResult?.matchPercentage || 0;
+      const bMatch = b.matchResult?.matchPercentage || 0;
+      
+      // Excluded trials (0% match) go to bottom
+      if (aMatch === 0 && bMatch !== 0) return 1; // a goes to bottom
+      if (aMatch !== 0 && bMatch === 0) return -1; // b goes to bottom
+      
+      // If both are excluded or both are not excluded, sort by match percentage (highest first)
+      return bMatch - aMatch;
+    });
+  }, [searchResults]);
 
   useEffect(() => {
     loadPatientData();
@@ -244,6 +263,51 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
         // Check saved status for search results
         if (results.trials && results.trials.length > 0) {
           checkSavedStatus(results.trials);
+          
+          // For JRCT trials, fetch details in background to enable exclusion detection
+          // This allows match scores to be updated with full eligibility criteria automatically
+          const jrctTrials = results.trials.filter(t => t.source === 'JRCT' && !t.eligibilityCriteria);
+          if (jrctTrials.length > 0 && patientProfile) {
+            // Fetch details asynchronously for JRCT trials (don't block UI)
+            (async () => {
+              try {
+                for (const trial of jrctTrials.slice(0, 10)) { // Limit to first 10 to avoid too many requests
+                  try {
+                    let searchQueryOrTrial = trial._tokenData ? trial : (trial._searchQuery || trial.conditions?.[0] || 'cancer');
+                    const details = await getTrialDetails(trial.id, trial.source, searchQueryOrTrial);
+                    
+                    if (details.success && details.eligibilityCriteria && patientProfile) {
+                      // Merge details and recalculate match
+                      const updatedTrial = {
+                        ...trial,
+                        ...details,
+                        eligibilityCriteria: details.eligibilityCriteria,
+                        eligibility: details.eligibility || (details.eligibilityCriteria ? { criteria: details.eligibilityCriteria } : undefined)
+                      };
+                      
+                      const recalculatedMatch = calculateTrialMatchScore(updatedTrial, patientProfile, genomicProfile);
+                      const initialMatchPercentage = trial.matchResult?.matchPercentage || 0;
+                      
+                      // Update the trial in searchResults
+                      setSearchResults(prevResults =>
+                        prevResults.map(t =>
+                          t.id === trial.id
+                            ? { ...t, ...updatedTrial, matchResult: recalculatedMatch, _initialMatchPercentage: initialMatchPercentage }
+                            : t
+                        )
+                      );
+                      // Small delay to avoid overwhelming the server
+                      await new Promise(resolve => setTimeout(resolve, 200));
+                    }
+                  } catch (err) {
+                    // Silently fail - background fetch is optional
+                  }
+                }
+              } catch (error) {
+                // Silently fail - background fetch is optional
+              }
+            })();
+          }
         }
       } else {
         setError(results.error || 'No trials found');
@@ -470,9 +534,18 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             {trial.matchResult && (
           <div className={combineClasses('mb-2 sm:mb-3', DesignTokens.spacing.header.mobile, 'flex flex-wrap items-center', DesignTokens.spacing.gap.sm)}>
             {getEligibilityBadge(trial.matchResult.eligibilityLevel)}
-            <span className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[600])}>
-              Match: {trial.matchResult.matchPercentage}%
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[600])}>
+                Match: {trial.matchResult.matchPercentage}%
+              </span>
+              {trial._initialMatchPercentage !== undefined && 
+               trial._initialMatchPercentage !== trial.matchResult.matchPercentage && 
+               trial.matchResult.matchPercentage === 0 && (
+                <span className={combineClasses(DesignTokens.typography.body.xs, 'text-red-600 font-medium', 'px-1.5 py-0.5 rounded', 'bg-red-50')}>
+                  EXCLUDED
+                </span>
+              )}
+            </div>
           </div>
         )}
 
@@ -487,13 +560,13 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             <span className={combineClasses('ml-1 sm:ml-2', DesignTokens.colors.neutral.text[600])}>{trial.status || 'Unknown'}</span>
           </div>
           <div>
-            <span className={combineClasses(DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[700])}>Sponsor:</span>
-            <span className={combineClasses('ml-1 sm:ml-2', DesignTokens.colors.neutral.text[600], 'break-words')}>{trial.sponsor || 'N/A'}</span>
-          </div>
-          <div>
             <span className={combineClasses(DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[700])}>Location:</span>
             <span className={combineClasses('ml-1 sm:ml-2', DesignTokens.colors.neutral.text[600], 'break-words')}>
-              {trial.locations && trial.locations.length > 0 ? (() => {
+              {trial.countriesOfRecruitment && trial.countriesOfRecruitment.length > 0 ? (
+                trial.countriesOfRecruitment.length === 1 
+                  ? trial.countriesOfRecruitment[0]
+                  : trial.countriesOfRecruitment.join(', ')
+              ) : trial.locations && trial.locations.length > 0 ? (() => {
                 // Get unique countries from all locations
                 const countries = [...new Set(trial.locations.map(loc => {
                   if (typeof loc === 'string') {
@@ -557,18 +630,71 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             <button
               onClick={async () => {
                 setSelectedTrial(trial);
-                // If summary is missing, try to fetch it
-                if (!trial.summary && trial.id && trial.source === 'ClinicalTrials.gov') {
+                // If summary is missing, try to fetch it (works for both ClinicalTrials.gov and JRCT)
+                if (!trial.summary && trial.id) {
                   setLoadingTrialDetails(true);
                   try {
-                    const details = await getTrialDetails(trial.id);
-                    if (details.success && details.summary) {
-                      setSelectedTrial({ ...trial, summary: details.summary });
+                    // Pass source and searchQuery/tokenData for JRCT trials
+                    // For JRCT: If we have stored tokenData, pass the trial object so getTrialDetails can use it
+                    // Otherwise, use the original search query that returned this trial
+                    let searchQueryOrTrial = '';
+                    if (trial.source === 'JRCT') {
+                      // If we have tokenData from search results, pass the trial object
+                      if (trial._tokenData) {
+                        searchQueryOrTrial = trial; // Pass entire trial object so getTrialDetails can extract tokenData
+                      } else {
+                        // Fallback to search query method
+                        searchQueryOrTrial = trial._searchQuery || trial.conditions?.[0] || trial.title || 'cancer';
+                      }
+                    }
+                    const details = await getTrialDetails(trial.id, trial.source, searchQueryOrTrial);
+                    if (details.success) {
+                      // Merge all details into the trial object
+                      const updatedTrial = { 
+                        ...trial, 
+                        ...details,
+                        summary: details.summary || trial.summary,
+                        eligibilityCriteria: details.eligibilityCriteria || trial.eligibilityCriteria,
+                        eligibility: details.eligibility || trial.eligibility,
+                        title: details.title || trial.title, // Use full Public Title from details
+                        titleJa: details.titleJa || trial.titleJa || details.title || trial.title
+                      };
+                      
+                      // Recalculate match score now that we have eligibility criteria
+                      // This is important because exclusion detection requires eligibility criteria
+                      if (patientProfile && updatedTrial.eligibilityCriteria) {
+                        const initialMatchPercentage = trial.matchResult?.matchPercentage || 0;
+                        const recalculatedMatch = calculateTrialMatchScore(updatedTrial, patientProfile, genomicProfile);
+                        updatedTrial.matchResult = recalculatedMatch;
+                        updatedTrial._initialMatchPercentage = initialMatchPercentage; // Store initial for comparison
+                        
+                        // Also update the trial in searchResults so the card shows the updated match
+                        setSearchResults(prevResults => 
+                          prevResults.map(t => 
+                            t.id === trial.id 
+                              ? { ...t, ...updatedTrial, matchResult: recalculatedMatch, _initialMatchPercentage: initialMatchPercentage }
+                              : t
+                          )
+                        );
+                      }
+                      
+                      setSelectedTrial(updatedTrial);
+                    } else {
+                      // Show trial anyway, even if details fetch failed
+                      // The modal will show whatever data we have from search results
+                      setSelectedTrial(trial);
                     }
                   } catch (error) {
+                    console.error('Error fetching trial details:', error);
+                    // Fallback: show trial without additional details
+                    // The trial from search results should still have basic info
+                    setSelectedTrial(trial);
                   } finally {
                     setLoadingTrialDetails(false);
                   }
+                } else {
+                  // Trial already has summary, just show it
+                  setSelectedTrial(trial);
                 }
               }}
               className={combineClasses(DesignTokens.components.button.outline.primary, DesignTokens.spacing.button.mobile, 'flex-1 text-xs sm:text-sm font-medium gap-1.5 sm:gap-2')}
@@ -589,23 +715,27 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
               </button>
             )}
             <a
-              href={trial.url || (trial.id ? `https://clinicaltrials.gov/study/${trial.id}` : '#')}
+              href={trial.source === 'JRCT' 
+                ? (trial.url || trial.detailUrl || `https://jrct.mhlw.go.jp/en-latest-detail/${trial.id}`)
+                : (trial.url || (trial.id ? `https://clinicaltrials.gov/study/${trial.id}` : '#'))}
               target="_blank"
               rel="noopener noreferrer"
               className={combineClasses(DesignTokens.components.button.outline.neutral, DesignTokens.spacing.button.mobile, 'hidden sm:flex flex-1 text-xs sm:text-sm font-medium gap-1.5 sm:gap-2')}
             >
               <Globe className={DesignTokens.icons.small.size.full} />
-              <span>View on ClinicalTrials.gov</span>
+              <span>{trial.source === 'JRCT' ? 'View on JRCT' : 'View on ClinicalTrials.gov'}</span>
             </a>
           </div>
           <a
-            href={trial.url || (trial.id ? `https://clinicaltrials.gov/study/${trial.id}` : '#')}
+            href={trial.source === 'JRCT'
+              ? (trial.url || trial.detailUrl || `https://jrct.mhlw.go.jp/en-latest-detail/${trial.id}`)
+              : (trial.url || (trial.id ? `https://clinicaltrials.gov/study/${trial.id}` : '#'))}
             target="_blank"
             rel="noopener noreferrer"
             className={combineClasses(DesignTokens.components.button.outline.neutral, 'sm:hidden w-full', DesignTokens.spacing.button.mobile, DesignTokens.typography.body.xs, 'font-medium text-center', DesignTokens.spacing.gap.sm)}
           >
             <Globe className={DesignTokens.icons.small.size.full} />
-            <span>View on CT.gov</span>
+            <span>{trial.source === 'JRCT' ? 'View on JRCT' : 'View on CT.gov'}</span>
           </a>
         </div>
       </div>
@@ -614,6 +744,28 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
 
   return (
     <>
+      {/* Loading overlay for trial search */}
+      {searching && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-8 max-w-sm w-full mx-4 shadow-2xl">
+            <div className="text-center">
+              <div className={combineClasses('w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4', DesignTokens.moduleAccent.trials.bg)}>
+                <Loader2 className={combineClasses('w-8 h-8 animate-spin', DesignTokens.moduleAccent.trials.text)} />
+              </div>
+              <h3 className={combineClasses('text-xl font-bold mb-4', DesignTokens.colors.neutral.text[900])}>Searching Clinical Trials</h3>
+              <div className="space-y-2">
+                <p className={combineClasses('text-sm', DesignTokens.colors.neutral.text[600])}>
+                  ClinicalTrials.gov
+                </p>
+                <p className={combineClasses('text-sm', DesignTokens.colors.neutral.text[600])}>
+                  JRCT
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Header */}
       <div className={combineClasses(
         DesignTokens.spacing.container.mobile,
@@ -679,7 +831,14 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
               DesignTokens.colors.neutral.text[700],
               'space-y-1'
             )}>
-              <p><strong>Diagnosis:</strong> {patientProfile?.diagnosis || 'Not set'}</p>
+              <div>
+                <p><strong>Diagnosis:</strong> {patientProfile?.diagnosis || 'Not set'}</p>
+                {(patientProfile?.currentStatus?.subtype || patientProfile?.cancerType) && (
+                  <p className={combineClasses('ml-4 sm:ml-6 mt-0.5', DesignTokens.colors.neutral.text[600], 'text-xs sm:text-sm')}>
+                    <strong>Subtype:</strong> {patientProfile?.currentStatus?.subtype || patientProfile?.cancerType || ''}
+                  </p>
+                )}
+              </div>
               <p><strong>Age:</strong> {patientProfile?.age || 'Not set'}</p>
               <p><strong>Gender:</strong> {patientProfile?.gender || 'Not set'}</p>
               {genomicProfile && (
@@ -759,7 +918,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                 )}
               </h2>
               <div className="space-y-4">
-                {searchResults.map(trial => renderTrialCard(trial, false))}
+                {sortedSearchResults.map(trial => renderTrialCard(trial, false))}
                 
                 {/* Load More Button */}
                 {pagination && pagination.hasMore && (
@@ -893,56 +1052,26 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                 </div>
               )}
 
-              {/* Summary */}
-              <div className={combineClasses(DesignTokens.components.card.container, DesignTokens.shadows.sm)}>
-                <h3 className="font-semibold text-medical-neutral-900 mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base">
-                  <SearchIcon className={combineClasses('w-4 h-4 sm:w-5 sm:h-5', DesignTokens.colors.app.text[600], 'flex-shrink-0')} />
-                  Summary
-                </h3>
-                {loadingTrialDetails ? (
-                  <div className="flex items-center gap-2 text-medical-neutral-600">
-                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span className="text-sm">Loading summary...</span>
-                  </div>
-                ) : (
-                  <div className="text-medical-neutral-700 leading-relaxed prose prose-sm max-w-none">
-                    <ReactMarkdown
-                      components={{
-                        p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
-                        ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 space-y-1" {...props} />,
-                        ol: ({node, ...props}) => <ol className="list-decimal list-outside mb-2 space-y-1 ml-5" {...props} />,
-                        li: ({node, ...props}) => <li className="ml-2" {...props} />,
-                        strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
-                        em: ({node, ...props}) => <em className="italic" {...props} />,
-                        code: ({node, ...props}) => <code className="bg-medical-neutral-100 px-1.5 py-0.5 rounded text-xs font-mono" {...props} />,
-                        h1: ({node, ...props}) => <h1 className="text-lg font-bold mb-2 mt-3 first:mt-0" {...props} />,
-                        h2: ({node, ...props}) => <h2 className="text-base font-bold mb-2 mt-3 first:mt-0" {...props} />,
-                        h3: ({node, ...props}) => <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0" {...props} />,
-                        blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-medical-neutral-300 pl-3 italic my-2" {...props} />,
-                        a: ({node, ...props}) => <a className="text-medical-primary-600 underline hover:text-medical-primary-800" {...props} />,
-                      }}
-                    >
-                      {selectedTrial.summary || selectedTrial.summaryJa || 'No summary available. Please visit the trial page for more information.'}
-                    </ReactMarkdown>
-                  </div>
-                )}
-              </div>
-
-              {/* Eligibility Criteria */}
-              {selectedTrial.eligibility && (
+              {/* Summary - Hide for JRCT if no summary (they only have eligibility criteria) */}
+              {(selectedTrial.source !== 'JRCT' || (selectedTrial.summary && selectedTrial.summary.trim().length > 0)) && (
                 <div className={combineClasses(DesignTokens.components.card.container, DesignTokens.shadows.sm)}>
-                  <h3 className={combineClasses('font-semibold', DesignTokens.colors.app.text[900], 'mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base')}>
-                    <CheckCircle className={combineClasses('w-4 h-4 sm:w-5 sm:h-5', DesignTokens.colors.app.text[600], 'flex-shrink-0')} />
-                    Eligibility Criteria
+                  <h3 className="font-semibold text-medical-neutral-900 mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base">
+                    <SearchIcon className={combineClasses('w-4 h-4 sm:w-5 sm:h-5', DesignTokens.colors.app.text[600], 'flex-shrink-0')} />
+                    Summary
                   </h3>
-                  <div className={DesignTokens.components.card.nestedSubtle}>
-                    <div className="text-sm text-medical-neutral-700 leading-relaxed prose prose-sm max-w-none">
+                  {loadingTrialDetails ? (
+                    <div className="flex items-center gap-2 text-medical-neutral-600">
+                      <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span className="text-sm">Loading summary...</span>
+                    </div>
+                  ) : (
+                    <div className="text-medical-neutral-700 leading-relaxed prose prose-sm max-w-none">
                       <ReactMarkdown
                         components={{
-                          p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                          p: ({node, ...props}) => <p className="mb-2 last:mb-0 whitespace-pre-line" {...props} />,
                           ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 space-y-1" {...props} />,
                           ol: ({node, ...props}) => <ol className="list-decimal list-outside mb-2 space-y-1 ml-5" {...props} />,
                           li: ({node, ...props}) => <li className="ml-2" {...props} />,
@@ -956,17 +1085,126 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                           a: ({node, ...props}) => <a className="text-medical-primary-600 underline hover:text-medical-primary-800" {...props} />,
                         }}
                       >
-                        {typeof selectedTrial.eligibility === 'string' 
-                          ? selectedTrial.eligibility
-                          : (selectedTrial.eligibility.criteria || selectedTrial.eligibility.criteriaJa || 'Not specified')}
+                        {selectedTrial.summary || selectedTrial.summaryJa || 'No summary available. Please visit the trial page for more information.'}
+                      </ReactMarkdown>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Eligibility Criteria */}
+              {(selectedTrial.eligibilityCriteria || selectedTrial.eligibility || selectedTrial.inclusionCriteria || selectedTrial.exclusionCriteria) && (
+                <div className={combineClasses(DesignTokens.components.card.container, DesignTokens.shadows.sm)}>
+                  <h3 className={combineClasses('font-semibold', DesignTokens.colors.app.text[900], 'mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base')}>
+                    <CheckCircle className={combineClasses('w-4 h-4 sm:w-5 sm:h-5', DesignTokens.colors.app.text[600], 'flex-shrink-0')} />
+                    Eligibility Criteria
+                  </h3>
+                  <div className={DesignTokens.components.card.nestedSubtle}>
+                    <div className="text-sm text-medical-neutral-700 leading-relaxed prose prose-sm max-w-none whitespace-pre-line">
+                      <ReactMarkdown
+                        components={{
+                          p: ({node, ...props}) => <p className="mb-0.5 last:mb-0 whitespace-pre-line" {...props} />,
+                          ul: ({node, ...props}) => <ul className="list-disc list-inside mb-0.5 space-y-0" {...props} />,
+                          ol: ({node, ...props}) => <ol className="list-decimal list-outside mb-0.5 space-y-0 ml-5" {...props} />,
+                          li: ({node, ...props}) => <li className="ml-2 whitespace-normal leading-relaxed" {...props} />,
+                          strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
+                          em: ({node, ...props}) => <em className="italic" {...props} />,
+                          code: ({node, ...props}) => <code className="bg-medical-neutral-100 px-1.5 py-0.5 rounded text-xs font-mono" {...props} />,
+                          h1: ({node, ...props}) => <h1 className="text-lg font-bold mb-0.5 mt-1.5 first:mt-0" {...props} />,
+                          h2: ({node, ...props}) => <h2 className="text-base font-bold mb-0.5 mt-1.5 first:mt-0" {...props} />,
+                          h3: ({node, ...props}) => <h3 className="text-sm font-bold mb-0 mt-0 first:mt-0 whitespace-normal" {...props} />,
+                          blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-medical-neutral-300 pl-3 italic my-0.5" {...props} />,
+                          a: ({node, ...props}) => <a className="text-medical-primary-600 underline hover:text-medical-primary-800" {...props} />,
+                        }}
+                      >
+                        {selectedTrial.eligibilityCriteria || 
+                         (typeof selectedTrial.eligibility === 'string' 
+                           ? selectedTrial.eligibility
+                           : (selectedTrial.eligibility?.criteria || selectedTrial.eligibility?.criteriaJa || '')) ||
+                         (selectedTrial.inclusionCriteria && selectedTrial.exclusionCriteria
+                           ? `**Inclusion Criteria:**\n${selectedTrial.inclusionCriteria}\n\n**Exclusion Criteria:**\n${selectedTrial.exclusionCriteria}`
+                           : selectedTrial.inclusionCriteria || selectedTrial.exclusionCriteria || 'Not specified')}
                       </ReactMarkdown>
                     </div>
                   </div>
                 </div>
               )}
+              
+              {/* Additional Trial Information */}
+              {(selectedTrial.phase || selectedTrial.enrollment || selectedTrial.studyType || selectedTrial.intervention || selectedTrial.contactName || selectedTrial.contactAffiliation || selectedTrial.contactAddress || selectedTrial.contactPhone || selectedTrial.contactEmail) && (
+                <div className={combineClasses(DesignTokens.components.card.container, DesignTokens.shadows.sm)}>
+                  <h3 className={combineClasses('font-semibold', DesignTokens.colors.app.text[900], 'mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base')}>
+                    <FlaskConical className={combineClasses('w-4 h-4 sm:w-5 sm:h-5', DesignTokens.colors.app.text[600], 'flex-shrink-0')} />
+                    Additional Information
+                  </h3>
+                  <div className={combineClasses('grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4', DesignTokens.typography.body.sm)}>
+                    {selectedTrial.phase && (
+                      <div>
+                        <span className={combineClasses(DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[700])}>Phase:</span>
+                        <span className={combineClasses('ml-2', DesignTokens.colors.neutral.text[600])}>{selectedTrial.phase}</span>
+                      </div>
+                    )}
+                    {selectedTrial.enrollment && (
+                      <div>
+                        <span className={combineClasses(DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[700])}>Enrollment:</span>
+                        <span className={combineClasses('ml-2', DesignTokens.colors.neutral.text[600])}>{selectedTrial.enrollment}</span>
+                      </div>
+                    )}
+                    {selectedTrial.studyType && (
+                      <div>
+                        <span className={combineClasses(DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[700])}>Study Type:</span>
+                        <span className={combineClasses('ml-2', DesignTokens.colors.neutral.text[600])}>{selectedTrial.studyType}</span>
+                      </div>
+                    )}
+                    {selectedTrial.intervention && (
+                      <div className="sm:col-span-2">
+                        <span className={combineClasses(DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[700])}>Intervention:</span>
+                        <span className={combineClasses('ml-2', DesignTokens.colors.neutral.text[600])}>{selectedTrial.intervention}</span>
+                      </div>
+                    )}
+                    {(selectedTrial.contactName || selectedTrial.contactAffiliation || selectedTrial.contactAddress || selectedTrial.contactPhone || selectedTrial.contactEmail) && (
+                      <div className="sm:col-span-2 border-t pt-3 mt-1">
+                        <div className={combineClasses('font-semibold mb-2', DesignTokens.colors.neutral.text[700])}>Contact (Public Queries):</div>
+                        {selectedTrial.contactAffiliation && (
+                          <div className="mb-1">
+                            <span className={DesignTokens.colors.neutral.text[600]}>Name: </span>
+                            <span className={DesignTokens.colors.neutral.text[700]}>{selectedTrial.contactAffiliation}</span>
+                          </div>
+                        )}
+                        {!selectedTrial.contactAffiliation && selectedTrial.contactName && (
+                          <div className="mb-1">
+                            <span className={DesignTokens.colors.neutral.text[600]}>Name: </span>
+                            <span className={DesignTokens.colors.neutral.text[700]}>{selectedTrial.contactName}</span>
+                          </div>
+                        )}
+                        {selectedTrial.contactAddress && (
+                          <div className="mb-1">
+                            <span className={DesignTokens.colors.neutral.text[600]}>Address: </span>
+                            <span className={DesignTokens.colors.neutral.text[700]}>{selectedTrial.contactAddress}</span>
+                          </div>
+                        )}
+                        {selectedTrial.contactPhone && (
+                          <div className="mb-1">
+                            <span className={DesignTokens.colors.neutral.text[600]}>Phone: </span>
+                            <span className={DesignTokens.colors.neutral.text[700]}>{selectedTrial.contactPhone}</span>
+                          </div>
+                        )}
+                        {selectedTrial.contactEmail && (
+                          <div>
+                            <span className={DesignTokens.colors.neutral.text[600]}>Email: </span>
+                            <a href={`mailto:${selectedTrial.contactEmail}`} className={combineClasses('text-medical-primary-600 hover:text-medical-primary-800 underline', DesignTokens.transitions.all)}>
+                              {selectedTrial.contactEmail}
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Study Locations */}
-              {selectedTrial.locations && selectedTrial.locations.length > 0 && (() => {
+              {((selectedTrial.countriesOfRecruitment && selectedTrial.countriesOfRecruitment.length > 0) || (selectedTrial.locations && selectedTrial.locations.length > 0)) && (() => {
                 // Helper function to extract country from location
                 const getLocationCountry = (location) => {
                   if (typeof location === 'string') {
@@ -978,9 +1216,21 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                   return '';
                 };
 
-                // Sort locations: selected country first, then others
+                // If countriesOfRecruitment exists, use that instead of locations for display
+                // Sort to show Japan first, then others
+                const displayCountries = selectedTrial.countriesOfRecruitment && selectedTrial.countriesOfRecruitment.length > 0
+                  ? [...selectedTrial.countriesOfRecruitment].sort((a, b) => {
+                      const aIsJapan = a.toLowerCase().includes('japan');
+                      const bIsJapan = b.toLowerCase().includes('japan');
+                      if (aIsJapan && !bIsJapan) return -1;
+                      if (!aIsJapan && bIsJapan) return 1;
+                      return 0; // Keep original order for non-Japan countries
+                    })
+                  : null;
+                
+                // Sort locations: selected country first, then others (only if not using countriesOfRecruitment)
                 const selectedCountry = trialLocation?.country || '';
-                const sortedLocations = [...selectedTrial.locations].sort((a, b) => {
+                const sortedLocations = displayCountries ? [] : [...(selectedTrial.locations || [])].sort((a, b) => {
                   const countryA = getLocationCountry(a);
                   const countryB = getLocationCountry(b);
                   const matchesA = selectedCountry && countryA.toLowerCase().includes(selectedCountry.toLowerCase());
@@ -998,7 +1248,37 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                       Study Locations
                     </h3>
                     <ul className="space-y-3">
-                      {sortedLocations.map((location, idx) => {
+                      {displayCountries ? (
+                        // Display countries of recruitment as a list
+                        displayCountries.map((country, idx) => {
+                          const isSelectedLocation = selectedCountry && 
+                            country.toLowerCase().includes(selectedCountry.toLowerCase());
+                          
+                          return (
+                            <li 
+                              key={idx} 
+                              className={combineClasses('rounded-lg p-3 border', isSelectedLocation
+                                  ? combineClasses(DesignTokens.colors.accent[50], DesignTokens.colors.accent.border[300], 'border-2')
+                                  : combineClasses(DesignTokens.colors.app[50], DesignTokens.colors.app.border[200])
+                              )}
+                            >
+                              {isSelectedLocation && (
+                                <div className="flex items-center gap-2 mb-2">
+                                  <CheckCircle className={combineClasses('w-4 h-4', DesignTokens.colors.accent.text[600])} />
+                                  <span className={combineClasses('text-xs font-semibold', DesignTokens.colors.accent.text[700], 'uppercase tracking-wide')}>
+                                    Your Selected Location
+                                  </span>
+                                </div>
+                              )}
+                              <div className={combineClasses('text-sm font-semibold', DesignTokens.colors.app.text[900])}>
+                                {country}
+                              </div>
+                            </li>
+                          );
+                        })
+                      ) : (
+                        // Fall back to displaying locations
+                        sortedLocations.map((location, idx) => {
                         // Handle both string and object location formats
                         let locationText = '';
                         let facilityName = '';
@@ -1054,7 +1334,8 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                             </div>
                           </li>
                         );
-                      })}
+                      })
+                      )}
                     </ul>
                   </div>
                 );
@@ -1077,14 +1358,25 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
                 </button>
               )}
               <a
-                href={selectedTrial.url || (selectedTrial.id ? `https://clinicaltrials.gov/study/${selectedTrial.id}` : '#')}
+                href={selectedTrial.url || selectedTrial.urlJa || (selectedTrial.source === 'JRCT' 
+                  ? `https://jrct.mhlw.go.jp/latest-detail/${selectedTrial.id}`
+                  : selectedTrial.id ? `https://clinicaltrials.gov/study/${selectedTrial.id}` : '#')}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={combineClasses(DesignTokens.components.button.outline.neutral, DesignTokens.spacing.button.desktop, 'flex-1 text-center font-semibold gap-1.5 sm:gap-2 text-sm sm:text-base', DesignTokens.transitions.all)}
               >
                 <Globe className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline">View on ClinicalTrials.gov</span>
-                <span className="sm:hidden">View on CT.gov</span>
+                {selectedTrial.source === 'JRCT' ? (
+                  <>
+                    <span className="hidden sm:inline">View on JRCT</span>
+                    <span className="sm:hidden">View JRCT</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="hidden sm:inline">View on ClinicalTrials.gov</span>
+                    <span className="sm:hidden">View on CT.gov</span>
+                  </>
+                )}
               </a>
             </div>
           </div>

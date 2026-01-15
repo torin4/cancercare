@@ -21,7 +21,7 @@ import { symptomService } from '../../../../firebase/services';
 import AddSymptomModal from '../../../modals/AddSymptomModal';
 import DeletionConfirmationModal from '../../../modals/DeletionConfirmationModal';
 
-export default function SymptomsSection({ onTabChange }) {
+function SymptomsSection({ onTabChange }) {
   const { user } = useAuth();
   const { reloadHealthData } = useHealthContext();
   const { showSuccess, showError } = useBanner();
@@ -420,3 +420,8 @@ export default function SymptomsSection({ onTabChange }) {
     </div>
   );
 }
+
+// Memoize component to prevent unnecessary re-renders
+export default React.memo(SymptomsSection, (prevProps, nextProps) => {
+  return prevProps.onTabChange === nextProps.onTabChange;
+});
