@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { CheckCircle, AlertTriangle, XCircle, Search as SearchIcon, MapPin, Globe, X, MessageSquare, Bookmark, FlaskConical, FileText, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, Search as SearchIcon, MapPin, Globe, X, MessageSquare, Bookmark, FlaskConical, FileText, ChevronDown, ChevronUp, Loader2, Bot } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { auth } from '../../firebase/config';
 import { patientService, genomicProfileService, clinicalTrialsService, trialLocationService } from '../../firebase/services';
@@ -9,7 +9,7 @@ import { calculateTrialMatchScore } from '../../services/clinicalTrials/trialMat
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import EditLocationModal from '../modals/EditLocationModal';
 
-const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
+const ClinicalTrials = ({ onTrialSelected, resetKey, onOpenMobileChat }) => {
   const { showSuccess, showError } = useBanner();
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -705,11 +705,24 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             {onTrialSelected && (
               <button
                 onClick={() => {
-                  onTrialSelected(trial);
+                  // Store individual trial context in sessionStorage
+                  sessionStorage.setItem('currentTrialContext', JSON.stringify(trial));
+                  // Clear search results context - individual trial takes precedence
+                  sessionStorage.removeItem('currentSearchResultsContext');
+                  
+                  if (onOpenMobileChat) {
+                    // On mobile, just open overlay - don't navigate
+                    onOpenMobileChat();
+                  } else {
+                    // On desktop, switch to chat tab
+                    if (onTrialSelected) {
+                      onTrialSelected(trial);
+                    }
+                  }
                 }}
-                className={combineClasses('border-2 border-medical-secondary-500 text-medical-secondary-600 rounded-lg hover:bg-medical-secondary-50 transition font-medium min-h-[44px] touch-manipulation active:opacity-70 flex items-center justify-center gap-2', DesignTokens.spacing.button.mobile, 'flex-1', DesignTokens.typography.body.sm, 'font-medium', DesignTokens.spacing.gap.sm)}
+                className={combineClasses('border-2 border-medical-secondary-500 text-medical-secondary-600 rounded-lg hover:bg-medical-secondary-50 transition font-medium min-h-[44px] touch-manipulation active:opacity-70 flex items-center justify-center gap-2 lg:hidden', DesignTokens.spacing.button.mobile, 'flex-1', DesignTokens.typography.body.sm, 'font-medium', DesignTokens.spacing.gap.sm)}
               >
-                <MessageSquare className={DesignTokens.icons.small.size.full} />
+                <Bot className={DesignTokens.icons.small.size.full} />
                 <span className="hidden sm:inline">Ask About This Trial</span>
                 <span className="sm:hidden">Ask About</span>
               </button>
@@ -771,7 +784,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
         DesignTokens.spacing.container.mobile,
         'sm:px-4 md:px-6',
         'py-2 sm:py-3',
-        'flex items-center'
+        'flex items-center justify-between'
       )}>
         <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'sm:gap-3')}>
           <div className={combineClasses(DesignTokens.moduleAccent.trials.bg, 'p-2 sm:p-2.5 rounded-lg')}>
@@ -781,6 +794,43 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
             <h1 className={combineClasses(DesignTokens.components.header.title, 'mb-0')}>Clinical Trials</h1>
           </div>
         </div>
+        {/* Mobile Ask Button */}
+        {onOpenMobileChat && (
+          <button
+            onClick={() => {
+              console.log('[ClinicalTrials] Ask button clicked - searchResults:', searchResults?.length || 0);
+              // Store search results as context (if available) instead of individual trial
+              if (searchResults && searchResults.length > 0) {
+                console.log('[ClinicalTrials] Storing search results context');
+                // Store search results as context for ChatSidebar to use
+                sessionStorage.setItem('currentSearchResultsContext', JSON.stringify(searchResults));
+                // Clear individual trial context to use search results instead
+                sessionStorage.removeItem('currentTrialContext');
+              } else {
+                console.log('[ClinicalTrials] No search results - storing no-results message');
+                // No search results - store instruction message for user
+                sessionStorage.setItem('trialsNoResultsMessage', JSON.stringify({
+                  type: 'ai',
+                  text: "I'd be happy to help you with clinical trials! To get started, please search for clinical trials using the \"Search Clinical Trials\" button. Once you have search results, I can answer questions about them, help you understand eligibility criteria, compare different trials, or explain what the treatments involve."
+                }));
+                // Clear any existing context
+                sessionStorage.removeItem('currentSearchResultsContext');
+                sessionStorage.removeItem('currentTrialContext');
+                console.log('[ClinicalTrials] No-results message stored, sessionStorage now has:', {
+                  trialsNoResultsMessage: !!sessionStorage.getItem('trialsNoResultsMessage'),
+                  currentSearchResultsContext: !!sessionStorage.getItem('currentSearchResultsContext'),
+                  currentTrialContext: !!sessionStorage.getItem('currentTrialContext')
+                });
+              }
+              console.log('[ClinicalTrials] Opening mobile chat overlay');
+              onOpenMobileChat();
+            }}
+            className="lg:hidden text-medical-neutral-600 hover:text-medical-neutral-900 min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70 flex items-center justify-center transition-colors"
+            title="Ask about trials"
+          >
+            <Bot className="w-6 h-6" />
+          </button>
+        )}
       </div>
       <div className={Layouts.container}>
 
@@ -1347,12 +1397,27 @@ const ClinicalTrials = ({ onTrialSelected, resetKey }) => {
               {onTrialSelected && (
                 <button
                   onClick={() => {
-                    onTrialSelected(selectedTrial);
+                    // Store individual trial context in sessionStorage
+                    if (selectedTrial) {
+                      sessionStorage.setItem('currentTrialContext', JSON.stringify(selectedTrial));
+                    }
+                    // Clear search results context - individual trial takes precedence
+                    sessionStorage.removeItem('currentSearchResultsContext');
                     setSelectedTrial(null);
+                    
+                    if (onOpenMobileChat) {
+                      // On mobile, just open overlay - don't navigate
+                      onOpenMobileChat();
+                    } else {
+                      // On desktop, switch to chat tab
+                      if (onTrialSelected) {
+                        onTrialSelected(selectedTrial);
+                      }
+                    }
                   }}
-                  className={combineClasses('border-2 border-medical-secondary-500 text-medical-secondary-600 rounded-lg hover:bg-medical-secondary-50 transition font-medium min-h-[44px] touch-manipulation active:opacity-70 flex items-center justify-center gap-2', DesignTokens.spacing.button.desktop, 'flex-1 font-semibold gap-1.5 sm:gap-2 text-sm sm:text-base', DesignTokens.transitions.all)}
+                  className={combineClasses('border-2 border-medical-secondary-500 text-medical-secondary-600 rounded-lg hover:bg-medical-secondary-50 transition font-medium min-h-[44px] touch-manipulation active:opacity-70 flex items-center justify-center gap-2 lg:hidden', DesignTokens.spacing.button.desktop, 'flex-1 font-semibold gap-1.5 sm:gap-2 text-sm sm:text-base', DesignTokens.transitions.all)}
                 >
-                  <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <Bot className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span className="hidden sm:inline">Ask About This Trial</span>
                   <span className="sm:hidden">Ask About</span>
                 </button>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter } from 'lucide-react';
+import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import QuestionCards from '../QuestionCards';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
@@ -16,10 +17,11 @@ import { generalSuggestions, trialSuggestions, healthSuggestions, timelineSugges
 import DocumentUploadOnboarding from '../modals/DocumentUploadOnboarding';
 import UploadProgressOverlay from '../UploadProgressOverlay';
 import DeletionConfirmationModal from '../modals/DeletionConfirmationModal';
+import ExtractionSummary from '../ExtractionSummary';
 
 export default function ChatTab({ onTabChange }) {
   const { user } = useAuth();
-  const { patientProfile, hasUploadedDocument } = usePatientContext();
+  const { patientProfile, hasUploadedDocument, setPatientProfile, refreshPatient } = usePatientContext();
   const { reloadHealthData } = useHealthContext();
   const { showSuccess, showError } = useBanner();
 
@@ -250,6 +252,7 @@ export default function ChatTab({ onTabChange }) {
   const [profileImage, setProfileImage] = useState(null);
   const [suggestionsKey, setSuggestionsKey] = useState(0); // Force re-render when role changes
   const [isBotProcessing, setIsBotProcessing] = useState(false);
+  const [showComplexityControl, setShowComplexityControl] = useState(false);
 
   // Document upload state
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
@@ -327,7 +330,8 @@ export default function ChatTab({ onTabChange }) {
             setMessages(savedMessages.map(msg => ({
               type: msg.type,
               text: msg.text,
-              isAnalysis: msg.isAnalysis || false
+              isAnalysis: msg.isAnalysis || false,
+              insight: msg.insight || null
             })));
           }
           setChatHistoryLoaded(true);
@@ -589,7 +593,8 @@ export default function ChatTab({ onTabChange }) {
     try {
       // Auto-load health context if user asks about health data but context isn't set
       let healthContextToUse = currentHealthContext;
-      const requiresHealthData = /(explain|analyze|what does|how is|trend|progress|mean|interpret|my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications)|ca-125|hemoglobin|blood pressure|heart rate|temperature|weight)/i.test(userMessage);
+      // Detect if question would benefit from health data - expanded patterns to catch more health-related questions
+      const requiresHealthData = /(explain|analyze|what does|how is|why is|why are|why does|why do|trend|progress|mean|interpret|tell me about|what about|what are|what is|my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications|data|results|values|numbers|test|tests)|ca-125|hemoglobin|blood pressure|heart rate|temperature|weight|tired|fatigue|energy|feeling|feels|symptom|pain|nausea|dizzy|weak|weakness|anemia|blood|cbc|wbc|rbc|platelet|anxiety|depression|sleep|appetite|nauseous)/i.test(userMessage);
       
       if (requiresHealthData && !healthContextToUse && user) {
         try {
@@ -707,13 +712,8 @@ export default function ChatTab({ onTabChange }) {
       // Build response text
       let responseText = result.response;
 
-      // Add extraction summary if data was extracted
-      if (result.extractedData) {
-        const summary = generateChatExtractionSummary(result.extractedData);
-        if (summary) {
-          responseText += summary;
-        }
-      }
+      // Get extraction summary (separate from response text)
+      const extractionSummary = result.extractedData ? generateChatExtractionSummary(result.extractedData) : null;
 
       // Clear loading state
       setIsBotProcessing(false);
@@ -722,7 +722,9 @@ export default function ChatTab({ onTabChange }) {
       const aiMsg = {
         type: 'ai',
         text: responseText,
-        isAnalysis: !!result.extractedData
+        isAnalysis: !!result.extractedData,
+        insight: result.insight || null,
+        extractionSummary: extractionSummary || null
       };
       setMessages(prev => [...prev, aiMsg]);
       
@@ -738,7 +740,9 @@ export default function ChatTab({ onTabChange }) {
           type: 'ai',
           text: responseText,
           isAnalysis: !!result.extractedData,
-          extractedData: result.extractedData || null
+          extractedData: result.extractedData || null,
+          insight: result.insight || null,
+          extractionSummary: extractionSummary || null
         });
       }
 
@@ -946,7 +950,9 @@ export default function ChatTab({ onTabChange }) {
                 <MessageSquare className={combineClasses(DesignTokens.icons.header.size.full, DesignTokens.components.header.icon)} />
               </div>
               <div>
-                <h1 className={combineClasses(DesignTokens.components.header.title, 'mb-0')}>Chat</h1>
+                <h1 className={combineClasses(DesignTokens.components.header.title, 'mb-0')}>
+                  Insights <span className="text-sm font-normal text-medical-neutral-500">with Iris</span>
+                </h1>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -1064,20 +1070,21 @@ export default function ChatTab({ onTabChange }) {
             // Find original index for key
             const originalIdx = messages.indexOf(msg);
             return (
-            <div key={originalIdx} className={`flex items-start gap-2 sm:gap-3 ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-              {msg.type === 'ai' && (
-                <div className={combineClasses('flex-shrink-0 flex items-center justify-center', DesignTokens.components.chat.avatar)}>
-                  <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                </div>
-              )}
-              <div className={combineClasses(
-                'max-w-[82%] sm:max-w-[70%]',
-                msg.type === 'user'
-                  ? DesignTokens.components.chat.userBubble
-                  : msg.isAnalysis
-                    ? DesignTokens.components.chat.analysisBubble
-                    : DesignTokens.components.chat.aiBubble
-              )}>
+            <div key={originalIdx} className="space-y-2">
+              <div className={`flex items-start gap-2 sm:gap-3 ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {msg.type === 'ai' && (
+                  <div className={combineClasses('flex-shrink-0 flex items-center justify-center', DesignTokens.components.chat.avatar)}>
+                    <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                  </div>
+                )}
+                <div className={combineClasses(
+                  'max-w-[82%] sm:max-w-[70%]',
+                  msg.type === 'user'
+                    ? DesignTokens.components.chat.userBubble
+                    : msg.isAnalysis
+                      ? DesignTokens.components.chat.analysisBubble
+                      : DesignTokens.components.chat.aiBubble
+                )}>
                 {msg.type === 'user' ? (
                   <p className="text-sm sm:text-base whitespace-pre-wrap">{msg.text}</p>
                 ) : (
@@ -1227,6 +1234,7 @@ export default function ChatTab({ onTabChange }) {
                     >
                       {msg.text}
                     </ReactMarkdown>
+                    <QuestionCards text={msg.text} />
                   </div>
                 )}
               </div>
@@ -1258,6 +1266,55 @@ export default function ChatTab({ onTabChange }) {
                       })()}
                     </div>
                   )}
+                </div>
+                )}
+              </div>
+              {msg.type === 'ai' && msg.insight && (() => {
+                // Don't show insight card for doctor discussion queries
+                const isDoctorDiscussion = msg.text.toLowerCase().includes('questions should i ask') || 
+                                         (msg.text.toLowerCase().includes('discuss') && msg.text.toLowerCase().includes('doctor')) ||
+                                         msg.text.toLowerCase().includes('what questions');
+                
+                if (isDoctorDiscussion) return null;
+                
+                return (
+                  <div className="flex justify-start">
+                    <div className="max-w-[82%] sm:max-w-[70%]">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-3.5 flex flex-col gap-2">
+                        <div className="flex items-start gap-2">
+                          <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <p className="text-xs sm:text-sm font-medium text-blue-900 mb-1">Key Insight</p>
+                            <p className="text-xs sm:text-sm text-blue-800">{msg.insight}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const contextPrompt = msg.insight 
+                              ? `What questions should I ask my doctor about: ${msg.insight}`
+                              : 'What questions should I ask my doctor?';
+                            setInputText(contextPrompt);
+                            setTimeout(() => {
+                              const textarea = document.querySelector('textarea');
+                              if (textarea) {
+                                textarea.focus();
+                              }
+                            }, 100);
+                          }}
+                          className="text-xs sm:text-sm text-blue-700 hover:text-blue-900 underline text-left mt-1 transition-colors"
+                        >
+                          How to discuss this with your doctor
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              {msg.type === 'ai' && msg.extractionSummary && (
+                <div className="flex justify-start mt-1">
+                  <div className="max-w-[82%] sm:max-w-[70%]">
+                    <ExtractionSummary summary={msg.extractionSummary} />
+                  </div>
                 </div>
               )}
             </div>
@@ -1407,7 +1464,103 @@ export default function ChatTab({ onTabChange }) {
           </div>
         </div>
 
-        <div className="fixed bottom-20 left-0 right-0 z-20 md:relative md:bottom-auto md:z-auto px-3 sm:px-4 pt-3 md:pt-2 lg:pt-3 pb-2 sm:pb-3 bg-white border-t border-medical-neutral-200 md:border-t-0 md:border-t">
+        {/* Response Complexity Control - Collapsible */}
+        <div className="fixed bottom-[200px] left-0 right-0 z-20 md:relative md:bottom-auto md:z-auto border-t border-medical-neutral-200 md:border-t-0 md:border-t bg-medical-neutral-50">
+          {!showComplexityControl ? (
+            <button
+              onClick={() => setShowComplexityControl(true)}
+              className="w-full px-3 sm:px-4 py-2 flex items-center justify-between hover:bg-medical-neutral-100 transition-colors"
+              title="Adjust response complexity"
+            >
+              <div className="flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-medical-neutral-500" />
+                <span className="text-xs font-medium text-medical-neutral-700">
+                  Response Complexity:
+                </span>
+                <span className="text-xs text-medical-neutral-500">
+                  {patientProfile?.responseComplexity === 'simple' ? 'Simple' : 
+                   patientProfile?.responseComplexity === 'detailed' ? 'Detailed' : 
+                   'Standard'}
+                </span>
+              </div>
+              <X className="w-4 h-4 text-medical-neutral-400 rotate-45" />
+            </button>
+          ) : (
+            <div className="px-3 sm:px-4 pt-3 pb-2">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <div className="flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-medical-neutral-500" />
+                  <label className="text-xs font-medium text-medical-neutral-700">
+                    Response Complexity:
+                  </label>
+                  <span className="text-xs text-medical-neutral-500">
+                    {patientProfile?.responseComplexity === 'simple' ? 'Simple' : 
+                     patientProfile?.responseComplexity === 'detailed' ? 'Detailed' : 
+                     'Standard'}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setShowComplexityControl(false)}
+                  className="text-medical-neutral-400 hover:text-medical-neutral-600 transition-colors min-h-[44px] min-w-[44px] px-2 flex items-center justify-center touch-manipulation"
+                  title="Collapse"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-medical-neutral-500 whitespace-nowrap">Simple</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="2"
+                  step="1"
+                  value={patientProfile?.responseComplexity === 'simple' ? 0 : 
+                         patientProfile?.responseComplexity === 'detailed' ? 2 : 1}
+                  onChange={async (e) => {
+                    const values = ['simple', 'standard', 'detailed'];
+                    const newComplexity = values[parseInt(e.target.value)];
+                    const previousComplexity = patientProfile?.responseComplexity || 'standard';
+                    
+                    console.log('[ChatTab] Complexity change:', { from: previousComplexity, to: newComplexity, sliderValue: e.target.value });
+                    
+                    // Update local state first
+                    let updatedProfileState = null;
+                    setPatientProfile(prev => {
+                      if (!prev) {
+                        updatedProfileState = { responseComplexity: newComplexity };
+                        return updatedProfileState;
+                      }
+                      updatedProfileState = { ...prev, responseComplexity: newComplexity };
+                      return updatedProfileState;
+                    });
+                    
+                    try {
+                      const { patientService } = await import('../../firebase/services');
+                      // Use the updated state we just set, or fall back to merging with current
+                      const profileToSave = updatedProfileState || (patientProfile ? { ...patientProfile, responseComplexity: newComplexity } : { responseComplexity: newComplexity });
+                      console.log('[ChatTab] Saving complexity to Firebase:', newComplexity);
+                      await patientService.savePatient(user.uid, profileToSave);
+                      // Refresh to ensure sync
+                      const refreshed = await refreshPatient();
+                      console.log('[ChatTab] Complexity saved, refreshed profile:', refreshed || 'refreshPatient does not return');
+                    } catch (error) {
+                      console.error('[ChatTab] Error saving complexity:', error);
+                      setPatientProfile(prev => {
+                        if (!prev) return prev;
+                        return { ...prev, responseComplexity: previousComplexity };
+                      });
+                    }
+                  }}
+                  className="flex-1 h-2 bg-medical-neutral-200 rounded-lg appearance-none cursor-pointer"
+                  title="Adjust response complexity: Simple = plain language, Detailed = comprehensive explanations"
+                />
+                <span className="text-xs text-medical-neutral-500 whitespace-nowrap">Detailed</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="fixed bottom-[80px] left-0 right-0 z-20 md:relative md:bottom-auto md:z-auto px-3 sm:px-4 pt-3 md:pt-2 lg:pt-3 pb-2 sm:pb-3 bg-white border-t border-medical-neutral-200 md:border-t-0 md:border-t">
           {/* Context Selector - Compact */}
           <div className="flex gap-2 items-center">
             <div className={combineClasses('flex items-center gap-1.5', DesignTokens.colors.neutral.text[600], 'whitespace-nowrap flex-shrink-0')}>
@@ -1622,6 +1775,11 @@ export default function ChatTab({ onTabChange }) {
               >
                 <Send className="w-5 h-5" />
               </button>
+          </div>
+          <div className="px-3 pb-2 pt-1">
+            <p className="text-[10px] text-medical-neutral-400 text-center">
+              This assistant provides general health information only and does not provide medical advice. Please consult with qualified healthcare professionals for medical decisions.
+            </p>
           </div>
         </div>
       </div>

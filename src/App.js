@@ -36,6 +36,7 @@ import FilesTab from './components/tabs/FilesTab';
 import DashboardTab from './components/tabs/DashboardTab';
 import HealthTab from './components/tabs/HealthTab';
 import ChatTab from './components/tabs/ChatTab';
+import ChatSidebar from './components/ChatSidebar';
 import { chatSuggestions, trialSuggestions } from './constants/chatSuggestions';
 import { CANCER_TYPES, CANCER_SUBTYPES, STAGE_OPTIONS, PERFORMANCE_OPTIONS, DISEASE_STATUS_OPTIONS, TREATMENT_STATUS_OPTIONS } from './constants/cancerTypes';
 import { COUNTRIES } from './constants/countries';
@@ -62,6 +63,7 @@ export default function CancerCareApp() {
   const [pendingHealthSection, setPendingHealthSection] = useState(null);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [showQuickLog, setShowQuickLog] = useState(false);
+  const [showMobileChatOverlay, setShowMobileChatOverlay] = useState(false);
   const [showAddSymptomModal, setShowAddSymptomModal] = useState(false);
   const [healthSection, setHealthSection] = useState('labs'); // 'labs', 'vitals', 'symptoms', 'medications'
   const [selectedLab, setSelectedLab] = useState('ca125');
@@ -883,7 +885,7 @@ export default function CancerCareApp() {
       {/* Main Content - Scrollable */}
       <div className={`flex-1 overflow-y-auto pb-20 md:pb-0 transition-all duration-300 ${
         sidebarExpanded ? 'md:ml-64' : 'md:ml-20'
-      }`}>
+      } ${activeTab !== 'chat' ? 'lg:mr-96' : ''}`}>
         {activeTab === 'dashboard' && (
           <DashboardTab onTabChange={setActiveTab} />
         )}
@@ -893,7 +895,11 @@ export default function CancerCareApp() {
         )}
 
         {activeTab === 'health' && (
-          <HealthTab onTabChange={setActiveTab} initialSection={pendingHealthSection} />
+          <HealthTab 
+            onTabChange={setActiveTab} 
+            initialSection={pendingHealthSection}
+            onOpenMobileChat={() => setShowMobileChatOverlay(true)}
+          />
         )}
 
         {activeTab === 'trials' && (
@@ -905,12 +911,16 @@ export default function CancerCareApp() {
               }
               // Switch to chat tab
               setActiveTab('chat');
-            }} 
+            }}
+            onOpenMobileChat={() => setShowMobileChatOverlay(true)}
           />
         )}
 
         {activeTab === 'files' && (
-          <FilesTab onTabChange={setActiveTab} />
+          <FilesTab 
+            onTabChange={setActiveTab}
+            onOpenMobileChat={() => setShowMobileChatOverlay(true)}
+          />
         )}
 
         {activeTab === 'profile' && (
@@ -919,6 +929,30 @@ export default function CancerCareApp() {
 
 
         {/* DeletionConfirmationModal moved to ProfileTab component */}
+
+        {/* Chat Sidebar - Show on all screens except chat tab (desktop only) */}
+        {activeTab !== 'chat' && (
+          <ChatSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        )}
+
+        {/* Mobile Chat Overlay */}
+        {showMobileChatOverlay && (
+          <>
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+              onClick={() => setShowMobileChatOverlay(false)}
+            />
+            <ChatSidebar 
+              activeTab={activeTab} 
+              onTabChange={(tab) => {
+                setShowMobileChatOverlay(false);
+                setActiveTab(tab);
+              }}
+              isMobileOverlay={true}
+              onCloseOverlay={() => setShowMobileChatOverlay(false)}
+            />
+          </>
+        )}
 
         {/* Lab Value Tooltip/Popup */}
         {labTooltip && (

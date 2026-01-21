@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical, Loader2, BookOpen, FileText, MessageSquare, Search } from 'lucide-react';
+import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical, Loader2, BookOpen, FileText, MessageSquare, Search, Bot } from 'lucide-react';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
@@ -21,7 +21,7 @@ import AddJournalNoteModal from '../modals/AddJournalNoteModal';
 import EditJournalNoteModal from '../modals/EditJournalNoteModal';
 import DocumentMetadataModal from '../modals/DocumentMetadataModal';
 
-export default function FilesTab({ onTabChange }) {
+export default function FilesTab({ onTabChange, onOpenMobileChat }) {
   // Use contexts for shared state
   const { user } = useAuth();
   const { patientProfile } = usePatientContext();
@@ -687,7 +687,7 @@ export default function FilesTab({ onTabChange }) {
         DesignTokens.spacing.container.mobile,
         'sm:px-4 md:px-6',
         'py-2 sm:py-3',
-        'flex items-center'
+        'flex items-center justify-between'
       )}>
         <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'sm:gap-3')}>
           <div className={combineClasses(DesignTokens.moduleAccent.files.bg, 'p-2 sm:p-2.5 rounded-lg')}>
@@ -697,6 +697,29 @@ export default function FilesTab({ onTabChange }) {
             <h1 className={combineClasses(DesignTokens.components.header.title, 'mb-0')}>Documents</h1>
           </div>
         </div>
+        {/* Mobile Ask Button */}
+        {onOpenMobileChat && (
+          <button
+            onClick={async () => {
+              if (!user?.uid) return;
+              try {
+                if (activeSubTab === 'notes') {
+                  const entries = await getNotebookEntries(user.uid, { limit: 50 });
+                  sessionStorage.setItem('currentNotebookContext', JSON.stringify({ entries }));
+                } else {
+                  sessionStorage.setItem('currentDocumentContext', JSON.stringify({ documents }));
+                }
+                onOpenMobileChat();
+              } catch (error) {
+                showError('Error loading data. Please try again.');
+              }
+            }}
+            className="lg:hidden text-medical-neutral-600 hover:text-medical-neutral-900 min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70 flex items-center justify-center transition-colors"
+            title="Ask about documents"
+          >
+            <Bot className="w-6 h-6" />
+          </button>
+        )}
       </div>
       <div className={combineClasses(Layouts.container, Layouts.section)}>
 
@@ -756,29 +779,6 @@ export default function FilesTab({ onTabChange }) {
             <span className={DesignTokens.typography.body.base}>Files</span>
           </button>
         </div>
-        
-        {/* Ask About Button */}
-        <button
-          onClick={async () => {
-            if (!user?.uid) return;
-            try {
-              if (activeSubTab === 'notes') {
-                const entries = await getNotebookEntries(user.uid, { limit: 50 });
-                sessionStorage.setItem('currentNotebookContext', JSON.stringify({ entries }));
-              } else {
-                // For documents tab, set document context
-                sessionStorage.setItem('currentDocumentContext', JSON.stringify({ documents }));
-              }
-              onTabChange('chat');
-            } catch (error) {
-              showError('Error loading data. Please try again.');
-            }
-          }}
-          className={combineClasses(DesignTokens.components.button.outline.primary, 'px-3 sm:px-6 py-2.5 font-medium flex items-center gap-2 shadow-sm min-h-[44px] touch-manipulation active:opacity-70 flex-shrink-0')}
-        >
-          <MessageSquare className={combineClasses(DesignTokens.icons.button.size.full, DesignTokens.colors.app.text[600])} />
-          <span className="hidden sm:inline">Ask About This</span>
-        </button>
       </div>
 
       {/* Documents Tab Content */}

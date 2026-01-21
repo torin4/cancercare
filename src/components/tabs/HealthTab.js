@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, BarChart, Heart, Thermometer, Pill, Plus, Upload, Edit2, X, TrendingUp, TrendingDown, Minus, Activity, Info, Calendar, Clock, Check, AlertCircle, Trash2, MoreVertical, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Eye, EyeOff, Star, ClipboardList } from 'lucide-react';
+import { MessageSquare, BarChart, Heart, Thermometer, Pill, Plus, Upload, Edit2, X, TrendingUp, TrendingDown, Minus, Activity, Info, Calendar, Clock, Check, AlertCircle, Trash2, MoreVertical, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Eye, EyeOff, Star, ClipboardList, Bot } from 'lucide-react';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
@@ -27,7 +27,7 @@ import VitalsSection from './health/sections/VitalsSection';
 import SymptomsSection from './health/sections/SymptomsSection';
 import MedicationsSection from './health/sections/MedicationsSection';
 
-export default function HealthTab({ onTabChange, initialSection = null }) {
+export default function HealthTab({ onTabChange, initialSection = null, onOpenMobileChat }) {
   const { user } = useAuth();
   const { hasUploadedDocument, patientProfile, refreshPatient } = usePatientContext();
   const { labsData, setLabsData, vitalsData, setVitalsData, hasRealLabData, hasRealVitalData, reloadHealthData } = useHealthContext();
@@ -232,7 +232,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
   // Lab and vital auto-selection, symptom calendar management, and sessionStorage handling
   // are now managed by their respective section components
 
-  // Handle "Ask About Health" button - needs to set context and switch to chat
+  // Handle "Ask About Health" button - needs to set context and switch to chat or open mobile overlay
   const handleAskAboutHealth = async () => {
     if (!user) return;
     try {
@@ -257,7 +257,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
         return vital;
       }));
       
-      // Store in sessionStorage for ChatTab to access
+      // Store in sessionStorage for ChatTab or ChatSidebar to access
       sessionStorage.setItem('currentHealthContext', JSON.stringify({
         labs: labsWithValues,
         vitals: vitalsWithValues,
@@ -270,7 +270,10 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
         text: `I'm ready to answer questions about your health data. I can see your labs, vitals, and symptoms. You can ask me about trends, what values mean, or any concerns you have.`
       }));
       
-      onTabChange('chat');
+      // Only navigate to chat tab if we're on desktop (no mobile overlay handler)
+      if (!onOpenMobileChat) {
+        onTabChange('chat');
+      }
     } catch (error) {
       showError('Error loading health data. Please try again.');
     }
@@ -283,7 +286,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
         DesignTokens.spacing.container.mobile,
         'sm:px-4 md:px-6',
         'py-2 sm:py-3',
-        'flex items-center'
+        'flex items-center justify-between'
       )}>
         <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'sm:gap-3')}>
           <div className={combineClasses(DesignTokens.moduleAccent.health.bg, 'p-2 sm:p-2.5 rounded-lg')}>
@@ -293,6 +296,20 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
             <h1 className={combineClasses(DesignTokens.components.header.title, 'mb-0')}>Health</h1>
           </div>
         </div>
+        {/* Mobile Ask Button */}
+        {onOpenMobileChat && (
+          <button
+            onClick={() => {
+              handleAskAboutHealth().then(() => {
+                onOpenMobileChat();
+              }).catch(() => {});
+            }}
+            className="lg:hidden text-medical-neutral-600 hover:text-medical-neutral-900 min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70 flex items-center justify-center transition-colors"
+            title="Ask about health data"
+          >
+            <Bot className="w-6 h-6" />
+          </button>
+        )}
       </div>
       <div className={combineClasses(Layouts.container, Layouts.section)}>
 
@@ -341,15 +358,6 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
           </button>
         ))}
         </div>
-        
-        {/* Ask About Health Button */}
-        <button
-          onClick={handleAskAboutHealth}
-          className={combineClasses('bg-medical-secondary-50 text-medical-secondary-600 px-3 sm:px-6 py-2.5 rounded-lg hover:bg-medical-secondary-100 transition font-medium flex items-center gap-2 shadow-sm border border-medical-secondary-200 min-h-[44px] touch-manipulation active:opacity-70 flex-shrink-0')}
-        >
-          <MessageSquare className={combineClasses(DesignTokens.icons.button.size.full, 'text-medical-secondary-600')} />
-          <span className="hidden sm:inline">Ask About This</span>
-        </button>
       </div>
 
       {healthSection === 'labs' && (

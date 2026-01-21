@@ -18,6 +18,7 @@ import { useAuth } from '../../../../contexts/AuthContext';
 import { useHealthContext } from '../../../../contexts/HealthContext';
 import { useBanner } from '../../../../contexts/BannerContext';
 import { symptomService } from '../../../../firebase/services';
+import { getTodayLocalDate } from '../../../../utils/helpers';
 import AddSymptomModal from '../../../modals/AddSymptomModal';
 import DeletionConfirmationModal from '../../../modals/DeletionConfirmationModal';
 
@@ -31,6 +32,15 @@ function SymptomsSection({ onTabChange }) {
   const [symptomCalendarDate, setSymptomCalendarDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [showAddSymptomModal, setShowAddSymptomModal] = useState(false);
+  const [symptomForm, setSymptomForm] = useState({
+    name: '',
+    severity: '',
+    date: getTodayLocalDate(),
+    time: new Date().toTimeString().slice(0, 5),
+    notes: '',
+    customSymptomName: '',
+    tags: []
+  });
   const [deleteConfirm, setDeleteConfirm] = useState({ 
     show: false, 
     title: '', 
@@ -403,9 +413,22 @@ function SymptomsSection({ onTabChange }) {
       {/* Modals */}
       <AddSymptomModal
         show={showAddSymptomModal}
-        onClose={() => setShowAddSymptomModal(false)}
+        onClose={() => {
+          setShowAddSymptomModal(false);
+          // Reset form when closing
+          setSymptomForm({
+            name: '',
+            severity: '',
+            date: getTodayLocalDate(),
+            time: new Date().toTimeString().slice(0, 5),
+            notes: '',
+            customSymptomName: '',
+            tags: []
+          });
+        }}
+        symptomForm={symptomForm}
+        setSymptomForm={setSymptomForm}
         user={user}
-        reloadHealthData={reloadHealthData}
       />
 
       <DeletionConfirmationModal

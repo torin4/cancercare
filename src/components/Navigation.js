@@ -47,7 +47,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
   
   const navItems = [
     { id: 'dashboard', label: 'Home', icon: Home },
-    { id: 'chat', label: 'Chat', icon: MessageSquare },
+    { id: 'chat', label: 'Insights', icon: MessageSquare },
     { id: 'health', label: 'Health', icon: ClipboardList },
     { id: 'trials', label: 'Trials', icon: FlaskConical },
     { id: 'files', label: 'Docs', icon: FileText },

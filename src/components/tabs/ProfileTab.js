@@ -1291,7 +1291,7 @@ export default function ProfileTab({ onTabChange }) {
               </h3>
               
               {/* User Role Toggle */}
-              <div className={DesignTokens.components.card.nestedSubtleLarge}>
+              <div className={combineClasses(DesignTokens.components.card.nestedSubtleLarge, 'mb-4')}>
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <p className="text-sm font-medium text-medical-neutral-900 mb-1">
@@ -1347,6 +1347,73 @@ export default function ProfileTab({ onTabChange }) {
                       }`}
                     />
                   </button>
+                </div>
+              </div>
+
+              {/* Response Complexity Slider */}
+              <div className={DesignTokens.components.card.nestedSubtleLarge}>
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium text-medical-neutral-900">
+                      Response Complexity
+                    </p>
+                    <span className="text-xs text-medical-neutral-500">
+                      {patientProfile?.responseComplexity === 'simple' ? 'Simple' : 
+                       patientProfile?.responseComplexity === 'detailed' ? 'Detailed' : 
+                       'Standard'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-medical-neutral-500 mb-3">
+                    Adjust how detailed and technical the chatbot responses are
+                  </p>
+                  <input
+                    type="range"
+                    min="0"
+                    max="2"
+                    step="1"
+                    value={patientProfile?.responseComplexity === 'simple' ? 0 : 
+                           patientProfile?.responseComplexity === 'detailed' ? 2 : 1}
+                    onChange={async (e) => {
+                      const values = ['simple', 'standard', 'detailed'];
+                      const newComplexity = values[parseInt(e.target.value)];
+                      const previousComplexity = patientProfile?.responseComplexity || 'standard';
+                      
+                      // Update local state first
+                      setPatientProfile(prev => {
+                        if (!prev) return prev;
+                        return { ...prev, responseComplexity: newComplexity };
+                      });
+                      
+                      try {
+                        const { patientService } = await import('../../firebase/services');
+                        const updatedProfile = patientProfile ? {
+                          ...patientProfile,
+                          responseComplexity: newComplexity
+                        } : {
+                          responseComplexity: newComplexity
+                        };
+                        
+                        await patientService.savePatient(user.uid, updatedProfile);
+                        await refreshPatient();
+                      } catch (error) {
+                        // Revert on error
+                        setPatientProfile(prev => {
+                          if (!prev) return prev;
+                          return { ...prev, responseComplexity: previousComplexity };
+                        });
+                        showError('Failed to update complexity setting');
+                      }
+                    }}
+                    className="w-full h-2 bg-medical-neutral-200 rounded-lg appearance-none cursor-pointer slider"
+                    style={{
+                      background: `linear-gradient(to right, ${DesignTokens.colors.app[500]} 0%, ${DesignTokens.colors.app[500]} ${((patientProfile?.responseComplexity === 'simple' ? 0 : patientProfile?.responseComplexity === 'detailed' ? 2 : 1) / 2) * 100}%, ${DesignTokens.colors.app[200]} ${((patientProfile?.responseComplexity === 'simple' ? 0 : patientProfile?.responseComplexity === 'detailed' ? 2 : 1) / 2) * 100}%, ${DesignTokens.colors.app[200]} 100%)`
+                    }}
+                  />
+                  <div className="flex justify-between mt-1">
+                    <span className="text-xs text-medical-neutral-500">Simple</span>
+                    <span className="text-xs text-medical-neutral-500">Standard</span>
+                    <span className="text-xs text-medical-neutral-500">Detailed</span>
+                  </div>
                 </div>
               </div>
             </div>

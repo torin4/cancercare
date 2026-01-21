@@ -42,6 +42,54 @@ When interpreting lab values, adjust normal ranges based on these demographics (
 function buildTrialContextSection(trialContext) {
   if (!trialContext) return '';
   
+  // Handle search results context (multiple trials)
+  if (trialContext._isSearchResults && trialContext._searchResults && Array.isArray(trialContext._searchResults)) {
+    const searchResults = trialContext._searchResults;
+    const trialsList = searchResults.map((trial, idx) => {
+      const interventions = trial.interventions || [];
+      const drugs = interventions.map(int => {
+        if (typeof int === 'string') return int;
+        return int.name || int.description || JSON.stringify(int);
+      }).filter(Boolean).join(', ');
+      const trialUrl = trial.url || (trial.id ? `https://clinicaltrials.gov/study/${trial.id}` : null);
+      
+      return `Trial ${idx + 1}:
+- Title: ${trial.title || trial.titleJa || 'Not specified'}
+- Trial ID: ${trial.id || 'Not specified'}
+- Phase: ${trial.phase || 'Not specified'}
+- Status: ${trial.status || 'Not specified'}
+- Conditions: ${Array.isArray(trial.conditions) ? trial.conditions.join(', ') : (trial.conditions || 'Not specified')}
+- Drugs/Interventions: ${drugs || 'Not specified'}
+- Trial URL: ${trialUrl || 'Not available'}
+${trial.matchResult ? `- Match Score: ${trial.matchResult.matchPercentage || trial.matchResult.matchScore || 'Not calculated'}%` : ''}`;
+    }).join('\n\n');
+    
+    return `
+
+═══════════════════════════════════════════════════════════════════════════════
+TRIAL CONTEXT: The user is asking about clinical trial search results
+═══════════════════════════════════════════════════════════════════════════════
+
+Found ${trialContext._searchResultsCount} matching clinical trials:
+
+${trialsList}
+
+When answering questions about these trials, you should:
+1. Reference specific trials by their number (e.g., "Trial 1", "Trial 3")
+2. Compare trials when asked (e.g., differences in phases, drugs, eligibility)
+3. Help the user understand which trials might be most relevant
+4. Explain the drugs/interventions being used, their mechanisms of action, and how they work
+5. Explain what the trial phase means (Phase I = safety, Phase II = efficacy, Phase III = comparison, Phase IV = post-marketing)
+6. Provide information about the drugs' properties, side effects, and typical usage
+7. Be helpful and educational
+8. Keep responses VERY CONCISE - aim for 1-2 short paragraphs maximum (3-5 sentences total). Be direct and to the point.
+9. Use MARKDOWN formatting: **bold** for drug names and key terms, bullet points for lists, \`code\` for dosages/values
+10. ALWAYS include links to authoritative sources when discussing specific trials
+
+═══════════════════════════════════════════════════════════════════════════════`;
+  }
+  
+  // Handle single trial context (existing behavior)
   const interventions = trialContext.interventions || [];
   const drugs = interventions.map(int => {
     if (typeof int === 'string') return int;
@@ -74,7 +122,7 @@ When answering questions about this trial, you should:
 3. Discuss the trial's eligibility criteria and what they mean
 4. Provide information about the drugs' properties, side effects, and typical usage
 5. Explain how the trial design works and what it's testing
-6. Be helpful and educational while being clear that you're providing general information, not medical advice
+6. Be helpful and educational
 7. Keep responses VERY CONCISE - aim for 1-2 short paragraphs maximum (3-5 sentences total). Be direct and to the point.
 8. Use MARKDOWN formatting: **bold** for drug names and key terms, bullet points for lists, \`code\` for dosages/values
 9. ALWAYS include links to authoritative sources:
@@ -351,7 +399,7 @@ When answering questions about the user's health data, you should:
 3. Use any notes/context provided with the values (e.g., "Before starting treatment", "After cycle 2") to provide more relevant and contextualized insights
 4. Identify concerning patterns or values that may need medical attention
 5. Provide context about normal ranges and what deviations might indicate
-6. Be supportive and educational while being clear that you're providing general information, not medical advice
+6. Be supportive and educational
 7. Keep responses VERY CONCISE - aim for 1-2 short paragraphs maximum (3-5 sentences total). Be direct and to the point.
 8. Use MARKDOWN formatting: **bold** for important values and key terms, bullet points for lists
 9. If values are outside normal ranges, explain what this might mean but emphasize consulting with their medical team
@@ -485,9 +533,13 @@ function detectChatIntent(message, trialContext) {
     // These patterns indicate the user is providing new data to be saved
     const isAddingData = /(my (ca-125|hemoglobin|wbc|platelets|blood pressure|heart rate|temperature|temp|weight|bp|hr) (was|is)|i (had|have|started|am taking|took)|i'm (experiencing|taking)|my (symptom|symptoms)|started taking|taking [a-z]+ (mg|ml|units?)|log|add|record|note (that|down)|journal|write down)/i.test(message);
     
-    // Detect if message requires health data ANALYSIS (asking about existing data, not adding)
-    // Only trigger if user is asking questions, not adding data
-    const requiresHealthData = !isAddingData && /(explain|analyze|what does|how is|trend|progress|mean|interpret|show me|tell me about|what are|what is|why is|when did|where is|my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications) (mean|show|indicate|tell|say)|what do my|how are my|how's my)/i.test(message);
+    // Detect if message requires health data ANALYSIS (asking about existing USER'S data, not general questions)
+    // Only trigger if user is asking about THEIR OWN data (uses "my", "my labs", etc.), not general health questions
+    // General questions like "what is prognosis" or "what are treatment options" should NOT require health data
+    // Questions about "my" data, trends in user's data, or analysis of user's specific values require health data
+    const hasUserDataReference = /(my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications|data|results|values|numbers|test|tests|current|recent|trends|progress)|what do my|how are my|how's my|tell me about my|explain my|analyze my|my ca-125|my hemoglobin|my blood|my tests|my results)/i.test(message);
+    const isGeneralQuestion = /(what (is|are|would|could|should)|how (does|do|would|could|should)|why (does|do|would|could)|where (is|are)|when (is|are)|prognosis|treatment options|side effects|symptoms of|signs of|typical|common|average|normal|usually|typically|general|in general)/i.test(message);
+    const requiresHealthData = !isAddingData && hasUserDataReference && !isGeneralQuestion;
     
   // Check if question requires specific data type that isn't available
   // Only check if user is asking about data, not adding it
@@ -629,15 +681,46 @@ function buildChatPrompt({
   trialContextSection,
   healthContextSection,
   notebookContextSection,
-  userRoleContext
+  userRoleContext,
+  responseComplexity = null
 }) {
   const isPatient = patientProfile?.isPatient !== false; // Default to true if not set
+  const complexity = responseComplexity || patientProfile?.responseComplexity || 'standard';
   
-  return `You are CancerCare's AI health assistant helping track medical data for a patient${patientProfile?.diagnosis ? ` with ${patientProfile.diagnosis}` : ''}.
+  // Debug logging
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[chatProcessor] Response complexity:', {
+      explicit: responseComplexity,
+      fromProfile: patientProfile?.responseComplexity,
+      final: complexity,
+      profileId: patientProfile?.id || 'no-id'
+    });
+  }
+  
+  return `You are CancerCare's AI health assistant helping track medical data for a patient${patientProfile?.diagnosis ? ` with ${patientProfile.diagnosis}` : ''}. You can discuss ANYTHING related to the patient's health, disease, treatment, symptoms, medications, test results, or overall medical condition - there are no topic restrictions as long as it's health-related.
 
 ${userRoleContext}
 
-TASK: Analyze the user's message and extract any medical values they mentioned.${trialContextSection ? ' The user is asking about a specific clinical trial - provide detailed information about the trial, its drugs, phase, and eligibility.' : ''}${healthContextSection ? ' The user is asking about their health data - analyze their labs, vitals, and symptoms to provide insights and answer questions.' : ''}${notebookContextSection ? ' The user is asking about their health history/timeline - reference the journal entries, documents, notes, and symptoms organized by date.' : ''}
+${(() => {
+  const isQuestionQuery = message.toLowerCase().includes('questions should i ask') || 
+                          (message.toLowerCase().includes('discuss') && message.toLowerCase().includes('doctor')) ||
+                          message.toLowerCase().includes('what questions');
+  
+  if (isQuestionQuery) {
+    return `TASK: The user is asking what questions to ask their doctor. This is a DISCUSSION/SEARCH query - DO NOT extract any medical data. Simply provide a list of 3-5 specific, actionable questions formatted as a numbered or bulleted list. Each question should be on its own line and end with a question mark.
+
+CRITICAL: This is NOT a data extraction task - return empty extractedData. Only provide the conversational response with questions.
+
+Example format:
+1. What could be causing this condition?
+2. What treatment options are available?
+3. What are the next steps?
+4. Are there any concerns I should watch for?
+5. When should I follow up?`;
+  }
+  
+  return `TASK: Analyze the user's message and extract any medical values they mentioned.${trialContextSection ? ' The user is asking about a specific clinical trial - provide detailed information about the trial, its drugs, phase, and eligibility.' : ''}${healthContextSection ? ' The user is asking about their health data - analyze their labs, vitals, and symptoms to provide insights and answer questions.' : ''}${notebookContextSection ? ' The user is asking about their health history/timeline - reference the journal entries, documents, notes, and symptoms organized by date.' : ''}`;
+})()}
 
 USER MESSAGE: "${message}"
 ${patientDemographicsSection}
@@ -648,7 +731,8 @@ ${notebookContextSection}
 Extract any medical data and return a JSON object with this structure:
 
 {
-  "conversationalResponse": "Your friendly, empathetic response to the user",
+  "conversationalResponse": "Your direct, concise response to the user. Be friendly but brief - avoid verbose openings like 'I understand', 'It's completely understandable', etc. Get straight to the point.",
+  "insight": "A simple, one-sentence key insight or takeaway from your response (e.g., 'Hemoglobin is very low and needs attention' or 'Test results show improvement'). Keep it brief and actionable.",
   "extractedData": {
     "labs": [
       {
@@ -696,12 +780,38 @@ Extract any medical data and return a JSON object with this structure:
 }
 
 IMPORTANT:
+- CRITICAL: Only extract medical data when the user is EXPLICITLY sharing data to be logged/added to their records. Do NOT extract data when:
+  * The user is asking questions about their health data (e.g., "What does my CA-125 mean?", "Tell me about my hemoglobin")
+  * The user is discussing their condition or asking for advice
+  * The user is just mentioning values in conversation without intending to log them
+  * The user is asking "how to discuss with doctor" or similar discussion queries
+- Extract data ONLY when the user is clearly providing data to be saved, such as:
+  * "My CA-125 was 70 today" (user sharing a value to log)
+  * "I had severe nausea yesterday" (user reporting a symptom to log)
+  * "My blood pressure is 125/80" (user providing a vital to log)
+  * Explicit statements like "add this", "log this", "save this"
 - Only include sections with actual extracted data (omit empty sections)
 - CAREFULLY extract the date from the user's message (e.g., "on December 14", "two weeks ago", "last Monday", "yesterday")
 - Calculate dates relative to today if needed: ${new Date().toISOString().split('T')[0]}
 - If NO date is mentioned at all, use today's date
-- Be conversational and supportive in your response
-- Keep responses VERY CONCISE - aim for 1-2 short paragraphs maximum (3-5 sentences total). Be direct and to the point. Prioritize the most important information only.
+- Be direct and concise - avoid verbose openings like "I understand", "It's completely understandable", "That's a great question", etc. Get straight to the point while remaining friendly
+- DO NOT mention that you cannot give medical advice, cannot provide a diagnosis, or similar disclaimers in your responses. Answer naturally and conversationally like other modern AI assistants (OpenAI, Gemini, etc.)
+${complexity === 'simple' ? 
+  `- RESPONSE STYLE - SIMPLE MODE (CRITICAL - MUST FOLLOW):
+  * Use ONLY everyday, simple words - no medical jargon at all
+  * Keep responses VERY SHORT - maximum 1-2 sentences (preferably 1 sentence)
+  * DO NOT mention specific numbers, values, or test results - only provide insights and interpretations
+  * Replace all medical terms with plain language (e.g., "tumor" → "growth", "chemotherapy" → "medicine treatment", "diagnosis" → "what you have")
+  * Write as if explaining to a child - simple, clear, easy to understand
+  * NO complex sentences - use short, direct statements
+  * Focus on what things mean, not specific numbers
+  * Example: Instead of "Your CA-125 is 68 U/mL, which is above normal", say "Your test shows the cancer might be growing"
+  * Example: Instead of "Your blood pressure is 125/80 mmHg", say "Your blood pressure looks okay"
+  * DO NOT use: diagnosis, prognosis, intervention, medication, dosage, regimen, efficacy, adverse effects, or any numbers/values
+  * USE INSTEAD: what you have, what might happen, treatment, medicine, plan, how well it works, side effects, etc.` :
+  complexity === 'detailed' ?
+  `- RESPONSE STYLE - DETAILED MODE: Provide comprehensive, detailed explanations. Include technical terminology when relevant, but explain it. You can provide more context and background information. Responses can be 2-4 paragraphs for complex topics.` :
+  `- RESPONSE STYLE - STANDARD MODE: Keep responses VERY CONCISE - aim for 1-2 short paragraphs maximum (3-5 sentences total). Be direct and to the point. Prioritize the most important information only. Use appropriate medical terminology but explain key terms.`}
 - Use MARKDOWN formatting for better readability:
   * Use **bold** for important terms, drug names, and key concepts
   * Use *italics* for emphasis
@@ -711,13 +821,19 @@ IMPORTANT:
   * Use headers (##) sparingly for major sections if needed
   * Use line breaks to separate ideas clearly
   * Use links: [Link Text](URL) for references and authoritative sources
-- If trial context is provided, prioritize answering trial-related questions with detailed, educational information about drugs, phases, eligibility, and trial design
+- CRITICAL: When the user asks about discussing something with their doctor or what questions to ask, you MUST provide a list of specific, actionable questions. Format questions as:
+  * Each question on its own line
+  * Numbered or bulleted format (1. Question? or - Question?)
+  * Questions should be clear, specific, and relevant to the topic being discussed
+  * Include 3-5 questions that cover: what to ask about the condition, treatment options, next steps, and concerns
+- If trial context is provided${complexity === 'simple' ? ', use SIMPLE MODE - explain trials in very basic terms with no medical jargon' : ', provide information about drugs, phases, eligibility, and trial design'}
 - ALWAYS include authoritative links when discussing:
   * Drugs: FDA labels (https://www.accessdata.fda.gov/scripts/cder/daf/), prescribing information, medical literature
   * Trials: ClinicalTrials.gov study link (provided in trial context)
   * Medical information: PubMed, medical databases, official health organization sites
 - You can discuss drugs beyond the information provided - use your knowledge and provide links to authoritative sources (FDA, medical literature, prescribing information)
-- If no medical data is mentioned, just respond conversationally (or about the trial if trial context is provided)
+- You can discuss ANY health-related topic: treatments, medications, side effects, symptoms, test results, disease progression, prognosis, diet, exercise, lifestyle, support resources, clinical trials, research, or any other health-related questions - as long as it's related to the patient's health or condition
+- If no medical data is mentioned, just respond conversationally and helpfully to any health-related questions (or about the trial if trial context is provided)
 - If the user asks about analyzing or explaining their health data but there is NO data available or INSUFFICIENT data (e.g., only 1-2 data points when trends require more), acknowledge this clearly in your response and suggest how they can add more data. Be helpful and guide them on what data would be useful.
 - If the user is sharing a personal note, thought, reflection, or journal entry (not structured medical data like labs, vitals, symptoms, or medications), extract it as a journalNote. Examples:
   * "Note that I'm feeling more energetic today" → journalNote with today's date
@@ -890,14 +1006,20 @@ export async function processChatMessage(message, userId, conversationHistory = 
 
     const parsed = JSON.parse(jsonMatch[0]);
 
-    // Save extracted data to Firestore
-    if (parsed.extractedData) {
+    // Check if this is a question query - don't save data for search/discussion queries
+    const isQuestionQuery = message.toLowerCase().includes('questions should i ask') || 
+                           (message.toLowerCase().includes('discuss') && message.toLowerCase().includes('doctor')) ||
+                           message.toLowerCase().includes('what questions');
+
+    // Save extracted data to Firestore (only if not a question query)
+    if (parsed.extractedData && !isQuestionQuery) {
       await saveExtractedData(parsed.extractedData, userId);
     }
 
     return {
       response: parsed.conversationalResponse,
-      extractedData: parsed.extractedData
+      extractedData: parsed.extractedData,
+      insight: parsed.insight || null
     };
 
   } catch (error) {
@@ -1045,46 +1167,22 @@ async function saveExtractedData(extractedData, userId) {
  * Generate summary of what was extracted
  */
 export function generateChatExtractionSummary(extractedData) {
-  if (!extractedData) return '';
+  if (!extractedData) return null;
 
-  const parts = [];
+  const summary = {
+    journalNotes: extractedData.journalNotes || [],
+    labs: extractedData.labs || [],
+    vitals: extractedData.vitals || [],
+    symptoms: extractedData.symptoms || [],
+    medications: extractedData.medications || []
+  };
 
-  if (extractedData.journalNotes?.length > 0) {
-    parts.push(`\n\n✅ Added ${extractedData.journalNotes.length} journal note(s) to your notebook`);
-    extractedData.journalNotes.forEach(note => {
-      const dateStr = note.date ? new Date(note.date).toLocaleDateString() : 'today';
-      const preview = note.content.length > 50 ? note.content.substring(0, 50) + '...' : note.content;
-      parts.push(`• Note for ${dateStr}: ${preview}`);
-    });
-  }
+  // Only return summary if there's data
+  const hasData = summary.journalNotes.length > 0 || 
+                  summary.labs.length > 0 || 
+                  summary.vitals.length > 0 || 
+                  summary.symptoms.length > 0 || 
+                  summary.medications.length > 0;
 
-  if (extractedData.labs?.length > 0) {
-    parts.push(`\n\n✅ Logged ${extractedData.labs.length} lab value(s):`);
-    extractedData.labs.forEach(lab => {
-      parts.push(`• ${lab.label}: ${lab.value} ${lab.unit}`);
-    });
-  }
-
-  if (extractedData.vitals?.length > 0) {
-    parts.push(`\nLogged ${extractedData.vitals.length} vital sign(s):`);
-    extractedData.vitals.forEach(vital => {
-      parts.push(`• ${vital.label}: ${vital.value} ${vital.unit}`);
-    });
-  }
-
-  if (extractedData.symptoms?.length > 0) {
-    parts.push(`\nLogged ${extractedData.symptoms.length} symptom(s):`);
-    extractedData.symptoms.forEach(symptom => {
-      parts.push(`• ${symptom.name} (${symptom.severity})`);
-    });
-  }
-
-  if (extractedData.medications?.length > 0) {
-    parts.push(`\nUpdated ${extractedData.medications.length} medication(s):`);
-    extractedData.medications.forEach(med => {
-      parts.push(`• ${med.name} - ${med.action}`);
-    });
-  }
-
-  return parts.join('\n');
+  return hasData ? summary : null;
 }

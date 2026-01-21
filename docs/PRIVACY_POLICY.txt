@@ -1,0 +1,252 @@
+PRIVACY POLICY
+
+Last Updated: January 2025
+
+
+INTRODUCTION
+
+CancerCare ("we," "our," or "us") is committed to protecting your privacy and the security of your personal health information. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our CancerCare application (the "App").
+
+Please read this Privacy Policy carefully. By using our App, you agree to the collection and use of information in accordance with this policy.
+
+
+1. INFORMATION WE COLLECT
+
+1.1 Personal Information
+- Account Information: Email address, name, date of birth, gender
+- Contact Information: Phone number, emergency contacts
+- Profile Information: Medical diagnosis, treatment history, healthcare provider information
+
+1.2 Health Information
+We collect and store the following health-related data:
+
+- Laboratory Results: Test values (e.g., CA-125, hemoglobin, blood counts), test dates, normal ranges
+- Vital Signs: Blood pressure, heart rate, temperature, weight, oxygen saturation, respiratory rate
+- Symptoms: Symptom descriptions, severity levels, dates, duration
+- Medications: Medication names, dosages, frequencies, start/stop dates, adherence logs
+- Medical Documents: Lab reports, scan results, medical records, genomic profiles, clinical trial information
+- Journal Notes: Personal health notes, observations, and reflections
+- Clinical Trial Data: Matched trials, eligibility information, trial locations
+
+1.3 Device and Usage Information
+- Device information (browser type, operating system)
+- Usage patterns and interactions with the App
+- IP address and location data (if permitted)
+- Cookies and similar tracking technologies
+
+1.4 Third-Party Health Data
+If you choose to connect third-party services:
+- Garmin Connect: Heart rate, sleep data, activity metrics, pulse oximetry, stress levels
+- Other Health Apps: Data from any other health tracking services you authorize
+
+1.5 AI Chat Data
+- Chat conversation history with our AI assistant ("Iris")
+- Questions asked and responses received
+- Extracted health data from conversations
+
+
+2. HOW WE USE YOUR INFORMATION
+
+2.1 Primary Uses
+- Health Tracking: Store and organize your health data for personal tracking and monitoring
+- AI Assistant Services: Provide personalized health insights, answer questions, and analyze trends
+- Clinical Trial Matching: Match your health profile with relevant clinical trials
+- Data Analysis: Generate charts, trends, and summaries of your health data
+- Document Management: Store and organize medical documents and reports
+
+2.2 AI Processing
+- Gemini AI Integration: Your health data and questions are processed by Google's Gemini AI to provide:
+  - Health insights and interpretations
+  - Trend analysis
+  - Educational information about your condition
+  - Clinical trial recommendations
+  - Treatment information
+
+Important: Our AI assistant provides general health information and does not provide medical advice, diagnosis, or treatment recommendations.
+
+2.3 Service Improvement
+- Improve App functionality and user experience
+- Develop new features
+- Analyze usage patterns (in aggregated, anonymized form)
+- Debug technical issues
+
+
+3. HOW WE STORE YOUR INFORMATION
+
+3.1 Cloud Storage
+Your data is stored securely using:
+- Firebase (Google Cloud Platform): 
+  - Firestore database for structured health data
+  - Firebase Storage for documents and files
+  - Firebase Authentication for account security
+  - Data is encrypted in transit and at rest
+
+3.2 Data Location
+- Data is stored in secure data centers managed by Google Cloud Platform
+- Location may vary based on your geographic region
+- We comply with applicable data residency requirements
+
+3.3 Data Retention
+- Active Accounts: Data is retained as long as your account is active
+- Deleted Accounts: Data is permanently deleted within 30 days of account deletion
+- Backup Data: Backup copies may be retained for up to 90 days for disaster recovery
+
+
+4. DATA SHARING AND DISCLOSURE
+
+4.1 We Do NOT Sell Your Data
+We do not sell, rent, or trade your personal health information to third parties.
+
+4.2 Service Providers
+We may share data with trusted service providers who assist in operating our App:
+- Google Cloud Platform (Firebase): Data hosting and storage
+- Google Gemini AI: Processing health data for AI responses (subject to Google's privacy policies)
+- Garmin Connect: If you authorize connection, data is shared per Garmin's privacy policy
+
+4.3 Legal Requirements
+We may disclose your information if required by law:
+- To comply with legal obligations
+- To respond to government requests
+- To protect our rights, privacy, safety, or property
+- In connection with legal proceedings
+
+4.4 With Your Consent
+We will share your information with third parties only when you explicitly authorize it (e.g., connecting Garmin Connect).
+
+
+5. YOUR RIGHTS AND CHOICES
+
+5.1 Access and Correction
+- View Your Data: Access all your health data through the App
+- Edit Your Data: Update or correct information at any time
+- Delete Your Data: Remove individual data points or entire categories
+
+5.2 Account Management
+- Export Your Data: Request a copy of your data in a portable format
+- Delete Your Account: Permanently delete your account and all associated data
+- Opt-Out: Disconnect third-party integrations at any time
+
+5.3 AI Chat Controls
+- Response Complexity: Adjust the complexity level of AI responses
+- Chat History: View, search, or delete chat history
+- Data Extraction: Control whether health data is extracted from conversations
+
+5.4 Third-Party Connections
+- Garmin Connect: Connect or disconnect at any time
+- Other Integrations: Manage permissions for any connected services
+
+
+6. SECURITY MEASURES
+
+6.1 Technical Safeguards
+- Encryption: All data is encrypted in transit (HTTPS/TLS) and at rest
+- Authentication: Secure login with Firebase Authentication
+- Access Controls: User-based access controls ensure you can only access your own data
+- Firestore Security Rules: Database-level security rules prevent unauthorized access
+
+6.2 Administrative Safeguards
+- Access Logging: All document access and data modifications are logged
+- Regular Security Audits: We conduct regular security reviews
+- Employee Training: Staff with data access are trained on privacy and security
+
+6.3 Physical Safeguards
+- Data Centers: Data is stored in secure, monitored facilities
+- Backup Security: Backup systems use the same security measures
+
+
+7. CHILDREN'S PRIVACY
+
+Our App is not intended for children under the age of 13. We do not knowingly collect personal information from children under 13. If you believe we have collected information from a child under 13, please contact us immediately.
+
+
+8. HIPAA COMPLIANCE
+
+8.1 Health Information Protection
+While we implement security measures consistent with HIPAA best practices, please note:
+- Not a Covered Entity: We are not a HIPAA-covered entity (healthcare provider, health plan, or healthcare clearinghouse)
+- Business Associate Considerations: If you are a healthcare provider using our App, please contact us to discuss Business Associate Agreement (BAA) requirements
+
+8.2 Your Responsibilities
+- You are responsible for ensuring compliance with applicable laws when sharing health information
+- Do not share information about other individuals without their consent
+- Consult with healthcare providers for medical decisions
+
+
+9. INTERNATIONAL USERS
+
+9.1 Data Transfers
+If you are located outside the United States, your data may be transferred to and processed in the United States or other countries where our service providers operate.
+
+9.2 GDPR Rights (EU Users)
+If you are located in the European Union, you have additional rights under GDPR:
+- Right to access your personal data
+- Right to rectification (correction)
+- Right to erasure ("right to be forgotten")
+- Right to restrict processing
+- Right to data portability
+- Right to object to processing
+- Right to withdraw consent
+
+To exercise these rights, please contact us using the information in Section 11.
+
+
+10. CHANGES TO THIS PRIVACY POLICY
+
+We may update this Privacy Policy from time to time. We will notify you of any changes by:
+- Posting the new Privacy Policy on this page
+- Updating the "Last Updated" date
+- Sending an email notification (for material changes)
+- Displaying a notice in the App
+
+Your continued use of the App after changes become effective constitutes acceptance of the updated Privacy Policy.
+
+
+11. CONTACT US
+
+If you have questions, concerns, or requests regarding this Privacy Policy or your personal information, please contact us:
+
+Email: privacy@cancercare.app
+Address: [Your Company Address]
+Phone: [Your Phone Number]
+
+Data Protection Officer
+For GDPR-related inquiries, you may contact our Data Protection Officer at: dpo@cancercare.app
+
+
+12. CALIFORNIA PRIVACY RIGHTS (CCPA)
+
+If you are a California resident, you have the right to:
+- Know what personal information is collected
+- Know whether your personal information is sold or disclosed
+- Opt-out of the sale of personal information (we do not sell your data)
+- Access your personal information
+- Request deletion of your personal information
+- Non-discrimination for exercising your privacy rights
+
+To exercise these rights, please contact us using the information in Section 11.
+
+
+13. MEDICAL DISCLAIMER
+
+Important: Our App and AI assistant provide general health information and educational content only. They do NOT provide:
+- Medical advice
+- Medical diagnosis
+- Treatment recommendations
+- Professional medical opinions
+
+Always consult with qualified healthcare professionals for medical decisions, diagnoses, or treatment. The information provided by our App should not replace professional medical advice.
+
+
+14. CONSENT
+
+By using our App, you consent to:
+- The collection and use of information as described in this Privacy Policy
+- The processing of your health data by AI services (Gemini) for the purposes described
+- The storage of your data in cloud services (Firebase/Google Cloud)
+- The sharing of data with authorized third-party services (e.g., Garmin Connect) when you connect them
+
+You may withdraw your consent at any time by disconnecting services or deleting your account.
+
+
+Effective Date: January 2025
+Version: 1.0
