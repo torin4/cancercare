@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical, Loader2, BookOpen, FileText, MessageSquare, Search, Bot } from 'lucide-react';
+import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical, Loader2, BookOpen, FileText, MessageSquare, Search, Bot, Trash2, Eye } from 'lucide-react';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
@@ -35,6 +35,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
   const [hasUploadedDocument, setHasUploadedDocument] = useState(false);
   const [pendingDocumentDate, setPendingDocumentDate] = useState(null);
   const [pendingDocumentNote, setPendingDocumentNote] = useState(null);
+  const [pendingCustomInstructions, setPendingCustomInstructions] = useState(null);
   const [pendingOnlyExistingMetrics, setPendingOnlyExistingMetrics] = useState(false);
   const [editingDocumentNote, setEditingDocumentNote] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -53,7 +54,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
   });
   const [rescanDocument, setRescanDocument] = useState(null);
   const [showDocumentMetadata, setShowDocumentMetadata] = useState(null);
-  const [openMenuId, setOpenMenuId] = useState(null); // Track which document's menu is open
+  const [hoveredTooltip, setHoveredTooltip] = useState(null); // Track which tooltip is showing
   const [debugLogs, setDebugLogs] = useState([]); // Visual debug logs for mobile
   const [documentDateRanges, setDocumentDateRanges] = useState({}); // Cache date ranges for documents
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false); // Loading state for documents
@@ -341,7 +342,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
     input.click();
   };
 
-  const handleMultipleFileUpload = async (files, docType, providedDate = null, providedNote = null, onlyExistingMetrics = false) => {
+  const handleMultipleFileUpload = async (files, docType, providedDate = null, providedNote = null, onlyExistingMetrics = false, customInstructions = null) => {
     if (!user || !files || files.length === 0) {
       showError('Please log in to upload files');
       return;
@@ -372,7 +373,8 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
             providedNote,
             fileNumber,
             totalFiles,
-            onlyExistingMetrics
+            onlyExistingMetrics,
+            customInstructions
           );
           
           successCount++;
@@ -415,7 +417,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
     }
   };
 
-  const handleRealFileUpload = async (file, docType, providedDateOverride = null, providedNoteOverride = null, currentFileNumber = null, totalFiles = null, onlyExistingMetricsOverride = null) => {
+  const handleRealFileUpload = async (file, docType, providedDateOverride = null, providedNoteOverride = null, currentFileNumber = null, totalFiles = null, onlyExistingMetricsOverride = null, customInstructionsOverride = null) => {
     addDebugLog(`handleRealFileUpload: ${file?.name || 'unknown'}`, 'info');
     
     if (!user) {
@@ -442,14 +444,16 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
       addDebugLog('Starting document processing', 'info');
       setUploadProgress(`${fileProgressPrefix}Reading document...`);
 
-      // Get document date, note, and onlyExistingMetrics (user-provided or null)
+      // Get document date, note, custom instructions, and onlyExistingMetrics (user-provided or null)
       // Use override parameters if provided (from onUploadClick), otherwise use state
       const providedDate = providedDateOverride !== null ? providedDateOverride : pendingDocumentDate;
       const providedNote = providedNoteOverride !== null ? providedNoteOverride : pendingDocumentNote;
+      const providedCustomInstructions = customInstructionsOverride !== null ? customInstructionsOverride : pendingCustomInstructions;
       const onlyExistingMetrics = onlyExistingMetricsOverride !== null ? onlyExistingMetricsOverride : pendingOnlyExistingMetrics;
       // Clear pending values after use
       setPendingDocumentDate(null);
       setPendingDocumentNote(null);
+      setPendingCustomInstructions(null);
       setPendingOnlyExistingMetrics(false);
 
       // Step 1: Process document with AI to extract medical data
@@ -471,7 +475,8 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
           }
         },
         onlyExistingMetrics,
-        docType // Pass document type from modal to skip classification
+        docType, // Pass document type from modal to skip classification
+        providedCustomInstructions // Pass custom instructions
       );
       
       // Extract data counts from processing result
@@ -574,17 +579,13 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
       if (currentFileNumber === null || currentFileNumber === totalFiles) {
         const chatSummary = generateChatSummary(processingResult, processingResult.extractedData);
 
-        // Store summary in sessionStorage for ChatTab to pick up
+        // Store summary in sessionStorage for ChatTab to pick up (if user navigates to chat)
+        // No longer navigating away - chat is available on all screens
         sessionStorage.setItem('uploadSummary', JSON.stringify({
           summary: chatSummary,
           timestamp: Date.now(),
           documentType: processingResult.documentType || docType
         }));
-
-        // Navigate to chat tab to show summary (only for single file or last file)
-        if (currentFileNumber === null || currentFileNumber === totalFiles) {
-          onTabChange('chat');
-        }
       }
     } catch (error) {
       // Only show error and close overlay if not part of a batch (batch handler will show summary)
@@ -919,31 +920,177 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
                   DesignTokens.transitions.default,
                   `hover:${DesignTokens.colors.neutral[50]}`
                 )}>
-                  {/* Menu button - three dots in upper right corner */}
-                  <div className="absolute top-2 right-2 z-10">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        setOpenMenuId(openMenuId === doc.id ? null : doc.id);
-                      }}
-                      className={combineClasses(
-                        DesignTokens.spacing.iconContainer.full,
-                        DesignTokens.borders.radius.full,
-                        DesignTokens.transitions.default,
-                        DesignTokens.spacing.touchTarget,
-                        'min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70',
-                        DesignTokens.colors.neutral.text[500],
-                        `hover:${DesignTokens.colors.neutral[100]}`,
-                        `hover:${DesignTokens.colors.neutral.text[700]}`
+                  {/* Action buttons with tooltips - top right corner */}
+                  <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+                    {/* View button */}
+                    {doc.fileUrl && (
+                      <div className="relative">
+                        <a
+                          href={doc.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={combineClasses(
+                            DesignTokens.spacing.iconContainer.full,
+                            DesignTokens.borders.radius.full,
+                            DesignTokens.transitions.default,
+                            DesignTokens.spacing.touchTarget,
+                            'min-w-[32px] h-8 flex items-center justify-center touch-manipulation active:opacity-70',
+                            DesignTokens.colors.neutral.text[500],
+                            `hover:${DesignTokens.colors.neutral[100]}`,
+                            `hover:${DesignTokens.colors.neutral.text[700]}`
+                          )}
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseEnter={() => setHoveredTooltip(`${doc.id}-view`)}
+                          onMouseLeave={() => setHoveredTooltip(null)}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </a>
+                        {hoveredTooltip === `${doc.id}-view` && (
+                          <div className={combineClasses(
+                            'absolute top-full right-0 mt-1 px-2 py-1 rounded text-xs whitespace-nowrap z-50 pointer-events-none',
+                            'bg-gray-900 text-white shadow-lg'
+                          )}>
+                            View File
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Info/Metadata button */}
+                    <div className="relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setShowDocumentMetadata(doc);
+                        }}
+                        className={combineClasses(
+                          DesignTokens.spacing.iconContainer.full,
+                          DesignTokens.borders.radius.full,
+                          DesignTokens.transitions.default,
+                          DesignTokens.spacing.touchTarget,
+                          'min-w-[32px] h-8 flex items-center justify-center touch-manipulation active:opacity-70',
+                          DesignTokens.colors.neutral.text[500],
+                          `hover:${DesignTokens.colors.neutral[100]}`,
+                          `hover:${DesignTokens.colors.neutral.text[700]}`
+                        )}
+                        onMouseEnter={() => setHoveredTooltip(`${doc.id}-info`)}
+                        onMouseLeave={() => setHoveredTooltip(null)}
+                      >
+                        <Info className="w-4 h-4" />
+                      </button>
+                      {hoveredTooltip === `${doc.id}-info` && (
+                        <div className={combineClasses(
+                          'absolute top-full right-0 mt-1 px-2 py-1 rounded text-xs whitespace-nowrap z-50 pointer-events-none',
+                          'bg-gray-900 text-white shadow-lg'
+                        )}>
+                          View Metadata
+                        </div>
                       )}
-                      title="More options"
-                    >
-                      <MoreVertical className={DesignTokens.icons.standard.size.full} />
-                    </button>
+                    </div>
+
+                    {/* Edit button */}
+                    <div className="relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setEditingDocumentNote(doc);
+                        }}
+                        className={combineClasses(
+                          DesignTokens.spacing.iconContainer.full,
+                          DesignTokens.borders.radius.full,
+                          DesignTokens.transitions.default,
+                          DesignTokens.spacing.touchTarget,
+                          'min-w-[32px] h-8 flex items-center justify-center touch-manipulation active:opacity-70',
+                          DesignTokens.colors.neutral.text[500],
+                          `hover:${DesignTokens.colors.neutral[100]}`,
+                          `hover:${DesignTokens.colors.neutral.text[700]}`
+                        )}
+                        onMouseEnter={() => setHoveredTooltip(`${doc.id}-edit`)}
+                        onMouseLeave={() => setHoveredTooltip(null)}
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      {hoveredTooltip === `${doc.id}-edit` && (
+                        <div className={combineClasses(
+                          'absolute top-full right-0 mt-1 px-2 py-1 rounded text-xs whitespace-nowrap z-50 pointer-events-none',
+                          'bg-gray-900 text-white shadow-lg'
+                        )}>
+                          Edit Name, Date & Note
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Rescan button - show for processable document types */}
+                    {(doc.documentType === 'Lab' || doc.type === 'Lab' || doc.documentType === 'Vitals' || doc.type === 'Vitals' || doc.documentType === 'Genomic' || doc.type === 'Genomic' || doc.documentType === 'blood-test') && (
+                      <div className="relative">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            setRescanDocument(doc);
+                          }}
+                          className={combineClasses(
+                            DesignTokens.spacing.iconContainer.full,
+                            DesignTokens.borders.radius.full,
+                            DesignTokens.transitions.default,
+                            DesignTokens.spacing.touchTarget,
+                            'min-w-[32px] h-8 flex items-center justify-center touch-manipulation active:opacity-70',
+                            DesignTokens.colors.neutral.text[500],
+                            `hover:${DesignTokens.colors.neutral[100]}`,
+                            `hover:${DesignTokens.colors.neutral.text[700]}`
+                          )}
+                          onMouseEnter={() => setHoveredTooltip(`${doc.id}-rescan`)}
+                          onMouseLeave={() => setHoveredTooltip(null)}
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                        </button>
+                        {hoveredTooltip === `${doc.id}-rescan` && (
+                          <div className={combineClasses(
+                            'absolute top-full right-0 mt-1 px-2 py-1 rounded text-xs whitespace-nowrap z-50 pointer-events-none',
+                            'bg-gray-900 text-white shadow-lg'
+                          )}>
+                            Rescan Document
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Delete button */}
+                    <div className="relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          handleDelete(e);
+                        }}
+                        className={combineClasses(
+                          DesignTokens.spacing.iconContainer.full,
+                          DesignTokens.borders.radius.full,
+                          DesignTokens.transitions.default,
+                          DesignTokens.spacing.touchTarget,
+                          'min-w-[32px] h-8 flex items-center justify-center touch-manipulation active:opacity-70',
+                          DesignTokens.components.status.high.text,
+                          `hover:${DesignTokens.components.status.high.bg}`
+                        )}
+                        onMouseEnter={() => setHoveredTooltip(`${doc.id}-delete`)}
+                        onMouseLeave={() => setHoveredTooltip(null)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                      {hoveredTooltip === `${doc.id}-delete` && (
+                        <div className={combineClasses(
+                          'absolute top-full right-0 mt-1 px-2 py-1 rounded text-xs whitespace-nowrap z-50 pointer-events-none',
+                          'bg-gray-900 text-white shadow-lg'
+                        )}>
+                          Delete Document
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
-                  <div className={combineClasses('flex items-center flex-1 min-w-0 pr-8 sm:pr-10', DesignTokens.spacing.gap.sm, 'sm:gap-3')}>
+                  <div className={combineClasses('flex items-center flex-1 min-w-0 pr-20 sm:pr-24', DesignTokens.spacing.gap.sm, 'sm:gap-3')}>
                     <div className={`w-10 h-10 sm:w-12 sm:h-12 ${iconConfig.bgColor} rounded-lg flex items-center justify-center flex-shrink-0`}>
                       <div className={`${iconConfig.iconColor} w-5 h-5 sm:w-6 sm:h-6`}>
                         {iconConfig.icon}
@@ -1001,127 +1148,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
                       </p>
                     </div>
                   </div>
-                  <div className={combineClasses('flex-shrink-0 flex items-center justify-end mt-2 sm:mt-0 sm:mr-12', DesignTokens.spacing.gap.xs, 'sm:gap-2')}>
-                    {/* View button - always visible */}
-                    {doc.fileUrl && (
-                      <a
-                        href={doc.fileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={combineClasses(
-                        DesignTokens.components.button.primary,
-                        'px-3 py-1.5 font-medium rounded-lg',
-                        DesignTokens.typography.body.sm,
-                        DesignTokens.spacing.touchTarget,
-                        'flex items-center justify-center touch-manipulation active:opacity-70 whitespace-nowrap',
-                        DesignTokens.transitions.default
-                      )}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        View
-                      </a>
-                    )}
-                  </div>
                   
-                  {/* Dropdown menu - positioned relative to menu button */}
-                  {openMenuId === doc.id && (
-                    <>
-                      {/* Backdrop to close menu */}
-                      <div 
-                        className="fixed inset-0 z-20"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenMenuId(null);
-                        }}
-                      />
-                      {/* Menu items */}
-                      <div className={combineClasses(
-                        'absolute top-10 right-2 w-48 bg-white py-1 z-30',
-                        DesignTokens.borders.radius.md,
-                        DesignTokens.shadows.lg,
-                        DesignTokens.borders.width.default,
-                        DesignTokens.colors.neutral.border[200]
-                      )}>
-                            {/* Info button */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenMenuId(null);
-                                setShowDocumentMetadata(doc);
-                              }}
-                              className={combineClasses(
-                                'w-full px-4 py-2 text-left flex items-center',
-                                DesignTokens.spacing.gap.sm,
-                                DesignTokens.typography.body.sm,
-                                DesignTokens.colors.neutral.text[700],
-                                `hover:${DesignTokens.colors.neutral[100]}`
-                              )}
-                            >
-                              <Info className={DesignTokens.icons.standard.size.full} />
-                              View Metadata
-                            </button>
-                            
-                            {/* Edit button */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenMenuId(null);
-                                setEditingDocumentNote(doc);
-                              }}
-                              className={combineClasses(
-                                'w-full px-4 py-2 text-left flex items-center',
-                                DesignTokens.spacing.gap.sm,
-                                DesignTokens.typography.body.sm,
-                                DesignTokens.colors.neutral.text[700],
-                                `hover:${DesignTokens.colors.neutral[100]}`
-                              )}
-                            >
-                              <Edit2 className={DesignTokens.icons.standard.size.full} />
-                              Edit Name, Date & Note
-                            </button>
-                            
-                            {/* Rescan button - show for processable document types */}
-                            {(doc.documentType === 'Lab' || doc.type === 'Lab' || doc.documentType === 'Vitals' || doc.type === 'Vitals' || doc.documentType === 'Genomic' || doc.type === 'Genomic' || doc.documentType === 'blood-test') && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setOpenMenuId(null);
-                                  setRescanDocument(doc);
-                                }}
-                                className={combineClasses(
-                                  'w-full px-4 py-2 text-left flex items-center',
-                                  DesignTokens.spacing.gap.sm,
-                                  DesignTokens.typography.body.sm,
-                                  DesignTokens.colors.neutral.text[700],
-                                  `hover:${DesignTokens.colors.neutral[100]}`
-                                )}
-                              >
-                                <RefreshCw className={DesignTokens.icons.standard.size.full} />
-                                Rescan Document
-                              </button>
-                            )}
-                            
-                            {/* Delete button */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenMenuId(null);
-                                handleDelete(e);
-                              }}
-                              className={combineClasses(
-                                'w-full px-4 py-2 text-left flex items-center',
-                                DesignTokens.spacing.gap.sm,
-                                DesignTokens.typography.body.sm,
-                                DesignTokens.components.status.high.text,
-                                `hover:${DesignTokens.components.status.high.bg}`
-                              )}
-                            >
-                              <X className={DesignTokens.icons.standard.size.full} />
-                              Delete Document
-                            </button>
-                          </div>
-                        </>
-                      )}
                 </div>
               );
             })}
@@ -1248,7 +1275,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
         <DocumentUploadOnboarding
           isOnboarding={!hasUploadedDocument}
           onClose={() => setShowDocumentOnboarding(false)}
-          onUploadClick={async (documentType, documentDate = null, documentNote = null, fileOrFiles = null, onlyExistingMetrics = false) => {
+          onUploadClick={async (documentType, documentDate = null, documentNote = null, fileOrFiles = null, onlyExistingMetrics = false, customInstructions = null) => {
             addDebugLog(`onUploadClick: ${documentType}, hasFile: ${!!fileOrFiles}`, 'info');
             
             try {
@@ -1264,6 +1291,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
               
               setPendingDocumentDate(normalizedDate);
               setPendingDocumentNote(normalizedNote);
+              setPendingCustomInstructions(customInstructions);
               setPendingOnlyExistingMetrics(onlyExistingMetrics);
               
               // Close modal first to show upload progress
@@ -1280,11 +1308,11 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
                 if (Array.isArray(fileOrFiles)) {
                   // Multiple files - process sequentially
                   addDebugLog(`Processing ${fileOrFiles.length} files`, 'info');
-                  await handleMultipleFileUpload(fileOrFiles, documentType, normalizedDate, normalizedNote, onlyExistingMetrics);
+                  await handleMultipleFileUpload(fileOrFiles, documentType, normalizedDate, normalizedNote, onlyExistingMetrics, customInstructions);
                 } else {
                   // Single file - use existing handler
                   addDebugLog(`Processing: ${fileOrFiles.name} (${(fileOrFiles.size / 1024).toFixed(0)}KB)`, 'info');
-                  await handleRealFileUpload(fileOrFiles, documentType, normalizedDate, normalizedNote, null, null, onlyExistingMetrics);
+                  await handleRealFileUpload(fileOrFiles, documentType, normalizedDate, normalizedNote, null, null, onlyExistingMetrics, customInstructions);
                 }
               } else {
                 // Otherwise, open file picker (fallback)
@@ -1371,7 +1399,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
         onClose={() => setRescanDocument(null)}
         document={rescanDocument}
         isProcessing={isUploading}
-        onConfirm={async ({ date, note, onlyExistingMetrics = false }) => {
+        onConfirm={async ({ date, note, onlyExistingMetrics = false, customInstructions = null }) => {
           if (!rescanDocument) return;
 
           try {
@@ -1428,7 +1456,8 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
                 }
               },
               shouldUseOnlyExisting, // Force false for genomic documents
-              existingDocType // Pass existing document type to skip classification
+              existingDocType, // Pass existing document type to skip classification
+              customInstructions // Pass custom instructions from rescan modal
             );
             
             // Extract data counts from processing result
@@ -1482,14 +1511,12 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
             // Generate chat summary with quick action buttons
             const chatSummary = generateChatSummary(processingResult, processingResult.extractedData);
 
-            // Store summary in sessionStorage for ChatTab to pick up
+            // Store summary in sessionStorage for ChatTab to pick up (if user navigates to chat)
+            // No longer navigating away - chat is available on all screens
             sessionStorage.setItem('uploadSummary', JSON.stringify({
               summary: chatSummary,
               timestamp: Date.now()
             }));
-
-            // Navigate to chat tab to show summary
-            onTabChange('chat');
           } catch (error) {
             showError(`Error rescanning document: ${error.message}. Please try again.`);
             // Already closed modal at start, just clean up state

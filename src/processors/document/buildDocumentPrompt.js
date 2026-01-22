@@ -381,20 +381,61 @@ ${outputFormat}`;
  * Main prompt builder - routes to type-specific prompt
  * @param {Object} params - Prompt parameters
  * @param {string} docType - Document type: 'lab' | 'genomic' | 'imaging' | 'unknown'
+ * @param {string} customInstructions - Optional custom instructions from user
  * @returns {string} - Complete prompt
  */
-export function buildDocumentPrompt({ documentDate, patientProfile }, docType = 'unknown') {
-  const params = { documentDate, patientProfile };
+export function buildDocumentPrompt({ documentDate, patientProfile, customInstructions }, docType = 'unknown') {
+  const params = { documentDate, patientProfile, customInstructions };
   
+  // Build custom instructions section if provided
+  const customInstructionsSection = customInstructions
+    ? `
+═══════════════════════════════════════════════════════════════════════════════
+⚠️ USER CUSTOM INSTRUCTIONS - FOLLOW THESE PRECISELY ⚠️
+═══════════════════════════════════════════════════════════════════════════════
+
+${customInstructions}
+
+CRITICAL: These custom instructions override default extraction behavior. Follow them exactly as specified by the user. Examples:
+- "Only extract CA-125" → Extract ONLY CA-125 values, skip all other labs
+- "Skip all labs except tumor markers" → Only extract tumor markers (CA-125, CEA, etc.), skip other labs
+- "Only extract platelet counts" → Extract ONLY platelet/PLT values, skip everything else
+- "Focus on CD markers" → Extract only CD19+, CD4+, CD8+, etc., skip other labs
+
+═══════════════════════════════════════════════════════════════════════════════`
+    : '';
+  
+  let basePrompt = '';
   switch (docType) {
     case 'lab':
-      return buildLabPrompt(params);
+      basePrompt = buildLabPrompt(params);
+      break;
     case 'genomic':
-      return buildGenomicPrompt(params);
+      basePrompt = buildGenomicPrompt(params);
+      break;
     case 'imaging':
-      return buildImagingPrompt(params);
+      basePrompt = buildImagingPrompt(params);
+      break;
     default:
-      return buildGenericPrompt(params);
+      basePrompt = buildGenericPrompt(params);
   }
+  
+  // Inject custom instructions after the initial instructions but before extraction rules
+  if (customInstructionsSection) {
+    // Find a good insertion point (after date/demographics, before extraction rules)
+    const insertionPoint = basePrompt.indexOf('## LAB EXTRACTION RULES') || 
+                          basePrompt.indexOf('## GENOMIC EXTRACTION RULES') ||
+                          basePrompt.indexOf('## IMAGING EXTRACTION RULES') ||
+                          basePrompt.indexOf('## EXTRACTION RULES');
+    
+    if (insertionPoint > 0) {
+      return basePrompt.slice(0, insertionPoint) + customInstructionsSection + '\n\n' + basePrompt.slice(insertionPoint);
+    } else {
+      // Fallback: append at the beginning
+      return customInstructionsSection + '\n\n' + basePrompt;
+    }
+  }
+  
+  return basePrompt;
 }
 

@@ -23,24 +23,15 @@ export default function AddLabValueModal({
 }) {
   const { showSuccess, showError } = useBanner();
   useEffect(() => {
-    if (show && selectedLabForValue && isEditingLabValue && editingLabValueId) {
-      // Find the specific lab value to pre-fill the form
-      const valueToEdit = selectedLabForValue.data?.find(v => v.id === editingLabValueId);
-      if (valueToEdit) {
-        const date = valueToEdit.dateOriginal || new Date();
-        // Use formatDateString to ensure local time (not UTC) - prevents one-day shift
-        const dateStr = formatDateString(date) || getTodayLocalDate();
-        setNewLabValue({
-          value: valueToEdit.value || '',
-          date: dateStr,
-          notes: valueToEdit.notes || ''
-        });
-      }
-    } else if (show && !isEditingLabValue) {
+    // Only reset form when opening for a new entry (not editing)
+    // When editing, the form is pre-filled by the parent component
+    if (show && !isEditingLabValue) {
       // Reset form for new entry
       setNewLabValue({ value: '', date: getTodayLocalDate(), notes: '' });
     }
-  }, [show, selectedLabForValue, isEditingLabValue, editingLabValueId]);
+    // Note: When editing, we don't modify newLabValue here because it's already
+    // set by the parent component (LabsSection) before opening the modal
+  }, [show, isEditingLabValue]);
 
   if (!show || !selectedLabForValue) return null;
 
@@ -68,11 +59,19 @@ export default function AddLabValueModal({
 
       if (isEditingLabValue && editingLabValueId) {
         // Update existing value
+        console.log('Updating lab value:', {
+          labId: selectedLabForValue.id,
+          valueId: editingLabValueId,
+          value: parseFloat(newLabValue.value),
+          date: valueDate,
+          notes: newLabValue.notes || ''
+        });
         await labService.updateLabValue(selectedLabForValue.id, editingLabValueId, {
           value: parseFloat(newLabValue.value),
           date: valueDate,
           notes: newLabValue.notes || ''
         });
+        console.log('Lab value update completed');
       } else {
         // Add new value
         await labService.addLabValue(selectedLabForValue.id, {
@@ -91,8 +90,10 @@ export default function AddLabValueModal({
         });
       }
 
-      // Reload health data
+      // Reload health data to ensure UI reflects the update
+      console.log('Reloading health data after lab value update');
       await reloadHealthData();
+      console.log('Health data reloaded');
 
       // Select this lab in the chart view
       if (setSelectedLab && selectedLabForValue.key) {
@@ -102,7 +103,8 @@ export default function AddLabValueModal({
       showSuccess(isEditingLabValue ? 'Lab value updated successfully!' : 'Lab value added successfully!');
       handleClose();
     } catch (error) {
-      showError('Failed to save lab value. Please try again.');
+      console.error('Error saving lab value:', error);
+      showError(`Failed to save lab value: ${error.message || 'Please try again.'}`);
     }
   };
 

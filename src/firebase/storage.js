@@ -228,16 +228,9 @@ export const getFileUrl = async (storagePath, userId = null, documentId = null) 
  * @param {string} existingUrl - Optional existing download URL to use if available
  * @returns {Promise<Blob>} - File as Blob
  */
-export const downloadFileAsBlob = async (storagePath, existingUrl = null, userId = null, documentId = null) => {
+export const downloadFileAsBlob = async (storagePath, existingUrl = null, userId = null, documentId = null, useDirectDownload = false) => {
   // Get storage reference
   const storageRef = ref(storage, storagePath);
-
-  // Get download URL (use existing or get fresh one)
-  // Note: Firebase Storage URLs are signed tokens that require authentication
-  let downloadUrl = existingUrl;
-  if (!downloadUrl) {
-    downloadUrl = await getDownloadURL(storageRef);
-  }
 
   // SECURITY: Log document download for audit trail
   if (userId && documentId) {
@@ -246,16 +239,24 @@ export const downloadFileAsBlob = async (storagePath, existingUrl = null, userId
     });
   }
 
-  // Firebase Storage has CORS restrictions, so we need to use a proxy
-  // Use server-side proxy to bypass CORS (required for browser downloads)
+  // Get download URL (use existing or get fresh one)
+  // Note: Firebase Storage URLs are signed tokens that require authentication
+  let downloadUrl = existingUrl;
+  if (!downloadUrl) {
+    downloadUrl = await getDownloadURL(storageRef);
+  }
+
+  // Firebase Storage has CORS restrictions in browsers, so we need to use a proxy
   // In production on Vercel, this uses the /api/storage-proxy serverless function
-  // For local development, use the proxy server or set REACT_APP_PROXY_URL
+  // In development, the React dev server's setupProxy.js forwards /api/* to localhost:4000
+  // But we need a server running on port 4000 OR we can use the Vercel function locally
+  const isProduction = process.env.NODE_ENV === 'production' || window.location.hostname !== 'localhost';
   const proxyBaseUrl = process.env.REACT_APP_PROXY_URL || '';
   const proxyUrl = proxyBaseUrl
     ? `${proxyBaseUrl}/api/storage-proxy?url=${encodeURIComponent(downloadUrl)}`
     : `/api/storage-proxy?url=${encodeURIComponent(downloadUrl)}`;
 
-
+  // Try proxy first (this is the most reliable method)
   try {
     // Increase timeout for large files (240 seconds / 4 minutes for very large PDFs)
     const controller = new AbortController();
@@ -272,25 +273,47 @@ export const downloadFileAsBlob = async (storagePath, existingUrl = null, userId
 
     if (!response.ok) {
       const errorText = await response.text();
-      const proxyInfo = proxyBaseUrl
-        ? `Make sure the proxy server is running on ${proxyBaseUrl}`
-        : 'Make sure the proxy server is running (npm run start:proxy) or the Vercel serverless function is available';
+      const proxyInfo = isProduction
+        ? 'The Vercel serverless function may not be deployed. Check your Vercel deployment.'
+        : 'For local development: The proxy server needs to be running. Run "npm run start:proxy" in a separate terminal, or use "npm run start:all" to start both the proxy and React app.';
       throw new Error(`Proxy server returned error ${response.status}: ${response.statusText}. ${proxyInfo}`);
     }
 
     return await response.blob();
   } catch (proxyError) {
-    // Note: Direct Firebase SDK download (getBytes) doesn't work in browsers due to CORS
-    // The proxy is required for browser-based downloads
-    const proxyInfo = proxyBaseUrl
-      ? `Cannot connect to proxy server at ${proxyBaseUrl}. Please ensure the proxy server is running.`
-      : 'Cannot connect to proxy. For localhost: run "npm run start:proxy" in a separate terminal. For production: ensure Vercel serverless functions are deployed.';
+    // If proxy fails and direct download was requested, try it as fallback
+    // Note: This will likely fail due to CORS, but we try anyway
+    if (useDirectDownload) {
+      try {
+        console.log('Proxy failed, attempting direct Firebase SDK download as fallback...');
+        const bytes = await getBytes(storageRef);
+        return new Blob([bytes]);
+      } catch (directError) {
+        // Both methods failed - provide helpful error message
+        const isCorsError = directError.message?.includes('CORS') || directError.message?.includes('Access-Control-Allow-Origin');
+        
+        if (isCorsError) {
+          const helpMessage = isProduction
+            ? 'CORS error: The Vercel serverless function (/api/storage-proxy) may not be working. Check your Vercel deployment and ensure the serverless function is deployed.'
+            : 'CORS error: Direct download from Firebase Storage is blocked by browser security. You need to use the proxy server. Run "npm run start:proxy" in a separate terminal, or use "npm run start:all" to start both services.';
+          throw new Error(`Cannot download file due to CORS restrictions. ${helpMessage}`);
+        }
+        
+        // If it's not a CORS error, throw the direct download error
+        throw directError;
+      }
+    }
+    
+    // Proxy failed and direct download wasn't requested or also failed
+    const proxyInfo = isProduction
+      ? 'The Vercel serverless function (/api/storage-proxy) may not be deployed or is not responding. Check your Vercel deployment.'
+      : 'Cannot connect to proxy server. For local development: Run "npm run start:proxy" in a separate terminal to start the proxy server on port 4000, or use "npm run start:all" to start both the proxy and React app together.';
 
     if (proxyError.name === 'AbortError' || proxyError.message.includes('timeout') || proxyError.message.includes('504')) {
       throw new Error(`Download failed: Proxy request timed out after 240 seconds. The file may be too large or the proxy server is slow. ${proxyInfo}`);
     }
 
-    if (proxyError.message.includes('Failed to fetch') || proxyError.message.includes('NetworkError')) {
+    if (proxyError.message.includes('Failed to fetch') || proxyError.message.includes('NetworkError') || proxyError.message.includes('ECONNREFUSED')) {
       throw new Error(`${proxyInfo} Network error: ${proxyError.message}`);
     }
 

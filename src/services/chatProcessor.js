@@ -1,8 +1,369 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { labService, vitalService, medicationService, symptomService, journalNoteService } from '../firebase/services';
+import { labService, vitalService, medicationService, symptomService, journalNoteService, documentService } from '../firebase/services';
 import { getSavedTrials } from '../services/clinicalTrials/clinicalTrialsService';
 import { getNotebookEntries } from './notebookService';
 import { parseLocalDate } from '../utils/helpers';
+import { downloadFileAsBlob } from '../firebase/storage';
+import { processDocument } from './documentProcessor';
+// Import prompts
+import { buildMainPrompt } from '../prompts/chat/mainPrompt';
+import { getTaskDescription } from '../prompts/chat/taskDescriptions';
+import { getHealthContextInstructions } from '../prompts/context/healthContext';
+import { getTrialContextInstructions } from '../prompts/context/trialContext';
+import { getNotebookContextInstructions } from '../prompts/context/notebookContext';
+import { buildPatientDemographicsContext } from '../prompts/context/patientDemographics';
+import {
+  buildNoTrialDataResponse,
+  buildNoHealthDataResponse,
+  buildNoLabDataResponse,
+  buildNoVitalDataResponse,
+  buildNoSymptomDataResponse,
+  buildInsufficientTrendDataResponse
+} from '../prompts/responses/noDataResponses';
+import { buildRecoveryInstructionsResponse } from '../prompts/responses/recoveryResponses';
+
+// ============================================================================
+// BULK SCANNING FUNCTIONALITY
+// ============================================================================
+
+/**
+ * Handle bulk scan request - scan all documents with custom instructions
+ * @param {string} message - User's message containing scan request and instructions
+ * @param {string} userId - User ID
+ * @param {Object} patientProfile - Patient demographics
+ * @returns {Promise<Object>} Response with scan results
+ */
+async function handleBulkScanRequest(message, userId, patientProfile) {
+  try {
+    // Extract custom instructions from message
+    // Look for patterns like "extract CA-125", "only CA-125", "just CA-125", "scan for CA-125", etc.
+    let customInstructions = null;
+    let requestedMetricType = null; // Track what metric we're looking for (for smart skipping)
+    
+    // Pattern 1: "scan files for [value]" or "scan the files for [value]" or "scan files for [name]'s [value]"
+    // Handle patterns like "scan files for HGB" or "scan the files for Asuka's HGB values"
+    // Use a pattern that captures everything up to "values", "and log", or end of phrase
+    const scanForPatternGreedy = /scan\s+(?:the|all|my)?\s*(?:file|document|files|documents)\s+for\s+(.+?)(?:\s+(?:values?|data|results?|tests?|labs?|vitals?|and\s+log|log))?/i;
+    let scanForMatch = message.match(scanForPatternGreedy);
+    
+    // If that didn't work, try matching up to "values" or "and log" explicitly
+    if (!scanForMatch || scanForMatch[1].length < 2) {
+      const scanForPatternExplicit = /scan\s+(?:the|all|my)?\s*(?:file|document|files|documents)\s+for\s+(.+?)(?:\s+(?:values?|and\s+log|log))/i;
+      scanForMatch = message.match(scanForPatternExplicit);
+    }
+    
+    if (scanForMatch && scanForMatch[1]) {
+      let requestedValue = scanForMatch[1].trim();
+      // Remove possessive names like "Asuka's" or "patient's" - match name followed by apostrophe-s
+      requestedValue = requestedValue.replace(/^[a-z]+'s\s+/i, '').trim();
+      // Clean up common trailing words
+      const finalValue = requestedValue.replace(/\s+(values?|data|results?|tests?|labs?|vitals?)$/i, '').trim();
+      if (finalValue) {
+        // Normalize HGB to hemoglobin for consistency
+        const metricName = finalValue.toLowerCase() === 'hgb' ? 'hemoglobin' : finalValue.toLowerCase();
+        customInstructions = `Only extract ${metricName} values. Skip all other labs, vitals, and data.`;
+        requestedMetricType = metricName;
+      }
+    }
+    
+    // Pattern 2: "extract/only/just/scan for/get/find/log [value]"
+    if (!customInstructions) {
+      const extractPattern = /(extract|only|just|scan for|get|find|log)\s+([a-z0-9\s\-\+\/]+?)(?:\s+(?:from|in|on|and|,)|$)/i;
+      const match = message.match(extractPattern);
+      
+      if (match && match[2]) {
+        const requestedValue = match[2].trim();
+        // Remove possessive names like "Asuka's" or "patient's"
+        const cleanedValue = requestedValue.replace(/^[a-z]+'s\s+/i, '').trim();
+        // Clean up common trailing words
+        const finalValue = cleanedValue.replace(/\s+(values?|data|results?|tests?|labs?|vitals?)$/i, '').trim();
+        if (finalValue) {
+          // Normalize HGB to hemoglobin for consistency
+          const metricName = finalValue.toLowerCase() === 'hgb' ? 'hemoglobin' : finalValue.toLowerCase();
+          customInstructions = `Only extract ${metricName} values. Skip all other labs, vitals, and data.`;
+          requestedMetricType = metricName;
+        }
+      }
+    }
+    
+    // Pattern 3: If no match, try to find specific lab/vital names
+    if (!customInstructions) {
+      const labPattern = /(ca-125|ca125|cea|wbc|hemoglobin|hgb|platelets|plt|cd19|cd4|cd8|hct|alt|ast|creatinine|egfr|bun|ldh|albumin|crp|tsh|t3|t4|psa|afp|blood pressure|heart rate|temperature|weight|oxygen|tumor markers?)/i;
+      const labMatch = message.match(labPattern);
+      if (labMatch) {
+        customInstructions = `Only extract ${labMatch[1]} values. Skip all other labs, vitals, and data.`;
+        requestedMetricType = labMatch[1].toLowerCase();
+      }
+    }
+    
+    // Pattern 3: Look for "all" or "everything" - no custom instructions (extract all)
+    if (/extract (all|everything|all data|all values)/i.test(message)) {
+      customInstructions = null; // Extract everything
+    }
+    
+    // Get all documents
+    const documents = await documentService.getDocuments(userId);
+    
+    if (!documents || documents.length === 0) {
+      return {
+        response: "You don't have any documents uploaded yet. Please upload documents first, then I can scan them.",
+        extractedData: null,
+        insight: 'No documents found for bulk scanning'
+      };
+    }
+    
+    // Smart skipping: Check document metadata first, then check actual values
+    // This avoids re-scanning documents that already have the data
+    let documentsToScan = documents;
+    let skippedCount = 0;
+    
+    if (requestedMetricType && customInstructions) {
+      // Normalize metric type for comparison
+      const { normalizeLabName } = await import('../utils/normalizationUtils');
+      const normalizedRequested = normalizeLabName(requestedMetricType) || requestedMetricType;
+      
+      // First, check document metadata (extractionSummary) - faster than querying all values
+      const documentsToCheck = [];
+      const documentsWithMetadata = [];
+      
+      for (const doc of documents) {
+        // Check if document has extractionSummary metadata
+        if (doc.extractionSummary) {
+          const summary = doc.extractionSummary;
+          const extractedLabTypes = summary.metricTypes?.labs || [];
+          
+          // Check if this metric was already extracted with same or no custom instructions
+          const hasMetric = extractedLabTypes.some(extractedType => {
+            const normalizedExtracted = normalizeLabName(extractedType) || extractedType.toLowerCase();
+            return normalizedExtracted === normalizedRequested;
+          });
+          
+          // Skip if:
+          // 1. Metric was already extracted, AND
+          // 2. Either no custom instructions were used before, OR same instructions were used
+          if (hasMetric) {
+            const previousInstructions = summary.customInstructions || null;
+            const currentInstructions = customInstructions || null;
+            
+            // If instructions match (or both null), we can skip
+            if (previousInstructions === currentInstructions || 
+                (!previousInstructions && !currentInstructions)) {
+              documentsWithMetadata.push(doc.id);
+              skippedCount++;
+              continue;
+            }
+            // If instructions differ, we need to re-process
+          }
+        }
+        
+        // Document needs checking (no metadata or metric not found in metadata)
+        documentsToCheck.push(doc);
+      }
+      
+      // For documents without metadata or that need re-processing, check actual values
+      if (documentsToCheck.length > 0) {
+        // Get existing labs to check
+        const existingLabs = await labService.getLabs(userId);
+        const existingLabTypes = new Set(
+          existingLabs.map(lab => {
+            const normalized = normalizeLabName(lab.labType) || lab.labType?.toLowerCase();
+            return normalized;
+          })
+        );
+        
+        // Check if requested metric already exists
+        if (existingLabTypes.has(normalizedRequested)) {
+          // Get all lab values for this metric
+          const matchingLab = existingLabs.find(lab => {
+            const normalized = normalizeLabName(lab.labType) || lab.labType?.toLowerCase();
+            return normalized === normalizedRequested;
+          });
+          
+          if (matchingLab) {
+            const existingValues = await labService.getLabValues(matchingLab.id);
+            const documentsWithValues = new Set(
+              existingValues
+                .filter(v => v.documentId)
+                .map(v => v.documentId)
+            );
+            
+            // Filter out documents that already have values for this metric
+            documentsToScan = documentsToCheck.filter(doc => !documentsWithValues.has(doc.id));
+            skippedCount += documentsToCheck.length - documentsToScan.length;
+          } else {
+            documentsToScan = documentsToCheck;
+          }
+        } else {
+          documentsToScan = documentsToCheck;
+        }
+      } else {
+        // All documents were skipped based on metadata
+        documentsToScan = [];
+      }
+    }
+    
+    const totalDocuments = documentsToScan.length;
+    let processedCount = 0;
+    let successCount = 0;
+    let errorCount = 0;
+    const results = [];
+    const errors = [];
+    
+    // Process documents with controlled concurrency (8 at a time for better performance)
+    // Increased from 3 to 8 to speed up bulk operations while avoiding rate limits
+    const CONCURRENCY_LIMIT = 8;
+    const processSingleDocument = async (doc, index) => {
+      try {
+        // Download file
+        if (!doc.storagePath) {
+          return { error: 'No storage path found', document: doc.fileName || doc.name || 'Unknown' };
+        }
+        
+        // Download file - proxy will be used (required for CORS)
+        // The downloadFileAsBlob function will try proxy first, then fallback to direct if needed
+        const blob = await downloadFileAsBlob(doc.storagePath, doc.fileUrl, userId, doc.id, false);
+        const file = new File([blob], doc.fileName || doc.name || 'document.pdf', {
+          type: doc.fileType || blob.type || 'application/pdf'
+        });
+        
+        // Process document with custom instructions
+        const { processDocument } = await import('./documentProcessor');
+        const processingResult = await processDocument(
+          file,
+          userId,
+          patientProfile,
+          doc.date || null,
+          doc.note || null,
+          doc.id,
+          null, // No progress callback for bulk operations
+          false, // Don't limit to existing metrics - CREATE NEW METRICS if they don't exist
+          doc.documentType || doc.type || null,
+          customInstructions
+        );
+        
+        if (processingResult.extractedData) {
+          const labCount = processingResult.extractedData.labs?.length || 0;
+          const vitalCount = processingResult.extractedData.vitals?.length || 0;
+          const mutationCount = processingResult.extractedData.genomic?.mutations?.length || 0;
+          
+          if (labCount > 0 || vitalCount > 0 || mutationCount > 0) {
+            return {
+              success: true,
+              document: doc.fileName || doc.name || 'Unknown',
+              labs: labCount,
+              vitals: vitalCount,
+              mutations: mutationCount,
+              date: doc.date || 'Unknown date'
+            };
+          }
+        }
+        return { success: false, document: doc.fileName || doc.name || 'Unknown', note: 'No data extracted' };
+      } catch (error) {
+        return { 
+          error: error.message || 'Processing failed',
+          document: doc.fileName || doc.name || 'Unknown'
+        };
+      }
+    };
+    
+    // Process in batches with concurrency limit
+    for (let i = 0; i < documentsToScan.length; i += CONCURRENCY_LIMIT) {
+      const batch = documentsToScan.slice(i, i + CONCURRENCY_LIMIT);
+      const batchPromises = batch.map((doc, batchIndex) => processSingleDocument(doc, i + batchIndex));
+      const batchResults = await Promise.all(batchPromises);
+      
+      for (const result of batchResults) {
+        processedCount++;
+        if (result.error) {
+          errors.push(result);
+          errorCount++;
+        } else if (result.success) {
+          results.push(result);
+          successCount++;
+        }
+      }
+      
+      // No delay needed - concurrency limit already controls rate
+    }
+    
+    // Build response
+    let response = `I've processed ${totalDocuments} document${totalDocuments !== 1 ? 's' : ''}`;
+    if (skippedCount > 0) {
+      response += ` (skipped ${skippedCount} that already had the requested values)`;
+    }
+    response += '.\n\n';
+    
+    if (customInstructions) {
+      response += `**Extraction Instructions:** ${customInstructions}\n\n`;
+      response += `**Note:** I've created new metrics for any requested values that didn't already exist in your profile.\n\n`;
+    } else {
+      response += `**Note:** I've created new metrics for any values that didn't already exist in your profile.\n\n`;
+    }
+    
+    if (successCount > 0) {
+      response += `**✅ Successfully processed ${successCount} document${successCount !== 1 ? 's' : ''}:**\n\n`;
+      results.forEach((result, idx) => {
+        response += `${idx + 1}. **${result.document}** (${result.date})\n`;
+        if (result.labs > 0) response += `   - ${result.labs} lab value${result.labs !== 1 ? 's' : ''}\n`;
+        if (result.vitals > 0) response += `   - ${result.vitals} vital value${result.vitals !== 1 ? 's' : ''}\n`;
+        if (result.mutations > 0) response += `   - ${result.mutations} mutation${result.mutations !== 1 ? 's' : ''}\n`;
+        response += '\n';
+      });
+    }
+    
+    if (errorCount > 0) {
+      response += `**⚠️ ${errorCount} document${errorCount !== 1 ? 's' : ''} had errors:**\n\n`;
+      
+      // Check if all errors are proxy-related
+      const allProxyErrors = errors.every(e => 
+        e.error?.includes('proxy') || 
+        e.error?.includes('CORS') || 
+        e.error?.includes('localhost:4000') ||
+        e.error?.includes('Failed to fetch')
+      );
+      
+      if (allProxyErrors && errors.length > 0) {
+        response += `**All errors are related to file download. This usually means the proxy server isn't running.**\n\n`;
+        response += `**To fix this:**\n`;
+        response += `1. Open a new terminal window\n`;
+        response += `2. Run: \`npm run start:proxy\`\n`;
+        response += `3. Or run: \`npm run start:all\` (starts both proxy and React app)\n`;
+        response += `4. Then try the bulk scan again\n\n`;
+        response += `**Error details:**\n`;
+      }
+      
+      // Show first few errors, then summarize if there are many
+      const errorsToShow = errors.slice(0, 5);
+      errorsToShow.forEach((error, idx) => {
+        response += `${idx + 1}. **${error.document}**: ${error.error}\n`;
+      });
+      
+      if (errors.length > 5) {
+        response += `\n... and ${errors.length - 5} more document${errors.length - 5 !== 1 ? 's' : ''} with similar errors.\n`;
+      }
+    }
+    
+    if (successCount === 0 && errorCount === 0) {
+      response += "No data was extracted from any documents. This might be because:\n";
+      response += "- The documents don't contain the requested values\n";
+      response += "- The extraction instructions were too specific\n";
+      response += "- The documents need to be rescanned with different instructions\n";
+    }
+    
+    return {
+      response,
+      extractedData: null,
+      insight: `Bulk scan completed: ${successCount} successful, ${errorCount} errors`
+    };
+    
+  } catch (error) {
+    return {
+      response: `I encountered an error while scanning your documents: ${error.message}. Please try again or scan documents individually.`,
+      extractedData: null,
+      insight: `Bulk scan error: ${error.message}`
+    };
+  }
+}
 
 const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY || process.env.GEMINI_API_KEY);
 
@@ -10,31 +371,7 @@ const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY || pro
 // HELPER FUNCTIONS - Context Builders
 // ============================================================================
 
-/**
- * Build patient demographics context section
- */
-function buildPatientDemographicsContext(patientProfile) {
-  if (!patientProfile) return '';
-  
-  return `
-
-═══════════════════════════════════════════════════════════════════════════════
-PATIENT DEMOGRAPHICS: Use these for normal range adjustments
-═══════════════════════════════════════════════════════════════════════════════
-
-- Age: ${patientProfile.age || patientProfile.dateOfBirth ? (new Date().getFullYear() - new Date(patientProfile.dateOfBirth).getFullYear()) : 'Not specified'}
-- Gender: ${patientProfile.gender || 'Not specified'}
-- Weight: ${patientProfile.weight ? `${patientProfile.weight} ${patientProfile.weightUnit || 'kg'}` : 'Not specified'}
-- Height: ${patientProfile.height ? `${patientProfile.height} ${patientProfile.heightUnit || 'cm'}` : 'Not specified'}
-- Diagnosis: ${patientProfile.diagnosis || 'Not specified'}
-- Cancer Type: ${patientProfile.cancerType || 'Not specified'}
-- Cancer Subtype: ${patientProfile.cancerSubtype || 'Not specified'}
-- Stage: ${patientProfile.stage || 'Not specified'}
-
-When interpreting lab values, adjust normal ranges based on these demographics (e.g., age and gender affect normal ranges for many tests).
-
-═══════════════════════════════════════════════════════════════════════════════`;
-}
+// buildPatientDemographicsContext is now imported from prompts/context/patientDemographics
 
 /**
  * Build trial context section
@@ -74,17 +411,7 @@ Found ${trialContext._searchResultsCount} matching clinical trials:
 
 ${trialsList}
 
-When answering questions about these trials, you should:
-1. Reference specific trials by their number (e.g., "Trial 1", "Trial 3")
-2. Compare trials when asked (e.g., differences in phases, drugs, eligibility)
-3. Help the user understand which trials might be most relevant
-4. Explain the drugs/interventions being used, their mechanisms of action, and how they work
-5. Explain what the trial phase means (Phase I = safety, Phase II = efficacy, Phase III = comparison, Phase IV = post-marketing)
-6. Provide information about the drugs' properties, side effects, and typical usage
-7. Be helpful and educational
-8. Keep responses VERY CONCISE - aim for 1-2 short paragraphs maximum (3-5 sentences total). Be direct and to the point.
-9. Use MARKDOWN formatting: **bold** for drug names and key terms, bullet points for lists, \`code\` for dosages/values
-10. ALWAYS include links to authoritative sources when discussing specific trials
+${getTrialContextInstructions(true)}
 
 ═══════════════════════════════════════════════════════════════════════════════`;
   }
@@ -116,25 +443,8 @@ Trial Information:
 ${trialContext.eligibility ? `- Eligibility Criteria: ${typeof trialContext.eligibility === 'string' ? trialContext.eligibility : JSON.stringify(trialContext.eligibility)}` : ''}
 ${trialContext.matchResult ? `- Match Score: ${trialContext.matchResult.matchScore || 'Not calculated'}` : ''}
 
-When answering questions about this trial, you should:
-1. Explain the drugs/interventions being used, their mechanisms of action, and how they work
-2. Explain what the trial phase means (Phase I = safety, Phase II = efficacy, Phase III = comparison, Phase IV = post-marketing)
-3. Discuss the trial's eligibility criteria and what they mean
-4. Provide information about the drugs' properties, side effects, and typical usage
-5. Explain how the trial design works and what it's testing
-6. Be helpful and educational
-7. Keep responses VERY CONCISE - aim for 1-2 short paragraphs maximum (3-5 sentences total). Be direct and to the point.
-8. Use MARKDOWN formatting: **bold** for drug names and key terms, bullet points for lists, \`code\` for dosages/values
-9. ALWAYS include links to authoritative sources:
-   - For trial information: Include the trial study link: ${trialUrl ? `[View trial on ClinicalTrials.gov](${trialUrl})` : 'Trial link not available'}
-   - For drug information: Provide links to FDA labels, prescribing information, or medical databases (e.g., FDA.gov, Drugs.com, PubMed)
-   - Format links as markdown: [Link Text](URL)
-10. You can discuss drugs beyond the information provided in the trial context - use your knowledge and provide links to FDA labels, prescribing information, or medical literature
-11. When discussing specific drugs, search for and provide links to:
-    - FDA-approved labels: https://www.accessdata.fda.gov/scripts/cder/daf/
-    - Prescribing information (package inserts)
-    - Medical literature (PubMed, clinical trials)
-    - Drug information databases (Drugs.com, MedlinePlus)
+${getTrialContextInstructions(false)}
+${trialUrl ? `\n   - For trial information: Include the trial study link: [View trial on ClinicalTrials.gov](${trialUrl})` : ''}
 
 ═══════════════════════════════════════════════════════════════════════════════`;
 }
@@ -393,18 +703,7 @@ ${vitalsSummary}
 
 SYMPTOMS (${symptomsCount} total, recent: ${recentSymptoms})
 
-When answering questions about the user's health data, you should:
-1. Analyze trends and patterns in the data (e.g., "CA-125 has been increasing over time")
-2. Explain what values mean in the context of cancer treatment
-3. Use any notes/context provided with the values (e.g., "Before starting treatment", "After cycle 2") to provide more relevant and contextualized insights
-4. Identify concerning patterns or values that may need medical attention
-5. Provide context about normal ranges and what deviations might indicate
-6. Be supportive and educational
-7. Keep responses VERY CONCISE - aim for 1-2 short paragraphs maximum (3-5 sentences total). Be direct and to the point.
-8. Use MARKDOWN formatting: **bold** for important values and key terms, bullet points for lists
-9. If values are outside normal ranges, explain what this might mean but emphasize consulting with their medical team
-10. Look for patterns across different data types (e.g., low hemoglobin + fatigue symptoms)
-11. CRITICAL: When referring to dates, use the EXACT dates shown in the health context (format: YYYY-MM-DD). These dates are the DOCUMENT DATES entered by the user when uploading documents. Do NOT adjust or modify dates - use them exactly as provided. If a value shows "on 2025-12-24", refer to it as December 24, 2025, NOT December 25, 2025. The dates shown in the health context are the actual document dates from when the user uploaded the documents, which may differ from the test dates extracted from the document content.
+${getHealthContextInstructions()}
 
 ═══════════════════════════════════════════════════════════════════════════════`;
 }
@@ -493,15 +792,7 @@ HEALTH JOURNAL ENTRIES (${entriesCount} date${entriesCount !== 1 ? 's' : ''} wit
 
 ${formattedEntries}
 
-When answering questions about the user's health history, you should:
-1. Reference specific dates and what happened on those dates
-2. Connect related information (e.g., documents uploaded on a date, symptoms logged, journal notes)
-3. Provide chronological context when discussing trends or patterns
-4. Use the date-based organization to explain the timeline of events
-5. Reference journal notes, document notes, and symptom descriptions when relevant
-6. Keep responses VERY CONCISE - aim for 1-2 short paragraphs maximum (3-5 sentences total). Be direct and to the point.
-7. Use MARKDOWN formatting: **bold** for dates and key terms, bullet points for lists
-8. When referring to dates, use the EXACT date format shown (YYYY-MM-DD)
+${getNotebookContextInstructions()}
 
 ═══════════════════════════════════════════════════════════════════════════════`;
   } else {
@@ -537,9 +828,14 @@ function detectChatIntent(message, trialContext) {
     // Only trigger if user is asking about THEIR OWN data (uses "my", "my labs", etc.), not general health questions
     // General questions like "what is prognosis" or "what are treatment options" should NOT require health data
     // Questions about "my" data, trends in user's data, or analysis of user's specific values require health data
+    // Also detect comparison/retrieval queries and edit queries that need health data
     const hasUserDataReference = /(my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications|data|results|values|numbers|test|tests|current|recent|trends|progress)|what do my|how are my|how's my|tell me about my|explain my|analyze my|my ca-125|my hemoglobin|my blood|my tests|my results)/i.test(message);
+    const isComparisonOrRetrievalQuery = /(compare|comparison|how does|how did|versus|vs|difference|change from|compared to|last (measurement|value|result|test|date|two|three|few)|previous|before that|one before|earlier|prior|historical|retrieve|show me|tell me about|what (was|were)|the (last|previous|earlier)|and the (one|next)|yes please|yes|yep|yeah|yup|sure|ok|okay)/i.test(message);
+    const isEditQuery = /(edit|update|change|correct|fix|modify|replace|set to|change (my|the) (.*) (to|from)|update (my|the) (.*) (to|from)|correct (my|the) (.*)|fix (my|the) (.*))/i.test(message);
+    const isDeleteQuery = /(delete|remove|clean up|remove duplicate|remove duplicates|delete duplicate|delete duplicates|clean|deduplicate|dedupe)/i.test(message);
+    const isBulkScanQuery = /(scan\s+(?:all|all my|every|each|the|my)?\s*(?:file|document|files|documents)|rescan\s+(?:all|all my|every|each|the|my)?\s*(?:file|document|files|documents)|extract\s+(?:from\s+)?(?:all|every|each|the|my)?\s*(?:file|document|files|documents)|process\s+(?:all|all my|every|each|the|my)?\s*(?:file|document|files|documents)|bulk\s+(?:scan|extract|process)|scan\s+(?:all|all my|every|each)|rescan\s+(?:all|all my|every|each)|extract\s+from\s+(?:all|every|each)|process\s+(?:all|all my|every|each)\s+(?:file|document|files|documents))/i.test(message);
     const isGeneralQuestion = /(what (is|are|would|could|should)|how (does|do|would|could|should)|why (does|do|would|could)|where (is|are)|when (is|are)|prognosis|treatment options|side effects|symptoms of|signs of|typical|common|average|normal|usually|typically|general|in general)/i.test(message);
-    const requiresHealthData = !isAddingData && hasUserDataReference && !isGeneralQuestion;
+    const requiresHealthData = !isAddingData && (hasUserDataReference || isComparisonOrRetrievalQuery || isEditQuery || isDeleteQuery) && !isGeneralQuestion && !isBulkScanQuery;
     
   // Check if question requires specific data type that isn't available
   // Only check if user is asking about data, not adding it
@@ -555,6 +851,7 @@ function detectChatIntent(message, trialContext) {
     isAddingData,
     requiresHealthData,
     requiresLabs,
+    isBulkScanQuery,
     requiresVitals,
     requiresSymptoms,
     requiresTrendAnalysis,
@@ -566,105 +863,7 @@ function detectChatIntent(message, trialContext) {
 // HELPER FUNCTIONS - Early Exit Responses
 // ============================================================================
 
-/**
- * Build response when no trial data is available
- */
-function buildNoTrialDataResponse() {
-  return `I'd be happy to help you with your saved clinical trials! However, I don't see any saved trials in your profile yet.
-
-To get started, you can:
-- **Search for clinical trials** on the Clinical Trials tab
-- **Save trials** that match your profile by clicking the bookmark icon
-- **Ask about specific trials** after you've saved them
-
-Once you have saved trials, I can help you:
-- Understand what each trial involves
-- Explain the drugs and treatments being tested
-- Discuss eligibility criteria
-- Answer questions about trial phases, side effects, and locations
-
-Would you like to search for clinical trials now?`;
-}
-
-/**
- * Build response when no health data is available
- */
-function buildNoHealthDataResponse() {
-  return `I'd be happy to help you understand your health data! However, I don't see any health data tracked yet in your profile.
-
-To get started, you can:
-- **Upload lab reports** or **add lab values** via chat (e.g., "My CA-125 was 68 on December 15")
-- **Log vital signs** like blood pressure, heart rate, or weight
-- **Track symptoms** you're experiencing
-- **Add medications** you're taking
-
-Once you have data, I can help you:
-- Understand what your values mean
-- Analyze trends over time
-- Explain how your treatment is progressing
-- Identify patterns in your health data
-
-Would you like to start by adding some health data?`;
-}
-
-/**
- * Build response when no lab data is available
- */
-function buildNoLabDataResponse() {
-  return `I'd be happy to explain your lab results! However, I don't see any lab values tracked in your profile yet.
-
-You can add lab values by:
-- **Uploading lab reports** through the Files tab
-- **Telling me in chat** (e.g., "My CA-125 was 68 on December 15")
-- **Using the Health tab** to manually enter values
-
-Once you have lab data, I can help explain what the values mean and track trends over time.`;
-}
-
-/**
- * Build response when no vital data is available
- */
-function buildNoVitalDataResponse() {
-  return `I'd be happy to help with your vital signs! However, I don't see any vital signs tracked in your profile yet.
-
-You can add vital signs by:
-- **Telling me in chat** (e.g., "My blood pressure was 125/80 this morning")
-- **Using the Health tab** to manually enter values
-
-Once you have vital sign data, I can help you understand what the values mean and track changes over time.`;
-}
-
-/**
- * Build response when no symptom data is available
- */
-function buildNoSymptomDataResponse() {
-  return `I'd be happy to help with your symptoms! However, I don't see any symptoms tracked in your profile yet.
-
-You can log symptoms by:
-- **Telling me in chat** (e.g., "I had mild nausea yesterday")
-- **Using the Health tab** to manually log symptoms
-- **Using the quick log** feature on the dashboard
-
-Once you have symptom data, I can help identify patterns and correlations with your other health data.`;
-}
-
-/**
- * Build response when insufficient data for trend analysis
- */
-function buildInsufficientTrendDataResponse() {
-  return `I'd be happy to analyze trends in your health data! However, I need more data points to identify meaningful trends and patterns.
-
-To analyze trends effectively, I typically need:
-- **At least 2-3 measurements over time** for labs or vitals
-- **Multiple symptom entries** to identify patterns
-
-You can add more data by:
-- **Uploading additional lab reports** through the Files tab
-- **Telling me in chat** (e.g., "My CA-125 was 68 on December 15, and 72 on January 1")
-- **Using the Health tab** to manually enter values over time
-
-Once you have more data points, I can help you see trends, identify patterns, and understand how your values are changing over time.`;
-}
+// Response functions are now imported from prompts/responses/noDataResponses
 
 // ============================================================================
 // HELPER FUNCTIONS - Prompt Construction
@@ -672,6 +871,7 @@ Once you have more data points, I can help you see trends, identify patterns, an
 
 /**
  * Build the final chat prompt
+ * Now uses extracted prompts from prompts/chat/mainPrompt.js
  */
 function buildChatPrompt({
   message,
@@ -684,7 +884,6 @@ function buildChatPrompt({
   userRoleContext,
   responseComplexity = null
 }) {
-  const isPatient = patientProfile?.isPatient !== false; // Default to true if not set
   const complexity = responseComplexity || patientProfile?.responseComplexity || 'standard';
   
   // Debug logging
@@ -697,161 +896,22 @@ function buildChatPrompt({
     });
   }
   
-  return `You are CancerCare's AI health assistant helping track medical data for a patient${patientProfile?.diagnosis ? ` with ${patientProfile.diagnosis}` : ''}. You can discuss ANYTHING related to the patient's health, disease, treatment, symptoms, medications, test results, or overall medical condition - there are no topic restrictions as long as it's health-related.
-
-${userRoleContext}
-
-${(() => {
-  const isQuestionQuery = message.toLowerCase().includes('questions should i ask') || 
-                          (message.toLowerCase().includes('discuss') && message.toLowerCase().includes('doctor')) ||
-                          message.toLowerCase().includes('what questions');
+  // Get task description using extracted function
+  const taskDescription = getTaskDescription(message, trialContextSection, healthContextSection, notebookContextSection);
   
-  if (isQuestionQuery) {
-    return `TASK: The user is asking what questions to ask their doctor. This is a DISCUSSION/SEARCH query - DO NOT extract any medical data. Simply provide a list of 3-5 specific, actionable questions formatted as a numbered or bulleted list. Each question should be on its own line and end with a question mark.
-
-CRITICAL: This is NOT a data extraction task - return empty extractedData. Only provide the conversational response with questions.
-
-Example format:
-1. What could be causing this condition?
-2. What treatment options are available?
-3. What are the next steps?
-4. Are there any concerns I should watch for?
-5. When should I follow up?`;
-  }
-  
-  return `TASK: Analyze the user's message and extract any medical values they mentioned.${trialContextSection ? ' The user is asking about a specific clinical trial - provide detailed information about the trial, its drugs, phase, and eligibility.' : ''}${healthContextSection ? ' The user is asking about their health data - analyze their labs, vitals, and symptoms to provide insights and answer questions.' : ''}${notebookContextSection ? ' The user is asking about their health history/timeline - reference the journal entries, documents, notes, and symptoms organized by date.' : ''}`;
-})()}
-
-USER MESSAGE: "${message}"
-${patientDemographicsSection}
-${trialContextSection}
-${healthContextSection}
-${notebookContextSection}
-
-Extract any medical data and return a JSON object with this structure:
-
-{
-  "conversationalResponse": "Your direct, concise response to the user. Be friendly but brief - avoid verbose openings like 'I understand', 'It's completely understandable', etc. Get straight to the point.",
-  "insight": "A simple, one-sentence key insight or takeaway from your response (e.g., 'Hemoglobin is very low and needs attention' or 'Test results show improvement'). Keep it brief and actionable.",
-  "extractedData": {
-    "labs": [
-      {
-        "labType": "ca125|cea|wbc|hemoglobin|platelets|etc",
-        "label": "CA-125",
-        "value": 68,
-        "unit": "U/mL",
-        "date": "2024-12-29",
-        "normalRange": "0-35"  // CRITICAL: Adjust based on patient demographics (age, gender) if applicable
-      }
-    ],
-    "vitals": [
-      {
-        "vitalType": "bp|hr|temp|weight|oxygen",
-        "label": "Blood Pressure",
-        "value": "125/80",
-        "unit": "mmHg",
-        "date": "2024-12-29",
-        "normalRange": "90-120/60-80"
-      }
-    ],
-    "symptoms": [
-      {
-        "name": "Nausea",
-        "severity": "mild|moderate|severe",
-        "date": "2024-12-29",
-        "notes": "After chemotherapy"
-      }
-    ],
-    "medications": [
-      {
-        "name": "Paclitaxel",
-        "dosage": "175 mg/m²",
-        "frequency": "Every 3 weeks",
-        "action": "started|stopped|adjusted"
-      }
-    ],
-    "journalNotes": [
-      {
-        "content": "Today was a good day. Feeling more energy after treatment.",
-        "date": "2024-12-29"
-      }
-    ]
-  }
-}
-
-IMPORTANT:
-- CRITICAL: Only extract medical data when the user is EXPLICITLY sharing data to be logged/added to their records. Do NOT extract data when:
-  * The user is asking questions about their health data (e.g., "What does my CA-125 mean?", "Tell me about my hemoglobin")
-  * The user is discussing their condition or asking for advice
-  * The user is just mentioning values in conversation without intending to log them
-  * The user is asking "how to discuss with doctor" or similar discussion queries
-- Extract data ONLY when the user is clearly providing data to be saved, such as:
-  * "My CA-125 was 70 today" (user sharing a value to log)
-  * "I had severe nausea yesterday" (user reporting a symptom to log)
-  * "My blood pressure is 125/80" (user providing a vital to log)
-  * Explicit statements like "add this", "log this", "save this"
-- Only include sections with actual extracted data (omit empty sections)
-- CAREFULLY extract the date from the user's message (e.g., "on December 14", "two weeks ago", "last Monday", "yesterday")
-- Calculate dates relative to today if needed: ${new Date().toISOString().split('T')[0]}
-- If NO date is mentioned at all, use today's date
-- Be direct and concise - avoid verbose openings like "I understand", "It's completely understandable", "That's a great question", etc. Get straight to the point while remaining friendly
-- DO NOT mention that you cannot give medical advice, cannot provide a diagnosis, or similar disclaimers in your responses. Answer naturally and conversationally like other modern AI assistants (OpenAI, Gemini, etc.)
-${complexity === 'simple' ? 
-  `- RESPONSE STYLE - SIMPLE MODE (CRITICAL - MUST FOLLOW):
-  * Use ONLY everyday, simple words - no medical jargon at all
-  * Keep responses VERY SHORT - maximum 1-2 sentences (preferably 1 sentence)
-  * DO NOT mention specific numbers, values, or test results - only provide insights and interpretations
-  * Replace all medical terms with plain language (e.g., "tumor" → "growth", "chemotherapy" → "medicine treatment", "diagnosis" → "what you have")
-  * Write as if explaining to a child - simple, clear, easy to understand
-  * NO complex sentences - use short, direct statements
-  * Focus on what things mean, not specific numbers
-  * Example: Instead of "Your CA-125 is 68 U/mL, which is above normal", say "Your test shows the cancer might be growing"
-  * Example: Instead of "Your blood pressure is 125/80 mmHg", say "Your blood pressure looks okay"
-  * DO NOT use: diagnosis, prognosis, intervention, medication, dosage, regimen, efficacy, adverse effects, or any numbers/values
-  * USE INSTEAD: what you have, what might happen, treatment, medicine, plan, how well it works, side effects, etc.` :
-  complexity === 'detailed' ?
-  `- RESPONSE STYLE - DETAILED MODE: Provide comprehensive, detailed explanations. Include technical terminology when relevant, but explain it. You can provide more context and background information. Responses can be 2-4 paragraphs for complex topics.` :
-  `- RESPONSE STYLE - STANDARD MODE: Keep responses VERY CONCISE - aim for 1-2 short paragraphs maximum (3-5 sentences total). Be direct and to the point. Prioritize the most important information only. Use appropriate medical terminology but explain key terms.`}
-- Use MARKDOWN formatting for better readability:
-  * Use **bold** for important terms, drug names, and key concepts
-  * Use *italics* for emphasis
-  * Use bullet points (- or *) for lists
-  * Use numbered lists (1. 2. 3.) for step-by-step information
-  * Use \`code\` formatting for technical terms, dosages, or specific values
-  * Use headers (##) sparingly for major sections if needed
-  * Use line breaks to separate ideas clearly
-  * Use links: [Link Text](URL) for references and authoritative sources
-- CRITICAL: When the user asks about discussing something with their doctor or what questions to ask, you MUST provide a list of specific, actionable questions. Format questions as:
-  * Each question on its own line
-  * Numbered or bulleted format (1. Question? or - Question?)
-  * Questions should be clear, specific, and relevant to the topic being discussed
-  * Include 3-5 questions that cover: what to ask about the condition, treatment options, next steps, and concerns
-- If trial context is provided${complexity === 'simple' ? ', use SIMPLE MODE - explain trials in very basic terms with no medical jargon' : ', provide information about drugs, phases, eligibility, and trial design'}
-- ALWAYS include authoritative links when discussing:
-  * Drugs: FDA labels (https://www.accessdata.fda.gov/scripts/cder/daf/), prescribing information, medical literature
-  * Trials: ClinicalTrials.gov study link (provided in trial context)
-  * Medical information: PubMed, medical databases, official health organization sites
-- You can discuss drugs beyond the information provided - use your knowledge and provide links to authoritative sources (FDA, medical literature, prescribing information)
-- You can discuss ANY health-related topic: treatments, medications, side effects, symptoms, test results, disease progression, prognosis, diet, exercise, lifestyle, support resources, clinical trials, research, or any other health-related questions - as long as it's related to the patient's health or condition
-- If no medical data is mentioned, just respond conversationally and helpfully to any health-related questions (or about the trial if trial context is provided)
-- If the user asks about analyzing or explaining their health data but there is NO data available or INSUFFICIENT data (e.g., only 1-2 data points when trends require more), acknowledge this clearly in your response and suggest how they can add more data. Be helpful and guide them on what data would be useful.
-- If the user is sharing a personal note, thought, reflection, or journal entry (not structured medical data like labs, vitals, symptoms, or medications), extract it as a journalNote. Examples:
-  * "Note that I'm feeling more energetic today" → journalNote with today's date
-  * "I want to remember that yesterday was a good day" → journalNote with yesterday's date  
-  * "Today I'm grateful for..." → journalNote with today's date
-  * Personal reflections, thoughts, experiences, or general notes should be saved as journalNotes
-  * Only extract as journalNote if it's clearly a personal note/reflection, not structured medical data
-- Return ONLY valid JSON
-
-DATE RECOGNITION EXAMPLES:
-- "My CA-125 on December 14 was 70" → use "2024-12-14"
-- "Two weeks ago my CA-125 was 70" → calculate date 14 days before today
-- "Last Monday my CA-125 was 70" → calculate the date of last Monday
-- "Yesterday my CA-125 was 70" → use yesterday's date
-- "My CA-125 was 70" (no date mentioned) → use today's date
-
-CONVERSATION CONTEXT:
-${conversationHistory.slice(-5).map(msg => `${msg.role}: ${msg.content}`).join('\n')}`;
+  // Build main prompt using extracted function
+  return buildMainPrompt({
+    message,
+    userRoleContext,
+    taskDescription,
+    patientDemographicsSection,
+    trialContextSection,
+    healthContextSection,
+    notebookContextSection,
+    conversationHistory,
+    patientProfile,
+    responseComplexity: complexity
+  });
 }
 
 /**
@@ -864,7 +924,7 @@ ${conversationHistory.slice(-5).map(msg => `${msg.role}: ${msg.content}`).join('
  * @param {Object} notebookContext - Optional notebook context (timeline entries, journal notes, documents)
  * @param {Object} patientProfile - Patient demographics (age, gender, weight) for normal range adjustments
  */
-export async function processChatMessage(message, userId, conversationHistory = [], trialContext = null, healthContext = null, notebookContext = null, patientProfile = null) {
+export async function processChatMessage(message, userId, conversationHistory = [], trialContext = null, healthContext = null, notebookContext = null, patientProfile = null, abortSignal = null) {
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
@@ -876,8 +936,25 @@ export async function processChatMessage(message, userId, conversationHistory = 
       requiresVitals,
       requiresSymptoms,
       requiresTrendAnalysis,
-      requiresTrialData
+      requiresTrialData,
+      isBulkScanQuery
     } = detectChatIntent(message, trialContext);
+    
+    // Check if this is a recovery query
+    const isRecoveryQuery = /(undo|recover|restore|get back|bring back|revert|restore deleted|undo delete|recover deleted|get my values back|how can i undo|how do i recover)/i.test(message);
+    
+    if (isRecoveryQuery) {
+      return {
+        response: buildRecoveryInstructionsResponse(),
+        extractedData: null,
+        insight: 'Recovery instructions provided - values can be restored by rescanning source documents'
+      };
+    }
+    
+    // Check if this is a bulk scan query
+    if (isBulkScanQuery && userId) {
+      return await handleBulkScanRequest(message, userId, patientProfile);
+    }
     
     // Check if saved trials exist (only if question requires trial data)
     if (requiresTrialData && userId) {
@@ -990,9 +1067,25 @@ export async function processChatMessage(message, userId, conversationHistory = 
       userRoleContext
     });
 
+    // Check if aborted before making API call
+    if (abortSignal?.aborted) {
+      throw new Error('Request aborted');
+    }
+
     const result = await model.generateContent(prompt);
+    
+    // Check if aborted after API call but before reading response
+    if (abortSignal?.aborted) {
+      throw new Error('Request aborted');
+    }
+    
     const response = await result.response;
     const text = response.text();
+    
+    // Check if aborted after getting response
+    if (abortSignal?.aborted) {
+      throw new Error('Request aborted');
+    }
 
     // Parse JSON response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -1028,6 +1121,341 @@ export async function processChatMessage(message, userId, conversationHistory = 
 }
 
 /**
+ * Find existing lab value to update
+ * Returns { labId, valueId } if found, null otherwise
+ */
+async function findLabValueToUpdate(labType, date, userId) {
+  try {
+    const { normalizeLabName } = await import('../utils/normalizationUtils');
+    const normalizedLabType = normalizeLabName(labType) || labType.toLowerCase();
+    
+    // Get all labs for this user
+    const allLabs = await labService.getLabs(userId);
+    
+    // Find labs matching the type
+    const matchingLabs = allLabs.filter(lab => {
+      const labNormalizedType = normalizeLabName(lab.labType) || normalizeLabName(lab.label) || lab.labType?.toLowerCase();
+      return labNormalizedType === normalizedLabType;
+    });
+    
+    if (matchingLabs.length === 0) {
+      return null;
+    }
+    
+    // If date is "last", find the most recent value
+    if (date === 'last' || date === 'most recent') {
+      let mostRecentValue = null;
+      let mostRecentLab = null;
+      let mostRecentDate = null;
+      
+      for (const lab of matchingLabs) {
+        const values = await labService.getLabValues(lab.id);
+        for (const value of values) {
+          const valueDate = value.date?.toDate ? value.date.toDate() : new Date(value.date);
+          if (!mostRecentDate || valueDate > mostRecentDate) {
+            mostRecentDate = valueDate;
+            mostRecentValue = value;
+            mostRecentLab = lab;
+          }
+        }
+      }
+      
+      if (mostRecentValue && mostRecentLab) {
+        return { labId: mostRecentLab.id, valueId: mostRecentValue.id };
+      }
+      return null;
+    }
+    
+    // Otherwise, find value matching the date
+    const targetDate = parseLocalDate(date);
+    if (!targetDate || isNaN(targetDate.getTime())) {
+      return null;
+    }
+    
+    // Compare dates by day (ignore time)
+    const targetDateStr = targetDate.toISOString().split('T')[0];
+    
+    for (const lab of matchingLabs) {
+      const values = await labService.getLabValues(lab.id);
+      for (const value of values) {
+        const valueDate = value.date?.toDate ? value.date.toDate() : new Date(value.date);
+        const valueDateStr = valueDate.toISOString().split('T')[0];
+        
+        if (valueDateStr === targetDateStr) {
+          return { labId: lab.id, valueId: value.id };
+        }
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error finding lab value to update:', error);
+    return null;
+  }
+}
+
+/**
+ * Find existing vital value to update
+ * Returns { vitalId, valueId } if found, null otherwise
+ */
+async function findVitalValueToUpdate(vitalType, date, userId) {
+  try {
+    const normalizedVitalType = vitalType.toLowerCase();
+    
+    // Get all vitals for this user
+    const allVitals = await vitalService.getVitals(userId);
+    
+    // Find vitals matching the type
+    const matchingVitals = allVitals.filter(vital => {
+      const vitalNormalizedType = vital.vitalType?.toLowerCase();
+      return vitalNormalizedType === normalizedVitalType;
+    });
+    
+    if (matchingVitals.length === 0) {
+      return null;
+    }
+    
+    // If date is "last", find the most recent value
+    if (date === 'last' || date === 'most recent') {
+      let mostRecentValue = null;
+      let mostRecentVital = null;
+      let mostRecentDate = null;
+      
+      for (const vital of matchingVitals) {
+        const values = await vitalService.getVitalValues(vital.id);
+        for (const value of values) {
+          const valueDate = value.date?.toDate ? value.date.toDate() : new Date(value.date);
+          if (!mostRecentDate || valueDate > mostRecentDate) {
+            mostRecentDate = valueDate;
+            mostRecentValue = value;
+            mostRecentVital = vital;
+          }
+        }
+      }
+      
+      if (mostRecentValue && mostRecentVital) {
+        return { vitalId: mostRecentVital.id, valueId: mostRecentValue.id };
+      }
+      return null;
+    }
+    
+    // Otherwise, find value matching the date
+    const targetDate = parseLocalDate(date);
+    if (!targetDate || isNaN(targetDate.getTime())) {
+      return null;
+    }
+    
+    // Compare dates by day (ignore time)
+    const targetDateStr = targetDate.toISOString().split('T')[0];
+    
+    for (const vital of matchingVitals) {
+      const values = await vitalService.getVitalValues(vital.id);
+      for (const value of values) {
+        const valueDate = value.date?.toDate ? value.date.toDate() : new Date(value.date);
+        const valueDateStr = valueDate.toISOString().split('T')[0];
+        
+        if (valueDateStr === targetDateStr) {
+          return { vitalId: vital.id, valueId: value.id };
+        }
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error finding vital value to update:', error);
+    return null;
+  }
+}
+
+/**
+ * Remove duplicate lab values (same lab type, same date, same value)
+ * Keeps only one value per unique combination
+ * CRITICAL: Only deletes if there are 2+ values with the exact same date AND value
+ */
+async function removeDuplicateLabValues(labType, userId) {
+  try {
+    const { normalizeLabName } = await import('../utils/normalizationUtils');
+    const normalizedLabType = normalizeLabName(labType) || labType.toLowerCase();
+    
+    // Get all labs for this user
+    const allLabs = await labService.getLabs(userId);
+    
+    // Find labs matching the type
+    const matchingLabs = allLabs.filter(lab => {
+      const labNormalizedType = normalizeLabName(lab.labType) || normalizeLabName(lab.label) || lab.labType?.toLowerCase();
+      return labNormalizedType === normalizedLabType;
+    });
+    
+    if (matchingLabs.length === 0) {
+      console.log(`No labs found for type ${labType}`);
+      return 0;
+    }
+    
+    let totalDeleted = 0;
+    let totalChecked = 0;
+    
+    // Process each matching lab
+    for (const lab of matchingLabs) {
+      const values = await labService.getLabValues(lab.id);
+      totalChecked += values.length;
+      
+      if (values.length === 0) {
+        continue;
+      }
+      
+      // Group values by date and value (normalize value to string for comparison)
+      const valueGroups = {};
+      for (const value of values) {
+        const valueDate = value.date?.toDate ? value.date.toDate() : new Date(value.date);
+        const dateStr = valueDate.toISOString().split('T')[0];
+        // Normalize value to string for comparison (handle floating point precision)
+        // Use toFixed to handle floating point precision issues (e.g., 68.0 vs 68)
+        const numValue = parseFloat(value.value);
+        if (isNaN(numValue)) {
+          // Skip invalid values
+          continue;
+        }
+        // Round to 2 decimal places to handle floating point precision
+        const normalizedValue = numValue.toFixed(2);
+        const valueKey = `${dateStr}_${normalizedValue}`;
+        
+        if (!valueGroups[valueKey]) {
+          valueGroups[valueKey] = [];
+        }
+        valueGroups[valueKey].push({ ...value, labId: lab.id });
+      }
+      
+      // For each group with duplicates (2+ values), keep the first one and delete the rest
+      for (const [key, group] of Object.entries(valueGroups)) {
+        if (group.length > 1) {
+          // CRITICAL: Only delete duplicates (keep first, delete rest)
+          // Sort by creation time or ID to ensure consistent "first" value
+          const sortedGroup = group.sort((a, b) => {
+            const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+            const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+            if (aTime !== bTime) return aTime - bTime;
+            // If no creation time, use ID as tiebreaker
+            return (a.id || '').localeCompare(b.id || '');
+          });
+          
+          // Keep the first one (oldest), delete the rest
+          for (let i = 1; i < sortedGroup.length; i++) {
+            try {
+              console.log(`Deleting duplicate: ${labType} value ${sortedGroup[i].value} on ${key.split('_')[0]} (keeping first occurrence)`);
+              await labService.deleteLabValue(sortedGroup[i].labId, sortedGroup[i].id);
+              totalDeleted++;
+            } catch (error) {
+              console.error(`Error deleting duplicate lab value ${sortedGroup[i].id}:`, error);
+            }
+          }
+        }
+      }
+      
+      // Update lab's current value after deletions
+      const remainingValues = await labService.getLabValues(lab.id);
+      if (remainingValues.length > 0) {
+        const sortedValues = remainingValues.sort((a, b) => {
+          const dateA = a.date?.toDate ? a.date.toDate().getTime() : new Date(a.date).getTime();
+          const dateB = b.date?.toDate ? b.date.toDate().getTime() : new Date(b.date).getTime();
+          return dateB - dateA;
+        });
+        await labService.saveLab({
+          id: lab.id,
+          currentValue: parseFloat(sortedValues[0].value)
+        });
+      } else {
+        // No values left - clear current value
+        await labService.saveLab({
+          id: lab.id,
+          currentValue: null
+        });
+      }
+    }
+    
+    console.log(`Duplicate removal: Checked ${totalChecked} values, deleted ${totalDeleted} duplicates for ${labType}`);
+    return totalDeleted;
+  } catch (error) {
+    console.error('Error removing duplicate lab values:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete specific lab values matching criteria
+ */
+async function deleteLabValues(labType, date, value, userId) {
+  try {
+    const { normalizeLabName } = await import('../utils/normalizationUtils');
+    const normalizedLabType = normalizeLabName(labType) || labType.toLowerCase();
+    
+    // Get all labs for this user
+    const allLabs = await labService.getLabs(userId);
+    
+    // Find labs matching the type
+    const matchingLabs = allLabs.filter(lab => {
+      const labNormalizedType = normalizeLabName(lab.labType) || normalizeLabName(lab.label) || lab.labType?.toLowerCase();
+      return labNormalizedType === normalizedLabType;
+    });
+    
+    let deletedCount = 0;
+    const targetDate = date ? parseLocalDate(date) : null;
+    const targetDateStr = targetDate && !isNaN(targetDate.getTime()) ? targetDate.toISOString().split('T')[0] : null;
+    
+    for (const lab of matchingLabs) {
+      const values = await labService.getLabValues(lab.id);
+      
+      for (const val of values) {
+        let shouldDelete = true;
+        
+        // Check date match if specified
+        if (targetDateStr) {
+          const valueDate = val.date?.toDate ? val.date.toDate() : new Date(val.date);
+          const valueDateStr = valueDate.toISOString().split('T')[0];
+          if (valueDateStr !== targetDateStr) {
+            shouldDelete = false;
+          }
+        }
+        
+        // Check value match if specified
+        if (value !== undefined && value !== null) {
+          if (parseFloat(val.value) !== parseFloat(value)) {
+            shouldDelete = false;
+          }
+        }
+        
+        if (shouldDelete) {
+          try {
+            await labService.deleteLabValue(lab.id, val.id);
+            deletedCount++;
+          } catch (error) {
+            console.error(`Error deleting lab value ${val.id}:`, error);
+          }
+        }
+      }
+      
+      // Update lab's current value after deletions
+      const remainingValues = await labService.getLabValues(lab.id);
+      if (remainingValues.length > 0) {
+        const sortedValues = remainingValues.sort((a, b) => {
+          const dateA = a.date?.toDate ? a.date.toDate().getTime() : new Date(a.date).getTime();
+          const dateB = b.date?.toDate ? b.date.toDate().getTime() : new Date(b.date).getTime();
+          return dateB - dateA;
+        });
+        await labService.saveLab({
+          id: lab.id,
+          currentValue: parseFloat(sortedValues[0].value)
+        });
+      }
+    }
+    
+    return deletedCount;
+  } catch (error) {
+    console.error('Error deleting lab values:', error);
+    throw error;
+  }
+}
+
+/**
  * Save extracted data to Firestore
  */
 async function saveExtractedData(extractedData, userId) {
@@ -1043,7 +1471,85 @@ async function saveExtractedData(extractedData, userId) {
     // Save Labs
     if (extractedData.labs?.length > 0) {
       for (const lab of extractedData.labs) {
-        // Parse and validate date - use current date as fallback if invalid
+        const isUpdate = lab.action === 'update';
+        const isDelete = lab.action === 'delete';
+        
+        if (isDelete) {
+          // Handle deletion
+          if (lab.removeDuplicates) {
+            // Remove duplicate values (same lab type, same date, same value)
+            // IMPORTANT: Only delete if there are actual duplicates (2+ values with same date+value)
+            const deletedCount = await removeDuplicateLabValues(lab.labType, userId);
+            saved.labs.push({ ...lab, deleted: true, duplicatesRemoved: true, deletedCount });
+          } else {
+            // Delete specific value(s)
+            const deleted = await deleteLabValues(lab.labType, lab.date, lab.value, userId);
+            saved.labs.push({ ...lab, deleted: true, deletedCount: deleted });
+          }
+        } else if (isUpdate) {
+          // Find existing value to update
+          const existingValue = await findLabValueToUpdate(lab.labType, lab.date, userId);
+          
+          if (existingValue) {
+            // Parse and validate date for update
+            let updateDate = parseLocalDate(lab.date);
+            if (!updateDate || isNaN(updateDate.getTime()) || lab.date === 'last' || lab.date === 'most recent') {
+              // If date is "last" or invalid, keep the existing date
+              const existingLab = await labService.getLab(existingValue.labId);
+              const existingValues = await labService.getLabValues(existingValue.labId);
+              const valueToUpdate = existingValues.find(v => v.id === existingValue.valueId);
+              updateDate = valueToUpdate?.date?.toDate ? valueToUpdate.date.toDate() : new Date(valueToUpdate.date);
+            }
+            
+            // Update existing value
+            await labService.updateLabValue(existingValue.labId, existingValue.valueId, {
+              value: parseFloat(lab.value),
+              date: updateDate,
+              notes: lab.notes || 'Updated via chat'
+            });
+            
+            // Update lab's current value if this is the most recent
+            const allValues = await labService.getLabValues(existingValue.labId);
+            const sortedValues = allValues.sort((a, b) => {
+              const dateA = a.date?.toDate ? a.date.toDate().getTime() : new Date(a.date).getTime();
+              const dateB = b.date?.toDate ? b.date.toDate().getTime() : new Date(b.date).getTime();
+              return dateB - dateA;
+            });
+            if (sortedValues.length > 0) {
+              await labService.saveLab({
+                id: existingValue.labId,
+                currentValue: parseFloat(sortedValues[0].value)
+              });
+            }
+            
+            saved.labs.push({ labId: existingValue.labId, valueId: existingValue.valueId, ...lab, updated: true });
+          } else {
+            // Value not found, add as new value instead
+            let labDate = parseLocalDate(lab.date);
+            if (!labDate || isNaN(labDate.getTime()) || lab.date === 'last' || lab.date === 'most recent') {
+              labDate = new Date();
+            }
+            
+            const labId = await labService.saveLab({
+              patientId: userId,
+              labType: lab.labType,
+              label: lab.label,
+              currentValue: lab.value,
+              unit: lab.unit,
+              normalRange: lab.normalRange,
+              createdAt: labDate
+            });
+            
+            await labService.addLabValue(labId, {
+              value: lab.value,
+              date: labDate,
+              notes: 'Added via chat (update requested but value not found)'
+            });
+            
+            saved.labs.push({ labId, ...lab, updated: false, note: 'Value not found, added as new' });
+          }
+        } else {
+          // Add new lab value
         let labDate = parseLocalDate(lab.date);
         if (!labDate || isNaN(labDate.getTime())) {
           labDate = new Date();
@@ -1066,13 +1572,104 @@ async function saveExtractedData(extractedData, userId) {
         });
 
         saved.labs.push({ labId, ...lab });
+        }
       }
     }
 
     // Save Vitals
     if (extractedData.vitals?.length > 0) {
       for (const vital of extractedData.vitals) {
-        // Parse and validate date - use current date as fallback if invalid
+        const isUpdate = vital.action === 'update';
+        const isDelete = vital.action === 'delete';
+        
+        if (isDelete) {
+          // Handle deletion (similar to labs, but vitals deletion is less common)
+          // For now, we'll handle specific deletions if needed
+          saved.vitals.push({ ...vital, deleted: true, note: 'Vital deletion via chat not yet fully implemented' });
+        } else if (isUpdate) {
+          // Find existing value to update
+          const existingValue = await findVitalValueToUpdate(vital.vitalType, vital.date, userId);
+          
+          if (existingValue) {
+            // Parse and validate date for update
+            let updateDate = parseLocalDate(vital.date);
+            if (!updateDate || isNaN(updateDate.getTime()) || vital.date === 'last' || vital.date === 'most recent') {
+              // If date is "last" or invalid, keep the existing date
+              const existingVital = await vitalService.getVital(existingValue.vitalId);
+              const existingValues = await vitalService.getVitalValues(existingValue.vitalId);
+              const valueToUpdate = existingValues.find(v => v.id === existingValue.valueId);
+              updateDate = valueToUpdate?.date?.toDate ? valueToUpdate.date.toDate() : new Date(valueToUpdate.date);
+            }
+            
+            // Handle blood pressure specially
+            let updateData = {
+              date: updateDate,
+              notes: vital.notes || 'Updated via chat'
+            };
+            
+            if (vital.vitalType === 'bp' || vital.vitalType === 'bloodpressure') {
+              // Parse blood pressure value (format: "130/85" or "130/85 mmHg")
+              const bpMatch = vital.value.toString().match(/(\d+)\s*\/\s*(\d+)/);
+              if (bpMatch) {
+                updateData.systolic = parseFloat(bpMatch[1]);
+                updateData.diastolic = parseFloat(bpMatch[2]);
+                updateData.value = parseFloat(bpMatch[1]); // For charting
+              } else {
+                updateData.value = parseFloat(vital.value);
+              }
+            } else {
+              updateData.value = parseFloat(vital.value);
+            }
+            
+            // Update existing value
+            await vitalService.updateVitalValue(existingValue.vitalId, existingValue.valueId, updateData);
+            
+            // Update vital's current value if this is the most recent
+            const allValues = await vitalService.getVitalValues(existingValue.vitalId);
+            const sortedValues = allValues.sort((a, b) => {
+              const dateA = a.date?.toDate ? a.date.toDate().getTime() : new Date(a.date).getTime();
+              const dateB = b.date?.toDate ? b.date.toDate().getTime() : new Date(b.date).getTime();
+              return dateB - dateA;
+            });
+            if (sortedValues.length > 0) {
+              const mostRecent = sortedValues[0];
+              const currentValue = (mostRecent.systolic && mostRecent.diastolic) 
+                ? `${mostRecent.systolic}/${mostRecent.diastolic}` 
+                : mostRecent.value;
+              await vitalService.saveVital({
+                id: existingValue.vitalId,
+                currentValue: currentValue
+              });
+            }
+            
+            saved.vitals.push({ vitalId: existingValue.vitalId, valueId: existingValue.valueId, ...vital, updated: true });
+          } else {
+            // Value not found, add as new value instead
+            let vitalDate = parseLocalDate(vital.date);
+            if (!vitalDate || isNaN(vitalDate.getTime()) || vital.date === 'last' || vital.date === 'most recent') {
+              vitalDate = new Date();
+            }
+            
+            const vitalId = await vitalService.saveVital({
+              patientId: userId,
+              vitalType: vital.vitalType,
+              label: vital.label,
+              currentValue: vital.value,
+              unit: vital.unit,
+              normalRange: vital.normalRange,
+              createdAt: vitalDate
+            });
+            
+            await vitalService.addVitalValue(vitalId, {
+              value: vital.value,
+              date: vitalDate,
+              notes: 'Added via chat (update requested but value not found)'
+            });
+            
+            saved.vitals.push({ vitalId, ...vital, updated: false, note: 'Value not found, added as new' });
+          }
+        } else {
+          // Add new vital value
         let vitalDate = parseLocalDate(vital.date);
         if (!vitalDate || isNaN(vitalDate.getTime())) {
           vitalDate = new Date();
@@ -1095,6 +1692,7 @@ async function saveExtractedData(extractedData, userId) {
         });
 
         saved.vitals.push({ vitalId, ...vital });
+        }
       }
     }
 

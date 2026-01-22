@@ -76,6 +76,7 @@ function VitalsSection({
     itemName: '', 
     confirmText: 'Yes, Delete Permanently' 
   });
+  const [isDeletingVitalValue, setIsDeletingVitalValue] = useState(false);
   const [openDeleteMenu, setOpenDeleteMenu] = useState(null);
   const [favoriteMetrics, setFavoriteMetrics] = useState({ labs: [], vitals: [] });
 
@@ -1041,6 +1042,7 @@ function VitalsSection({
       itemName: `${displayName} reading`,
       confirmText: 'Yes, Delete',
       onConfirm: async () => {
+      setIsDeletingVitalValue(true);
       try {
 
       // Optimistically update UI immediately
@@ -1082,10 +1084,17 @@ function VitalsSection({
 
       // Show success banner
       showSuccess(`${displayName} reading deleted successfully`);
+      
+      // Close the modal after successful deletion
+      setDeleteConfirm({ ...deleteConfirm, show: false });
       } catch (error) {
       // Revert optimistic update on error
       reloadHealthData();
       showError('Failed to delete vital reading. Please try again.');
+      // Close the modal even on error
+      setDeleteConfirm({ ...deleteConfirm, show: false });
+      } finally {
+      setIsDeletingVitalValue(false);
       }
       }
       });
@@ -1503,6 +1512,8 @@ function VitalsSection({
       const vitalId = vital?.id;
       if (!vitalId) {
       showError('Error: Could not find vital document ID. Please try again.');
+      // Close the modal even on error
+      setDeleteConfirm({ ...deleteConfirm, show: false });
       return;
       }
 
@@ -1538,10 +1549,15 @@ function VitalsSection({
       }
       // Otherwise, don't reload immediately - optimistic update already removed it
       // Reloading too quickly can cause the vital to reappear
+      
+      // Close the modal after successful deletion
+      setDeleteConfirm({ ...deleteConfirm, show: false });
       } catch (error) {
       // Revert optimistic update on error
       reloadHealthData();
       showError('Failed to delete vital data. Please try again.');
+      // Close the modal even on error
+      setDeleteConfirm({ ...deleteConfirm, show: false });
       }
       }
       });
@@ -1611,7 +1627,12 @@ function VitalsSection({
         itemName={deleteConfirm.itemName}
         confirmText={deleteConfirm.confirmText}
         onConfirm={deleteConfirm.onConfirm}
-        onClose={() => setDeleteConfirm({ ...deleteConfirm, show: false })}
+        onClose={() => {
+          if (!isDeletingVitalValue) {
+            setDeleteConfirm({ ...deleteConfirm, show: false });
+          }
+        }}
+        isDeleting={isDeletingVitalValue}
       />
     </div>
   );

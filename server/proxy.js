@@ -9,6 +9,22 @@ const PORT = process.env.PORT || 4000;
 // Disable Express ETag generation - we don't want caching
 app.set('etag', false);
 
+// CORS middleware - handle preflight requests
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  // Allow all origins in development, restrict in production
+  res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '3600');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
+
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

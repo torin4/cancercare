@@ -126,26 +126,92 @@ export const labService = {
 
   // Update lab value (value, date, notes)
   async updateLabValue(labId, valueId, valueData) {
-    const docRef = doc(db, COLLECTIONS.LABS, labId, 'values', valueId);
-    // Check if document exists first
-    const docSnap = await getDoc(docRef);
+    // Import auth to verify current user
+    const { auth } = await import('../config');
+    const currentUser = auth.currentUser;
+    
+    if (!currentUser) {
+      throw new Error('User not authenticated. Please sign in and try again.');
+    }
+
+    // Get the lab document first to find its labType
+    const labRef = doc(db, COLLECTIONS.LABS, labId);
+    const labDoc = await getDoc(labRef);
+    
+    if (!labDoc.exists()) {
+      throw new Error('Lab document not found');
+    }
+
+    const labData = labDoc.data();
+    if (labData.patientId !== currentUser.uid) {
+      throw new Error(`Permission denied: You don't have permission to update this value.`);
+    }
+    
+    const labType = labData.labType;
+    
+    // CRITICAL: Get ALL labs for this user and filter by normalized labType
+    // This handles cases where different labType values normalize to the same key
+    // and where the value might be in a different lab document with the same type
+    const { normalizeLabName } = await import('../../utils/normalizationUtils');
+    const normalizedLabType = normalizeLabName(labType) || normalizeLabName(labData.label) || labType.toLowerCase();
+    
+    // Get all labs for this user
+    const allUserLabsQuery = query(
+      collection(db, COLLECTIONS.LABS),
+      where('patientId', '==', currentUser.uid)
+    );
+    const allUserLabsSnapshot = await getDocs(allUserLabsQuery);
+    
+    // Filter labs that normalize to the same key
+    const matchingLabs = allUserLabsSnapshot.docs.filter(doc => {
+      const docData = doc.data();
+      const docNormalizedType = normalizeLabName(docData.labType) || normalizeLabName(docData.label) || docData.labType?.toLowerCase();
+      return docNormalizedType === normalizedLabType;
+    });
+    
     const updateData = {};
     if (valueData.value !== undefined) updateData.value = valueData.value;
     if (valueData.date !== undefined) updateData.date = valueData.date;
     if (valueData.notes !== undefined) updateData.notes = valueData.notes || '';
     if (valueData.documentId !== undefined) updateData.documentId = valueData.documentId || null;
     
-    if (docSnap.exists()) {
-      // Document exists, update it
-      await updateDoc(docRef, updateData);
-    } else {
-      // Document doesn't exist, create it
-      await setDoc(docRef, {
-        ...updateData,
-        labId,
-        createdAt: serverTimestamp()
-      });
+    // Search through all lab documents with the same type to find the value
+    for (const labDocSnap of matchingLabs) {
+      const testLabId = labDocSnap.id;
+      const testValueRef = doc(db, COLLECTIONS.LABS, testLabId, 'values', valueId);
+      const testValueDoc = await getDoc(testValueRef);
+      
+      if (testValueDoc.exists()) {
+        // Found the value in this lab document, update it
+        await updateDoc(testValueRef, updateData);
+        
+        // Update the lab's current value if this is the most recent value
+        const testLabRef = doc(db, COLLECTIONS.LABS, testLabId);
+        const testRemainingValues = await getDocs(query(
+          collection(db, COLLECTIONS.LABS, testLabId, 'values'),
+          orderBy('date', 'desc'),
+          limit(1)
+        ));
+        if (!testRemainingValues.empty) {
+          const mostRecentValue = testRemainingValues.docs[0].data();
+          await updateDoc(testLabRef, {
+            currentValue: mostRecentValue.value,
+            updatedAt: serverTimestamp()
+          });
+        }
+        
+        return; // Successfully updated, exit
+      }
     }
+    
+    // Value not found in any lab document - this shouldn't happen, but create it in the provided lab
+    console.warn(`updateLabValue: Value ${valueId} not found in any lab document with type ${normalizedLabType}, creating in lab ${labId}`);
+    const docRef = doc(db, COLLECTIONS.LABS, labId, 'values', valueId);
+    await setDoc(docRef, {
+      ...updateData,
+      labId,
+      createdAt: serverTimestamp()
+    });
   },
   
   // Update lab value documentId (for linking values to documents after creation)

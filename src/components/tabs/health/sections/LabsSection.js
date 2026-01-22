@@ -14,7 +14,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   BarChart, Plus, Upload, Edit2, X, TrendingUp, TrendingDown, Minus, 
   Activity, Info, Clock, Check, AlertCircle, Trash2, MoreVertical, 
-  ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Eye, EyeOff, Star 
+  ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Eye, EyeOff, Star, Sparkles
 } from 'lucide-react';
 import { DesignTokens, combineClasses } from '../../../../design/designTokens';
 import { useAuth } from '../../../../contexts/AuthContext';
@@ -39,6 +39,8 @@ import { isLabEmpty, filterLabsBySearch } from '../utils/labFilters';
 import { calculateYAxisBounds, generateYAxisLabels, parseNormalRangeForChart, generateChartPoints } from '../utils/chartUtils';
 import { getTodayLocalDate, formatDateString } from '../../../../utils/helpers';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
+import { getIrrelevantCategories, extractCancerTypeFromDiagnosis } from '../../../../utils/diseaseRelevantCategories';
+import { CANCER_TYPES } from '../../../../constants/cancerTypes';
 
 function LabsSection({ 
   onTabChange,
@@ -93,17 +95,21 @@ function LabsSection({
     itemName: '', 
     confirmText: 'Yes, Delete Permanently' 
   });
+  const [isDeletingLabValue, setIsDeletingLabValue] = useState(false);
   const [metricSelectionMode, setMetricSelectionMode] = useState(false);
   const [selectedMetrics, setSelectedMetrics] = useState(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
   const [favoriteMetrics, setFavoriteMetrics] = useState({ labs: [], vitals: [] });
+  const [hiddenLabs, setHiddenLabs] = useState([]);
+  const [showHiddenLabs, setShowHiddenLabs] = useState(false);
 
   const allLabData = labsData;
 
-  // Load favorites from patient profile
+  // Load favorites and hidden labs from patient profile
   useEffect(() => {
     if (patientProfile) {
       setFavoriteMetrics(patientProfile.favoriteMetrics || { labs: [], vitals: [] });
+      setHiddenLabs(patientProfile.hiddenLabs || []);
     }
   }, [patientProfile]);
 
@@ -157,6 +163,114 @@ function LabsSection({
     }
   };
 
+  // Hide selected labs
+  const hideSelectedLabs = async () => {
+    if (!user?.uid) return;
+    if (selectedMetrics.size === 0) {
+      showError('Please select at least one metric to hide');
+      return;
+    }
+
+    const selectedKeys = Array.from(selectedMetrics);
+    const newHiddenLabs = [...new Set([...hiddenLabs, ...selectedKeys])];
+    setHiddenLabs(newHiddenLabs);
+
+    try {
+      await patientService.updateHiddenLabs(user.uid, newHiddenLabs);
+      setMetricSelectionMode(false);
+      setSelectedMetrics(new Set());
+      showSuccess(`Hidden ${selectedKeys.length} metric${selectedKeys.length !== 1 ? 's' : ''}`);
+    } catch (error) {
+      showError('Failed to hide metrics. Please try again.');
+      // Revert on error
+      setHiddenLabs(hiddenLabs);
+    }
+  };
+
+  // Unhide labs
+  const unhideLabs = async (labKeys) => {
+    if (!user?.uid) return;
+    const newHiddenLabs = hiddenLabs.filter(key => !labKeys.includes(key));
+    setHiddenLabs(newHiddenLabs);
+
+    try {
+      await patientService.updateHiddenLabs(user.uid, newHiddenLabs);
+      showSuccess(`Unhidden ${labKeys.length} metric${labKeys.length !== 1 ? 's' : ''}`);
+    } catch (error) {
+      showError('Failed to unhide metrics. Please try again.');
+      // Revert on error
+      setHiddenLabs(hiddenLabs);
+    }
+  };
+
+  // Smart hide irrelevant labs based on cancer type
+  const smartHideIrrelevantLabs = async () => {
+    if (!user?.uid) {
+      showError('Please sign in to use smart hide');
+      return;
+    }
+
+    if (!patientProfile?.diagnosis && !patientProfile?.cancerType) {
+      showError('Please set your diagnosis in your profile to use smart hide');
+      return;
+    }
+
+    // Extract cancer type from diagnosis or cancerType field
+    const cancerType = patientProfile.cancerType || 
+                       extractCancerTypeFromDiagnosis(patientProfile.diagnosis, CANCER_TYPES);
+    
+    if (!cancerType) {
+      showError('Could not determine cancer type from your profile. Please update your diagnosis.');
+      return;
+    }
+
+    // Get irrelevant categories
+    const irrelevantCategories = getIrrelevantCategories(cancerType);
+    
+    if (irrelevantCategories.length === 0) {
+      showSuccess('All lab categories are relevant for your cancer type');
+      return;
+    }
+
+    // Helper to get category for a lab key
+    const getLabCategory = (labKey) => {
+      for (const [category, labs] of Object.entries(categorizedLabs)) {
+        if (labs.some(([key]) => key === labKey)) {
+          return category;
+        }
+      }
+      return 'Others'; // Default
+    };
+
+    // Get all labs in irrelevant categories (exclude Custom Values and Others from auto-hiding)
+    const labsToHide = [];
+    Object.entries(allLabData).forEach(([key, lab]) => {
+      const category = getLabCategory(key);
+      if (irrelevantCategories.includes(category)) {
+        labsToHide.push(key);
+      }
+    });
+
+    if (labsToHide.length === 0) {
+      showSuccess('No irrelevant labs found to hide');
+      return;
+    }
+
+    // Hide the labs (merge with existing hidden labs, no duplicates)
+    const newHiddenLabs = [...new Set([...hiddenLabs, ...labsToHide])];
+    setHiddenLabs(newHiddenLabs);
+
+    try {
+      await patientService.updateHiddenLabs(user.uid, newHiddenLabs);
+      showSuccess(`Smart hide: Hidden ${labsToHide.length} metric${labsToHide.length !== 1 ? 's' : ''} in irrelevant categories`);
+      setOpenEmptyMetricsMenu(false);
+    } catch (error) {
+      showError('Failed to hide labs. Please try again.');
+      // Revert on error
+      setHiddenLabs(hiddenLabs);
+    }
+  };
+
   // Auto-select first numeric lab when data loads
   useEffect(() => {
     if (Object.keys(allLabData).length > 0) {
@@ -197,18 +311,24 @@ function LabsSection({
     return categorizeLabs(allLabData);
   }, [allLabData]);
 
-  // Filter labs by search and empty metrics - use debounced search query
+  // Filter labs by search, empty metrics, and hidden labs - use debounced search query
   const filteredCategorizedLabs = useMemo(() => {
     const filtered = {};
     Object.keys(categorizedLabs).forEach(category => {
       const categoryLabs = categorizedLabs[category];
-      const filteredLabs = filterLabsBySearch(categoryLabs, debouncedSearchQuery, hideEmptyMetrics);
+      let filteredLabs = filterLabsBySearch(categoryLabs, debouncedSearchQuery, hideEmptyMetrics);
+      
+      // Filter out hidden labs unless showHiddenLabs is true
+      if (!showHiddenLabs) {
+        filteredLabs = filteredLabs.filter(([key]) => !hiddenLabs.includes(key));
+      }
+      
       if (filteredLabs.length > 0) {
         filtered[category] = filteredLabs;
       }
     });
     return filtered;
-  }, [categorizedLabs, debouncedSearchQuery, hideEmptyMetrics]);
+  }, [categorizedLabs, debouncedSearchQuery, hideEmptyMetrics, hiddenLabs, showHiddenLabs]);
 
   // Memoize chart calculations for current lab
   const chartData = useMemo(() => {
@@ -706,6 +826,7 @@ function LabsSection({
                                                     itemName: `${labName} reading`,
                                                     confirmText: 'Yes, Delete',
                                                     onConfirm: async () => {
+                                                      setIsDeletingLabValue(true);
                                                       try {
                                                         const updatedLabsData = { ...labsData };
                                                         if (updatedLabsData[labKey] && updatedLabsData[labKey].data) {
@@ -736,9 +857,16 @@ function LabsSection({
                                                         
                                                         await reloadHealthData();
                                                         showSuccess(`${labName} reading deleted successfully`);
+                                                        
+                                                        // Close the modal after successful deletion
+                                                        setDeleteConfirm({ ...deleteConfirm, show: false });
                                                       } catch (error) {
                                                         reloadHealthData();
                                                         showError(`Failed to delete lab reading: ${error.message}`);
+                                                        // Close the modal even on error
+                                                        setDeleteConfirm({ ...deleteConfirm, show: false });
+                                                      } finally {
+                                                        setIsDeletingLabValue(false);
                                                       }
                                                     }
                                                   });
@@ -878,13 +1006,16 @@ function LabsSection({
                 const labDescription = canonicalKey ? (labValueDescriptions[canonicalKey] || '') : '';
                 const displayName = getLabDisplayName(lab.name);
 
+                const isHidden = hiddenLabs.includes(key);
                 return (
                   <div
                     key={key}
                     className={combineClasses(
                       'relative cursor-pointer',
                       DesignTokens.transitions.all,
-                      metricSelectionMode && selectedMetrics.has(key)
+                      metricSelectionMode && isHidden
+                        ? combineClasses(DesignTokens.components.card.nestedWithShadow, 'opacity-50 border-2 border-dashed border-medical-neutral-300')
+                        : metricSelectionMode && selectedMetrics.has(key)
                         ? combineClasses(DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[600] || 'border-medical-primary-500'), DesignTokens.colors.app[50])
                         : selectedLab === key && !metricSelectionMode
                         ? combineClasses(DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[600] || 'border-medical-primary-500'), DesignTokens.colors.app[50])
@@ -892,6 +1023,12 @@ function LabsSection({
                     )}
                     onClick={() => {
                       if (metricSelectionMode) {
+                        // If lab is hidden, unhide it when clicked
+                        if (hiddenLabs.includes(key)) {
+                          unhideLabs([key]);
+                          return;
+                        }
+                        // Otherwise, toggle selection
                         const newSelected = new Set(selectedMetrics);
                         if (newSelected.has(key)) {
                           newSelected.delete(key);
@@ -906,12 +1043,16 @@ function LabsSection({
                   >
                     {metricSelectionMode && (
                       <div className="absolute top-3 left-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedMetrics.has(key)}
-                          onChange={() => {}}
-                          className={combineClasses('w-5 h-5 rounded pointer-events-none', DesignTokens.colors.app.text[600], 'focus:ring-anchor-900', DesignTokens.colors.neutral.border[300])}
-                        />
+                        {isHidden ? (
+                          <EyeOff className={combineClasses('w-5 h-5', DesignTokens.colors.neutral.text[400])} />
+                        ) : (
+                          <input
+                            type="checkbox"
+                            checked={selectedMetrics.has(key)}
+                            onChange={() => {}}
+                            className={combineClasses('w-5 h-5 rounded pointer-events-none', DesignTokens.colors.app.text[600], 'focus:ring-anchor-900', DesignTokens.colors.neutral.border[300])}
+                          />
+                        )}
                       </div>
                     )}
 
@@ -1104,6 +1245,8 @@ function LabsSection({
                                             
                                             if (allAlreadyDeleted) {
                                               showSuccess(`${displayName} removed successfully.`);
+                                              // Close the modal after successful deletion
+                                              setDeleteConfirm({ ...deleteConfirm, show: false });
                                               return;
                                             }
                                           }
@@ -1111,14 +1254,21 @@ function LabsSection({
                                           if (deletedCount === 0) {
                                             await reloadHealthData();
                                             showError(`Could not delete ${displayName}. Please try refreshing the page.`);
+                                            // Close the modal even on error
+                                            setDeleteConfirm({ ...deleteConfirm, show: false });
                                             return;
                                           }
                                           
                                           await new Promise(resolve => setTimeout(resolve, 300));
                                           showSuccess(`${displayName} deleted successfully.`);
+                                          
+                                          // Close the modal after successful deletion
+                                          setDeleteConfirm({ ...deleteConfirm, show: false });
                                         } catch (error) {
                                           await reloadHealthData();
                                           showError(`Failed to delete lab data: ${error.message || 'Please try again.'}`);
+                                          // Close the modal even on error
+                                          setDeleteConfirm({ ...deleteConfirm, show: false });
                                         }
                                       }
                                     });
@@ -1143,18 +1293,27 @@ function LabsSection({
               } else {
                 // Non-numeric labs
                 const displayName = getLabDisplayName(lab.name || key);
+                const isHidden = hiddenLabs.includes(key);
                 return (
                   <div
-                    key={key}
-                    className={combineClasses(
-                      'relative cursor-pointer',
-                      DesignTokens.transitions.all,
-                      metricSelectionMode && selectedMetrics.has(key)
-                        ? combineClasses(DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[600] || 'border-medical-primary-500'), DesignTokens.colors.app[50])
-                        : combineClasses(DesignTokens.components.card.nestedWithShadow, 'hover:border-medical-neutral-300', DesignTokens.shadows.hover)
-                    )}
+                      key={key}
+                      className={combineClasses(
+                        'relative cursor-pointer',
+                        DesignTokens.transitions.all,
+                        metricSelectionMode && isHidden
+                          ? combineClasses(DesignTokens.components.card.nestedWithShadow, 'opacity-50 border-2 border-dashed border-medical-neutral-300')
+                          : metricSelectionMode && selectedMetrics.has(key)
+                          ? combineClasses(DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[600] || 'border-medical-primary-500'), DesignTokens.colors.app[50])
+                          : combineClasses(DesignTokens.components.card.nestedWithShadow, 'hover:border-medical-neutral-300', DesignTokens.shadows.hover)
+                      )}
                     onClick={() => {
                       if (metricSelectionMode) {
+                        // If lab is hidden, unhide it when clicked
+                        if (hiddenLabs.includes(key)) {
+                          unhideLabs([key]);
+                          return;
+                        }
+                        // Otherwise, toggle selection
                         const newSelected = new Set(selectedMetrics);
                         if (newSelected.has(key)) {
                           newSelected.delete(key);
@@ -1167,12 +1326,16 @@ function LabsSection({
                   >
                     {metricSelectionMode && (
                       <div className="absolute top-3 left-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedMetrics.has(key)}
-                          onChange={() => {}}
-                          className={combineClasses('w-5 h-5 rounded pointer-events-none', DesignTokens.colors.app.text[600], 'focus:ring-anchor-900', DesignTokens.colors.neutral.border[300])}
-                        />
+                        {isHidden ? (
+                          <EyeOff className={combineClasses('w-5 h-5', DesignTokens.colors.neutral.text[400])} />
+                        ) : (
+                          <input
+                            type="checkbox"
+                            checked={selectedMetrics.has(key)}
+                            onChange={() => {}}
+                            className={combineClasses('w-5 h-5 rounded pointer-events-none', DesignTokens.colors.app.text[600], 'focus:ring-anchor-900', DesignTokens.colors.neutral.border[300])}
+                          />
+                        )}
                       </div>
                     )}
 
@@ -1336,6 +1499,8 @@ function LabsSection({
                                             
                                             if (allAlreadyDeleted) {
                                               showSuccess(`${displayName} removed successfully.`);
+                                              // Close the modal after successful deletion
+                                              setDeleteConfirm({ ...deleteConfirm, show: false });
                                               return;
                                             }
                                           }
@@ -1343,14 +1508,21 @@ function LabsSection({
                                           if (deletedCount === 0) {
                                             await reloadHealthData();
                                             showError(`Could not delete ${displayName}. Please try refreshing the page.`);
+                                            // Close the modal even on error
+                                            setDeleteConfirm({ ...deleteConfirm, show: false });
                                             return;
                                           }
                                           
                                           await new Promise(resolve => setTimeout(resolve, 300));
                                           showSuccess(`${displayName} deleted successfully.`);
+                                          
+                                          // Close the modal after successful deletion
+                                          setDeleteConfirm({ ...deleteConfirm, show: false });
                                         } catch (error) {
                                           await reloadHealthData();
                                           showError(`Failed to delete lab data: ${error.message || 'Please try again.'}`);
+                                          // Close the modal even on error
+                                          setDeleteConfirm({ ...deleteConfirm, show: false });
                                         }
                                       }
                                     });
@@ -1466,8 +1638,56 @@ function LabsSection({
                               className={combineClasses("w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 transition-colors min-h-[44px] touch-manipulation active:opacity-70 hover:bg-medical-neutral-50", DesignTokens.colors.neutral.text[700])}
                             >
                               <Check className="w-4 h-4" />
-                              Select metrics to delete
+                              Select metrics to hide/delete
                             </button>
+                            {(patientProfile?.diagnosis || patientProfile?.cancerType) && (
+                              <button
+                                onClick={smartHideIrrelevantLabs}
+                                className={combineClasses("w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 transition-colors min-h-[44px] touch-manipulation active:opacity-70 hover:bg-medical-neutral-50", DesignTokens.colors.neutral.text[700])}
+                              >
+                                <Sparkles className="w-4 h-4" />
+                                Smart hide irrelevant metrics
+                              </button>
+                            )}
+                            {hiddenLabs.length > 0 && (
+                              <>
+                                <div className={combineClasses("border-t my-1", DesignTokens.colors.neutral.border[200])}></div>
+                                <label className={combineClasses("flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors hover:bg-medical-neutral-50")}>
+                                  <input
+                                    type="checkbox"
+                                    checked={showHiddenLabs}
+                                    onChange={(e) => {
+                                      setShowHiddenLabs(e.target.checked);
+                                      setOpenEmptyMetricsMenu(false);
+                                    }}
+                                    className={combineClasses("w-4 h-4 rounded focus:ring-anchor-900 focus:ring-2 cursor-pointer", DesignTokens.colors.app.text[600], DesignTokens.colors.neutral.border[300])}
+                                  />
+                                  <div className="flex items-center gap-2 flex-1">
+                                    {showHiddenLabs ? (
+                                      <Eye className={combineClasses("w-4 h-4", DesignTokens.colors.neutral.text[600])} />
+                                    ) : (
+                                      <EyeOff className={combineClasses("w-4 h-4", DesignTokens.colors.neutral.text[300])} />
+                                    )}
+                                    <span className={combineClasses("text-sm", DesignTokens.colors.neutral.text[700])}>
+                                      Show hidden metrics ({hiddenLabs.length})
+                                    </span>
+                                  </div>
+                                </label>
+                                {showHiddenLabs && (
+                                  <button
+                                    onClick={async () => {
+                                      setOpenEmptyMetricsMenu(false);
+                                      if (hiddenLabs.length === 0) return;
+                                      await unhideLabs(hiddenLabs);
+                                    }}
+                                    className={combineClasses("w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 transition-colors min-h-[44px] touch-manipulation active:opacity-70 hover:bg-medical-neutral-50", DesignTokens.colors.neutral.text[700])}
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                    Unhide all ({hiddenLabs.length})
+                                  </button>
+                                )}
+                              </>
+                            )}
                             {emptyLabs.length > 0 && (
                               <>
                                 <div className={combineClasses("border-t my-1", DesignTokens.colors.neutral.border[200])}></div>
@@ -1555,7 +1775,7 @@ function LabsSection({
                     <div className="flex items-center justify-between">
                       <div>
                         <h4 className={combineClasses("text-sm font-semibold", DesignTokens.colors.neutral.text[900])}>
-                          Select metrics to delete ({selectedMetrics.size} selected)
+                          Select metrics ({selectedMetrics.size} selected)
                         </h4>
                         <p className={combineClasses("text-xs mt-1", DesignTokens.colors.neutral.text[600])}>Click on metric cards to select them</p>
                       </div>
@@ -1581,6 +1801,14 @@ function LabsSection({
                           className={combineClasses("px-3 py-1.5 text-sm bg-white border rounded hover:bg-medical-neutral-50", DesignTokens.colors.neutral.text[700], DesignTokens.colors.neutral.border[300])}
                         >
                           Cancel
+                        </button>
+                        <button
+                          onClick={hideSelectedLabs}
+                          disabled={selectedMetrics.size === 0}
+                          className={combineClasses("px-3 py-1.5 text-sm bg-white border rounded hover:bg-medical-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed", DesignTokens.colors.neutral.text[700], DesignTokens.colors.neutral.border[300])}
+                        >
+                          <EyeOff className="w-4 h-4 inline mr-1" />
+                          Hide ({selectedMetrics.size})
                         </button>
                         <button
                           onClick={() => {
@@ -1837,7 +2065,12 @@ function LabsSection({
         itemName={deleteConfirm.itemName}
         confirmText={deleteConfirm.confirmText}
         onConfirm={deleteConfirm.onConfirm}
-        onClose={() => setDeleteConfirm({ ...deleteConfirm, show: false })}
+        onClose={() => {
+          if (!isDeletingLabValue) {
+            setDeleteConfirm({ ...deleteConfirm, show: false });
+          }
+        }}
+        isDeleting={isDeletingLabValue}
       />
 
       <LabTooltipModal

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb } from 'lucide-react';
+import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square } from 'lucide-react';
 import ExtractionSummary from './ExtractionSummary';
 import QuestionCards from './QuestionCards';
 import ReactMarkdown from 'react-markdown';
@@ -227,6 +227,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
   const [isBotProcessing, setIsBotProcessing] = useState(false);
   const [showComplexityControl, setShowComplexityControl] = useState(false);
   const hasProcessedNoResultsRef = useRef(false); // Track if we've processed no-results message
+  const abortControllerRef = useRef(null);
 
   // Document upload state
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
@@ -517,6 +518,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
         isAnalysis: false
       });
       setIsBotProcessing(true);
+      abortControllerRef.current = new AbortController();
     }
 
     try {
@@ -610,6 +612,12 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
         }
       }
 
+      // Check if request was aborted before processing
+      if (abortControllerRef.current?.signal.aborted) {
+        setIsBotProcessing(false);
+        return;
+      }
+      
       const result = await processChatMessage(
         userMessage,
         user.uid,
@@ -620,15 +628,30 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
         currentTrialContext,
         healthContextToUse,
         notebookContextToUse,
-        patientProfile
+        patientProfile,
+        abortControllerRef.current?.signal // Pass abort signal
       );
+      
+      // Check if request was aborted after processing
+      if (abortControllerRef.current?.signal.aborted) {
+        setIsBotProcessing(false);
+        return;
+      }
 
       let responseText = result.response;
 
+      // Check if request was aborted after processing
+      if (abortControllerRef.current?.signal.aborted) {
+        setIsBotProcessing(false);
+        abortControllerRef.current = null;
+        return;
+      }
+      
       // Get extraction summary (separate from response text)
       const extractionSummary = result.extractedData ? generateChatExtractionSummary(result.extractedData) : null;
 
       setIsBotProcessing(false);
+      abortControllerRef.current = null;
       
       const aiMsg = {
         type: 'ai',
@@ -660,7 +683,14 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
       }
 
     } catch (error) {
+      // Don't show error if request was aborted
+      if (error.name === 'AbortError' || abortControllerRef.current?.signal.aborted) {
+        setIsBotProcessing(false);
+        abortControllerRef.current = null;
+        return;
+      }
       setIsBotProcessing(false);
+      abortControllerRef.current = null;
       
       const errorMsg = {
         type: 'ai',
@@ -1160,14 +1190,32 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
             )}
           </div>
           <button
-            onClick={handleSendMessage}
+            onClick={isBotProcessing ? () => {
+              if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+                setIsBotProcessing(false);
+                setMessages(prev => [...prev, {
+                  type: 'ai',
+                  text: 'Response cancelled.',
+                  isAnalysis: false
+                }]);
+                abortControllerRef.current = null;
+              }
+            } : handleSendMessage}
             className={combineClasses(
               'w-10 h-10 rounded-full transition flex-shrink-0 flex items-center justify-center min-h-[44px] min-w-[44px] touch-manipulation active:opacity-90',
-              DesignTokens.components.button.primary,
+              isBotProcessing 
+                ? 'bg-red-500 hover:bg-red-600 text-white' 
+                : DesignTokens.components.button.primary,
               DesignTokens.shadows.sm
             )}
+            disabled={!inputText.trim() && !isBotProcessing}
           >
-            <Send className="w-4 h-4" />
+            {isBotProcessing ? (
+              <Square className="w-4 h-4" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
           </button>
         </div>
         <div className="px-3 pb-2 pt-1">

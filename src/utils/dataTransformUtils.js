@@ -139,34 +139,55 @@ export const transformLabsData = async (labs) => {
             })
             .sort((a, b) => a.timestamp - b.timestamp);
 
-          // Add all values to data array, avoiding duplicates by ID and day+value
-          // Use the persistent deduplication sets that span all lab documents with this type
+          // Build a map of values by ID for efficient lookup and updates
+          const valueMap = new Map();
+          // First, add existing values from previous lab documents with same type
+          grouped[labType].data.forEach(d => {
+            valueMap.set(d.id, d);
+          });
+          
+          // Process new values - update existing entries or add new ones
+          const existingValueKeys = new Set(grouped[labType].data.map(d => {
+            const dayStart = d.dateOriginal ? new Date(d.dateOriginal.getFullYear(), d.dateOriginal.getMonth(), d.dateOriginal.getDate()).getTime() : d.timestamp;
+            return `${dayStart}_${d.value}`;
+          }));
+          
           sortedValues.forEach(v => {
             const valueKey = `${v.dayTimestamp}_${v.value}`;
-            // Only add if we haven't seen this ID or day+value combination before
-            // This prevents duplicates from multiple lab documents or reprocessing issues
-            if (existingIds.has(v.id)) {
-              totalSkippedCount++;
-            } else if (existingValueKeys.has(valueKey)) {
-              totalSkippedCount++;
-            } else {
-              // Format date for display (use local date components to avoid timezone shift)
-              const displayDate = v.date instanceof Date 
-                ? v.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                : (v.date ? new Date(v.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '');
-              
-              grouped[labType].data.push({
-                id: v.id,
-                date: displayDate,
-                dateOriginal: v.date, // Store original Date object for editing
-                value: v.value,
-                timestamp: v.timestamp,
-                notes: v.notes || '' // Store notes for editing
-              });
-              existingIds.add(v.id);
+            
+            // Check if this is a duplicate by day+value (but allow updates by ID)
+            const wasExistingKey = existingValueKeys.has(valueKey);
+            const wasExistingId = valueMap.has(v.id);
+            
+            // Format date for display (use local date components to avoid timezone shift)
+            const displayDate = v.date instanceof Date 
+              ? v.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+              : (v.date ? new Date(v.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '');
+            
+            // Always update or add the value by ID (this ensures edits are reflected)
+            const newEntry = {
+              id: v.id,
+              date: displayDate,
+              dateOriginal: v.date, // Store original Date object for editing
+              value: v.value,
+              timestamp: v.timestamp,
+              notes: v.notes || '' // Store notes for editing
+            };
+            
+            // Update the map (this will overwrite if ID exists, or add if new)
+            valueMap.set(v.id, newEntry);
+            
+            // Track duplicates by day+value (but still allow updates by ID)
+            if (!wasExistingKey) {
               existingValueKeys.add(valueKey);
+            } else if (!wasExistingId) {
+              // Only count as skipped if it's a true duplicate (same day+value but different ID)
+              totalSkippedCount++;
             }
           });
+          
+          // Rebuild the data array from the map (ensures all updates are included)
+          grouped[labType].data = Array.from(valueMap.values());
         } else {
           // No values in subcollection - only use lab document data if currentValue exists
           // (If currentValue is null, it means all values were deleted, so don't add it back)
@@ -386,38 +407,53 @@ export const transformVitalsData = async (vitals) => {
           })
           .sort((a, b) => a.timestamp - b.timestamp);
 
-        // Add all values to data array, avoiding duplicates by ID and day+value
-        const existingIds = new Set(grouped[canonicalKey].data.map(d => d.id));
+        // Build a map of values by ID for efficient lookup and updates
+        const valueMap = new Map();
+        // First, add existing values from previous vital documents with same type
+        grouped[canonicalKey].data.forEach(d => {
+          valueMap.set(d.id, d);
+        });
+        
+        // Process new values - update existing entries or add new ones
         const existingValueKeys = new Set(grouped[canonicalKey].data.map(d => {
-          // Use day-level timestamp for deduplication
           const dayStart = d.dateOriginal ? new Date(d.dateOriginal.getFullYear(), d.dateOriginal.getMonth(), d.dateOriginal.getDate()).getTime() : d.timestamp;
           return `${dayStart}_${d.value}_${d.systolic || ''}_${d.diastolic || ''}`;
         }));
         let skippedCount = 0;
+        
         sortedValues.forEach(v => {
           const valueKey = `${v.dayTimestamp}_${v.value}_${v.systolic || ''}_${v.diastolic || ''}`;
-          // Only add if we haven't seen this ID or day+value combination before
-          // This prevents duplicates from multiple vital documents or reprocessing issues
-          if (existingIds.has(v.id)) {
-            skippedCount++;
-          } else if (existingValueKeys.has(valueKey)) {
-            skippedCount++;
-          }
-          if (!existingIds.has(v.id) && !existingValueKeys.has(valueKey)) {
-            grouped[canonicalKey].data.push({
-              id: v.id,
-              date: v.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-              dateOriginal: v.date, // Store original Date object for editing
-              value: v.value,
-              systolic: v.systolic,
-              diastolic: v.diastolic,
-              timestamp: v.timestamp,
-              notes: v.notes || ''
-            });
-            existingIds.add(v.id);
+          
+          // Check if this is a duplicate by day+value (but allow updates by ID)
+          const wasExistingKey = existingValueKeys.has(valueKey);
+          const wasExistingId = valueMap.has(v.id);
+          
+          // Always update or add the value by ID (this ensures edits are reflected)
+          const newEntry = {
+            id: v.id,
+            date: v.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            dateOriginal: v.date, // Store original Date object for editing
+            value: v.value,
+            systolic: v.systolic,
+            diastolic: v.diastolic,
+            timestamp: v.timestamp,
+            notes: v.notes || ''
+          };
+          
+          // Update the map (this will overwrite if ID exists, or add if new)
+          valueMap.set(v.id, newEntry);
+          
+          // Track duplicates by day+value (but still allow updates by ID)
+          if (!wasExistingKey) {
             existingValueKeys.add(valueKey);
+          } else if (!wasExistingId) {
+            // Only count as skipped if it's a true duplicate (same day+value but different ID)
+            skippedCount++;
           }
         });
+        
+        // Rebuild the data array from the map (ensures all updates are included)
+        grouped[canonicalKey].data = Array.from(valueMap.values());
         
         // CRITICAL: Sort the data array by timestamp after all values are added
         // This ensures the graph displays points in chronological order

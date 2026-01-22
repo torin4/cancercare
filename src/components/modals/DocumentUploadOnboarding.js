@@ -9,6 +9,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
   const [selectedType, setSelectedType] = useState(null);
   const [documentDate, setDocumentDate] = useState('');
   const [documentNote, setDocumentNote] = useState('');
+  const [customInstructions, setCustomInstructions] = useState('');
   const [onlyExistingMetrics, setOnlyExistingMetrics] = useState(false);
   const [currentStep, setCurrentStep] = useState(1); // 1 = document type, 2 = date, 3 = notes, 4 = files
   const [selectedFiles, setSelectedFiles] = useState([]); // Track selected files
@@ -183,12 +184,15 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
       return; // No files to upload
     }
 
-    // Normalize date and note
+    // Normalize date, note, and custom instructions
     const normalizedDate = (documentDate && typeof documentDate === 'string' && documentDate.trim() !== '') 
       ? documentDate.trim() 
       : null;
     const normalizedNote = (documentNote && typeof documentNote === 'string' && documentNote.trim() !== '') 
       ? documentNote.trim() 
+      : null;
+    const normalizedInstructions = (customInstructions && typeof customInstructions === 'string' && customInstructions.trim() !== '') 
+      ? customInstructions.trim() 
       : null;
 
     // Pass all files to onUploadClick
@@ -196,11 +200,11 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
       if (selectedFiles.length === 1) {
         // For genomic documents, always extract all data (ignore onlyExistingMetrics)
         const shouldUseOnlyExisting = selectedType === 'genomic-profile' ? false : onlyExistingMetrics;
-        await onUploadClick(selectedType, normalizedDate, normalizedNote, selectedFiles[0], shouldUseOnlyExisting);
+        await onUploadClick(selectedType, normalizedDate, normalizedNote, selectedFiles[0], shouldUseOnlyExisting, normalizedInstructions);
       } else {
         // For genomic documents, always extract all data (ignore onlyExistingMetrics)
         const shouldUseOnlyExisting = selectedType === 'genomic-profile' ? false : onlyExistingMetrics;
-        await onUploadClick(selectedType, normalizedDate, normalizedNote, selectedFiles, shouldUseOnlyExisting);
+        await onUploadClick(selectedType, normalizedDate, normalizedNote, selectedFiles, shouldUseOnlyExisting, normalizedInstructions);
       }
     } catch (error) {
     }
@@ -241,7 +245,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
               <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[600])}>
                 {currentStep === 1 && (isOnboarding ? 'Choose the type of file you\'d like to upload' : 'Select document type')}
                 {currentStep === 2 && 'When was this document created or when were these tests performed?'}
-                {currentStep === 3 && 'Add any context about this document (optional)'}
+                {currentStep === 3 && 'Add context and customize what gets extracted (optional)'}
                 {currentStep === 4 && 'Add photos or files. You can take multiple photos or select from your gallery.'}
               </p>
             </div>
@@ -483,6 +487,23 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                     />
                     <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.neutral.text[500], 'mt-1')}>
                       This note will be saved with the document and all extracted values, helping the AI provide better context-aware responses.
+                    </p>
+                  </div>
+                  
+                  {/* Custom Instructions for AI */}
+                  <div className="mt-4">
+                    <label className={combineClasses('block', DesignTokens.typography.body.sm, 'font-medium', DesignTokens.colors.neutral.text[700], 'mb-2')}>
+                      Custom Instructions for AI <span className={combineClasses(DesignTokens.colors.neutral.text[500], 'text-xs')}>(optional)</span>
+                    </label>
+                    <textarea
+                      value={customInstructions}
+                      onChange={(e) => setCustomInstructions(e.target.value)}
+                      placeholder="e.g., Only extract CA-125 values, Skip all other labs, Only extract tumor markers, Focus on platelet counts..."
+                      rows={3}
+                      className={combineClasses(DesignTokens.components.input.base, DesignTokens.components.input.textarea)}
+                    />
+                    <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.neutral.text[500], 'mt-1')}>
+                      Provide specific instructions to control what data gets extracted. Examples: "Only extract CA-125", "Skip all labs except tumor markers", "Only extract platelet counts".
                     </p>
                   </div>
                   

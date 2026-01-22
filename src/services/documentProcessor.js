@@ -1,9 +1,10 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { labService, vitalService, medicationService, genomicProfileService } from '../firebase/services';
+import { labService, vitalService, medicationService, genomicProfileService, documentService } from '../firebase/services';
 import { parseLocalDate } from '../utils/helpers';
 import { cleanupDocumentData, verifyCleanupComplete } from './documentCleanupService';
 import { buildDocumentPrompt } from '../processors/document/buildDocumentPrompt';
 import { classifyDocument } from '../processors/document/classifyDocument';
+import { normalizeLabName } from '../utils/normalizationUtils';
 
 // Check if API key is available
 const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
@@ -24,13 +25,13 @@ const genAI = new GoogleGenerativeAI(apiKey || '');
  * @param {string|null} documentType - Optional document type (Lab, Genomic, Scan, etc.) - if provided, skips classification
  * @param {Function|null} onProgress - Optional callback for progress updates (message, aiStatus)
  */
-export async function processDocument(file, userId, patientProfile = null, documentDate = null, documentNote = null, documentId = null, onProgress = null, onlyExistingMetrics = false, documentType = null) {
+export async function processDocument(file, userId, patientProfile = null, documentDate = null, documentNote = null, documentId = null, onProgress = null, onlyExistingMetrics = false, documentType = null, customInstructions = null) {
   try {
     // Convert file to base64 for Gemini API
     const base64Data = await fileToBase64(file);
 
     // Step 1: Analyze document and extract data
-    const extractedData = await analyzeDocument(base64Data, file.type, patientProfile, documentDate, onProgress, documentType);
+    const extractedData = await analyzeDocument(base64Data, file.type, patientProfile, documentDate, onProgress, documentType, customInstructions);
 
     // Step 2: Extract a date from the document (for filename if user didn't provide one)
     // Priority: user-provided date > first lab date > first vital date > genomic test date > today
@@ -60,6 +61,28 @@ export async function processDocument(file, userId, patientProfile = null, docum
 
     // Count total data points extracted (metric + value = 1 data point)
     const dataPointCount = countDataPoints(savedData);
+
+    // Step 4: Store extraction summary in document metadata (if documentId provided)
+    if (documentId) {
+      try {
+        // Build extraction summary
+        const extractionSummary = buildExtractionSummary(
+          extractedData,
+          savedData,
+          customInstructions,
+          onlyExistingMetrics
+        );
+        
+        // Update document with extraction summary
+        await documentService.saveDocument({
+          id: documentId,
+          extractionSummary: extractionSummary
+        });
+      } catch (error) {
+        // Don't fail the whole process if metadata update fails
+        console.warn('Failed to update document extraction summary:', error);
+      }
+    }
 
     return {
       success: true,
@@ -98,7 +121,7 @@ async function fileToBase64(file) {
  * @param {Function|null} onProgress - Progress callback
  * @param {string|null} documentType - Optional document type (if provided, skips classification and uses type-specific prompt)
  */
-async function analyzeDocument(base64Data, mimeType, patientProfile = null, documentDate = null, onProgress = null, documentType = null) {
+async function analyzeDocument(base64Data, mimeType, patientProfile = null, documentDate = null, onProgress = null, documentType = null, customInstructions = null) {
   if (!apiKey) {
     throw new Error('Gemini API key is not configured. Please set REACT_APP_GEMINI_API_KEY in Vercel environment variables and redeploy.');
   }
@@ -213,8 +236,33 @@ Extract data relevant to ${documentType} documents accordingly.
 ═══════════════════════════════════════════════════════════════════════════════`
     : '';
 
+  // Add custom instructions if provided
+  const customInstructionsSection = customInstructions
+    ? `
+═══════════════════════════════════════════════════════════════════════════════
+⚠️ USER CUSTOM INSTRUCTIONS - FOLLOW THESE PRECISELY ⚠️
+═══════════════════════════════════════════════════════════════════════════════
+
+${customInstructions}
+
+CRITICAL: These custom instructions override default extraction behavior. Follow them exactly as specified by the user.
+
+Examples of what custom instructions might mean:
+- "Only extract CA-125" → Extract ONLY CA-125 values, skip ALL other labs and vitals
+- "Only upload CA125" → Same as above - extract ONLY CA-125
+- "Skip all labs except tumor markers" → Only extract tumor markers (CA-125, CEA, CA 19-9, etc.), skip other labs
+- "Only extract platelet counts" → Extract ONLY platelet/PLT values, skip everything else
+- "Focus on CD markers" → Extract only CD19+, CD4+, CD8+, CD3+, etc., skip other labs
+- "Only extract hemoglobin" → Extract ONLY hemoglobin/HGB values, skip all other labs
+
+If the user specifies "only" or "just" a specific lab type, you MUST skip all other labs and vitals. Only extract what they specifically requested.
+
+═══════════════════════════════════════════════════════════════════════════════`
+    : '';
+
   const prompt = `You are a medical document processing AI. Analyze this medical document and extract all relevant information.
 ${documentTypeInstruction}
+${customInstructionsSection}
 ═══════════════════════════════════════════════════════════════════════════════
 LANGUAGE SUPPORT: This document may be in Japanese, English, or other languages
 ═══════════════════════════════════════════════════════════════════════════════
@@ -985,10 +1033,14 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         const labDate = lab._parsedDate;
         // Date already parsed during deduplication, use it directly
 
+        // Normalize labType for consistency (HGB -> hemoglobin, etc.)
+        const { normalizeLabName } = await import('../utils/normalizationUtils');
+        const normalizedLabType = normalizeLabName(lab.labType || 'other') || (lab.labType || 'other').toLowerCase();
+        
         // Ensure all fields have defined values (Firestore doesn't accept undefined)
         const labData = {
           patientId: userId,
-          labType: lab.labType || 'other',
+          labType: normalizedLabType, // Use normalized labType for consistency
           label: lab.label || 'Unknown Lab',
           currentValue: lab.value,
           unit: lab.unit || '',
@@ -1003,11 +1055,30 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         }
 
         // Get or create lab document
+        // IMPORTANT: Normalize labType for matching - this ensures "HGB" matches "hemoglobin", etc.
+        // normalizedLabType is already computed above
+        
+        // Try to find existing lab by normalized type
+        // First try exact match with normalized type
+        let existingLab = await labService.getLabByType(userId, normalizedLabType);
+        
+        // If not found, check all labs and match by normalized type (handles cases where stored labType isn't normalized)
+        if (!existingLab) {
+          const allLabs = await labService.getLabs(userId);
+          for (const existing of allLabs) {
+            const existingNormalized = normalizeLabName(existing.labType) || (existing.labType || '').toLowerCase();
+            if (existingNormalized === normalizedLabType) {
+              existingLab = existing;
+              break;
+            }
+          }
+        }
+        
         let labId;
-        const existingLab = await labService.getLabByType(userId, lab.labType || 'other');
         if (existingLab) {
           labId = existingLab.id;
         } else {
+          // Create new lab - labData already has normalized labType
           labId = await labService.saveLab(labData);
         }
         
@@ -1426,6 +1497,82 @@ export async function linkValuesToDocument(savedData, documentId, userId) {
   } catch (error) {
     throw error;
   }
+}
+
+/**
+ * Build extraction summary for document metadata
+ * Stores what was extracted, when, and with what instructions
+ */
+function buildExtractionSummary(extractedData, savedData, customInstructions, onlyExistingMetrics) {
+  const labTypes = new Set();
+  const vitalTypes = new Set();
+  
+  // Collect unique metric types and actual values that were saved
+  const labValues = [];
+  const vitalValues = [];
+  
+  savedData.labs?.forEach(lab => {
+    if (lab.labType) {
+      const normalized = normalizeLabName(lab.labType) || lab.labType.toLowerCase();
+      labTypes.add(normalized);
+      
+      // Store actual value with metadata
+      labValues.push({
+        labType: normalized,
+        label: lab.label || lab.labType || 'Unknown Lab',
+        value: lab.value,
+        unit: lab.unit || '',
+        date: lab.date || null,
+        status: lab.status || null
+      });
+    }
+  });
+  
+  savedData.vitals?.forEach(vital => {
+    if (vital.vitalType) {
+      const normalized = vital.vitalType.toLowerCase();
+      vitalTypes.add(normalized);
+      
+      // Store actual value with metadata
+      vitalValues.push({
+        vitalType: normalized,
+        label: vital.label || vital.vitalType || 'Unknown Vital',
+        value: vital.value,
+        unit: vital.unit || '',
+        date: vital.date || null
+      });
+    }
+  });
+  
+  // Store medication names (if any)
+  const medicationNames = savedData.medications?.map(med => ({
+    name: med.name || 'Unknown Medication',
+    dosage: med.dosage || null,
+    frequency: med.frequency || null
+  })) || [];
+  
+  return {
+    extractedAt: new Date().toISOString(),
+    summary: extractedData.summary || 'No summary available',
+    counts: {
+      labs: savedData.labs?.length || 0,
+      vitals: savedData.vitals?.length || 0,
+      medications: savedData.medications?.length || 0,
+      hasGenomic: !!savedData.genomic
+    },
+    metricTypes: {
+      labs: Array.from(labTypes).sort(),
+      vitals: Array.from(vitalTypes).sort()
+    },
+    values: {
+      labs: labValues,
+      vitals: vitalValues,
+      medications: medicationNames
+    },
+    customInstructions: customInstructions || null,
+    onlyExistingMetrics: onlyExistingMetrics || false,
+    documentType: extractedData.documentType || 'unknown'
+  };
 }
 
 /**

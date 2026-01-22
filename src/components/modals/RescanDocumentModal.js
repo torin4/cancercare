@@ -16,6 +16,7 @@ export default function RescanDocumentModal({
   // Initialize with document's current values
   const [editedDate, setEditedDate] = useState('');
   const [editedNote, setEditedNote] = useState('');
+  const [customInstructions, setCustomInstructions] = useState('');
   const [hasMultipleDates, setHasMultipleDates] = useState(false);
   const [dateRange, setDateRange] = useState({ min: null, max: null });
   const [isCheckingDates, setIsCheckingDates] = useState(false);
@@ -204,6 +205,7 @@ export default function RescanDocumentModal({
       
       setEditedDate(dateValue);
       setEditedNote(document.note || document.note || ''); // Ensure note is set even if undefined
+      setCustomInstructions(''); // Reset custom instructions (not stored on document)
       setAcknowledgeOverwrite(false); // Reset acknowledgment when document changes
       
       // For genomic documents, always extract all data (force onlyExistingMetrics to false)
@@ -216,6 +218,7 @@ export default function RescanDocumentModal({
       // Reset when document is null
       setEditedDate('');
       setEditedNote('');
+      setCustomInstructions('');
       setHasMultipleDates(false);
       setDateRange({ min: null, max: null });
       setAcknowledgeOverwrite(false);
@@ -236,7 +239,8 @@ export default function RescanDocumentModal({
     onConfirm({
       date: editedDate || null,
       note: editedNote || null,
-      onlyExistingMetrics: shouldUseOnlyExisting
+      onlyExistingMetrics: shouldUseOnlyExisting,
+      customInstructions: customInstructions && customInstructions.trim() !== '' ? customInstructions.trim() : null
     });
   };
 
@@ -328,6 +332,24 @@ export default function RescanDocumentModal({
             />
             <p className={combineClasses(DesignTokens.typography.body.xs, 'mt-1', DesignTokens.colors.neutral.text[500])}>
               {editedNote.length}/200 characters
+            </p>
+          </div>
+
+          {/* Custom Instructions for AI */}
+          <div>
+            <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-2', DesignTokens.colors.neutral.text[900])}>
+              Custom Instructions for AI <span className={combineClasses(DesignTokens.colors.neutral.text[500], 'text-xs font-normal')}>(optional)</span>
+            </label>
+            <textarea
+              value={customInstructions}
+              onChange={(e) => setCustomInstructions(e.target.value)}
+              disabled={isProcessing}
+              placeholder="e.g., Only extract CA-125 values, Skip all other labs, Only extract tumor markers, Focus on platelet counts..."
+              rows={3}
+              className={combineClasses(DesignTokens.components.input.base, DesignTokens.components.input.textarea, DesignTokens.components.input.disabled, DesignTokens.borders.radius.sm)}
+            />
+            <p className={combineClasses(DesignTokens.typography.body.xs, 'mt-1', DesignTokens.colors.neutral.text[500])}>
+              Provide specific instructions to control what data gets extracted. Examples: "Only extract CA-125", "Skip all labs except tumor markers", "Only extract platelet counts".
             </p>
           </div>
 

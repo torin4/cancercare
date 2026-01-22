@@ -53,5 +53,14 @@ export const patientService = {
       favoriteMetrics,
       updatedAt: serverTimestamp()
     });
+  },
+
+  // Update hidden labs
+  async updateHiddenLabs(patientId, hiddenLabs) {
+    const docRef = doc(db, COLLECTIONS.PATIENTS, patientId);
+    await updateDoc(docRef, {
+      hiddenLabs,
+      updatedAt: serverTimestamp()
+    });
   }
 };

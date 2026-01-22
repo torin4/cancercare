@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb } from 'lucide-react';
+import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import QuestionCards from '../QuestionCards';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
@@ -253,6 +253,7 @@ export default function ChatTab({ onTabChange }) {
   const [suggestionsKey, setSuggestionsKey] = useState(0); // Force re-render when role changes
   const [isBotProcessing, setIsBotProcessing] = useState(false);
   const [showComplexityControl, setShowComplexityControl] = useState(false);
+  const abortControllerRef = useRef(null);
 
   // Document upload state
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
@@ -453,6 +454,7 @@ export default function ChatTab({ onTabChange }) {
 
               // Clear loading state
               setIsBotProcessing(false);
+              abortControllerRef.current = null;
               isProcessingPendingRef.current = false;
               
               // Reload health data if values were extracted
@@ -460,9 +462,17 @@ export default function ChatTab({ onTabChange }) {
                 await reloadHealthData();
               }
             } catch (error) {
+              // Don't show error if request was aborted
+              if (error.name === 'AbortError' || abortControllerRef.current?.signal.aborted) {
+                setIsBotProcessing(false);
+                abortControllerRef.current = null;
+                isProcessingPendingRef.current = false;
+                return;
+              }
               
               // Clear loading state
               setIsBotProcessing(false);
+              abortControllerRef.current = null;
               isProcessingPendingRef.current = false;
               
               const errorMsg = {
@@ -586,15 +596,17 @@ export default function ChatTab({ onTabChange }) {
         isAnalysis: false
       });
     
-    // Set loading state
+    // Set loading state and create abort controller
     setIsBotProcessing(true);
+    abortControllerRef.current = new AbortController();
     }
 
     try {
       // Auto-load health context if user asks about health data but context isn't set
       let healthContextToUse = currentHealthContext;
       // Detect if question would benefit from health data - expanded patterns to catch more health-related questions
-      const requiresHealthData = /(explain|analyze|what does|how is|why is|why are|why does|why do|trend|progress|mean|interpret|tell me about|what about|what are|what is|my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications|data|results|values|numbers|test|tests)|ca-125|hemoglobin|blood pressure|heart rate|temperature|weight|tired|fatigue|energy|feeling|feels|symptom|pain|nausea|dizzy|weak|weakness|anemia|blood|cbc|wbc|rbc|platelet|anxiety|depression|sleep|appetite|nauseous)/i.test(userMessage);
+      // Include comparison/retrieval queries and edit queries like "compare", "last measurement", "previous", "update", "change", etc.
+      const requiresHealthData = /(explain|analyze|what does|how is|why is|why are|why does|why do|trend|progress|mean|interpret|tell me about|what about|what are|what is|my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications|data|results|values|numbers|test|tests)|ca-125|hemoglobin|blood pressure|heart rate|temperature|weight|tired|fatigue|energy|feeling|feels|symptom|pain|nausea|dizzy|weak|weakness|anemia|blood|cbc|wbc|rbc|platelet|anxiety|depression|sleep|appetite|nauseous|compare|comparison|how does|how did|versus|vs|difference|change from|compared to|last (measurement|value|result|test|date|two|three|few)|previous|before that|one before|earlier|prior|historical|retrieve|show me|what (was|were)|the (last|previous|earlier)|and the (one|next)|plt|platelet|edit|update|change|correct|fix|modify|replace|set to)/i.test(userMessage);
       
       if (requiresHealthData && !healthContextToUse && user) {
         try {
@@ -696,6 +708,12 @@ export default function ChatTab({ onTabChange }) {
       }
 
       // Process message with AI to extract and save medical data
+      // Check if request was aborted before processing
+      if (abortControllerRef.current?.signal.aborted) {
+        setIsBotProcessing(false);
+        return;
+      }
+      
       const result = await processChatMessage(
         userMessage,
         user.uid,
@@ -706,8 +724,15 @@ export default function ChatTab({ onTabChange }) {
         currentTrialContext, // Pass trial context if available
         healthContextToUse, // Pass health context (auto-loaded if needed)
         notebookContextToUse, // Pass notebook context (auto-loaded if needed)
-        patientProfile // Pass patient profile for demographic-based normal ranges
+        patientProfile, // Pass patient profile for demographic-based normal ranges
+        abortControllerRef.current?.signal // Pass abort signal
       );
+      
+      // Check if request was aborted after processing
+      if (abortControllerRef.current?.signal.aborted) {
+        setIsBotProcessing(false);
+        return;
+      }
 
       // Build response text
       let responseText = result.response;
@@ -752,9 +777,16 @@ export default function ChatTab({ onTabChange }) {
       }
 
     } catch (error) {
+      // Don't show error if request was aborted
+      if (error.name === 'AbortError' || abortControllerRef.current?.signal.aborted) {
+        setIsBotProcessing(false);
+        abortControllerRef.current = null;
+        return;
+      }
       
       // Clear loading state
       setIsBotProcessing(false);
+      abortControllerRef.current = null;
       
       const errorMsg = {
         type: 'ai',
@@ -1766,14 +1798,32 @@ export default function ChatTab({ onTabChange }) {
               )}
             </div>
               <button
-                onClick={handleSendMessage}
+                onClick={isBotProcessing ? () => {
+                  if (abortControllerRef.current) {
+                    abortControllerRef.current.abort();
+                    setIsBotProcessing(false);
+                    setMessages(prev => [...prev, {
+                      type: 'ai',
+                      text: 'Response cancelled.',
+                      isAnalysis: false
+                    }]);
+                    abortControllerRef.current = null;
+                  }
+                } : handleSendMessage}
                 className={combineClasses(
                   'w-11 h-11 sm:w-10 sm:h-10 rounded-full transition flex-shrink-0 flex items-center justify-center min-h-[44px] min-w-[44px] touch-manipulation active:opacity-90',
-                DesignTokens.components.button.primary,
+                  isBotProcessing 
+                    ? 'bg-red-500 hover:bg-red-600 text-white' 
+                    : DesignTokens.components.button.primary,
                   DesignTokens.shadows.sm
                 )}
+                disabled={!inputText.trim() && !isBotProcessing}
               >
-                <Send className="w-5 h-5" />
+                {isBotProcessing ? (
+                  <Square className="w-5 h-5" />
+                ) : (
+                  <Send className="w-5 h-5" />
+                )}
               </button>
           </div>
           <div className="px-3 pb-2 pt-1">
