@@ -1815,8 +1815,8 @@ export default function ChatTab({ onTabChange }) {
         {/* Input Area with Suggestions */}
         <div className="bg-white">
           <div className="px-3 sm:px-4 py-2 flex items-center gap-2">
-            {/* Suggestions - Desktop Only */}
-            <div className="hidden md:flex flex-1 gap-2 overflow-x-auto scrollbar-hide items-center min-w-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {/* Suggestions - Show on all screens */}
+            <div className="flex flex-1 gap-2 overflow-x-auto scrollbar-hide items-center min-w-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {(() => {
                 // Analyze conversation context from recent messages
                 const getContextualSuggestions = () => {
@@ -1903,7 +1903,7 @@ export default function ChatTab({ onTabChange }) {
               )}
             >
               <Paperclip className="w-3.5 h-3.5" />
-              <span>Upload</span>
+              <span className="hidden md:inline">Upload</span>
             </button>
           </div>
 
