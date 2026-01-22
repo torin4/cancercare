@@ -958,27 +958,27 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
 
                     {/* Info/Metadata button */}
                     <div className="relative">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
                           setShowDocumentMetadata(doc);
-                        }}
-                        className={combineClasses(
-                          DesignTokens.spacing.iconContainer.full,
-                          DesignTokens.borders.radius.full,
-                          DesignTokens.transitions.default,
-                          DesignTokens.spacing.touchTarget,
+                      }}
+                      className={combineClasses(
+                        DesignTokens.spacing.iconContainer.full,
+                        DesignTokens.borders.radius.full,
+                        DesignTokens.transitions.default,
+                        DesignTokens.spacing.touchTarget,
                           'min-w-[32px] h-8 flex items-center justify-center touch-manipulation active:opacity-70',
-                          DesignTokens.colors.neutral.text[500],
-                          `hover:${DesignTokens.colors.neutral[100]}`,
-                          `hover:${DesignTokens.colors.neutral.text[700]}`
-                        )}
+                        DesignTokens.colors.neutral.text[500],
+                        `hover:${DesignTokens.colors.neutral[100]}`,
+                        `hover:${DesignTokens.colors.neutral.text[700]}`
+                      )}
                         onMouseEnter={() => setHoveredTooltip(`${doc.id}-info`)}
                         onMouseLeave={() => setHoveredTooltip(null)}
-                      >
+                    >
                         <Info className="w-4 h-4" />
-                      </button>
+                    </button>
                       {hoveredTooltip === `${doc.id}-info` && (
                         <div className={combineClasses(
                           'absolute top-full right-0 mt-1 px-2 py-1 rounded text-xs whitespace-nowrap z-50 pointer-events-none',
@@ -987,8 +987,8 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
                           View Metadata
                         </div>
                       )}
-                    </div>
-
+                  </div>
+                  
                     {/* Edit button */}
                     <div className="relative">
                       <button

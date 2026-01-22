@@ -5,6 +5,9 @@ import { getNotebookEntries } from './notebookService';
 import { parseLocalDate } from '../utils/helpers';
 import { downloadFileAsBlob } from '../firebase/storage';
 import { processDocument } from './documentProcessor';
+import { detectAllPatterns } from '../utils/patternRecognition';
+import { generateCacheKey, getCachedInsights, setCachedInsights, clearContextCache } from '../utils/insightCache';
+import { translatePattern, generateHeadline, generateExplanation, suggestAction } from '../utils/insightLanguage';
 // Import prompts
 import { buildMainPrompt } from '../prompts/chat/mainPrompt';
 import { getTaskDescription } from '../prompts/chat/taskDescriptions';
@@ -451,9 +454,16 @@ ${trialUrl ? `\n   - For trial information: Include the trial study link: [View 
 
 /**
  * Build health context section (async due to document fetching)
+ * Now also generates structured insights using pattern recognition
+ * @param {Object} healthContext - Health context data
+ * @param {string} userId - User ID
+ * @param {Object} patientProfile - Patient profile for insight depth setting
+ * @returns {Object} - { contextString, insights } - Context string and structured insights array
  */
-async function buildHealthContextSection(healthContext, userId) {
-  if (!healthContext) return '';
+async function buildHealthContextSection(healthContext, userId, patientProfile = null) {
+  if (!healthContext) return { contextString: '', insights: [] };
+  
+  const insightDepth = patientProfile?.insightDepth || 'standard';
   
   // Helper function to format date as YYYY-MM-DD (avoids timezone issues)
   const formatDateString = (date) => {
@@ -689,7 +699,114 @@ async function buildHealthContextSection(healthContext, userId) {
       }).join(', ')
     : 'No symptoms recorded';
 
-  return `
+  // Load additional data for pattern recognition (medications, notes)
+  let medications = [];
+  let notes = [];
+  try {
+    const { medicationService, journalNoteService } = await import('../firebase/services');
+    [medications, notes] = await Promise.all([
+      medicationService.getMedications(userId).catch(() => []),
+      journalNoteService.getJournalNotes(userId).catch(() => [])
+    ]);
+  } catch (error) {
+    // Continue without medications/notes if loading fails
+  }
+
+  // Generate structured insights using pattern recognition
+  let structuredInsights = [];
+  try {
+    // Check cache first
+    const cacheKey = generateCacheKey(userId, 'health', {
+      labs: healthContext.labs || [],
+      vitals: healthContext.vitals || [],
+      symptoms: healthContext.symptoms || [],
+      notes,
+      medications
+    });
+    
+    let insights = getCachedInsights(cacheKey);
+    
+    if (!insights) {
+      // Detect patterns
+      const rawPatterns = await detectAllPatterns({
+        labs: healthContext.labs || [],
+        vitals: healthContext.vitals || [],
+        symptoms: healthContext.symptoms || [],
+        notes,
+        medications
+      }, {
+        insightDepth,
+        timeWindowMonths: 18,
+        medications,
+        patientProfile
+      });
+      
+      // Translate patterns to structured insights
+      insights = rawPatterns.map(pattern => {
+        const translated = translatePattern(pattern.rawData || pattern, {
+          medications,
+          patientProfile
+        });
+        return {
+          type: pattern.type,
+          priority: pattern.priority || 5,
+          headline: generateHeadline({ ...translated, ...pattern }),
+          explanation: generateExplanation({ ...translated, ...pattern }),
+          actionable: suggestAction({ ...translated, ...pattern }),
+          confidence: pattern.confidence || translated.confidence,
+          rawData: pattern.rawData || pattern,
+          details: translated.details || generateExplanation({ ...translated, ...pattern }),
+          ...translated
+        };
+      });
+      
+      // Cache the insights
+      setCachedInsights(cacheKey, insights);
+    }
+    
+    // Deduplicate insights by headline/explanation to avoid repetitive insights
+    const uniqueInsights = [];
+    const seenContent = new Set();
+    insights.forEach(insight => {
+      // Check both headline and explanation for duplicates
+      const headline = (insight.headline || '').toLowerCase().trim();
+      const explanation = (insight.explanation || '').toLowerCase().trim();
+      
+      // Use headline as primary key, or explanation if headline is empty
+      const primaryKey = headline || explanation;
+      
+      // Also check if headline and explanation are the same (to catch duplicates)
+      const isDuplicate = headline && explanation && headline === explanation;
+      
+      // Create a unique key that combines both if they're different
+      const contentKey = headline && explanation && headline !== explanation 
+        ? `${headline}|||${explanation}` 
+        : primaryKey;
+      
+      if (contentKey && contentKey.length > 0 && !seenContent.has(contentKey)) {
+        seenContent.add(contentKey);
+        // If headline and explanation are identical, keep only headline
+        if (isDuplicate && insight.headline) {
+          uniqueInsights.push({
+            ...insight,
+            explanation: null // Remove duplicate explanation
+          });
+        } else {
+          uniqueInsights.push(insight);
+        }
+      }
+    });
+    
+    // Limit to top 3 for initial display, sorted by priority
+    structuredInsights = uniqueInsights
+      .sort((a, b) => (a.priority || 5) - (b.priority || 5))
+      .slice(0, 3);
+  } catch (error) {
+    console.error('Error generating insights:', error);
+    // Continue without insights if pattern detection fails
+  }
+
+  const contextString = `
 
 ═══════════════════════════════════════════════════════════════════════════════
 HEALTH CONTEXT: The user is asking about their health data (labs, vitals, symptoms)
@@ -706,6 +823,8 @@ SYMPTOMS (${symptomsCount} total, recent: ${recentSymptoms})
 ${getHealthContextInstructions()}
 
 ═══════════════════════════════════════════════════════════════════════════════`;
+
+  return { contextString, insights: structuredInsights };
 }
 
 /**
@@ -899,6 +1018,9 @@ function buildChatPrompt({
   // Get task description using extracted function
   const taskDescription = getTaskDescription(message, trialContextSection, healthContextSection, notebookContextSection);
   
+  // Get insight depth from patient profile
+  const insightDepth = patientProfile?.insightDepth || 'standard';
+  
   // Build main prompt using extracted function
   return buildMainPrompt({
     message,
@@ -910,7 +1032,8 @@ function buildChatPrompt({
     notebookContextSection,
     conversationHistory,
     patientProfile,
-    responseComplexity: complexity
+    responseComplexity: complexity,
+    insightDepth: insightDepth
   });
 }
 
@@ -1046,7 +1169,9 @@ export async function processChatMessage(message, userId, conversationHistory = 
     // Build context sections
     const patientDemographicsSection = buildPatientDemographicsContext(patientProfile);
     const trialContextSection = buildTrialContextSection(trialContext);
-    const healthContextSection = await buildHealthContextSection(healthContext, userId);
+    const healthContextResult = await buildHealthContextSection(healthContext, userId, patientProfile);
+    const healthContextSection = healthContextResult.contextString || '';
+    const structuredInsights = healthContextResult.insights || [];
     const notebookContextSection = buildNotebookContextSection(notebookContext);
 
     // Build prompt for extraction
@@ -1109,10 +1234,26 @@ export async function processChatMessage(message, userId, conversationHistory = 
       await saveExtractedData(parsed.extractedData, userId);
     }
 
+    // Structure insights for UI (convert legacy single insight to array format)
+    let insights = structuredInsights;
+    if (parsed.insight && structuredInsights.length === 0) {
+      // Legacy single insight - convert to structured format
+      insights = [{
+        type: 'general',
+        priority: 3,
+        headline: parsed.insight,
+        explanation: parsed.insight,
+        actionable: null,
+        confidence: null,
+        doctorQuestions: null
+      }];
+    }
+
     return {
       response: parsed.conversationalResponse,
       extractedData: parsed.extractedData,
-      insight: parsed.insight || null
+      insight: parsed.insight || null, // Legacy support
+      insights: insights // New structured insights array for UI
     };
 
   } catch (error) {

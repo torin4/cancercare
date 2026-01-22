@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square } from 'lucide-react';
+import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
 import ExtractionSummary from './ExtractionSummary';
-import QuestionCards from './QuestionCards';
+import QuestionCards, { removeQuestionsFromText } from './QuestionCards';
+import InsightStack from './InsightStack';
 import ReactMarkdown from 'react-markdown';
 import { DesignTokens, combineClasses } from '../design/designTokens';
 import { useAuth } from '../contexts/AuthContext';
@@ -19,11 +20,32 @@ import DocumentUploadOnboarding from './modals/DocumentUploadOnboarding';
 import UploadProgressOverlay from './UploadProgressOverlay';
 import DeletionConfirmationModal from './modals/DeletionConfirmationModal';
 
-export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = false, onCloseOverlay = null }) {
+export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = false, onCloseOverlay = null, isCollapsed = false, onToggleCollapse = null }) {
   const { user } = useAuth();
   const { patientProfile, hasUploadedDocument, setPatientProfile, refreshPatient } = usePatientContext();
   const { reloadHealthData } = useHealthContext();
   const { showSuccess, showError } = useBanner();
+  
+  // Local collapsed state if not controlled from parent
+  const [localCollapsed, setLocalCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('chatSidebarCollapsed');
+      return saved === 'true';
+    }
+    return false;
+  });
+  
+  const collapsed = isCollapsed !== undefined ? isCollapsed : localCollapsed;
+  
+  const handleToggleCollapse = () => {
+    const newCollapsed = !collapsed;
+    if (onToggleCollapse) {
+      onToggleCollapse(newCollapsed);
+    } else {
+      setLocalCollapsed(newCollapsed);
+      localStorage.setItem('chatSidebarCollapsed', String(newCollapsed));
+    }
+  };
 
   // Get personalized suggestions based on user role
   const personalizedSuggestions = React.useMemo(() => {
@@ -225,6 +247,50 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
   const [profileImage, setProfileImage] = useState(null);
   const [suggestionsKey, setSuggestionsKey] = useState(0);
   const [isBotProcessing, setIsBotProcessing] = useState(false);
+  const [showIrisTooltip, setShowIrisTooltip] = useState(false);
+  const tooltipRef = useRef(null);
+  const tooltipButtonRef = useRef(null);
+
+  // Position tooltip within viewport
+  useEffect(() => {
+    if (showIrisTooltip && tooltipRef.current && tooltipButtonRef.current) {
+      const tooltip = tooltipRef.current;
+      const button = tooltipButtonRef.current;
+      const buttonRect = button.getBoundingClientRect();
+      const tooltipRect = tooltip.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      // Try to position above the button first
+      let top = buttonRect.top - tooltipRect.height - 8;
+      let left = buttonRect.left + (buttonRect.width / 2) - (tooltipRect.width / 2);
+      
+      // If tooltip goes above viewport, position below
+      if (top < 10) {
+        top = buttonRect.bottom + 8;
+      }
+      
+      // If tooltip goes below viewport, position at bottom with margin
+      if (top + tooltipRect.height > viewportHeight - 10) {
+        top = viewportHeight - tooltipRect.height - 10;
+      }
+      
+      // If tooltip goes off left edge, align to left
+      if (left < 10) {
+        left = 10;
+      }
+      
+      // If tooltip goes off right edge, align to right
+      if (left + tooltipRect.width > viewportWidth - 10) {
+        left = viewportWidth - tooltipRect.width - 10;
+      }
+      
+      tooltip.style.top = `${top}px`;
+      tooltip.style.left = `${left}px`;
+      tooltip.style.bottom = 'auto';
+      tooltip.style.right = 'auto';
+    }
+  }, [showIrisTooltip]);
   const [showComplexityControl, setShowComplexityControl] = useState(false);
   const hasProcessedNoResultsRef = useRef(false); // Track if we've processed no-results message
   const abortControllerRef = useRef(null);
@@ -718,8 +784,40 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
     setShowDocumentOnboarding(true);
   };
   
+  // If collapsed and not mobile overlay, show just a floating icon button
+  if (collapsed && !isMobileOverlay) {
+    return (
+      <button
+        onClick={handleToggleCollapse}
+        className="hidden lg:flex fixed right-4 bottom-4 z-40 w-16 h-16 rounded-full bg-anchor-900 hover:bg-anchor-800 shadow-lg hover:shadow-xl text-white touch-manipulation active:opacity-70 flex items-center justify-center transition-all flex-shrink-0"
+        title="Open chat sidebar"
+      >
+        <div className="relative">
+          <Bot className="w-7 h-7" />
+          {messages.length > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-anchor-600 rounded-full border-2 border-anchor-900"></span>
+          )}
+        </div>
+      </button>
+    );
+  }
+
   return (
-    <div className={`${isMobileOverlay ? 'lg:hidden fixed bottom-0 left-0 right-0 w-full h-3/4 z-50 rounded-t-2xl shadow-2xl' : 'hidden lg:flex fixed right-0 top-0 bottom-0 w-96'} bg-white border-l border-medical-neutral-200 shadow-xl flex flex-col`}>
+    <div 
+      className={`${isMobileOverlay ? 'lg:hidden fixed bottom-0 left-0 right-0 w-full h-3/4 z-50 rounded-t-2xl shadow-2xl' : `hidden lg:flex fixed top-0 bottom-0 z-40 transition-all duration-300 w-[512px]`} bg-white border-l border-medical-neutral-200 shadow-xl flex flex-col`}
+      style={!isMobileOverlay ? { right: 0, left: 'auto' } : undefined}
+    >
+      {/* Collapse Button - Positioned outside sidebar */}
+      {!isMobileOverlay && (
+        <button
+          onClick={handleToggleCollapse}
+          className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white border-2 border-medical-neutral-200 hover:border-medical-neutral-300 text-medical-neutral-600 hover:text-medical-neutral-800 touch-manipulation active:opacity-70 flex items-center justify-center transition-all flex-shrink-0"
+          title="Collapse sidebar"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      )}
+      
       {/* Header */}
       <div className={combineClasses(
         DesignTokens.spacing.container.mobile,
@@ -730,27 +828,73 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
         'flex items-center justify-between',
         isMobileOverlay ? 'rounded-t-2xl' : ''
       )}>
-        <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'sm:gap-3')}>
-          <div className={combineClasses(DesignTokens.components.header.iconContainer)}>
-            <Bot className={combineClasses(DesignTokens.icons.header.size.full, DesignTokens.components.header.icon)} />
-          </div>
-          <div>
-            <h2 className={combineClasses(DesignTokens.components.header.title, 'mb-0 text-base')}>
-              Insights <span className="text-xs font-normal text-medical-neutral-500">with Iris</span>
-            </h2>
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'sm:gap-3', 'flex-1 min-w-0')}>
+            <div className={combineClasses(DesignTokens.components.header.iconContainer, 'flex-shrink-0')}>
+              <Bot className={combineClasses(DesignTokens.icons.header.size.full, DesignTokens.components.header.icon)} />
+            </div>
+            <div className="min-w-0">
+              <h2 className={combineClasses(DesignTokens.components.header.title, 'mb-0 text-base flex items-end gap-1.5')}>
+                <span className="text-anchor-900">Iris</span> <span className="text-xs font-normal text-medical-neutral-500 flex items-center gap-1 leading-none pb-0.5">
+                  Health Assistant
+                  <div className="relative">
+                    <button
+                      ref={tooltipButtonRef}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowIrisTooltip(!showIrisTooltip);
+                      }}
+                      className="flex items-center justify-center"
+                      aria-label="About Iris"
+                    >
+                      <HelpCircle className="w-3.5 h-3.5 text-medical-neutral-400 hover:text-medical-neutral-600 cursor-pointer transition-colors" />
+                    </button>
+                    {showIrisTooltip && (
+                      <>
+                        <div 
+                          ref={tooltipRef}
+                          className="fixed z-[100] w-72 p-3 bg-anchor-900 text-white text-xs rounded-lg shadow-xl"
+                          style={{
+                            maxHeight: 'calc(100vh - 20px)',
+                            overflowY: 'auto',
+                            top: 'auto',
+                            bottom: 'auto',
+                            left: 'auto',
+                            right: 'auto'
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="mb-2 font-semibold">About Iris</div>
+                          <div className="space-y-1.5 leading-relaxed">
+                            <p>Iris is your AI health assistant that helps you understand your health data, identify patterns, and prepare for discussions with your healthcare team.</p>
+                            <p className="pt-1.5 border-t border-anchor-700 italic">
+                              This assistant provides general health information only and does not provide medical advice. Please consult with qualified healthcare professionals for medical decisions.
+                            </p>
+                          </div>
+                        </div>
+                        <div 
+                          className="fixed inset-0 z-[99]"
+                          onClick={() => setShowIrisTooltip(false)}
+                        />
+                      </>
+                    )}
+                  </div>
+                </span>
+              </h2>
+            </div>
           </div>
         </div>
-        {isMobileOverlay && onCloseOverlay && (
-          <button
-            onClick={onCloseOverlay}
-            className="text-medical-neutral-500 hover:text-medical-neutral-700 min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70 flex items-center justify-center"
-            title="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        )}
-        <div className="flex items-center gap-2">
-          {messages.length > 0 && (
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {isMobileOverlay && onCloseOverlay && (
+            <button
+              onClick={onCloseOverlay}
+              className="text-medical-neutral-500 hover:text-medical-neutral-700 min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70 flex items-center justify-center"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+          {!collapsed && messages.length > 0 && (
             <>
               <button
                 onClick={() => {
@@ -802,7 +946,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
       </div>
 
       {/* Search Bar */}
-      {isSearchActive && (
+      {!collapsed && isSearchActive && (
         <div className={combineClasses('px-3 py-2 border-b border-medical-neutral-200 bg-white')}>
           <div className={combineClasses('flex items-center', 'w-full px-3 py-1.5 border border-medical-neutral-200 rounded-xl focus-within:ring-2 focus-within:ring-offset-0 focus-within:ring-gray-800 focus-within:border-gray-800 transition-all duration-200')}>
             <Search className="w-5 h-5 text-medical-neutral-400 flex-shrink-0" />
@@ -830,6 +974,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
       )}
 
       {/* Messages Container */}
+      {!collapsed && (
       <div 
         ref={messagesContainerRef}
         className="flex-1 overflow-y-auto p-3 space-y-2"
@@ -863,7 +1008,9 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
             );
           }
           
-          return filteredMessages.map((msg, idx) => {
+          return (
+            <>
+              {filteredMessages.map((msg, idx) => {
             const originalIdx = messages.indexOf(msg);
             return (
               <div key={originalIdx} className="space-y-2">
@@ -901,7 +1048,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                             a: ({node, ...props}) => <a className="text-gray-800 underline hover:text-gray-900" {...props} />,
                           }}
                         >
-                          {msg.text}
+                          {removeQuestionsFromText(msg.text)}
                         </ReactMarkdown>
                         <QuestionCards text={msg.text} />
                       </div>
@@ -922,9 +1069,9 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                           if (patientProfile?.isPatient === false && patientProfile?.caregiverName) {
                             name = patientProfile.caregiverName;
                           } else {
-                            name = patientProfile.firstName || patientProfile.lastName 
-                              ? `${patientProfile.firstName || ''} ${patientProfile.lastName || ''}`.trim()
-                              : patientProfile.name || user?.displayName || 'U';
+                            name = patientProfile?.firstName || patientProfile?.lastName 
+                              ? `${patientProfile?.firstName || ''} ${patientProfile?.lastName || ''}`.trim()
+                              : patientProfile?.name || user?.displayName || 'U';
                           }
                           const parts = name.trim().split(/\s+/);
                           if (parts.length >= 2) {
@@ -937,7 +1084,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                   </div>
                 )}
               </div>
-              {msg.type === 'ai' && msg.insight && (() => {
+              {msg.type === 'ai' && (msg.insights || msg.insight) && (() => {
                 // Don't show insight card for doctor discussion queries
                 const isDoctorDiscussion = msg.text.toLowerCase().includes('questions should i ask') || 
                                          (msg.text.toLowerCase().includes('discuss') && msg.text.toLowerCase().includes('doctor')) ||
@@ -945,37 +1092,35 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                 
                 if (isDoctorDiscussion) return null;
                 
+                // Use new structured insights array if available, otherwise fall back to legacy single insight
+                const insights = msg.insights || (msg.insight ? [{
+                  type: 'general',
+                  priority: 3,
+                  headline: msg.insight,
+                  explanation: msg.insight,
+                  actionable: null,
+                  confidence: null,
+                  doctorQuestions: null
+                }] : []);
+                
+                if (insights.length === 0) return null;
+                
                 return (
-                  <div className="flex justify-start">
-                    <div className="max-w-[85%]">
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex flex-col gap-2">
-                        <div className="flex items-start gap-2">
-                          <Lightbulb className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-                          <div className="flex-1">
-                            <p className="text-xs font-medium text-blue-900 mb-0.5">Key Insight</p>
-                            <p className="text-xs text-blue-800">{msg.insight}</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => {
-                            const contextPrompt = msg.insight 
-                              ? `What questions should I ask my doctor about: ${msg.insight}`
-                              : 'What questions should I ask my doctor?';
-                            setInputText(contextPrompt);
-                            setTimeout(() => {
-                              const textarea = document.querySelector('textarea');
-                              if (textarea) {
-                                textarea.focus();
-                              }
-                            }, 100);
-                          }}
-                          className="text-xs text-blue-700 hover:text-blue-900 underline text-left mt-1 transition-colors"
-                        >
-                          How to discuss this with your doctor
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                  <InsightStack
+                    insights={insights}
+                    onDiscussWithDoctor={(insight) => {
+                      const contextPrompt = insight.headline || insight.explanation
+                        ? `What questions should I ask my doctor about: ${insight.headline || insight.explanation}`
+                        : 'What questions should I ask my doctor?';
+                      setInputText(contextPrompt);
+                      setTimeout(() => {
+                        const textarea = document.querySelector('textarea');
+                        if (textarea) {
+                          textarea.focus();
+                        }
+                      }, 100);
+                    }}
+                  />
                 );
               })()}
               {msg.type === 'ai' && msg.extractionSummary && (
@@ -986,8 +1131,10 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                 </div>
               )}
             </div>
-            );
-          });
+                );
+              })}
+            </>
+          );
         })()}
         
         {isBotProcessing && (
@@ -1007,8 +1154,10 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
         {/* Scroll target */}
         <div ref={messagesEndRef} className="h-1" />
       </div>
+      )}
 
-      {/* Context Indicators */}
+      {/* Context Indicators - Hidden to save space, context is set automatically when needed */}
+      {/* 
       {currentTrialContext && (
         <div className={combineClasses('p-2 border-b text-xs flex items-center justify-between gap-2', DesignTokens.moduleAccent.trials.bg, DesignTokens.moduleAccent.trials.border)}>
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
@@ -1057,106 +1206,220 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
           </button>
         </div>
       )}
+      */}
 
-      {/* Response Complexity Control - Collapsible */}
-      <div className="border-t border-medical-neutral-200 bg-medical-neutral-50">
+      {/* AI Response Settings - Collapsible */}
+      {!collapsed && (
+      <div className="border-t border-medical-neutral-200 bg-white">
         {!showComplexityControl ? (
           <button
             onClick={() => setShowComplexityControl(true)}
-            className="w-full px-3 py-2 flex items-center justify-between hover:bg-medical-neutral-100 transition-colors"
-            title="Adjust response complexity"
+            className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-medical-neutral-100 transition-colors"
+            title="Adjust AI response settings"
           >
             <div className="flex items-center gap-2">
               <Sliders className="w-4 h-4 text-medical-neutral-500" />
               <span className="text-xs font-medium text-medical-neutral-700">
-                Response Complexity:
-              </span>
-              <span className="text-xs text-medical-neutral-500">
-                {patientProfile?.responseComplexity === 'simple' ? 'Simple' : 
-                 patientProfile?.responseComplexity === 'detailed' ? 'Detailed' : 
-                 'Standard'}
+                AI Response Settings
               </span>
             </div>
-            <X className="w-4 h-4 text-medical-neutral-400 rotate-45" />
+            <ChevronDown className="w-4 h-4 text-medical-neutral-400" />
           </button>
         ) : (
-          <div className="px-3 pt-3 pb-2">
-            <div className="flex items-center justify-between gap-3 mb-2">
+          <div className="px-3 pt-3 pb-3 space-y-4">
+            <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Sliders className="w-4 h-4 text-medical-neutral-500" />
                 <label className="text-xs font-medium text-medical-neutral-700">
-                  Response Complexity:
+                  AI Response Settings
                 </label>
-                <span className="text-xs text-medical-neutral-500">
-                  {patientProfile?.responseComplexity === 'simple' ? 'Simple' : 
-                   patientProfile?.responseComplexity === 'detailed' ? 'Detailed' : 
-                   'Standard'}
-                </span>
               </div>
               <button
                 onClick={() => setShowComplexityControl(false)}
                 className="text-medical-neutral-400 hover:text-medical-neutral-600 transition-colors min-h-[44px] min-w-[44px] px-2 flex items-center justify-center"
                 title="Collapse"
               >
-                <X className="w-4 h-4" />
+                <ChevronUp className="w-4 h-4" />
               </button>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-medical-neutral-500 whitespace-nowrap">Simple</span>
-              <input
-                type="range"
-                min="0"
-                max="2"
-                step="1"
-                value={patientProfile?.responseComplexity === 'simple' ? 0 : 
-                       patientProfile?.responseComplexity === 'detailed' ? 2 : 1}
-                onChange={async (e) => {
-                  const values = ['simple', 'standard', 'detailed'];
-                  const newComplexity = values[parseInt(e.target.value)];
-                  const previousComplexity = patientProfile?.responseComplexity || 'standard';
-                  
-                  console.log('[ChatSidebar] Complexity change:', { from: previousComplexity, to: newComplexity, sliderValue: e.target.value });
-                  
-                  // Update local state first
-                  let updatedProfileState = null;
-                  setPatientProfile(prev => {
-                    if (!prev) {
-                      updatedProfileState = { responseComplexity: newComplexity };
-                      return updatedProfileState;
-                    }
-                    updatedProfileState = { ...prev, responseComplexity: newComplexity };
-                    return updatedProfileState;
-                  });
-                  
-                  try {
-                    const { patientService } = await import('../firebase/services');
-                    // Use the updated state we just set, or fall back to merging with current
-                    const profileToSave = updatedProfileState || (patientProfile ? { ...patientProfile, responseComplexity: newComplexity } : { responseComplexity: newComplexity });
-                    console.log('[ChatSidebar] Saving complexity to Firebase:', newComplexity);
-                    await patientService.savePatient(user.uid, profileToSave);
-                    // Refresh to ensure sync
-                    const refreshed = await refreshPatient();
-                    console.log('[ChatSidebar] Complexity saved, refreshed profile:', refreshed || 'refreshPatient does not return');
-                  } catch (error) {
-                    console.error('[ChatSidebar] Error saving complexity:', error);
-                    setPatientProfile(prev => {
-                      if (!prev) return prev;
-                      return { ...prev, responseComplexity: previousComplexity };
-                    });
-                  }
-                }}
-                className="flex-1 h-2 bg-medical-neutral-200 rounded-lg appearance-none cursor-pointer"
-                title="Adjust response complexity: Simple = plain language, Detailed = comprehensive explanations"
-              />
-              <span className="text-xs text-medical-neutral-500 whitespace-nowrap">Detailed</span>
+
+            {/* Response Complexity Slider */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-medical-neutral-700">
+                  Response Complexity
+                </label>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                  patientProfile?.responseComplexity === 'simple' ? 'bg-blue-100 text-blue-700' :
+                  patientProfile?.responseComplexity === 'detailed' ? 'bg-purple-100 text-purple-700' :
+                  'bg-anchor-100 text-anchor-700'
+                }`}>
+                  {patientProfile?.responseComplexity === 'simple' ? 'Simple' : 
+                   patientProfile?.responseComplexity === 'detailed' ? 'Detailed' : 
+                   'Standard'}
+                </span>
+              </div>
+              <div className="relative">
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs whitespace-nowrap ${
+                    patientProfile?.responseComplexity === 'simple' ? 'font-semibold text-blue-700' : 'text-medical-neutral-500'
+                  }`}>Simple</span>
+                  <div className="flex-1 relative">
+                    <input
+                      type="range"
+                      min="0"
+                      max="2"
+                      step="1"
+                      value={patientProfile?.responseComplexity === 'simple' ? 0 : 
+                             patientProfile?.responseComplexity === 'detailed' ? 2 : 1}
+                      onChange={async (e) => {
+                        const values = ['simple', 'standard', 'detailed'];
+                        const newComplexity = values[parseInt(e.target.value)];
+                        const previousComplexity = patientProfile?.responseComplexity || 'standard';
+                        
+                        console.log('[ChatSidebar] Complexity change:', { from: previousComplexity, to: newComplexity, sliderValue: e.target.value });
+                        
+                        // Update local state first
+                        let updatedProfileState = null;
+                        setPatientProfile(prev => {
+                          if (!prev) {
+                            updatedProfileState = { responseComplexity: newComplexity };
+                            return updatedProfileState;
+                          }
+                          updatedProfileState = { ...prev, responseComplexity: newComplexity };
+                          return updatedProfileState;
+                        });
+                        
+                        try {
+                          const { patientService } = await import('../firebase/services');
+                          // Use the updated state we just set, or fall back to merging with current
+                          const profileToSave = updatedProfileState || (patientProfile ? { ...patientProfile, responseComplexity: newComplexity } : { responseComplexity: newComplexity });
+                          console.log('[ChatSidebar] Saving complexity to Firebase:', newComplexity);
+                          await patientService.savePatient(user.uid, profileToSave);
+                          // Refresh to ensure sync
+                          const refreshed = await refreshPatient();
+                          console.log('[ChatSidebar] Complexity saved, refreshed profile:', refreshed || 'refreshPatient does not return');
+                        } catch (error) {
+                          console.error('[ChatSidebar] Error saving complexity:', error);
+                          setPatientProfile(prev => {
+                            if (!prev) return prev;
+                            return { ...prev, responseComplexity: previousComplexity };
+                          });
+                        }
+                      }}
+                      className="w-full h-2 bg-medical-neutral-200 rounded-lg appearance-none cursor-pointer relative z-10"
+                      style={{
+                        background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((patientProfile?.responseComplexity === 'simple' ? 0 : patientProfile?.responseComplexity === 'detailed' ? 2 : 1) / 2) * 100}%, #e5e7eb ${((patientProfile?.responseComplexity === 'simple' ? 0 : patientProfile?.responseComplexity === 'detailed' ? 2 : 1) / 2) * 100}%, #e5e7eb 100%)`
+                      }}
+                      title="Adjust response complexity: Simple = plain language, Detailed = comprehensive explanations"
+                    />
+                    {/* Step markers */}
+                    <div className="absolute top-0 left-0 right-0 h-2 flex items-center justify-between pointer-events-none z-0">
+                      <div className="w-1 h-1 rounded-full bg-white"></div>
+                      <div className="w-1 h-1 rounded-full bg-white"></div>
+                      <div className="w-1 h-1 rounded-full bg-white"></div>
+                    </div>
+                  </div>
+                  <span className={`text-xs whitespace-nowrap ${
+                    patientProfile?.responseComplexity === 'detailed' ? 'font-semibold text-purple-700' : 'text-medical-neutral-500'
+                  }`}>Detailed</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Insight Depth Slider */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-medical-neutral-700">
+                  Insight Depth
+                </label>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                  patientProfile?.insightDepth === 'basic' ? 'bg-gray-100 text-gray-700' :
+                  patientProfile?.insightDepth === 'advanced' ? 'bg-orange-100 text-orange-700' :
+                  patientProfile?.insightDepth === 'expert' ? 'bg-red-100 text-red-700' :
+                  'bg-anchor-100 text-anchor-700'
+                }`}>
+                  {patientProfile?.insightDepth === 'basic' ? 'Basic' : 
+                   patientProfile?.insightDepth === 'advanced' ? 'Advanced' : 
+                   patientProfile?.insightDepth === 'expert' ? 'Expert' : 
+                   'Standard'}
+                </span>
+              </div>
+              <div className="relative">
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs whitespace-nowrap ${
+                    patientProfile?.insightDepth === 'basic' ? 'font-semibold text-gray-700' : 'text-medical-neutral-500'
+                  }`}>Basic</span>
+                  <div className="flex-1 relative">
+                    <input
+                      type="range"
+                      min="0"
+                      max="3"
+                      step="1"
+                      value={patientProfile?.insightDepth === 'basic' ? 0 : 
+                             patientProfile?.insightDepth === 'advanced' ? 2 : 
+                             patientProfile?.insightDepth === 'expert' ? 3 : 1}
+                      onChange={async (e) => {
+                        const value = parseInt(e.target.value);
+                        const insightDepth = value === 0 ? 'basic' : value === 1 ? 'standard' : value === 2 ? 'advanced' : 'expert';
+                        const previousDepth = patientProfile?.insightDepth || 'standard';
+                        
+                        // Update local state first
+                        let updatedProfileState = null;
+                        setPatientProfile(prev => {
+                          if (!prev) {
+                            updatedProfileState = { insightDepth };
+                            return updatedProfileState;
+                          }
+                          updatedProfileState = { ...prev, insightDepth };
+                          return updatedProfileState;
+                        });
+                        
+                        try {
+                          const { patientService } = await import('../firebase/services');
+                          const profileToSave = updatedProfileState || (patientProfile ? { ...patientProfile, insightDepth } : { insightDepth });
+                          console.log('[ChatSidebar] Saving insight depth to Firebase:', insightDepth);
+                          await patientService.savePatient(user.uid, profileToSave);
+                          // Refresh to ensure sync
+                          const refreshed = await refreshPatient();
+                          console.log('[ChatSidebar] Insight depth saved, refreshed profile:', refreshed || 'refreshPatient does not return');
+                        } catch (error) {
+                          console.error('[ChatSidebar] Error saving insight depth:', error);
+                          setPatientProfile(prev => {
+                            if (!prev) return prev;
+                            return { ...prev, insightDepth: previousDepth };
+                          });
+                        }
+                      }}
+                      className="w-full h-2 bg-medical-neutral-200 rounded-lg appearance-none cursor-pointer relative z-10"
+                      style={{
+                        background: `linear-gradient(to right, #6366f1 0%, #6366f1 ${((patientProfile?.insightDepth === 'basic' ? 0 : patientProfile?.insightDepth === 'advanced' ? 2 : patientProfile?.insightDepth === 'expert' ? 3 : 1) / 3) * 100}%, #e5e7eb ${((patientProfile?.insightDepth === 'basic' ? 0 : patientProfile?.insightDepth === 'advanced' ? 2 : patientProfile?.insightDepth === 'expert' ? 3 : 1) / 3) * 100}%, #e5e7eb 100%)`
+                      }}
+                      title="Adjust insight depth: Basic = simple insights, Expert = full statistical analysis"
+                    />
+                    {/* Step markers */}
+                    <div className="absolute top-0 left-0 right-0 h-2 flex items-center justify-between pointer-events-none z-0">
+                      <div className="w-1 h-1 rounded-full bg-white"></div>
+                      <div className="w-1 h-1 rounded-full bg-white"></div>
+                      <div className="w-1 h-1 rounded-full bg-white"></div>
+                      <div className="w-1 h-1 rounded-full bg-white"></div>
+                    </div>
+                  </div>
+                  <span className={`text-xs whitespace-nowrap ${
+                    patientProfile?.insightDepth === 'expert' ? 'font-semibold text-red-700' : 'text-medical-neutral-500'
+                  }`}>Expert</span>
+                </div>
+              </div>
             </div>
           </div>
         )}
       </div>
+      )}
 
       {/* Input Area */}
-      <div className="p-3 border-t border-medical-neutral-200">
-        <div className="flex gap-2">
+      {!collapsed && (
+      <div className="px-3 pt-0 pb-0 bg-white border-t border-medical-neutral-200" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))' }}>
+        <div className="flex gap-2 mb-4">
           <div className="relative flex-1">
             <input
               type="text"
@@ -1218,12 +1481,8 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
             )}
           </button>
         </div>
-        <div className="px-3 pb-2 pt-1">
-          <p className="text-[10px] text-medical-neutral-400 text-center">
-            This assistant provides general health information only and does not provide medical advice. Please consult with qualified healthcare professionals for medical decisions.
-          </p>
-        </div>
       </div>
+      )}
 
       {/* Modals */}
       {showDocumentOnboarding && (

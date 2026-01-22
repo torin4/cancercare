@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, User, Home, MessageSquare, ClipboardList, FlaskConical, FileText, HeartHandshake } from 'lucide-react';
+import { Activity, User, Home, MessageSquare, ClipboardList, FlaskConical, FileText, HeartHandshake, Bot } from 'lucide-react';
 import { DesignTokens, combineClasses } from '../design/designTokens';
 import logoPrimary from '../assets/logo_primary.svg';
 import logoSecondary from '../assets/logo_secondary.svg';
@@ -47,7 +47,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
   
   const navItems = [
     { id: 'dashboard', label: 'Home', icon: Home },
-    { id: 'chat', label: 'Insights', icon: MessageSquare },
+    { id: 'chat', label: 'Iris', icon: Bot },
     { id: 'health', label: 'Health', icon: ClipboardList },
     { id: 'trials', label: 'Trials', icon: FlaskConical },
     { id: 'files', label: 'Docs', icon: FileText },

@@ -1,5 +1,67 @@
 import React from 'react';
 
+// Utility function to remove questions from text
+export function removeQuestionsFromText(text) {
+  if (!text) return text;
+
+  // Only process if this is a doctor discussion
+  const isDoctorDiscussion = text.toLowerCase().includes('doctor') || 
+                            text.toLowerCase().includes('discuss') ||
+                            text.toLowerCase().includes('questions should i ask') ||
+                            text.toLowerCase().includes('what questions');
+  
+  if (!isDoctorDiscussion) return text;
+
+  // Split text into lines
+  const lines = text.split('\n');
+  const cleanedLines = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Skip empty lines
+    if (!line) {
+      // Only add empty line if previous line wasn't empty (to preserve paragraph breaks)
+      if (cleanedLines.length > 0 && cleanedLines[cleanedLines.length - 1] !== '') {
+        cleanedLines.push('');
+      }
+      continue;
+    }
+    
+    // Check if this line looks like a question
+    let clean = line;
+    
+    // Remove markdown formatting for checking
+    const checkLine = clean.replace(/\*\*/g, '').replace(/\*/g, '');
+    const stripped = checkLine.replace(/^[\d\-\*•]\s*\.?\s*/, '').replace(/^[\(\[]\d+[\)\]]\s*/, '');
+    
+    // Check if it's a question
+    const isQuestion = stripped.endsWith('?') && stripped.length > 10 && stripped.length < 300;
+    const hasQuestionWords = /(what|how|should|when|where|why|which|can|could|would|will|is|are|do|does|did)\s+/i.test(stripped);
+    
+    // Skip lines that are clearly questions
+    if (isQuestion && hasQuestionWords) {
+      continue; // Skip this line
+    }
+    
+    // Also check for common question patterns like "Here are some questions:" followed by questions
+    if (i > 0 && /^(here are|these are|some questions|questions to ask|you may want to ask)/i.test(line)) {
+      // This might be an intro to questions, keep it but check next lines
+      cleanedLines.push(line);
+      continue;
+    }
+    
+    // Keep non-question lines
+    cleanedLines.push(line);
+  }
+
+  // Join lines and clean up extra whitespace
+  let cleanedText = cleanedLines.join('\n');
+  cleanedText = cleanedText.replace(/\n{3,}/g, '\n\n').trim();
+  
+  return cleanedText;
+}
+
 export default function QuestionCards({ text }) {
   if (!text) return null;
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square } from 'lucide-react';
+import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import QuestionCards from '../QuestionCards';
+import QuestionCards, { removeQuestionsFromText } from '../QuestionCards';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
@@ -18,6 +18,7 @@ import DocumentUploadOnboarding from '../modals/DocumentUploadOnboarding';
 import UploadProgressOverlay from '../UploadProgressOverlay';
 import DeletionConfirmationModal from '../modals/DeletionConfirmationModal';
 import ExtractionSummary from '../ExtractionSummary';
+import InsightStack from '../InsightStack';
 
 export default function ChatTab({ onTabChange }) {
   const { user } = useAuth();
@@ -239,6 +240,50 @@ export default function ChatTab({ onTabChange }) {
   const [chatHistoryLoaded, setChatHistoryLoaded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchActive, setIsSearchActive] = useState(false);
+  const [showIrisTooltip, setShowIrisTooltip] = useState(false);
+  const tooltipRef = useRef(null);
+  const tooltipButtonRef = useRef(null);
+
+  // Position tooltip within viewport
+  useEffect(() => {
+    if (showIrisTooltip && tooltipRef.current && tooltipButtonRef.current) {
+      const tooltip = tooltipRef.current;
+      const button = tooltipButtonRef.current;
+      const buttonRect = button.getBoundingClientRect();
+      const tooltipRect = tooltip.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      // Try to position above the button first
+      let top = buttonRect.top - tooltipRect.height - 8;
+      let left = buttonRect.left + (buttonRect.width / 2) - (tooltipRect.width / 2);
+      
+      // If tooltip goes above viewport, position below
+      if (top < 10) {
+        top = buttonRect.bottom + 8;
+      }
+      
+      // If tooltip goes below viewport, position at bottom with margin
+      if (top + tooltipRect.height > viewportHeight - 10) {
+        top = viewportHeight - tooltipRect.height - 10;
+      }
+      
+      // If tooltip goes off left edge, align to left
+      if (left < 10) {
+        left = 10;
+      }
+      
+      // If tooltip goes off right edge, align to right
+      if (left + tooltipRect.width > viewportWidth - 10) {
+        left = viewportWidth - tooltipRect.width - 10;
+      }
+      
+      tooltip.style.top = `${top}px`;
+      tooltip.style.left = `${left}px`;
+      tooltip.style.bottom = 'auto';
+      tooltip.style.right = 'auto';
+    }
+  }, [showIrisTooltip]);
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Delete Permanently' });
   const [isDeleting, setIsDeleting] = useState(false);
   const messagesEndRef = useRef(null);
@@ -977,13 +1022,57 @@ export default function ChatTab({ onTabChange }) {
           'flex items-center'
         )}>
           <div className={combineClasses('flex items-center justify-between w-full', DesignTokens.spacing.gap.sm)}>
-            <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'sm:gap-3')}>
-              <div className={combineClasses(DesignTokens.components.header.iconContainer)}>
-                <MessageSquare className={combineClasses(DesignTokens.icons.header.size.full, DesignTokens.components.header.icon)} />
+            <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'sm:gap-3', 'flex-1 min-w-0')}>
+              <div className={combineClasses(DesignTokens.components.header.iconContainer, 'flex-shrink-0')}>
+                <Bot className={combineClasses(DesignTokens.icons.header.size.full, DesignTokens.components.header.icon)} />
               </div>
-              <div>
-                <h1 className={combineClasses(DesignTokens.components.header.title, 'mb-0')}>
-                  Insights <span className="text-sm font-normal text-medical-neutral-500">with Iris</span>
+              <div className="min-w-0">
+                <h1 className={combineClasses(DesignTokens.components.header.title, 'mb-0 text-base flex items-end gap-1.5')}>
+                  <span className="text-anchor-900">Iris</span> <span className="text-xs font-normal text-medical-neutral-500 flex items-center gap-1 leading-none pb-0.5">
+                    Health Assistant
+                    <div className="relative">
+                      <button
+                        ref={tooltipButtonRef}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowIrisTooltip(!showIrisTooltip);
+                        }}
+                        className="flex items-center justify-center"
+                        aria-label="About Iris"
+                      >
+                        <HelpCircle className="w-3.5 h-3.5 text-medical-neutral-400 hover:text-medical-neutral-600 cursor-pointer transition-colors" />
+                      </button>
+                      {showIrisTooltip && (
+                        <>
+                          <div 
+                            ref={tooltipRef}
+                            className="fixed z-[100] w-72 p-3 bg-anchor-900 text-white text-xs rounded-lg shadow-xl"
+                            style={{
+                              maxHeight: 'calc(100vh - 20px)',
+                              overflowY: 'auto',
+                              top: 'auto',
+                              bottom: 'auto',
+                              left: 'auto',
+                              right: 'auto'
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="mb-2 font-semibold">About Iris</div>
+                            <div className="space-y-1.5 leading-relaxed">
+                              <p>Iris is your AI health assistant that helps you understand your health data, identify patterns, and prepare for discussions with your healthcare team.</p>
+                              <p className="pt-1.5 border-t border-anchor-700 italic">
+                                This assistant provides general health information only and does not provide medical advice. Please consult with qualified healthcare professionals for medical decisions.
+                              </p>
+                            </div>
+                          </div>
+                          <div 
+                            className="fixed inset-0 z-[99]"
+                            onClick={() => setShowIrisTooltip(false)}
+                          />
+                        </>
+                      )}
+                    </div>
+                  </span>
                 </h1>
               </div>
             </div>
@@ -1264,7 +1353,7 @@ export default function ChatTab({ onTabChange }) {
                         a: ({node, ...props}) => <a className="text-gray-800 underline hover:text-gray-900" {...props} />,
                       }}
                     >
-                      {msg.text}
+                      {removeQuestionsFromText(msg.text)}
                     </ReactMarkdown>
                     <QuestionCards text={msg.text} />
                   </div>
@@ -1286,9 +1375,9 @@ export default function ChatTab({ onTabChange }) {
                         if (patientProfile?.isPatient === false && patientProfile?.caregiverName) {
                           name = patientProfile.caregiverName;
                         } else {
-                          name = patientProfile.firstName || patientProfile.lastName 
-                            ? `${patientProfile.firstName || ''} ${patientProfile.lastName || ''}`.trim()
-                            : patientProfile.name || user?.displayName || 'U';
+                          name = patientProfile?.firstName || patientProfile?.lastName 
+                            ? `${patientProfile?.firstName || ''} ${patientProfile?.lastName || ''}`.trim()
+                            : patientProfile?.name || user?.displayName || 'U';
                         }
                         const parts = name.trim().split(/\s+/);
                         if (parts.length >= 2) {
@@ -1301,7 +1390,7 @@ export default function ChatTab({ onTabChange }) {
                 </div>
                 )}
               </div>
-              {msg.type === 'ai' && msg.insight && (() => {
+              {msg.type === 'ai' && (msg.insights || msg.insight) && (() => {
                 // Don't show insight card for doctor discussion queries
                 const isDoctorDiscussion = msg.text.toLowerCase().includes('questions should i ask') || 
                                          (msg.text.toLowerCase().includes('discuss') && msg.text.toLowerCase().includes('doctor')) ||
@@ -1309,37 +1398,35 @@ export default function ChatTab({ onTabChange }) {
                 
                 if (isDoctorDiscussion) return null;
                 
+                // Use new structured insights array if available, otherwise fall back to legacy single insight
+                const insights = msg.insights || (msg.insight ? [{
+                  type: 'general',
+                  priority: 3,
+                  headline: msg.insight,
+                  explanation: msg.insight,
+                  actionable: null,
+                  confidence: null,
+                  doctorQuestions: null
+                }] : []);
+                
+                if (insights.length === 0) return null;
+                
                 return (
-                  <div className="flex justify-start">
-                    <div className="max-w-[82%] sm:max-w-[70%]">
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-3.5 flex flex-col gap-2">
-                        <div className="flex items-start gap-2">
-                          <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                          <div className="flex-1">
-                            <p className="text-xs sm:text-sm font-medium text-blue-900 mb-1">Key Insight</p>
-                            <p className="text-xs sm:text-sm text-blue-800">{msg.insight}</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => {
-                            const contextPrompt = msg.insight 
-                              ? `What questions should I ask my doctor about: ${msg.insight}`
-                              : 'What questions should I ask my doctor?';
-                            setInputText(contextPrompt);
-                            setTimeout(() => {
-                              const textarea = document.querySelector('textarea');
-                              if (textarea) {
-                                textarea.focus();
-                              }
-                            }, 100);
-                          }}
-                          className="text-xs sm:text-sm text-blue-700 hover:text-blue-900 underline text-left mt-1 transition-colors"
-                        >
-                          How to discuss this with your doctor
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                  <InsightStack
+                    insights={insights}
+                    onDiscussWithDoctor={(insight) => {
+                      const contextPrompt = insight.headline || insight.explanation
+                        ? `What questions should I ask my doctor about: ${insight.headline || insight.explanation}`
+                        : 'What questions should I ask my doctor?';
+                      setInputText(contextPrompt);
+                      setTimeout(() => {
+                        const textarea = document.querySelector('textarea');
+                        if (textarea) {
+                          textarea.focus();
+                        }
+                      }, 100);
+                    }}
+                  />
                 );
               })()}
               {msg.type === 'ai' && msg.extractionSummary && (
@@ -1445,15 +1532,36 @@ export default function ChatTab({ onTabChange }) {
         >
           <div className="flex gap-2 overflow-x-auto -mx-1 px-1 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {(() => {
-              // Determine which suggestions to show based on active context
-              let suggestionsToShow = personalizedSuggestions;
-              if (currentTrialContext) {
-                suggestionsToShow = personalizedTrialSuggestions;
-              } else if (currentHealthContext && !currentTrialContext && !currentNotebookContext) {
-                suggestionsToShow = personalizedHealthSuggestions;
-              } else if (currentNotebookContext && !currentHealthContext && !currentTrialContext) {
-                suggestionsToShow = personalizedTimelineSuggestions;
-              }
+              // Analyze conversation context from recent messages
+              const getContextualSuggestions = () => {
+                // Get last 5 messages for context analysis
+                const recentMessages = messages.slice(-5);
+                const conversationText = recentMessages.map(m => m.text || '').join(' ').toLowerCase();
+                
+                // Check for trial-related keywords
+                const trialKeywords = ['trial', 'clinical trial', 'eligibility', 'phase', 'drug', 'treatment', 'side effect', 'location'];
+                const hasTrialContext = trialKeywords.some(keyword => conversationText.includes(keyword)) || currentTrialContext;
+                
+                // Check for health data keywords
+                const healthKeywords = ['lab', 'ca-125', 'hemoglobin', 'plt', 'vital', 'blood pressure', 'symptom', 'medication', 'trend', 'result', 'value', 'measurement'];
+                const hasHealthContext = healthKeywords.some(keyword => conversationText.includes(keyword)) || (currentHealthContext && !currentTrialContext);
+                
+                // Check for timeline/notebook keywords
+                const timelineKeywords = ['timeline', 'journal', 'note', 'entry', 'document', 'upload', 'date', 'when', 'happened'];
+                const hasTimelineContext = timelineKeywords.some(keyword => conversationText.includes(keyword)) || (currentNotebookContext && !currentHealthContext && !currentTrialContext);
+                
+                // Priority: trial > health > timeline > general
+                if (hasTrialContext) {
+                  return personalizedTrialSuggestions;
+                } else if (hasHealthContext) {
+                  return personalizedHealthSuggestions;
+                } else if (hasTimelineContext) {
+                  return personalizedTimelineSuggestions;
+                }
+                return personalizedSuggestions;
+              };
+              
+              const suggestionsToShow = getContextualSuggestions();
               
               return suggestionsToShow.map((suggestion, idx) => {
                 // Store populateText in a const to ensure we capture the current value
@@ -1496,224 +1604,257 @@ export default function ChatTab({ onTabChange }) {
           </div>
         </div>
 
-        {/* Response Complexity Control - Collapsible */}
-        <div className="fixed bottom-[200px] left-0 right-0 z-20 md:relative md:bottom-auto md:z-auto border-t border-medical-neutral-200 md:border-t-0 md:border-t bg-medical-neutral-50">
+      {/* Bottom Section: AI Response Settings + Input Area */}
+      <div className="fixed left-0 right-0 z-20 md:relative md:z-auto bg-white" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))' }}>
+        {/* AI Response Settings - Collapsible */}
+        <div className="border-t border-medical-neutral-200 bg-white">
           {!showComplexityControl ? (
             <button
               onClick={() => setShowComplexityControl(true)}
-              className="w-full px-3 sm:px-4 py-2 flex items-center justify-between hover:bg-medical-neutral-100 transition-colors"
-              title="Adjust response complexity"
+              className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-medical-neutral-100 transition-colors"
+              title="Adjust AI response settings"
             >
               <div className="flex items-center gap-2">
                 <Sliders className="w-4 h-4 text-medical-neutral-500" />
                 <span className="text-xs font-medium text-medical-neutral-700">
-                  Response Complexity:
-                </span>
-                <span className="text-xs text-medical-neutral-500">
-                  {patientProfile?.responseComplexity === 'simple' ? 'Simple' : 
-                   patientProfile?.responseComplexity === 'detailed' ? 'Detailed' : 
-                   'Standard'}
+                  AI Response Settings
                 </span>
               </div>
-              <X className="w-4 h-4 text-medical-neutral-400 rotate-45" />
+              <ChevronDown className="w-4 h-4 text-medical-neutral-400" />
             </button>
           ) : (
-            <div className="px-3 sm:px-4 pt-3 pb-2">
-              <div className="flex items-center justify-between gap-3 mb-2">
+            <div className="px-3 pt-3 pb-3 space-y-4">
+              <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <Sliders className="w-4 h-4 text-medical-neutral-500" />
                   <label className="text-xs font-medium text-medical-neutral-700">
-                    Response Complexity:
+                    AI Response Settings
                   </label>
-                  <span className="text-xs text-medical-neutral-500">
+                </div>
+                <button
+                  onClick={() => setShowComplexityControl(false)}
+                  className="text-medical-neutral-400 hover:text-medical-neutral-600 transition-colors min-h-[44px] min-w-[44px] px-2 flex items-center justify-center"
+                  title="Collapse"
+                >
+                  <ChevronUp className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Response Complexity Slider */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-medical-neutral-700">
+                    Response Complexity
+                  </label>
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                    patientProfile?.responseComplexity === 'simple' ? 'bg-blue-100 text-blue-700' :
+                    patientProfile?.responseComplexity === 'detailed' ? 'bg-purple-100 text-purple-700' :
+                    'bg-anchor-100 text-anchor-700'
+                  }`}>
                     {patientProfile?.responseComplexity === 'simple' ? 'Simple' : 
                      patientProfile?.responseComplexity === 'detailed' ? 'Detailed' : 
                      'Standard'}
                   </span>
                 </div>
-                <button
-                  onClick={() => setShowComplexityControl(false)}
-                  className="text-medical-neutral-400 hover:text-medical-neutral-600 transition-colors min-h-[44px] min-w-[44px] px-2 flex items-center justify-center touch-manipulation"
-                  title="Collapse"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                <div className="relative">
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs whitespace-nowrap ${
+                      patientProfile?.responseComplexity === 'simple' ? 'font-semibold text-blue-700' : 'text-medical-neutral-500'
+                    }`}>Simple</span>
+                    <div className="flex-1 relative">
+                      <input
+                        type="range"
+                        min="0"
+                        max="2"
+                        step="1"
+                        value={patientProfile?.responseComplexity === 'simple' ? 0 : 
+                               patientProfile?.responseComplexity === 'detailed' ? 2 : 1}
+                        onChange={async (e) => {
+                          const values = ['simple', 'standard', 'detailed'];
+                          const newComplexity = values[parseInt(e.target.value)];
+                          const previousComplexity = patientProfile?.responseComplexity || 'standard';
+                          
+                          console.log('[ChatTab] Complexity change:', { from: previousComplexity, to: newComplexity, sliderValue: e.target.value });
+                          
+                          // Update local state first
+                          let updatedProfileState = null;
+                          setPatientProfile(prev => {
+                            if (!prev) {
+                              updatedProfileState = { responseComplexity: newComplexity };
+                              return updatedProfileState;
+                            }
+                            updatedProfileState = { ...prev, responseComplexity: newComplexity };
+                            return updatedProfileState;
+                          });
+                          
+                          try {
+                            const { patientService } = await import('../../firebase/services');
+                            // Use the updated state we just set, or fall back to merging with current
+                            const profileToSave = updatedProfileState || (patientProfile ? { ...patientProfile, responseComplexity: newComplexity } : { responseComplexity: newComplexity });
+                            console.log('[ChatTab] Saving complexity to Firebase:', newComplexity);
+                            await patientService.savePatient(user.uid, profileToSave);
+                            // Refresh to ensure sync
+                            const refreshed = await refreshPatient();
+                            console.log('[ChatTab] Complexity saved, refreshed profile:', refreshed || 'refreshPatient does not return');
+                          } catch (error) {
+                            console.error('[ChatTab] Error saving complexity:', error);
+                            setPatientProfile(prev => {
+                              if (!prev) return prev;
+                              return { ...prev, responseComplexity: previousComplexity };
+                            });
+                          }
+                        }}
+                        className="w-full h-2 bg-medical-neutral-200 rounded-lg appearance-none cursor-pointer relative z-10"
+                        style={{
+                          background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((patientProfile?.responseComplexity === 'simple' ? 0 : patientProfile?.responseComplexity === 'detailed' ? 2 : 1) / 2) * 100}%, #e5e7eb ${((patientProfile?.responseComplexity === 'simple' ? 0 : patientProfile?.responseComplexity === 'detailed' ? 2 : 1) / 2) * 100}%, #e5e7eb 100%)`
+                        }}
+                        title="Adjust response complexity: Simple = plain language, Detailed = comprehensive explanations"
+                      />
+                      {/* Step markers */}
+                      <div className="absolute top-0 left-0 right-0 h-2 flex items-center justify-between pointer-events-none z-0">
+                        <div className="w-1 h-1 rounded-full bg-white"></div>
+                        <div className="w-1 h-1 rounded-full bg-white"></div>
+                        <div className="w-1 h-1 rounded-full bg-white"></div>
+                      </div>
+                    </div>
+                    <span className={`text-xs whitespace-nowrap ${
+                      patientProfile?.responseComplexity === 'detailed' ? 'font-semibold text-purple-700' : 'text-medical-neutral-500'
+                    }`}>Detailed</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-medical-neutral-500 whitespace-nowrap">Simple</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="2"
-                  step="1"
-                  value={patientProfile?.responseComplexity === 'simple' ? 0 : 
-                         patientProfile?.responseComplexity === 'detailed' ? 2 : 1}
-                  onChange={async (e) => {
-                    const values = ['simple', 'standard', 'detailed'];
-                    const newComplexity = values[parseInt(e.target.value)];
-                    const previousComplexity = patientProfile?.responseComplexity || 'standard';
-                    
-                    console.log('[ChatTab] Complexity change:', { from: previousComplexity, to: newComplexity, sliderValue: e.target.value });
-                    
-                    // Update local state first
-                    let updatedProfileState = null;
-                    setPatientProfile(prev => {
-                      if (!prev) {
-                        updatedProfileState = { responseComplexity: newComplexity };
-                        return updatedProfileState;
-                      }
-                      updatedProfileState = { ...prev, responseComplexity: newComplexity };
-                      return updatedProfileState;
-                    });
-                    
-                    try {
-                      const { patientService } = await import('../../firebase/services');
-                      // Use the updated state we just set, or fall back to merging with current
-                      const profileToSave = updatedProfileState || (patientProfile ? { ...patientProfile, responseComplexity: newComplexity } : { responseComplexity: newComplexity });
-                      console.log('[ChatTab] Saving complexity to Firebase:', newComplexity);
-                      await patientService.savePatient(user.uid, profileToSave);
-                      // Refresh to ensure sync
-                      const refreshed = await refreshPatient();
-                      console.log('[ChatTab] Complexity saved, refreshed profile:', refreshed || 'refreshPatient does not return');
-                    } catch (error) {
-                      console.error('[ChatTab] Error saving complexity:', error);
-                      setPatientProfile(prev => {
-                        if (!prev) return prev;
-                        return { ...prev, responseComplexity: previousComplexity };
-                      });
-                    }
-                  }}
-                  className="flex-1 h-2 bg-medical-neutral-200 rounded-lg appearance-none cursor-pointer"
-                  title="Adjust response complexity: Simple = plain language, Detailed = comprehensive explanations"
-                />
-                <span className="text-xs text-medical-neutral-500 whitespace-nowrap">Detailed</span>
+
+              {/* Insight Depth Slider */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-medical-neutral-700">
+                    Insight Depth
+                  </label>
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                    patientProfile?.insightDepth === 'basic' ? 'bg-gray-100 text-gray-700' :
+                    patientProfile?.insightDepth === 'advanced' ? 'bg-orange-100 text-orange-700' :
+                    patientProfile?.insightDepth === 'expert' ? 'bg-red-100 text-red-700' :
+                    'bg-anchor-100 text-anchor-700'
+                  }`}>
+                    {patientProfile?.insightDepth === 'basic' ? 'Basic' : 
+                     patientProfile?.insightDepth === 'advanced' ? 'Advanced' : 
+                     patientProfile?.insightDepth === 'expert' ? 'Expert' : 
+                     'Standard'}
+                  </span>
+                </div>
+                <div className="relative">
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs whitespace-nowrap ${
+                      patientProfile?.insightDepth === 'basic' ? 'font-semibold text-gray-700' : 'text-medical-neutral-500'
+                    }`}>Basic</span>
+                    <div className="flex-1 relative">
+                      <input
+                        type="range"
+                        min="0"
+                        max="3"
+                        step="1"
+                        value={patientProfile?.insightDepth === 'basic' ? 0 : 
+                               patientProfile?.insightDepth === 'advanced' ? 2 : 
+                               patientProfile?.insightDepth === 'expert' ? 3 : 1}
+                        onChange={async (e) => {
+                          const value = parseInt(e.target.value);
+                          const insightDepth = value === 0 ? 'basic' : value === 1 ? 'standard' : value === 2 ? 'advanced' : 'expert';
+                          const previousDepth = patientProfile?.insightDepth || 'standard';
+                          
+                          // Update local state first
+                          let updatedProfileState = null;
+                          setPatientProfile(prev => {
+                            if (!prev) {
+                              updatedProfileState = { insightDepth };
+                              return updatedProfileState;
+                            }
+                            updatedProfileState = { ...prev, insightDepth };
+                            return updatedProfileState;
+                          });
+                          
+                          try {
+                            const { patientService } = await import('../../firebase/services');
+                            const profileToSave = updatedProfileState || (patientProfile ? { ...patientProfile, insightDepth } : { insightDepth });
+                            console.log('[ChatTab] Saving insight depth to Firebase:', insightDepth);
+                            await patientService.savePatient(user.uid, profileToSave);
+                            // Refresh to ensure sync
+                            const refreshed = await refreshPatient();
+                            console.log('[ChatTab] Insight depth saved, refreshed profile:', refreshed || 'refreshPatient does not return');
+                          } catch (error) {
+                            console.error('[ChatTab] Error saving insight depth:', error);
+                            setPatientProfile(prev => {
+                              if (!prev) return prev;
+                              return { ...prev, insightDepth: previousDepth };
+                            });
+                          }
+                        }}
+                        className="w-full h-2 bg-medical-neutral-200 rounded-lg appearance-none cursor-pointer relative z-10"
+                        style={{
+                          background: `linear-gradient(to right, #6366f1 0%, #6366f1 ${((patientProfile?.insightDepth === 'basic' ? 0 : patientProfile?.insightDepth === 'advanced' ? 2 : patientProfile?.insightDepth === 'expert' ? 3 : 1) / 3) * 100}%, #e5e7eb ${((patientProfile?.insightDepth === 'basic' ? 0 : patientProfile?.insightDepth === 'advanced' ? 2 : patientProfile?.insightDepth === 'expert' ? 3 : 1) / 3) * 100}%, #e5e7eb 100%)`
+                        }}
+                        title="Adjust insight depth: Basic = simple insights, Expert = full statistical analysis"
+                      />
+                      {/* Step markers */}
+                      <div className="absolute top-0 left-0 right-0 h-2 flex items-center justify-between pointer-events-none z-0">
+                        <div className="w-1 h-1 rounded-full bg-white"></div>
+                        <div className="w-1 h-1 rounded-full bg-white"></div>
+                        <div className="w-1 h-1 rounded-full bg-white"></div>
+                        <div className="w-1 h-1 rounded-full bg-white"></div>
+                      </div>
+                    </div>
+                    <span className={`text-xs whitespace-nowrap ${
+                      patientProfile?.insightDepth === 'expert' ? 'font-semibold text-red-700' : 'text-medical-neutral-500'
+                    }`}>Expert</span>
+                  </div>
+                </div>
               </div>
             </div>
           )}
         </div>
 
-        <div className="fixed bottom-[80px] left-0 right-0 z-20 md:relative md:bottom-auto md:z-auto px-3 sm:px-4 pt-3 md:pt-2 lg:pt-3 pb-2 sm:pb-3 bg-white border-t border-medical-neutral-200 md:border-t-0 md:border-t">
-          {/* Context Selector - Compact */}
-          <div className="flex gap-2 items-center">
-            <div className={combineClasses('flex items-center gap-1.5', DesignTokens.colors.neutral.text[600], 'whitespace-nowrap flex-shrink-0')}>
-              <Filter className={combineClasses('w-3.5 h-3.5', DesignTokens.colors.neutral.text[500])} />
-              <span className={combineClasses('text-xs font-medium')}>Context:</span>
-            </div>
-            <button
-              onClick={async () => {
-                if (!user) return;
+        {/* Input Area with Suggestions */}
+        <div className="bg-white">
+          <div className="px-3 sm:px-4 py-2 flex items-center gap-2">
+            {/* Suggestions - Desktop Only */}
+            <div className="hidden md:flex flex-1 gap-2 overflow-x-auto scrollbar-hide items-center min-w-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              {(() => {
+                // Analyze conversation context from recent messages
+                const getContextualSuggestions = () => {
+                  // Get last 5 messages for context analysis
+                  const recentMessages = messages.slice(-5);
+                  const conversationText = recentMessages.map(m => m.text || '').join(' ').toLowerCase();
+                  
+                  // Check for trial-related keywords
+                  const trialKeywords = ['trial', 'clinical trial', 'eligibility', 'phase', 'drug', 'treatment', 'side effect', 'location'];
+                  const hasTrialContext = trialKeywords.some(keyword => conversationText.includes(keyword)) || currentTrialContext;
+                  
+                  // Check for health data keywords
+                  const healthKeywords = ['lab', 'ca-125', 'hemoglobin', 'plt', 'vital', 'blood pressure', 'symptom', 'medication', 'trend', 'result', 'value', 'measurement'];
+                  const hasHealthContext = healthKeywords.some(keyword => conversationText.includes(keyword)) || (currentHealthContext && !currentTrialContext);
+                  
+                  // Check for timeline/notebook keywords
+                  const timelineKeywords = ['timeline', 'journal', 'note', 'entry', 'document', 'upload', 'date', 'when', 'happened'];
+                  const hasTimelineContext = timelineKeywords.some(keyword => conversationText.includes(keyword)) || (currentNotebookContext && !currentHealthContext && !currentTrialContext);
+                  
+                  // Priority: trial > health > timeline > general
+                  if (hasTrialContext) {
+                    return personalizedTrialSuggestions;
+                  } else if (hasHealthContext) {
+                    return personalizedHealthSuggestions;
+                  } else if (hasTimelineContext) {
+                    return personalizedTimelineSuggestions;
+                  }
+                  return personalizedSuggestions;
+                };
                 
-                // If already active, disable it
-                if (currentHealthContext && !currentTrialContext && !currentNotebookContext) {
-                  setCurrentHealthContext(null);
-                  return;
-                }
+                const suggestionsToShow = getContextualSuggestions();
                 
-                try {
-                  // Clear other contexts and set health context optimistically
-                  setCurrentTrialContext(null);
-                  setCurrentNotebookContext(null);
-                  setCurrentHealthContext({ labs: [], vitals: [], symptoms: [] }); // Optimistic update
-                  
-                  // Load health context
-                  const labs = await labService.getLabs(user.uid);
-                  const vitals = await vitalService.getVitals(user.uid);
-                  const symptoms = await symptomService.getSymptoms(user.uid);
-                  
-                  const labsWithValues = await Promise.all(labs.map(async (lab) => {
-                    if (lab.id) {
-                      const values = await labService.getLabValues(lab.id);
-                      return { ...lab, values: values || [] };
-                    }
-                    return lab;
-                  }));
-                  
-                  const vitalsWithValues = await Promise.all(vitals.map(async (vital) => {
-                    if (vital.id) {
-                      const values = await vitalService.getVitalValues(vital.id);
-                      return { ...vital, values: values || [] };
-                    }
-                    return vital;
-                  }));
-                  
-                  setCurrentHealthContext({
-                    labs: labsWithValues,
-                    vitals: vitalsWithValues,
-                    symptoms: symptoms
-                  });
-                } catch (error) {
-                  showError('Error loading health data');
-                  setCurrentHealthContext(null); // Reset on error
-                }
-              }}
-              className={combineClasses(
-                'px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 flex items-center gap-1.5 touch-manipulation',
-                currentHealthContext && !currentTrialContext && !currentNotebookContext
-                  ? combineClasses(DesignTokens.colors.primary[500], 'text-white')
-                  : combineClasses('border-2 border-medical-primary-300', DesignTokens.colors.primary.text[600], `hover:bg-medical-primary-50`, `hover:border-medical-primary-400`)
-              )}
-            >
-              <BarChart className="w-3.5 h-3.5" />
-              <span>Health Data</span>
-            </button>
-            
-            <button
-              onClick={async () => {
-                if (!user) return;
-                
-                // If already active, disable it
-                if (currentNotebookContext && !currentHealthContext && !currentTrialContext) {
-                  setCurrentNotebookContext(null);
-                  return;
-                }
-                
-                try {
-                  // Clear other contexts and set notebook context optimistically
-                  setCurrentHealthContext(null);
-                  setCurrentTrialContext(null);
-                  setCurrentNotebookContext({ entries: [] }); // Optimistic update
-                  
-                  // Load notebook context
-                  const entries = await getNotebookEntries(user.uid, { limit: 50 });
-                  setCurrentNotebookContext({ entries });
-                } catch (error) {
-                  showError('Error loading timeline');
-                  setCurrentNotebookContext(null); // Reset on error
-                }
-              }}
-              className={combineClasses(
-                'px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 flex items-center gap-1.5 touch-manipulation',
-                currentNotebookContext && !currentHealthContext && !currentTrialContext
-                  ? combineClasses('bg-yellow-500', 'text-white')
-                  : combineClasses('border-2 border-yellow-300', 'text-yellow-600', `hover:bg-yellow-50`, `hover:border-yellow-400`)
-              )}
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>Notebook</span>
-            </button>
+                return suggestionsToShow.map((suggestion, idx) => {
+                  // Store populateText in a const to ensure we capture the current value
+                  const currentPopulateText = suggestion.populateText || suggestion.text;
 
-            {/* Vertical Divider - Between Notebook and suggestions/upload */}
-            <div className="h-6 w-px bg-medical-neutral-300 flex-shrink-0" />
-            
-            {/* Suggestions - Desktop Only, scrolls in this space */}
-            <div className="hidden md:flex flex-1 gap-2 overflow-x-auto scrollbar-hide items-center min-w-0 px-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            {(() => {
-              // Determine which suggestions to show based on active context
-              let suggestionsToShow = personalizedSuggestions;
-              if (currentTrialContext) {
-                suggestionsToShow = personalizedTrialSuggestions;
-              } else if (currentHealthContext && !currentTrialContext && !currentNotebookContext) {
-                suggestionsToShow = personalizedHealthSuggestions;
-              } else if (currentNotebookContext && !currentHealthContext && !currentTrialContext) {
-                suggestionsToShow = personalizedTimelineSuggestions;
-              }
-              
-              return suggestionsToShow.map((suggestion, idx) => {
-                // Store populateText in a const to ensure we capture the current value
-                const currentPopulateText = suggestion.populateText || suggestion.text;
-
-                // Create a unique key that includes a hash of the populateText to force re-render
-                const textHash = currentPopulateText.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                  // Create a unique key that includes a hash of the populateText to force re-render
+                  const textHash = currentPopulateText.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
                   const suggestionKey = `suggestion-desktop-${suggestionsKey}-${patientProfile?.isPatient}-${idx}-${textHash}`;
 
                   // Map background colors to text colors
@@ -1726,26 +1867,26 @@ export default function ChatTab({ onTabChange }) {
                     return DesignTokens.colors.app.text[700];
                   };
 
-                return (
-                  <button
-                    key={suggestionKey}
-                    onClick={() => {
-                      setInputText(currentPopulateText);
-                      // Focus on input after setting text
-                      setTimeout(() => {
-                        const input = document.querySelector('input[type="text"]');
-                        if (input) input.focus();
-                      }, 0);
-                    }}
+                  return (
+                    <button
+                      key={suggestionKey}
+                      onClick={() => {
+                        setInputText(currentPopulateText);
+                        // Focus on input after setting text
+                        setTimeout(() => {
+                          const input = document.querySelector('input[type="text"]');
+                          if (input) input.focus();
+                        }, 0);
+                      }}
                       className={combineClasses('px-2 py-1 text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 flex items-center gap-1.5 touch-manipulation', getTextColor(suggestion.color), 'hover:opacity-80')}
-                  >
+                    >
                       {suggestion.icon && <suggestion.icon className="w-3.5 h-3.5" />}
-                    {suggestion.text}
-                  </button>
-                );
-              });
-            })()}
-          </div>
+                      {suggestion.text}
+                    </button>
+                  );
+                });
+              })()}
+            </div>
             
             {/* Vertical Divider - Before Upload (desktop only) */}
             <div className="h-6 w-px bg-medical-neutral-300 flex-shrink-0 hidden md:block" />
@@ -1764,9 +1905,9 @@ export default function ChatTab({ onTabChange }) {
               <Paperclip className="w-3.5 h-3.5" />
               <span>Upload</span>
             </button>
-        </div>
+          </div>
 
-          <div className="flex gap-2 mt-3">
+          <div className="px-3 sm:px-4 pb-4 flex gap-2" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))' }}>
             <div className="relative flex-1">
             <input
               type="text"
@@ -1826,11 +1967,7 @@ export default function ChatTab({ onTabChange }) {
                 )}
               </button>
           </div>
-          <div className="px-3 pb-2 pt-1">
-            <p className="text-[10px] text-medical-neutral-400 text-center">
-              This assistant provides general health information only and does not provide medical advice. Please consult with qualified healthcare professionals for medical decisions.
-            </p>
-          </div>
+        </div>
         </div>
       </div>
 

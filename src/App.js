@@ -62,6 +62,13 @@ export default function CancerCareApp() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [pendingHealthSection, setPendingHealthSection] = useState(null);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [chatSidebarCollapsed, setChatSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('chatSidebarCollapsed');
+      return saved === 'true';
+    }
+    return false;
+  });
   const [showQuickLog, setShowQuickLog] = useState(false);
   const [showMobileChatOverlay, setShowMobileChatOverlay] = useState(false);
   const [showAddSymptomModal, setShowAddSymptomModal] = useState(false);
@@ -882,10 +889,23 @@ export default function CancerCareApp() {
         onSidebarHover={setSidebarExpanded}
       />
 
+      {/* Chat Sidebar - Show on all screens except chat tab (desktop only) - Outside main content for proper fixed positioning */}
+      {activeTab !== 'chat' && (
+        <ChatSidebar 
+          activeTab={activeTab} 
+          onTabChange={setActiveTab}
+          isCollapsed={chatSidebarCollapsed}
+          onToggleCollapse={(collapsed) => {
+            setChatSidebarCollapsed(collapsed);
+            localStorage.setItem('chatSidebarCollapsed', String(collapsed));
+          }}
+        />
+      )}
+
       {/* Main Content - Scrollable */}
       <div className={`flex-1 overflow-y-auto pb-20 md:pb-0 transition-all duration-300 ${
         sidebarExpanded ? 'md:ml-64' : 'md:ml-20'
-      } ${activeTab !== 'chat' ? 'lg:mr-96' : ''}`}>
+      } ${activeTab !== 'chat' ? (chatSidebarCollapsed ? '' : 'lg:mr-[512px]') : ''}`}>
         {activeTab === 'dashboard' && (
           <DashboardTab onTabChange={setActiveTab} />
         )}
@@ -931,10 +951,6 @@ export default function CancerCareApp() {
         {/* DeletionConfirmationModal moved to ProfileTab component */}
 
         {/* Chat Sidebar - Show on all screens except chat tab (desktop only) */}
-        {activeTab !== 'chat' && (
-          <ChatSidebar activeTab={activeTab} onTabChange={setActiveTab} />
-        )}
-
         {/* Mobile Chat Overlay */}
         {showMobileChatOverlay && (
           <>
