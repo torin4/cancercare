@@ -11,6 +11,7 @@ import { cleanupDocumentData } from '../../services/documentCleanupService';
 import { parseLocalDate, formatDateString } from '../../utils/helpers';
 import { processDocument, generateExtractionSummary, generateChatSummary } from '../../services/documentProcessor';
 import { getNotebookEntries } from '../../services/notebookService';
+import { prepareZipForViewing } from '../../services/zipViewerService';
 import DocumentUploadOnboarding from '../modals/DocumentUploadOnboarding';
 import EditDocumentNoteModal from '../modals/EditDocumentNoteModal';
 import UploadProgressOverlay from '../UploadProgressOverlay';
@@ -20,8 +21,9 @@ import NotebookTimeline from '../NotebookTimeline';
 import AddJournalNoteModal from '../modals/AddJournalNoteModal';
 import EditJournalNoteModal from '../modals/EditJournalNoteModal';
 import DocumentMetadataModal from '../modals/DocumentMetadataModal';
+// DicomViewerModal removed - using full-screen DicomViewerPage instead
 
-export default function FilesTab({ onTabChange, onOpenMobileChat }) {
+export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomViewer }) {
   // Use contexts for shared state
   const { user } = useAuth();
   const { patientProfile } = usePatientContext();
@@ -43,6 +45,8 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
   const [aiStatus, setAiStatus] = useState(null);
   const [extractedDataCounts, setExtractedDataCounts] = useState(null);
   const [currentDocumentType, setCurrentDocumentType] = useState(null);
+  const [documentProgress, setDocumentProgress] = useState({ current: 0, total: 0 }); // Track document processing progress
+  const [isRefreshing, setIsRefreshing] = useState(false); // Track refresh button animation state
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({
     show: false,
@@ -54,10 +58,14 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
   });
   const [rescanDocument, setRescanDocument] = useState(null);
   const [showDocumentMetadata, setShowDocumentMetadata] = useState(null);
+  // DICOM viewer now handled by parent (full-screen page)
   const [hoveredTooltip, setHoveredTooltip] = useState(null); // Track which tooltip is showing
   const [debugLogs, setDebugLogs] = useState([]); // Visual debug logs for mobile
   const [documentDateRanges, setDocumentDateRanges] = useState({}); // Cache date ranges for documents
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false); // Loading state for documents
+  const [openMenuId, setOpenMenuId] = useState(null); // Track which file's menu is open (for mobile)
+  const [expandedDicomGroups, setExpandedDicomGroups] = useState(new Set()); // Track expanded DICOM groups
+  const [zipChoiceModal, setZipChoiceModal] = useState(null); // { file, processingResult, onViewNow, onSaveToLibrary }
 
   // Tab state for Documents vs Notes view
   const [activeSubTab, setActiveSubTab] = useState('notes'); // 'documents' or 'notes'
@@ -304,7 +312,8 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
   const simulateDocumentUpload = (docType) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls';
+    // Allow all files - validation happens after selection (files without extensions like DICOM need this)
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.ZIP,.gz,.xlsx,.xls,.dcm,.dicom,application/dicom,application/x-dicom,application/zip,*/*';
     input.multiple = true; // Enable multiple file selection
 
     input.onchange = async (e) => {
@@ -324,7 +333,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
   const simulateCameraUpload = (docType) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls,image/*';
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.ZIP,.gz,.xlsx,.xls,.dcm,.dicom,application/dicom,application/x-dicom,application/zip,image/*,*/*';
     input.capture = 'environment';
     input.multiple = true; // Enable multiple file selection (for camera, user can take multiple photos)
 
@@ -395,6 +404,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
       setAiStatus(null);
       setExtractedDataCounts(null);
       setCurrentDocumentType(null);
+      setDocumentProgress({ current: 0, total: 0 }); // Reset document progress
       
       if (successCount === totalFiles) {
         showSuccess(`Successfully processed all ${totalFiles} file${totalFiles !== 1 ? 's' : ''}!`);
@@ -432,6 +442,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
         addDebugLog('Setting upload overlay to visible', 'info');
         setIsUploading(true);
         setUploadProgress('Preparing upload...');
+        setDocumentProgress({ current: 0, total: 0 }); // Reset document progress
         // Small delay to ensure overlay renders before heavy processing
         await new Promise(resolve => setTimeout(resolve, 100));
         addDebugLog('Upload overlay should be visible', 'success');
@@ -456,13 +467,47 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
       setPendingCustomInstructions(null);
       setPendingOnlyExistingMetrics(false);
 
+      // For ZIP files, read the file ONCE before processing and store as ArrayBuffer
+      // File objects can only be read once, so we need to read it before it gets consumed
+      let fileArrayBuffer = null;
+      const isZip = file.name?.toLowerCase().endsWith('.zip') || file.type === 'application/zip';
+      
+      if (isZip) {
+        try {
+          setUploadProgress(`${fileProgressPrefix}Reading ZIP file...`);
+          console.log('[FilesTab] Pre-reading ZIP file as ArrayBuffer...');
+          fileArrayBuffer = await file.arrayBuffer();
+          console.log('[FilesTab] Successfully read ZIP file, ArrayBuffer size:', fileArrayBuffer.byteLength);
+          
+          if (!fileArrayBuffer || fileArrayBuffer.byteLength === 0) {
+            throw new Error('ZIP file appears to be empty or could not be read');
+          }
+        } catch (readErr) {
+          console.error('[FilesTab] Error pre-reading ZIP file:', readErr);
+          console.error('[FilesTab] Error details:', {
+            name: readErr.name,
+            message: readErr.message,
+            fileSize: file.size,
+            fileName: file.name
+          });
+          throw new Error(`Failed to read ZIP file: ${readErr.message || 'File may be corrupted or already in use'}`);
+        }
+      }
+
       // Step 1: Process document with AI to extract medical data
       setUploadProgress(`${fileProgressPrefix}Analyzing document with AI...`);
       setAiStatus('Analyzing document...');
       setExtractedDataCounts(null); // Reset counts
       
+      // For ZIP files, pass the ArrayBuffer directly to processing
+      // extractDicomFilesFromZip now accepts ArrayBuffer, so we don't need to create a File
+      // This avoids the "file already read" error
+      const fileForProcessing = (isZip && fileArrayBuffer) 
+        ? fileArrayBuffer  // Pass ArrayBuffer directly instead of creating a File
+        : file;
+      
       const processingResult = await processDocument(
-        file,
+        fileForProcessing,
         user.uid,
         patientProfile,
         providedDate,
@@ -479,7 +524,285 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
         providedCustomInstructions // Pass custom instructions
       );
       
-      // Extract data counts from processing result
+      // Handle ZIP archives - show choice: View Now or Save to Library
+      if (processingResult.isZipArchive) {
+        const totalFiles = processingResult.totalFiles || (processingResult.extractedFiles ? processingResult.extractedFiles.length : 0);
+
+        if (totalFiles === 0) {
+          throw new Error('No DICOM files found in ZIP archive. Please ensure the ZIP contains .dcm or .dicom files.');
+        }
+
+        // Show choice modal: View Now (instant) or Save to Library (upload to Firebase)
+        // CRITICAL: Ensure fileArrayBuffer is set before creating the modal
+        if (!fileArrayBuffer) {
+          console.error('[FilesTab] ERROR: fileArrayBuffer is null when creating modal!');
+          throw new Error('Failed to prepare ZIP file for viewing. The file may have been read already.');
+        }
+        
+        // Capture values in closure to ensure they're available when callback is called
+        const capturedArrayBuffer = fileArrayBuffer;
+        const capturedFile = file;
+        
+        console.log('[FilesTab] Creating ZIP choice modal with ArrayBuffer size:', capturedArrayBuffer.byteLength);
+        
+        setZipChoiceModal({
+          file: capturedFile,
+          fileArrayBuffer: capturedArrayBuffer, // Pass the pre-read arrayBuffer
+          processingResult,
+          totalFiles,
+          onViewNow: async () => {
+            setZipChoiceModal(null);
+            setIsUploading(true);
+            setUploadProgress('Preparing ZIP for viewing...');
+            try {
+              // Use the pre-read ArrayBuffer directly (more reliable than creating a new File)
+              // prepareZipForViewing now accepts ArrayBuffer directly
+              if (!capturedArrayBuffer) {
+                console.error('[FilesTab] ERROR: capturedArrayBuffer is null or undefined!');
+                throw new Error('ZIP file data is not available. The file may have been read already. Please try uploading again.');
+              }
+              
+              if (!(capturedArrayBuffer instanceof ArrayBuffer)) {
+                console.error('[FilesTab] ERROR: capturedArrayBuffer is not an ArrayBuffer!', typeof capturedArrayBuffer, capturedArrayBuffer);
+                throw new Error('ZIP file data is in an invalid format. Please try uploading again.');
+              }
+              
+              console.log('[FilesTab] Using ArrayBuffer for viewing, size:', capturedArrayBuffer.byteLength, 'bytes');
+              console.log('[FilesTab] ArrayBuffer type check:', {
+                isArrayBuffer: capturedArrayBuffer instanceof ArrayBuffer,
+                constructor: capturedArrayBuffer.constructor?.name,
+                byteLength: capturedArrayBuffer.byteLength
+              });
+              
+              // Ensure we're passing the ArrayBuffer, not the File
+              const zipViewerResult = await prepareZipForViewing(
+                capturedArrayBuffer, // Use the captured ArrayBuffer directly
+                (current, total, message) => {
+                  if (message) setUploadProgress(message);
+                }
+              );
+              if (!zipViewerResult.success) {
+                throw new Error(zipViewerResult.error || 'Failed to prepare ZIP for viewing');
+              }
+              if (onOpenDicomViewer) {
+                // Prepare viewer data with ZIP source format
+                // Pass loadSeriesFiles for lazy loading - files will be loaded on-demand
+                const viewerData = {
+                  source: 'zip',
+                  zipFile: capturedFile, // Use the captured file reference
+                  zip: zipViewerResult.zip,
+                  series: zipViewerResult.series.map(s => ({
+                    id: s.id,
+                    label: s.label,
+                    studyInstanceUID: s.studyInstanceUID,
+                    seriesInstanceUID: s.seriesInstanceUID,
+                    modality: s.modality,
+                    bodyPartExamined: s.bodyPartExamined,
+                    fileIndices: s.fileIndices || [] // Store indices for lazy loading
+                  })),
+                  dicomDirStructure: zipViewerResult.dicomDirStructure,
+                  loadSeriesFiles: zipViewerResult.loadSeriesFiles // Pass lazy-loading function
+                };
+                onOpenDicomViewer(viewerData);
+              }
+              setIsUploading(false);
+              showSuccess(`ZIP loaded for viewing (${totalFiles} files)`);
+            } catch (error) {
+              console.error('Error preparing ZIP for viewing:', error);
+              showError(`Failed to load ZIP for viewing: ${error.message || 'Unknown error'}`);
+              setIsUploading(false);
+            }
+          },
+          onSaveToLibrary: async () => {
+            setZipChoiceModal(null);
+            const extractOnDemand = processingResult.extractOnDemand === true;
+            const extractFile = processingResult.extractFile;
+            const entries = processingResult.entries || null;
+            const dicomDirStructure = processingResult.dicomDirStructure || null;
+
+            // Initialize document progress tracking - show 0/0 initially, then update to 0/totalFiles
+            setDocumentProgress({ current: 0, total: 0 });
+            setUploadProgress(`${fileProgressPrefix}${extractOnDemand ? 'Preparing to process' : 'Extracting DICOM files from ZIP'}...`);
+
+            // Small delay to show initial state, then update with actual count
+            await new Promise(resolve => setTimeout(resolve, 100));
+            setDocumentProgress({ current: 0, total: totalFiles });
+            setUploadProgress(`${fileProgressPrefix}Processing ${totalFiles} DICOM file${totalFiles !== 1 ? 's' : ''} from ZIP...`);
+
+            // Track successes and failures
+            let successCount = 0;
+            let failureCount = 0;
+            const failedFiles = [];
+
+            // Process and upload DICOM files in batches
+            // For large ZIPs with on-demand extraction, use smaller batches to save memory
+            // For small ZIPs, use larger batches for better performance
+            const BATCH_SIZE = extractOnDemand ? 3 : 5;
+            const totalBatches = Math.ceil(totalFiles / BATCH_SIZE);
+        
+        for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+          const batchStartIndex = batchIndex * BATCH_SIZE;
+          const batchEndIndex = Math.min(batchStartIndex + BATCH_SIZE, totalFiles);
+          const batchSize = batchEndIndex - batchStartIndex;
+          
+          setUploadProgress(`${fileProgressPrefix}Processing batch ${batchIndex + 1}/${totalBatches} (${batchSize} files)...`);
+          
+          // Process batch in parallel
+          const batchPromises = [];
+          
+          for (let fileIndex = batchStartIndex; fileIndex < batchEndIndex; fileIndex++) {
+            const promise = (async () => {
+              const displayIndex = fileIndex + 1;
+              
+              try {
+                // Extract file if on-demand, otherwise use pre-extracted file
+                let dicomFile;
+                if (extractOnDemand) {
+                  if (!extractFile) {
+                    throw new Error('Extract function not available for on-demand extraction');
+                  }
+                  dicomFile = await extractFile(fileIndex);
+                } else {
+                  dicomFile = processingResult.extractedFiles[fileIndex];
+                  if (!dicomFile) {
+                    throw new Error(`File at index ${fileIndex} not found`);
+                  }
+                }
+                
+                // Process the DICOM file
+                const dicomProcessingResult = await processDocument(
+                  dicomFile,
+                  user.uid,
+                  patientProfile,
+                  providedDate,
+                  providedNote,
+                  null,
+                  (message, status) => {
+                    if (status) {
+                      setAiStatus(`[${displayIndex}/${totalFiles}] ${status}`);
+                    }
+                  },
+                  onlyExistingMetrics,
+                  'Scan', // DICOM files are always scans
+                  null // No custom instructions for extracted files
+                );
+                
+                // Upload the DICOM file to Firebase Storage
+                const noteToSave = (providedNote && typeof providedNote === 'string' && providedNote.trim() !== '')
+                  ? providedNote.trim()
+                  : (providedNote || null);
+                
+                const dateForFilename = providedDate || dicomProcessingResult.extractedDate || null;
+                const dicomDirMeta = entries?.[fileIndex]?.dicomDirMeta || null;
+
+                await uploadDocument(dicomFile, user.uid, {
+                  category: 'Scan',
+                  documentType: 'Scan',
+                  date: dateForFilename,
+                  note: noteToSave,
+                  dataPointCount: dicomProcessingResult.dataPointCount || 0,
+                  dicomMetadata: dicomProcessingResult.dicomMetadata || null,
+                  dicomDirMeta: dicomDirMeta || undefined,
+                  isZipBatch: true, // Flag to skip rate limit for ZIP batch uploads
+                });
+
+                const uploadedFileName = dicomFile?.name || `File ${displayIndex}`;
+                if (extractOnDemand) dicomFile = null;
+
+                return { success: true, fileName: uploadedFileName };
+              } catch (error) {
+                console.error(`Error processing DICOM file ${fileIndex + 1} from ZIP:`, error);
+                return {
+                  success: false,
+                  fileName: `File ${displayIndex}`,
+                  error: error.message || 'Unknown error'
+                };
+              }
+            })();
+            
+            batchPromises.push(promise);
+          }
+          
+          // Wait for batch to complete
+          const batchResults = await Promise.all(batchPromises);
+          
+          // Count successes and failures
+          batchResults.forEach(result => {
+            if (result.success) {
+              successCount++;
+            } else {
+              failureCount++;
+              failedFiles.push({
+                fileName: result.fileName,
+                error: result.error
+              });
+            }
+          });
+          
+          // Update document progress
+          const processedCount = successCount + failureCount;
+          setDocumentProgress({ current: processedCount, total: totalFiles });
+          
+          // Update progress message
+          setUploadProgress(`${fileProgressPrefix}Processed ${processedCount}/${totalFiles} files...`);
+          
+            // For large ZIPs, add a small delay between batches to allow garbage collection
+            if (extractOnDemand && batchIndex < totalBatches - 1) {
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
+          }
+
+          // Clear document progress when done
+          setDocumentProgress({ current: 0, total: 0 });
+
+          // Show appropriate message based on results
+          if (successCount === 0) {
+            const errorDetails = failedFiles.length > 0
+              ? `\n\nFailed files:\n${failedFiles.map((f, idx) => `${idx + 1}. ${f.fileName}: ${f.error}`).join('\n')}`
+              : '';
+            throw new Error(`Failed to process all ${totalFiles} DICOM file${totalFiles !== 1 ? 's' : ''} from ZIP archive.${errorDetails}`);
+          } else if (failureCount > 0) {
+            const errorDetails = failedFiles.length <= 5
+              ? `\n\nFailed files:\n${failedFiles.map((f, idx) => `${idx + 1}. ${f.fileName}: ${f.error}`).join('\n')}`
+              : `\n\n${failedFiles.length} files failed. First 5 errors:\n${failedFiles.slice(0, 5).map((f, idx) => `${idx + 1}. ${f.fileName}: ${f.error}`).join('\n')}`;
+            showError(`Processed ${successCount} of ${totalFiles} DICOM file${totalFiles !== 1 ? 's' : ''} successfully. ${failureCount} file${failureCount !== 1 ? 's' : ''} failed.${errorDetails}`);
+          } else {
+            showSuccess(`Successfully processed ${successCount} DICOM file${successCount !== 1 ? 's' : ''} from ZIP archive`);
+          }
+
+          // Reload documents and health data
+          setUploadProgress(`${fileProgressPrefix}Refreshing document list...`);
+          try {
+            await reloadHealthData();
+            const updatedDocs = await documentService.getDocuments(user.uid);
+            console.log('Reloaded documents after ZIP processing:', {
+              count: updatedDocs.length,
+              documents: updatedDocs.map(d => ({ id: d.id, fileName: d.fileName || d.name, documentType: d.documentType || d.type }))
+            });
+
+            if (updatedDocs.length === 0) {
+              console.warn('WARNING: No documents found after ZIP processing. Files may not have been saved correctly.');
+              showError('Files were processed but could not be found. Please refresh the page or check the console for errors.');
+            }
+
+            setDocuments(updatedDocs);
+            setHasUploadedDocument(updatedDocs.length > 0);
+          } catch (reloadError) {
+            console.error('Error reloading documents after ZIP processing:', reloadError);
+            showError('Files were processed but there was an error loading them. Please refresh the page.');
+          }
+
+          setIsUploading(false);
+          setUploadProgress('');
+          setAiStatus(null);
+          return;
+          }
+        });
+
+        return; // Exit early - user will choose via modal
+      }
+      
+      // Extract data counts from processing result (for non-ZIP files)
       if (processingResult.extractedData) {
         const counts = {
           labs: processingResult.extractedData.labs?.length || 0,
@@ -507,7 +830,8 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
         documentType: processingResult.documentType || docType,
         date: dateForFilename, // Pass the date (user-provided or AI-extracted) for filename
         note: noteToSave, // Pass the note (already normalized)
-        dataPointCount: processingResult.dataPointCount || 0
+        dataPointCount: processingResult.dataPointCount || 0,
+        dicomMetadata: processingResult.dicomMetadata || null // Include DICOM metadata if present
       });
 
 
@@ -590,7 +914,21 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
     } catch (error) {
       // Only show error and close overlay if not part of a batch (batch handler will show summary)
       if (currentFileNumber === null) {
-        showError(`Failed to process document: ${error.message}. The file was not uploaded. Please try again or contact support if the issue persists.`);
+        // Provide more helpful error messages based on error type
+        let errorMessage = error.message || 'Unknown error occurred';
+        
+        // Enhance error messages for common issues
+        if (errorMessage.includes('ZIP') || errorMessage.includes('zip')) {
+          errorMessage = `Failed to process ZIP file: ${errorMessage}\n\nPlease ensure:\n- The file is a valid ZIP archive\n- The ZIP contains DICOM files (.dcm or files without extensions)\n- The file is not corrupted`;
+        } else if (errorMessage.includes('DICOM') || errorMessage.includes('dicom')) {
+          errorMessage = `Failed to process DICOM file: ${errorMessage}\n\nPlease ensure:\n- The file is a valid DICOM format\n- The file is not corrupted\n- Try uploading individual files if ZIP upload fails`;
+        } else if (errorMessage.includes('validation') || errorMessage.includes('File type not allowed')) {
+          errorMessage = `File validation failed: ${errorMessage}\n\nSupported file types: PDF, images, documents, DICOM files (.dcm), and ZIP archives containing DICOM files`;
+        } else if (errorMessage.includes('size') || errorMessage.includes('too large')) {
+          errorMessage = `File size error: ${errorMessage}\n\nMaximum file size is 50MB for DICOM files and ZIP archives`;
+        }
+        
+        showError(`Failed to process document: ${errorMessage}\n\nThe file was not uploaded. Please try again or contact support if the issue persists.`);
         setIsUploading(false);
         setUploadProgress('');
         setAiStatus(null);
@@ -797,9 +1135,50 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
             <div className={combineClasses(DesignTokens.spacing.iconContainer.full, DesignTokens.borders.radius.sm, DesignTokens.colors.neutral[100])}>
               <FolderOpen className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.neutral.text[500])} />
             </div>
-            Medical Documents
+            <span>Medical Documents</span>
+            {documents.length > 0 && (
+              <span className={combineClasses(
+                'px-2 py-0.5 rounded-full text-xs font-medium',
+                DesignTokens.colors.neutral[200],
+                DesignTokens.colors.neutral.text[600]
+              )}>
+                {documents.length}
+              </span>
+            )}
           </div>
             <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm)}>
+            <button
+              onClick={async () => {
+                try {
+                  setIsRefreshing(true);
+                  const docs = await documentService.getDocuments(user.uid);
+                  setDocuments(docs);
+                  setHasUploadedDocument(docs.length > 0);
+                  console.log('Manually refreshed documents:', docs.length);
+                } catch (error) {
+                  console.error('Error refreshing documents:', error);
+                } finally {
+                  // Keep animation for at least 500ms for visual feedback
+                  setTimeout(() => setIsRefreshing(false), 500);
+                }
+              }}
+              className={combineClasses(
+                'flex items-center',
+                DesignTokens.spacing.gap.sm,
+                DesignTokens.colors.neutral.text[500],
+                'hover:' + DesignTokens.colors.neutral.text[700],
+                DesignTokens.transitions.default
+              )}
+              title="Refresh document list"
+            >
+              <RefreshCw 
+                className={combineClasses(
+                  DesignTokens.icons.standard.size.full,
+                  isRefreshing ? 'animate-spin' : '',
+                  DesignTokens.transitions.default
+                )} 
+              />
+            </button>
             <button
               onClick={() => openDocumentOnboarding('general')}
               className={combineClasses(
@@ -856,8 +1235,9 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
             
             {/* Filtered Documents */}
             <div className="space-y-2">
-              {documents
-                .filter(doc => {
+              {(() => {
+                // First, filter documents
+                const filteredDocs = documents.filter(doc => {
                   if (!documentSearchQuery.trim()) return true;
                   const query = documentSearchQuery.toLowerCase();
                   const fileName = (doc.fileName || doc.name || 'Untitled Document').toLowerCase();
@@ -865,8 +1245,410 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
                   const note = (doc.note || '').toLowerCase();
                   const label = getIconConfig(doc.documentType || doc.type).label.toLowerCase();
                   return fileName.includes(query) || docType.includes(query) || note.includes(query) || label.includes(query);
-                })
-                .map(doc => {
+                });
+
+                // Group DICOM files by study/series. Prefer dicomDirMeta (from DICOMDIR) when available.
+                function formatStudyDate(d) {
+                  if (!d || typeof d !== 'string') return null;
+                  if (d.match(/^\d{8}$/)) return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+                  return d;
+                }
+                const dicomGroups = new Map();
+                const nonDicomDocs = [];
+
+                filteredDocs.forEach(doc => {
+                  const isDicom = doc.dicomMetadata ||
+                    (doc.fileName && (doc.fileName.toLowerCase().endsWith('.dcm') || doc.fileName.toLowerCase().endsWith('.dicom'))) ||
+                    (doc.fileType && (doc.fileType === 'application/dicom' || doc.fileType === 'application/x-dicom'));
+
+                  if (isDicom && doc.dicomMetadata) {
+                    const md = doc.dicomMetadata;
+                    const ddm = doc.dicomDirMeta || null;
+                    const studyUID = (ddm?.study?.studyInstanceUID) || md.studyInstanceUID;
+                    const seriesUID = (ddm?.series?.seriesInstanceUID) || md.seriesInstanceUID;
+                    const groupKey = seriesUID || studyUID;
+
+                    if (groupKey) {
+                      if (!dicomGroups.has(groupKey)) {
+                        dicomGroups.set(groupKey, {
+                          key: groupKey,
+                          studyInstanceUID: studyUID,
+                          seriesInstanceUID: seriesUID,
+                          studyDescription: (ddm?.study?.studyDescription) ?? md.studyDescription,
+                          studyDate: (ddm?.study?.studyDate) ?? md.studyDate,
+                          studyDateFormatted: md.studyDateFormatted || (ddm?.study?.studyDate && formatStudyDate(ddm.study.studyDate)),
+                          modality: (ddm?.series?.modality) ?? md.modality,
+                          bodyPartExamined: (ddm?.series?.bodyPartExamined) ?? md.bodyPartExamined,
+                          institutionName: md.institutionName,
+                          files: [],
+                        });
+                      }
+                      dicomGroups.get(groupKey).files.push(doc);
+                    } else {
+                      nonDicomDocs.push(doc);
+                    }
+                  } else {
+                    nonDicomDocs.push(doc);
+                  }
+                });
+
+                // Convert groups to array and sort files by instance number (slice position) for proper viewing
+                const groupsArray = Array.from(dicomGroups.values()).map(group => {
+                  const dates = group.files
+                    .map(f => f.dicomDirMeta?.study?.studyDate || f.dicomMetadata?.studyDate || f.dicomMetadata?.studyDateFormatted || f.date)
+                    .filter(d => d)
+                    .map(d => {
+                      // Try to parse date - could be YYYYMMDD or YYYY-MM-DD
+                      if (typeof d === 'string') {
+                        if (d.match(/^\d{8}$/)) {
+                          // YYYYMMDD format
+                          return new Date(d.substring(0, 4), parseInt(d.substring(4, 6)) - 1, d.substring(6, 8));
+                        } else if (d.match(/^\d{4}-\d{2}-\d{2}/)) {
+                          // YYYY-MM-DD format
+                          return new Date(d);
+                        }
+                      }
+                      return d ? new Date(d) : null;
+                    })
+                    .filter(d => d && !isNaN(d.getTime()));
+                  
+                  let dateRange = null;
+                  if (dates.length > 0) {
+                    const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+                    const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+                    
+                    // Format as YYYY-MM or YYYY if all in same month
+                    const minYear = minDate.getFullYear();
+                    const minMonth = minDate.getMonth() + 1;
+                    const maxYear = maxDate.getFullYear();
+                    const maxMonth = maxDate.getMonth() + 1;
+                    
+                    if (minYear === maxYear && minMonth === maxMonth) {
+                      // All files from same month
+                      dateRange = `${minYear}-${String(minMonth).padStart(2, '0')}`;
+                    } else if (minYear === maxYear) {
+                      // Same year, different months
+                      dateRange = `${minYear}-${String(minMonth).padStart(2, '0')} to ${String(maxMonth).padStart(2, '0')}`;
+                    } else {
+                      // Different years
+                      dateRange = `${minYear}-${String(minMonth).padStart(2, '0')} to ${maxYear}-${String(maxMonth).padStart(2, '0')}`;
+                    }
+                  }
+                  
+                  return {
+                    ...group,
+                    dateRange, // Add date range to group
+                    files: group.files.sort((a, b) => {
+                      const instanceA = a.dicomDirMeta?.image?.instanceNumber ?? a.dicomMetadata?.instanceNumber;
+                      const instanceB = b.dicomDirMeta?.image?.instanceNumber ?? b.dicomMetadata?.instanceNumber;
+                      if (instanceA != null && instanceB != null) {
+                        const numA = parseInt(instanceA, 10) || 0;
+                        const numB = parseInt(instanceB, 10) || 0;
+                        return numA - numB;
+                      }
+                      const sliceA = a.dicomDirMeta?.image?.sliceLocation ?? a.dicomMetadata?.sliceLocation;
+                      const sliceB = b.dicomDirMeta?.image?.sliceLocation ?? b.dicomMetadata?.sliceLocation;
+                      if (sliceA != null && sliceB != null) {
+                        return (parseFloat(sliceA) || 0) - (parseFloat(sliceB) || 0);
+                      }
+                      return (a.date || a.createdAt || 0) - (b.date || b.createdAt || 0);
+                    })
+                  };
+                }).sort((a, b) => {
+                  // Sort groups by study date (newest first)
+                  const dateA = a.studyDate || a.files[0]?.date || a.files[0]?.createdAt || 0;
+                  const dateB = b.studyDate || b.files[0]?.date || b.files[0]?.createdAt || 0;
+                  return dateB - dateA;
+                });
+
+                // Combine groups and non-DICOM docs, interleaving by date
+                const allItems = [...groupsArray, ...nonDicomDocs].sort((a, b) => {
+                  const dateA = a.studyDate || a.date || a.createdAt || (a.files?.[0]?.date || a.files?.[0]?.createdAt) || 0;
+                  const dateB = b.studyDate || b.date || b.createdAt || (b.files?.[0]?.date || b.files?.[0]?.createdAt) || 0;
+                  return dateB - dateA;
+                });
+
+                return allItems.map((item, index) => {
+                  // Check if this is a DICOM group
+                  if (item.files && item.files.length > 0) {
+                    // This is a DICOM group
+                    const group = item;
+                    const isExpanded = expandedDicomGroups.has(group.key);
+                    const groupDoc = group.files[0]; // Use first file for display
+                    const iconConfig = getIconConfig(groupDoc.documentType || groupDoc.type);
+                    const groupName = group.studyDescription || 
+                                     (group.modality ? `${group.modality} Study` : null) ||
+                                     `DICOM Study (${group.files.length} file${group.files.length !== 1 ? 's' : ''})`;
+
+                    return (
+                      <div
+                        key={`dicom-group-${group.key}`}
+                        className={combineClasses(
+                          DesignTokens.components.card.base,
+                          DesignTokens.borders.radius.lg,
+                          DesignTokens.spacing.card.full,
+                          'relative',
+                          'hover:shadow-md',
+                          DesignTokens.transitions.default
+                        )}
+                      >
+                        {/* Group Header */}
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            <div
+                              className={combineClasses(
+                                'flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center',
+                                iconConfig.bgColor
+                              )}
+                            >
+                              {iconConfig.icon}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className={combineClasses(
+                                  DesignTokens.typography.body.base,
+                                  'font-semibold',
+                                  DesignTokens.colors.neutral.text[900],
+                                  'truncate'
+                                )}>
+                                  {groupName}
+                                </h3>
+                                <span className={combineClasses(
+                                  'px-2 py-0.5 rounded-full text-xs font-medium',
+                                  DesignTokens.colors.neutral[200],
+                                  DesignTokens.colors.neutral.text[600]
+                                )}>
+                                  {group.files.length} file{group.files.length !== 1 ? 's' : ''}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 mt-1 flex-wrap">
+                                {group.modality && (
+                                  <span className={combineClasses(
+                                    DesignTokens.typography.body.sm,
+                                    DesignTokens.colors.neutral.text[600]
+                                  )}>
+                                    {group.modality}
+                                  </span>
+                                )}
+                                {group.bodyPartExamined && (
+                                  <span className={combineClasses(
+                                    DesignTokens.typography.body.sm,
+                                    DesignTokens.colors.neutral.text[600]
+                                  )}>
+                                    {group.bodyPartExamined}
+                                  </span>
+                                )}
+                                {group.dateRange && (
+                                  <span className={combineClasses(
+                                    DesignTokens.typography.body.sm,
+                                    DesignTokens.colors.neutral.text[500],
+                                    'font-medium'
+                                  )}>
+                                    {group.dateRange}
+                                  </span>
+                                )}
+                                {group.studyDateFormatted && !group.dateRange && (
+                                  <span className={combineClasses(
+                                    DesignTokens.typography.body.sm,
+                                    DesignTokens.colors.neutral.text[500]
+                                  )}>
+                                    {group.studyDateFormatted}
+                                  </span>
+                                )}
+                                {group.institutionName && (
+                                  <span className={combineClasses(
+                                    DesignTokens.typography.body.sm,
+                                    DesignTokens.colors.neutral.text[500],
+                                    'truncate max-w-xs'
+                                  )}>
+                                    {group.institutionName}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Open viewer with all files in the group
+                                if (onOpenDicomViewer) {
+                                  onOpenDicomViewer(group.files);
+                                }
+                              }}
+                              className={combineClasses(
+                                'px-3 py-1.5 rounded-md text-sm font-medium',
+                                'transition-colors',
+                                DesignTokens.colors.app[500],
+                                'text-white',
+                                'hover:' + DesignTokens.colors.app[600]
+                              )}
+                              title={`View all ${group.files.length} DICOM files in series viewer`}
+                            >
+                              View All
+                            </button>
+                            <button
+                              onClick={() => {
+                                setExpandedDicomGroups(prev => {
+                                  const next = new Set(prev);
+                                  if (isExpanded) {
+                                    next.delete(group.key);
+                                  } else {
+                                    next.add(group.key);
+                                  }
+                                  return next;
+                                });
+                              }}
+                              className={combineClasses(
+                                'px-3 py-1.5 rounded-md text-sm font-medium',
+                                'transition-colors',
+                                DesignTokens.colors.neutral[100],
+                                DesignTokens.colors.neutral.text[700],
+                                'hover:' + DesignTokens.colors.neutral[200]
+                              )}
+                            >
+                              {isExpanded ? 'Collapse' : 'Expand'} ({group.files.length})
+                            </button>
+                            {/* Delete button for DICOM group */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const groupName = group.studyDescription || 
+                                                group.modality || 
+                                                `DICOM Study (${group.files.length} file${group.files.length !== 1 ? 's' : ''})`;
+                                setDeleteConfirm({
+                                  show: true,
+                                  title: `Delete DICOM Study?`,
+                                  message: `This will permanently delete all ${group.files.length} DICOM file${group.files.length !== 1 ? 's' : ''} in this study "${groupName}". This action cannot be undone.`,
+                                  itemName: `"${groupName}"`,
+                                  confirmText: 'Yes, Delete Permanently',
+                                  onConfirm: async () => {
+                                    try {
+                                      setIsDeleting(true);
+                                      
+                                      // Delete all files in the group in parallel batches for better performance
+                                      const BATCH_SIZE = 10; // Process 10 files at a time to avoid overwhelming Firebase
+                                      const files = group.files;
+                                      let successCount = 0;
+                                      let failureCount = 0;
+                                      
+                                      for (let i = 0; i < files.length; i += BATCH_SIZE) {
+                                        const batch = files.slice(i, i + BATCH_SIZE);
+                                        const batchPromises = batch.map(async (doc) => {
+                                          try {
+                                            // Clean up associated health data for each file
+                                            await cleanupDocumentData(doc.id, user.uid, false);
+                                            // Delete the document
+                                            await deleteDocument(doc.id, doc.storagePath, user.uid);
+                                            return { success: true, fileName: doc.fileName };
+                                          } catch (fileError) {
+                                            console.error(`Error deleting file ${doc.fileName}:`, fileError);
+                                            return { success: false, fileName: doc.fileName, error: fileError };
+                                          }
+                                        });
+                                        
+                                        const batchResults = await Promise.all(batchPromises);
+                                        batchResults.forEach(result => {
+                                          if (result.success) {
+                                            successCount++;
+                                          } else {
+                                            failureCount++;
+                                          }
+                                        });
+                                      }
+                                      
+                                      // Reload documents
+                                      const updatedDocs = await documentService.getDocuments(user.uid);
+                                      setDocuments(updatedDocs);
+                                      setHasUploadedDocument(updatedDocs.length > 0);
+                                      
+                                      // Reload health data to reflect deletions
+                                      await reloadHealthData();
+                                      
+                                      if (failureCount > 0) {
+                                        showError(`Deleted ${successCount} file${successCount !== 1 ? 's' : ''} successfully, but ${failureCount} file${failureCount !== 1 ? 's' : ''} failed to delete.`);
+                                      } else {
+                                        showSuccess(`Deleted ${successCount} DICOM file${successCount !== 1 ? 's' : ''} successfully.`);
+                                      }
+                                    } catch (error) {
+                                      showError('Failed to delete DICOM study. Please try again.');
+                                    } finally {
+                                      setIsDeleting(false);
+                                    }
+                                  }
+                                });
+                              }}
+                              className={combineClasses(
+                                'px-3 py-1.5 rounded-md text-sm font-medium',
+                                'transition-colors',
+                                DesignTokens.components.status.high.text,
+                                DesignTokens.components.status.high.bg,
+                                'hover:bg-red-600',
+                                'hover:text-white'
+                              )}
+                              title="Delete all files in this DICOM study"
+                            >
+                              <Trash2 className="w-4 h-4 inline mr-1" />
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Expanded Files List */}
+                        {isExpanded && (
+                          <div className="mt-4 space-y-2 border-t border-gray-200 pt-4">
+                            {group.files.map((doc, fileIndex) => {
+                              const fileIconConfig = getIconConfig(doc.documentType || doc.type);
+                              const fileName = doc.fileName || doc.name || 'Untitled Document';
+                              const fileDate = doc.date ? formatDateString(doc.date) : null;
+
+                              return (
+                                <div
+                                  key={doc.id}
+                                  className={combineClasses(
+                                    'flex items-center justify-between gap-4 p-3 rounded-lg',
+                                    'hover:bg-gray-50',
+                                    DesignTokens.transitions.default
+                                  )}
+                                >
+                                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                                    <div
+                                      className={combineClasses(
+                                        'flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center',
+                                        fileIconConfig.bgColor
+                                      )}
+                                    >
+                                      {fileIconConfig.icon}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className={combineClasses(
+                                        DesignTokens.typography.body.sm,
+                                        'font-medium',
+                                        DesignTokens.colors.neutral.text[900],
+                                        'truncate'
+                                      )}>
+                                        {fileName}
+                                      </div>
+                                      {fileDate && (
+                                        <div className={combineClasses(
+                                          DesignTokens.typography.body.xs,
+                                          DesignTokens.colors.neutral.text[500]
+                                        )}>
+                                          {fileDate}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  } else {
+                    // Regular non-DICOM document
+                    const doc = item;
               const iconConfig = getIconConfig(doc.documentType || doc.type);
               const fileName = doc.fileName || doc.name || 'Untitled Document';
 
@@ -920,82 +1702,15 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
                   DesignTokens.transitions.default,
                   `hover:${DesignTokens.colors.neutral[50]}`
                 )}>
-                  {/* Action buttons with tooltips - top right corner */}
-                  <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
-                    {/* View button */}
-                    {doc.fileUrl && (
-                      <div className="relative">
-                        <a
-                          href={doc.fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={combineClasses(
-                            DesignTokens.spacing.iconContainer.full,
-                            DesignTokens.borders.radius.full,
-                            DesignTokens.transitions.default,
-                            DesignTokens.spacing.touchTarget,
-                            'min-w-[32px] h-8 flex items-center justify-center touch-manipulation active:opacity-70',
-                            DesignTokens.colors.neutral.text[500],
-                            `hover:${DesignTokens.colors.neutral[100]}`,
-                            `hover:${DesignTokens.colors.neutral.text[700]}`
-                          )}
-                          onClick={(e) => e.stopPropagation()}
-                          onMouseEnter={() => setHoveredTooltip(`${doc.id}-view`)}
-                          onMouseLeave={() => setHoveredTooltip(null)}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </a>
-                        {hoveredTooltip === `${doc.id}-view` && (
-                          <div className={combineClasses(
-                            'absolute top-full right-0 mt-1 px-2 py-1 rounded text-xs whitespace-nowrap z-50 pointer-events-none',
-                            'bg-gray-900 text-white shadow-lg'
-                          )}>
-                            View File
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Info/Metadata button */}
-                    <div className="relative">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                          setShowDocumentMetadata(doc);
-                      }}
-                      className={combineClasses(
-                        DesignTokens.spacing.iconContainer.full,
-                        DesignTokens.borders.radius.full,
-                        DesignTokens.transitions.default,
-                        DesignTokens.spacing.touchTarget,
-                          'min-w-[32px] h-8 flex items-center justify-center touch-manipulation active:opacity-70',
-                        DesignTokens.colors.neutral.text[500],
-                        `hover:${DesignTokens.colors.neutral[100]}`,
-                        `hover:${DesignTokens.colors.neutral.text[700]}`
-                      )}
-                        onMouseEnter={() => setHoveredTooltip(`${doc.id}-info`)}
-                        onMouseLeave={() => setHoveredTooltip(null)}
-                    >
-                        <Info className="w-4 h-4" />
-                    </button>
-                      {hoveredTooltip === `${doc.id}-info` && (
-                        <div className={combineClasses(
-                          'absolute top-full right-0 mt-1 px-2 py-1 rounded text-xs whitespace-nowrap z-50 pointer-events-none',
-                          'bg-gray-900 text-white shadow-lg'
-                        )}>
-                          View Metadata
-                        </div>
-                      )}
-                  </div>
-                  
-                    {/* Edit button */}
-                    <div className="relative">
+                  {/* Action buttons - Desktop: individual buttons, Mobile: three-dot menu */}
+                  <div className="absolute top-2 right-2 z-10">
+                    {/* Mobile: Three-dot menu */}
+                    <div className="relative sm:hidden">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           e.preventDefault();
-                          setEditingDocumentNote(doc);
+                          setOpenMenuId(openMenuId === doc.id ? null : doc.id);
                         }}
                         className={combineClasses(
                           DesignTokens.spacing.iconContainer.full,
@@ -1004,32 +1719,232 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
                           DesignTokens.spacing.touchTarget,
                           'min-w-[32px] h-8 flex items-center justify-center touch-manipulation active:opacity-70',
                           DesignTokens.colors.neutral.text[500],
+                          openMenuId === doc.id ? DesignTokens.colors.neutral[100] : '',
                           `hover:${DesignTokens.colors.neutral[100]}`,
                           `hover:${DesignTokens.colors.neutral.text[700]}`
                         )}
-                        onMouseEnter={() => setHoveredTooltip(`${doc.id}-edit`)}
-                        onMouseLeave={() => setHoveredTooltip(null)}
                       >
-                        <Edit2 className="w-4 h-4" />
+                        <MoreVertical className="w-4 h-4" />
                       </button>
-                      {hoveredTooltip === `${doc.id}-edit` && (
-                        <div className={combineClasses(
-                          'absolute top-full right-0 mt-1 px-2 py-1 rounded text-xs whitespace-nowrap z-50 pointer-events-none',
-                          'bg-gray-900 text-white shadow-lg'
-                        )}>
-                          Edit Name, Date & Note
-                        </div>
+                      
+                      {/* Dropdown menu */}
+                      {openMenuId === doc.id && (
+                        <>
+                          {/* Backdrop to close menu on outside click */}
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuId(null);
+                            }}
+                          />
+                          <div className={combineClasses(
+                            'absolute top-full right-0 mt-1 min-w-[180px] rounded-lg shadow-lg z-50',
+                            'bg-white border border-gray-200',
+                            'py-1'
+                          )}>
+                            {/* View option */}
+                            {doc.fileUrl && (() => {
+                              const isDicom = doc.dicomMetadata || 
+                                             (doc.fileName && (doc.fileName.toLowerCase().endsWith('.dcm') || doc.fileName.toLowerCase().endsWith('.dicom'))) ||
+                                             (doc.fileType && (doc.fileType === 'application/dicom' || doc.fileType === 'application/x-dicom'));
+                              
+                              return (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenMenuId(null);
+                                    if (isDicom) {
+                                      if (onOpenDicomViewer) {
+                                        onOpenDicomViewer([doc]);
+                                      }
+                                    } else {
+                                      window.open(doc.fileUrl, '_blank', 'noopener,noreferrer');
+                                    }
+                                  }}
+                                  className={combineClasses(
+                                    'w-full px-4 py-2 text-left text-sm flex items-center gap-2',
+                                    'hover:bg-gray-50',
+                                    DesignTokens.colors.neutral.text[700]
+                                  )}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                  {isDicom ? 'View DICOM' : 'View File'}
+                                </button>
+                              );
+                            })()}
+                            
+                            {/* Metadata option */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuId(null);
+                                setShowDocumentMetadata(doc);
+                              }}
+                              className={combineClasses(
+                                'w-full px-4 py-2 text-left text-sm flex items-center gap-2',
+                                'hover:bg-gray-50',
+                                DesignTokens.colors.neutral.text[700]
+                              )}
+                            >
+                              <Info className="w-4 h-4" />
+                              View Metadata
+                            </button>
+                            
+                            {/* Edit option */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuId(null);
+                                setEditingDocumentNote(doc);
+                              }}
+                              className={combineClasses(
+                                'w-full px-4 py-2 text-left text-sm flex items-center gap-2',
+                                'hover:bg-gray-50',
+                                DesignTokens.colors.neutral.text[700]
+                              )}
+                            >
+                              <Edit2 className="w-4 h-4" />
+                              Edit Name, Date & Note
+                            </button>
+                            
+                            {/* Rescan option - show for processable document types */}
+                            {(doc.documentType === 'Lab' || doc.type === 'Lab' || doc.documentType === 'Vitals' || doc.type === 'Vitals' || doc.documentType === 'Genomic' || doc.type === 'Genomic' || doc.documentType === 'blood-test') && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenMenuId(null);
+                                  setRescanDocument(doc);
+                                }}
+                                className={combineClasses(
+                                  'w-full px-4 py-2 text-left text-sm flex items-center gap-2',
+                                  'hover:bg-gray-50',
+                                  DesignTokens.colors.neutral.text[700]
+                                )}
+                              >
+                                <RefreshCw className="w-4 h-4" />
+                                Rescan Document
+                              </button>
+                            )}
+                            
+                            {/* Divider */}
+                            <div className="border-t border-gray-200 my-1" />
+                            
+                            {/* Delete option */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuId(null);
+                                handleDelete(e);
+                              }}
+                              className={combineClasses(
+                                'w-full px-4 py-2 text-left text-sm flex items-center gap-2',
+                                'hover:bg-red-50',
+                                DesignTokens.components.status.high.text
+                              )}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Delete Document
+                            </button>
+                          </div>
+                        </>
                       )}
                     </div>
+                    
+                    {/* Desktop: Individual buttons with tooltips */}
+                    <div className="hidden sm:flex items-center gap-1">
+                      {/* View button */}
+                      {doc.fileUrl && (
+                        <div className="relative">
+                          {(() => {
+                            // Check if this is a DICOM file
+                            const isDicom = doc.dicomMetadata || 
+                                           (doc.fileName && (doc.fileName.toLowerCase().endsWith('.dcm') || doc.fileName.toLowerCase().endsWith('.dicom'))) ||
+                                           (doc.fileType && (doc.fileType === 'application/dicom' || doc.fileType === 'application/x-dicom'));
+                            
+                            if (isDicom) {
+                              // DICOM file - open viewer modal
+                              return (
+                                <>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                      if (onOpenDicomViewer) {
+                                        onOpenDicomViewer([doc]);
+                                      }
+                                    }}
+                                    className={combineClasses(
+                                      DesignTokens.spacing.iconContainer.full,
+                                      DesignTokens.borders.radius.full,
+                                      DesignTokens.transitions.default,
+                                      DesignTokens.spacing.touchTarget,
+                                      'min-w-[32px] h-8 flex items-center justify-center touch-manipulation active:opacity-70',
+                                      DesignTokens.colors.neutral.text[500],
+                                      `hover:${DesignTokens.colors.neutral[100]}`,
+                                      `hover:${DesignTokens.colors.neutral.text[700]}`
+                                    )}
+                                    onMouseEnter={() => setHoveredTooltip(`${doc.id}-view`)}
+                                    onMouseLeave={() => setHoveredTooltip(null)}
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                  {hoveredTooltip === `${doc.id}-view` && (
+                                    <div className={combineClasses(
+                                      'absolute top-full right-0 mt-1 px-2 py-1 rounded text-xs whitespace-nowrap z-50 pointer-events-none',
+                                      'bg-gray-900 text-white shadow-lg'
+                                    )}>
+                                      View DICOM
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            } else {
+                              // Regular file - open in new tab
+                              return (
+                                <>
+                                  <a
+                                    href={doc.fileUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={combineClasses(
+                                      DesignTokens.spacing.iconContainer.full,
+                                      DesignTokens.borders.radius.full,
+                                      DesignTokens.transitions.default,
+                                      DesignTokens.spacing.touchTarget,
+                                      'min-w-[32px] h-8 flex items-center justify-center touch-manipulation active:opacity-70',
+                                      DesignTokens.colors.neutral.text[500],
+                                      `hover:${DesignTokens.colors.neutral[100]}`,
+                                      `hover:${DesignTokens.colors.neutral.text[700]}`
+                                    )}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onMouseEnter={() => setHoveredTooltip(`${doc.id}-view`)}
+                                    onMouseLeave={() => setHoveredTooltip(null)}
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </a>
+                                  {hoveredTooltip === `${doc.id}-view` && (
+                                    <div className={combineClasses(
+                                      'absolute top-full right-0 mt-1 px-2 py-1 rounded text-xs whitespace-nowrap z-50 pointer-events-none',
+                                      'bg-gray-900 text-white shadow-lg'
+                                    )}>
+                                      View File
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            }
+                          })()}
+                        </div>
+                      )}
 
-                    {/* Rescan button - show for processable document types */}
-                    {(doc.documentType === 'Lab' || doc.type === 'Lab' || doc.documentType === 'Vitals' || doc.type === 'Vitals' || doc.documentType === 'Genomic' || doc.type === 'Genomic' || doc.documentType === 'blood-test') && (
+                      {/* Info/Metadata button */}
                       <div className="relative">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
-                            setRescanDocument(doc);
+                            setShowDocumentMetadata(doc);
                           }}
                           className={combineClasses(
                             DesignTokens.spacing.iconContainer.full,
@@ -1041,52 +1956,120 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
                             `hover:${DesignTokens.colors.neutral[100]}`,
                             `hover:${DesignTokens.colors.neutral.text[700]}`
                           )}
-                          onMouseEnter={() => setHoveredTooltip(`${doc.id}-rescan`)}
+                          onMouseEnter={() => setHoveredTooltip(`${doc.id}-info`)}
                           onMouseLeave={() => setHoveredTooltip(null)}
                         >
-                          <RefreshCw className="w-4 h-4" />
+                          <Info className="w-4 h-4" />
                         </button>
-                        {hoveredTooltip === `${doc.id}-rescan` && (
+                        {hoveredTooltip === `${doc.id}-info` && (
                           <div className={combineClasses(
                             'absolute top-full right-0 mt-1 px-2 py-1 rounded text-xs whitespace-nowrap z-50 pointer-events-none',
                             'bg-gray-900 text-white shadow-lg'
                           )}>
-                            Rescan Document
+                            View Metadata
                           </div>
                         )}
                       </div>
-                    )}
-
-                    {/* Delete button */}
-                    <div className="relative">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          handleDelete(e);
-                        }}
-                        className={combineClasses(
-                          DesignTokens.spacing.iconContainer.full,
-                          DesignTokens.borders.radius.full,
-                          DesignTokens.transitions.default,
-                          DesignTokens.spacing.touchTarget,
-                          'min-w-[32px] h-8 flex items-center justify-center touch-manipulation active:opacity-70',
-                          DesignTokens.components.status.high.text,
-                          `hover:${DesignTokens.components.status.high.bg}`
+                      
+                      {/* Edit button */}
+                      <div className="relative">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            setEditingDocumentNote(doc);
+                          }}
+                          className={combineClasses(
+                            DesignTokens.spacing.iconContainer.full,
+                            DesignTokens.borders.radius.full,
+                            DesignTokens.transitions.default,
+                            DesignTokens.spacing.touchTarget,
+                            'min-w-[32px] h-8 flex items-center justify-center touch-manipulation active:opacity-70',
+                            DesignTokens.colors.neutral.text[500],
+                            `hover:${DesignTokens.colors.neutral[100]}`,
+                            `hover:${DesignTokens.colors.neutral.text[700]}`
+                          )}
+                          onMouseEnter={() => setHoveredTooltip(`${doc.id}-edit`)}
+                          onMouseLeave={() => setHoveredTooltip(null)}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        {hoveredTooltip === `${doc.id}-edit` && (
+                          <div className={combineClasses(
+                            'absolute top-full right-0 mt-1 px-2 py-1 rounded text-xs whitespace-nowrap z-50 pointer-events-none',
+                            'bg-gray-900 text-white shadow-lg'
+                          )}>
+                            Edit Name, Date & Note
+                          </div>
                         )}
-                        onMouseEnter={() => setHoveredTooltip(`${doc.id}-delete`)}
-                        onMouseLeave={() => setHoveredTooltip(null)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                      {hoveredTooltip === `${doc.id}-delete` && (
-                        <div className={combineClasses(
-                          'absolute top-full right-0 mt-1 px-2 py-1 rounded text-xs whitespace-nowrap z-50 pointer-events-none',
-                          'bg-gray-900 text-white shadow-lg'
-                        )}>
-                          Delete Document
+                      </div>
+
+                      {/* Rescan button - show for processable document types */}
+                      {(doc.documentType === 'Lab' || doc.type === 'Lab' || doc.documentType === 'Vitals' || doc.type === 'Vitals' || doc.documentType === 'Genomic' || doc.type === 'Genomic' || doc.documentType === 'blood-test') && (
+                        <div className="relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              setRescanDocument(doc);
+                            }}
+                            className={combineClasses(
+                              DesignTokens.spacing.iconContainer.full,
+                              DesignTokens.borders.radius.full,
+                              DesignTokens.transitions.default,
+                              DesignTokens.spacing.touchTarget,
+                              'min-w-[32px] h-8 flex items-center justify-center touch-manipulation active:opacity-70',
+                              DesignTokens.colors.neutral.text[500],
+                              `hover:${DesignTokens.colors.neutral[100]}`,
+                              `hover:${DesignTokens.colors.neutral.text[700]}`
+                            )}
+                            onMouseEnter={() => setHoveredTooltip(`${doc.id}-rescan`)}
+                            onMouseLeave={() => setHoveredTooltip(null)}
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                          </button>
+                          {hoveredTooltip === `${doc.id}-rescan` && (
+                            <div className={combineClasses(
+                              'absolute top-full right-0 mt-1 px-2 py-1 rounded text-xs whitespace-nowrap z-50 pointer-events-none',
+                              'bg-gray-900 text-white shadow-lg'
+                            )}>
+                              Rescan Document
+                            </div>
+                          )}
                         </div>
                       )}
+
+                      {/* Delete button */}
+                      <div className="relative">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            handleDelete(e);
+                          }}
+                          className={combineClasses(
+                            DesignTokens.spacing.iconContainer.full,
+                            DesignTokens.borders.radius.full,
+                            DesignTokens.transitions.default,
+                            DesignTokens.spacing.touchTarget,
+                            'min-w-[32px] h-8 flex items-center justify-center touch-manipulation active:opacity-70',
+                            DesignTokens.components.status.high.text,
+                            `hover:${DesignTokens.components.status.high.bg}`
+                          )}
+                          onMouseEnter={() => setHoveredTooltip(`${doc.id}-delete`)}
+                          onMouseLeave={() => setHoveredTooltip(null)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        {hoveredTooltip === `${doc.id}-delete` && (
+                          <div className={combineClasses(
+                            'absolute top-full right-0 mt-1 px-2 py-1 rounded text-xs whitespace-nowrap z-50 pointer-events-none',
+                            'bg-gray-900 text-white shadow-lg'
+                          )}>
+                            Delete Document
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                   
@@ -1151,7 +2134,9 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
                   
                 </div>
               );
-            })}
+                }
+              });
+                })()}
           </div>
           </div>
         )}
@@ -1370,6 +2355,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
         aiStatus={aiStatus}
         documentType={currentDocumentType}
         extractedDataCounts={extractedDataCounts}
+        documentProgress={documentProgress}
       />
 
       <DeletionConfirmationModal
@@ -1535,6 +2521,59 @@ export default function FilesTab({ onTabChange, onOpenMobileChat }) {
         document={showDocumentMetadata}
         onClose={() => setShowDocumentMetadata(null)}
       />
+
+      {/* ZIP Choice Modal - View Now vs Save to Library */}
+      {zipChoiceModal && (
+        <div className={combineClasses(DesignTokens.components.modal.backdrop, 'z-[101] animate-in fade-in duration-200')}>
+          <div className={combineClasses('bg-white', DesignTokens.borders.radius.lg, 'max-w-md w-full', DesignTokens.spacing.card.desktop, DesignTokens.shadows.lg, 'animate-fade-scale')}>
+            <div className={combineClasses('w-12 h-12', DesignTokens.colors.primary[100], DesignTokens.borders.radius.full, 'flex items-center justify-center', DesignTokens.spacing.header.mobile, 'mx-auto')}>
+              <FolderOpen className={combineClasses(DesignTokens.colors.primary.text[600], 'w-6 h-6')} />
+            </div>
+
+            <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, 'text-center mb-2', DesignTokens.colors.neutral.text[900])}>
+              ZIP Archive Detected
+            </h3>
+
+            <p className={combineClasses(DesignTokens.typography.body.sm, 'text-center mb-6', DesignTokens.colors.neutral.text[600])}>
+              Found {zipChoiceModal.totalFiles} DICOM file{zipChoiceModal.totalFiles !== 1 ? 's' : ''} in this ZIP archive.
+              <br />
+              <br />
+              <strong>View Now:</strong> Load instantly in viewer (no upload, like IMAIOS)
+              <br />
+              <strong>Save to Library:</strong> Upload all files to your library (permanent storage)
+            </p>
+
+            <div className={combineClasses('flex flex-col', DesignTokens.spacing.gap.md)}>
+              <button
+                onClick={zipChoiceModal.onViewNow}
+                className={combineClasses(DesignTokens.components.button.primary, 'w-full py-3 font-medium', DesignTokens.borders.radius.md, DesignTokens.shadows.lg, 'flex items-center justify-center gap-2 active:scale-[0.98]')}
+              >
+                <Eye className="w-5 h-5" />
+                View Now (Instant)
+              </button>
+              <button
+                onClick={zipChoiceModal.onSaveToLibrary}
+                className={combineClasses('w-full py-3 font-medium', DesignTokens.borders.radius.md, DesignTokens.typography.h2.weight, DesignTokens.transitions.default, 'flex items-center justify-center gap-2', DesignTokens.colors.neutral.text[700], DesignTokens.colors.neutral[100].replace('bg-', 'hover:bg-'), 'active:scale-[0.98]')}
+              >
+                <Upload className="w-5 h-5" />
+                Save to Library
+              </button>
+              <button
+                onClick={() => {
+                  setZipChoiceModal(null);
+                  setIsUploading(false);
+                  setUploadProgress('');
+                }}
+                className={combineClasses('w-full py-2 text-sm', DesignTokens.borders.radius.md, DesignTokens.transitions.default, 'flex items-center justify-center gap-2', DesignTokens.colors.neutral.text[500], 'hover:' + DesignTokens.colors.neutral.text[700], 'active:scale-[0.98]')}
+              >
+                <X className="w-4 h-4" />
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* DICOM Viewer is now handled by parent App component as full-screen page */}
 
       <AddJournalNoteModal
         show={showAddJournalNote}
