@@ -246,7 +246,9 @@ export const documentService = {
       // Ensure note is explicitly included - preserve string values, normalize empty strings to null
       note: (documentData.note !== undefined && documentData.note !== null && documentData.note !== '')
         ? (typeof documentData.note === 'string' ? documentData.note.trim() : documentData.note)
-        : null
+        : null,
+      // Preserve DICOM metadata if present
+      dicomMetadata: documentData.dicomMetadata || null
     };
     
     if (documentData.id) {
@@ -301,6 +303,52 @@ export const documentService = {
       await deleteDoc(docRef);
     } catch (error) {
       throw new Error(`Failed to delete document: ${error.message}. Code: ${error.code}`);
+    }
+  },
+
+  // Get documents by category
+  async getDocumentsByCategory(patientId, category) {
+    try {
+      // Try with orderBy first (requires index)
+      const q = query(
+        collection(db, COLLECTIONS.DOCUMENTS),
+        where('patientId', '==', patientId),
+        where('category', '==', category),
+        orderBy('date', 'desc')
+      );
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => {
+        const data = convertTimestamps(doc.data());
+        return {
+          id: doc.id,
+          ...data
+        };
+      });
+    } catch (error) {
+      // If index is not ready, fall back to query without orderBy
+      if (error.code === 'failed-precondition' || error.message?.includes('index')) {
+        console.warn('Index not ready, using fallback query without orderBy');
+        const q = query(
+          collection(db, COLLECTIONS.DOCUMENTS),
+          where('patientId', '==', patientId),
+          where('category', '==', category)
+        );
+        const querySnapshot = await getDocs(q);
+        const docs = querySnapshot.docs.map(doc => {
+          const data = convertTimestamps(doc.data());
+          return {
+            id: doc.id,
+            ...data
+          };
+        });
+        // Sort manually by date (descending)
+        return docs.sort((a, b) => {
+          const dateA = a.date?.toDate ? a.date.toDate().getTime() : (a.date ? new Date(a.date).getTime() : 0);
+          const dateB = b.date?.toDate ? b.date.toDate().getTime() : (b.date ? new Date(b.date).getTime() : 0);
+          return dateB - dateA;
+        });
+      }
+      throw error;
     }
   }
 };

@@ -509,10 +509,12 @@ async function buildHealthContextSection(healthContext, userId, patientProfile =
   // This allows us to use the document date entered during upload, or date ranges for multi-date documents
   let documentDateMap = {};
   let documentDateRangeMap = {};
+  let dicomScans = [];
   try {
     const { documentService } = await import('../firebase/services');
     const documents = await documentService.getDocuments(userId);
     // Create maps of documentId -> document date and date ranges
+    // Also collect DICOM scans for bot context
     documents.forEach(doc => {
       if (doc.id) {
         // For multi-date documents, use the date range
@@ -536,6 +538,18 @@ async function buildHealthContextSection(healthContext, userId, patientProfile =
           if (docDate) {
             documentDateMap[doc.id] = docDate;
           }
+        }
+        
+        // Collect DICOM scans
+        if (doc.dicomMetadata) {
+          const metadata = doc.dicomMetadata;
+          dicomScans.push({
+            modality: metadata.modality || 'Unknown',
+            studyDate: metadata.studyDateFormatted || metadata.studyDate || formatDateString(doc.date) || 'Unknown date',
+            studyDescription: metadata.studyDescription || null,
+            bodyPart: metadata.bodyPartExamined || null,
+            institution: metadata.institutionName || null
+          });
         }
       }
     });
@@ -714,6 +728,22 @@ async function buildHealthContextSection(healthContext, userId, patientProfile =
 
   // Generate structured insights using pattern recognition
   let structuredInsights = [];
+  // Build DICOM scans context section
+  let dicomContextSection = '';
+  if (dicomScans.length > 0) {
+    dicomContextSection = '\n\nDICOM Scans:\n';
+    dicomScans.forEach((scan, index) => {
+      dicomContextSection += `${index + 1}. ${scan.modality}${scan.bodyPart ? ` - ${scan.bodyPart}` : ''} (${scan.studyDate})`;
+      if (scan.studyDescription) {
+        dicomContextSection += `: ${scan.studyDescription}`;
+      }
+      if (scan.institution) {
+        dicomContextSection += ` [${scan.institution}]`;
+      }
+      dicomContextSection += '\n';
+    });
+  }
+
   try {
     // Check cache first
     const cacheKey = generateCacheKey(userId, 'health', {
@@ -721,7 +751,8 @@ async function buildHealthContextSection(healthContext, userId, patientProfile =
       vitals: healthContext.vitals || [],
       symptoms: healthContext.symptoms || [],
       notes,
-      medications
+      medications,
+      dicomScans: dicomScans.length
     });
     
     let insights = getCachedInsights(cacheKey);
@@ -819,7 +850,7 @@ VITAL SIGNS (${vitalsCount} tracked):
 ${vitalsSummary}
 
 SYMPTOMS (${symptomsCount} total, recent: ${recentSymptoms})
-
+${dicomContextSection}
 ${getHealthContextInstructions()}
 
 ═══════════════════════════════════════════════════════════════════════════════`;

@@ -15,6 +15,12 @@ export function classifyDocumentHeuristic(filename = '', mimetype = '', firstPag
   const lowerFilename = filename.toLowerCase();
   const lowerText = firstPageText.toLowerCase();
   
+  // DICOM file detection (check extension and MIME type first)
+  if (lowerFilename.endsWith('.dcm') || lowerFilename.endsWith('.dicom') ||
+      mimetype === 'application/dicom' || mimetype === 'application/x-dicom') {
+    return 'imaging';
+  }
+  
   // Genomic patterns
   const genomicPatterns = [
     /genetic|genomic|23andme|ancestry|brca|foundationone|foundation one|guardant|tempus|mutation|variant|gene|chromosome|dna|vaf|variant allele frequency/i,

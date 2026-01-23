@@ -959,15 +959,29 @@ export default function ChatTab({ onTabChange }) {
       setIsUploading(false);
       setUploadProgress('');
     } catch (error) {
+      // Provide more helpful error messages
+      let errorMessage = error.message || 'Unknown error occurred';
+      
+      // Enhance error messages for common issues
+      if (errorMessage.includes('ZIP') || errorMessage.includes('zip')) {
+        errorMessage = `Failed to process ZIP file: ${errorMessage}\n\nPlease ensure:\n- The file is a valid ZIP archive\n- The ZIP contains DICOM files (.dcm or files without extensions)\n- The file is not corrupted`;
+      } else if (errorMessage.includes('DICOM') || errorMessage.includes('dicom')) {
+        errorMessage = `Failed to process DICOM file: ${errorMessage}\n\nPlease ensure:\n- The file is a valid DICOM format\n- The file is not corrupted\n- Try uploading individual files if ZIP upload fails`;
+      } else if (errorMessage.includes('validation') || errorMessage.includes('File type not allowed')) {
+        errorMessage = `File validation failed: ${errorMessage}\n\nSupported file types: PDF, images, documents, DICOM files (.dcm), and ZIP archives containing DICOM files`;
+      }
 
       // Update messages with error
       setMessages(prev => [
         ...prev.slice(0, -1), // Remove "Processing..." message
         {
           type: 'ai',
-          text: `Failed to process document: ${error.message}\n\nThe file was not uploaded. Please try again or contact support if the issue persists.`
+          text: `Failed to process document: ${errorMessage}\n\nThe file was not uploaded. Please try again or contact support if the issue persists.`
         }
       ]);
+
+      // Also show error banner
+      showError(`Failed to upload document: ${error.message || 'Unknown error'}`);
 
       setIsUploading(false);
       setUploadProgress('');
@@ -979,7 +993,7 @@ export default function ChatTab({ onTabChange }) {
     const input = document.createElement('input');
     input.type = 'file';
     // Accept common document and genomic data file types (vcf, maf, bed, txt, csv, tsv, compressed)
-    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls';
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.ZIP,.gz,.xlsx,.xls,.dcm,.dicom,application/dicom,application/x-dicom,application/zip,*/*';
 
     input.onchange = async (e) => {
       const file = e.target.files[0];
@@ -995,7 +1009,7 @@ export default function ChatTab({ onTabChange }) {
     const input = document.createElement('input');
     input.type = 'file';
     // Accept common document types and images
-    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls,image/*';
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.ZIP,.gz,.xlsx,.xls,.dcm,.dicom,application/dicom,application/x-dicom,application/zip,image/*,*/*';
     // Hint mobile devices to open camera (this enables camera option in file picker)
     input.capture = 'environment';
 

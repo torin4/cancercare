@@ -238,7 +238,19 @@ setIsUploading(false);
        // Navigate to chat tab
        onTabChange('chat');
     } catch (error) {
-      showError(`Failed to process document: ${error.message}. The file was not uploaded. Please try again or contact support if the issue persists.`);
+      // Provide more helpful error messages
+      let errorMessage = error.message || 'Unknown error occurred';
+      
+      // Enhance error messages for common issues
+      if (errorMessage.includes('ZIP') || errorMessage.includes('zip')) {
+        errorMessage = `Failed to process ZIP file: ${errorMessage}\n\nPlease ensure:\n- The file is a valid ZIP archive\n- The ZIP contains DICOM files (.dcm or files without extensions)\n- The file is not corrupted`;
+      } else if (errorMessage.includes('DICOM') || errorMessage.includes('dicom')) {
+        errorMessage = `Failed to process DICOM file: ${errorMessage}\n\nPlease ensure:\n- The file is a valid DICOM format\n- The file is not corrupted`;
+      } else if (errorMessage.includes('validation') || errorMessage.includes('File type not allowed')) {
+        errorMessage = `File validation failed: ${errorMessage}\n\nSupported file types: PDF, images, documents, DICOM files (.dcm), and ZIP archives`;
+      }
+      
+      showError(`Failed to process document: ${errorMessage}. The file was not uploaded. Please try again or contact support if the issue persists.`);
       setIsUploading(false);
       setUploadProgress('');
     }
@@ -247,7 +259,7 @@ setIsUploading(false);
   const simulateDocumentUpload = (docType) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls';
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.ZIP,.gz,.xlsx,.xls,.dcm,.dicom,application/dicom,application/x-dicom,application/zip,*/*';
     input.style.display = 'none';
 
     input.onchange = async (e) => {
@@ -269,7 +281,7 @@ setIsUploading(false);
   const simulateCameraUpload = (docType) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls,image/*';
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.ZIP,.gz,.xlsx,.xls,.dcm,.dicom,application/dicom,application/x-dicom,application/zip,image/*,*/*';
     input.capture = 'environment';
     input.style.display = 'none';
 

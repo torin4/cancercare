@@ -1418,7 +1418,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
 
       {/* Input Area */}
       {!collapsed && (
-      <div className="px-3 pt-0 pb-0 bg-white border-t border-medical-neutral-200" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))' }}>
+      <div className={`px-3 pt-0 pb-0 bg-white ${isMobileOverlay ? 'border-t border-medical-neutral-200' : ''}`} style={{ paddingBottom: isMobileOverlay ? 'max(1rem, env(safe-area-inset-bottom, 1rem))' : '0.5rem' }}>
         <div className="flex gap-2 mb-4">
           <div className="relative flex-1">
             <input

@@ -37,6 +37,8 @@ import DashboardTab from './components/tabs/DashboardTab';
 import HealthTab from './components/tabs/HealthTab';
 import ChatTab from './components/tabs/ChatTab';
 import ChatSidebar from './components/ChatSidebar';
+import DicomViewerPage from './components/DicomViewerPage';
+import Cornerstone3DViewer from './components/Cornerstone3DViewer';
 import { chatSuggestions, trialSuggestions } from './constants/chatSuggestions';
 import { CANCER_TYPES, CANCER_SUBTYPES, STAGE_OPTIONS, PERFORMANCE_OPTIONS, DISEASE_STATUS_OPTIONS, TREATMENT_STATUS_OPTIONS } from './constants/cancerTypes';
 import { COUNTRIES } from './constants/countries';
@@ -62,6 +64,7 @@ export default function CancerCareApp() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [pendingHealthSection, setPendingHealthSection] = useState(null);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [dicomViewerDocuments, setDicomViewerDocuments] = useState(null); // Full-screen DICOM viewer state
   const [chatSidebarCollapsed, setChatSidebarCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('chatSidebarCollapsed');
@@ -296,7 +299,7 @@ export default function CancerCareApp() {
   const simulateDocumentUpload = (docType) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls';
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.ZIP,.gz,.xlsx,.xls,.dcm,.dicom,application/dicom,application/x-dicom,application/zip,*/*';
 
     input.onchange = async (e) => {
       const file = e.target.files[0];
@@ -311,7 +314,7 @@ export default function CancerCareApp() {
   const simulateCameraUpload = (docType) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls,image/*';
+    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.ZIP,.gz,.xlsx,.xls,.dcm,.dicom,application/dicom,application/x-dicom,application/zip,image/*,*/*';
     input.capture = 'environment';
     input.style.display = 'none'; // Hide the input element
 
@@ -940,6 +943,7 @@ export default function CancerCareApp() {
           <FilesTab 
             onTabChange={setActiveTab}
             onOpenMobileChat={() => setShowMobileChatOverlay(true)}
+            onOpenDicomViewer={setDicomViewerDocuments}
           />
         )}
 
@@ -947,6 +951,17 @@ export default function CancerCareApp() {
           <ProfileTab onTabChange={setActiveTab} />
         )}
 
+        {/* Full-Screen DICOM Viewer */}
+        {dicomViewerDocuments && (
+          <>
+            {/* Cornerstone3D viewer - better memory management for large CT scans */}
+            <Cornerstone3DViewer
+              documents={dicomViewerDocuments}
+              userId={user?.uid}
+              onClose={() => setDicomViewerDocuments(null)}
+            />
+          </>
+        )}
 
         {/* DeletionConfirmationModal moved to ProfileTab component */}
 

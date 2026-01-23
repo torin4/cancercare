@@ -54,6 +54,11 @@ module.exports = function(app) {
         proxyRes.headers['cache-control'] = 'no-cache, no-store, must-revalidate, max-age=0';
         proxyRes.headers['pragma'] = 'no-cache';
         proxyRes.headers['expires'] = '0';
+        
+        // SharedArrayBuffer support: Add required headers for zero-copy transfers
+        // These headers enable SharedArrayBuffer in browsers (required for high-performance DICOM loading)
+        proxyRes.headers['cross-origin-opener-policy'] = 'same-origin';
+        proxyRes.headers['cross-origin-embedder-policy'] = 'require-corp';
       }
     })
   );

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DesignTokens, combineClasses } from '../design/designTokens';
 import { Loader2 } from 'lucide-react';
 
-export default function UploadProgressOverlay({ show, uploadProgress, aiStatus, documentType = null, extractedDataCounts = null }) {
+export default function UploadProgressOverlay({ show, uploadProgress, aiStatus, documentType = null, extractedDataCounts = null, documentProgress = null }) {
   const [currentMessage, setCurrentMessage] = useState('');
   const [thinkingDots, setThinkingDots] = useState('');
   const [isFlashing, setIsFlashing] = useState(true);
@@ -120,6 +120,21 @@ export default function UploadProgressOverlay({ show, uploadProgress, aiStatus, 
             >
               {currentMessage || 'Processing...'}
             </h3>
+            
+            {/* Document Progress Counter */}
+            {documentProgress && documentProgress.total > 0 && (
+              <div className="mb-2">
+                <p 
+                  className={combineClasses(
+                    'text-sm font-medium transition-opacity duration-500',
+                    DesignTokens.colors.neutral.text[600],
+                    isFlashing ? 'opacity-100' : 'opacity-60'
+                  )}
+                >
+                  {documentProgress.current}/{documentProgress.total} documents processed
+                </p>
+              </div>
+            )}
             
             {/* Thinking indicator when processing */}
             {currentMessage && !currentMessage.toLowerCase().includes('complete') && !currentMessage.toLowerCase().includes('saved') && (

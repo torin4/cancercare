@@ -96,8 +96,9 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
       id: 'other',
       title: 'Other Medical Document',
       icon: FileText,
-      description: 'Imaging reports, pathology, treatment notes, etc.',
+      description: 'Imaging scans, reports, pathology, treatment notes, etc.',
       examples: [
+        'DICOM files (CT, MRI, PET scans)',
         'CT/MRI/PET scan reports',
         'Pathology reports',
         'Oncology progress notes',
@@ -105,7 +106,7 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
         'Surgical reports'
       ],
       color: 'green',
-      helpText: 'We\'ll extract relevant medical information and keep everything organized in one place.'
+      helpText: 'We\'ll extract relevant medical information and keep everything organized in one place. DICOM files will be viewable in our medical imaging viewer.'
     }
   ];
 
@@ -142,7 +143,17 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
     // Create file input and trigger it immediately (must be in user interaction context)
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.gz,.xlsx,.xls,image/*';
+    // For "Other Medical Document" type, don't set accept attribute at all
+    // This allows ALL files to be visible and selectable, including extensionless DICOM files
+    // macOS file picker will show all files without filtering when accept is not set
+    if (selectedType === 'other') {
+      // Don't set accept attribute - this shows ALL files including extensionless DICOM files
+      // The file picker will display all files without any filtering
+      // We validate file types after selection, so this is safe
+    } else {
+      // For other types, use specific extensions
+      input.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.vcf,.vcf.gz,.maf,.bed,.txt,.csv,.tsv,.zip,.ZIP,.gz,.xlsx,.xls,.dcm,.dicom,image/*,application/dicom,application/x-dicom,application/zip';
+    }
     input.multiple = true; // Enable multiple file selection
     
     // Check if mobile device and enable camera option
@@ -568,6 +579,19 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
                   : 'bg-green-50 border-green-200'
               )}>
                 <h3 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[900], 'mb-4')}>Add Photos or Files</h3>
+                
+                {/* Note about DICOM files without extensions */}
+                {selectedType === 'other' && (
+                  <div className={combineClasses('mb-4 p-3 rounded-lg bg-blue-50 border border-blue-200', DesignTokens.borders.radius.md)}>
+                    <p className={combineClasses('text-sm', DesignTokens.colors.neutral.text[700])}>
+                      <strong>Note:</strong> If DICOM files (like files in DCMDT folders) appear greyed out, you can:
+                    </p>
+                    <ul className={combineClasses('text-sm mt-2 ml-4 list-disc', DesignTokens.colors.neutral.text[700])}>
+                      <li>Select "All Files" from the file type dropdown in the picker</li>
+                      <li>Or upload the entire ZIP file containing the DICOM files</li>
+                    </ul>
+                  </div>
+                )}
                 
                 {/* Action buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 mb-4">

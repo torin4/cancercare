@@ -8,18 +8,30 @@ service firebase.storage {
              request.resource.contentType.matches('image/.*') ||
              request.resource.contentType.matches('application/msword') ||
              request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.wordprocessingml.document') ||
-             request.resource.contentType.matches('text/plain');
+             request.resource.contentType.matches('text/plain') ||
+             request.resource.contentType.matches('application/dicom') ||
+             request.resource.contentType.matches('application/x-dicom') ||
+             request.resource.contentType.matches('application/zip') ||
+             request.resource.contentType.matches('application/x-zip-compressed');
     }
     
     // Helper function to validate file extension
+    // Allow files with valid extensions OR files without extensions (for DICOM files from ZIP archives)
     function hasValidExtension() {
-      return request.resource.name.matches('.*\\.(pdf|PDF|jpg|jpeg|JPG|JPEG|png|PNG|gif|doc|DOC|docx|DOCX|txt|TXT)$');
+      // Check if file has a valid extension
+      let hasExtension = request.resource.name.matches('.*\\.(pdf|PDF|jpg|jpeg|JPG|JPEG|png|PNG|gif|doc|DOC|docx|DOCX|txt|TXT|dcm|DCM|dicom|DICOM|zip|ZIP)$');
+      
+      // Also allow files without extensions (common for DICOM files extracted from ZIP)
+      // These will be validated by content type instead
+      let noExtension = !request.resource.name.matches('.*\\..*');
+      
+      return hasExtension || noExtension;
     }
     
-    // Helper function to check file size (10MB max, 1KB min)
+    // Helper function to check file size (500MB max, 1KB min - increased for DICOM ZIP files)
     function isValidFileSize() {
       return request.resource.size > 1024 && // At least 1KB
-             request.resource.size < 10 * 1024 * 1024; // Max 10MB
+             request.resource.size < 500 * 1024 * 1024; // Max 500MB (for large DICOM ZIP archives)
     }
     
     // Helper function to ensure user owns the path
@@ -31,9 +43,11 @@ service firebase.storage {
     // Enhanced security with file type validation and size limits
     match /documents/{userId}/{allPaths=**} {
       // Read: Only authenticated owner can read their files
+      // Note: No extension validation for reads - files may have been uploaded without extensions
       allow read: if isOwner(userId);
       
       // Write: Only authenticated owner can upload, with strict validation
+      // Allow files with valid extensions OR files without extensions (for DICOM files)
       allow write: if isOwner(userId) &&
                       isValidFileSize() &&
                       isValidMedicalFileType() &&

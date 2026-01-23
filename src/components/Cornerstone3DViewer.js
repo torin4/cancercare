@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { X, Loader2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Loader2, AlertCircle, ChevronLeft, ChevronRight, Ruler, Crosshair, RotateCcw, SunMoon } from 'lucide-react';
 import { downloadFileAsBlob } from '../firebase/storage';
 import { extractDicomMetadata } from '../services/dicomService';
 import { registerZipImageLoader, registerZipStructure, generateZipImageId, unregisterZipImageLoader } from '../services/zipImageLoader';
@@ -20,6 +20,42 @@ import { registerZipImageLoader, registerZipStructure, generateZipImageId, unreg
 
 // Initialize Cornerstone3D (only once)
 let cornerstoneInitialized = false;
+
+/**
+ * Format DICOM date (YYYYMMDD) to readable format
+ */
+function formatDicomDate(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  // DICOM date format: YYYYMMDD
+  const cleaned = dateStr.replace(/[^0-9]/g, '');
+  if (cleaned.length !== 8) return dateStr;
+  const year = cleaned.substring(0, 4);
+  const month = cleaned.substring(4, 6);
+  const day = cleaned.substring(6, 8);
+  try {
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch {
+    return `${year}-${month}-${day}`;
+  }
+}
+
+/**
+ * Format DICOM time (HHMMSS or HHMMSS.ffffff) to readable format
+ */
+function formatDicomTime(timeStr) {
+  if (!timeStr || typeof timeStr !== 'string') return null;
+  const cleaned = timeStr.replace(/[^0-9]/g, '').substring(0, 6);
+  if (cleaned.length < 4) return timeStr;
+  const hours = cleaned.substring(0, 2);
+  const minutes = cleaned.substring(2, 4);
+  const seconds = cleaned.length >= 6 ? cleaned.substring(4, 6) : '00';
+  return `${hours}:${minutes}:${seconds}`;
+}
 
 function sortByInstanceAndSlice(docs) {
   if (!Array.isArray(docs) || docs.length === 0) return docs;
@@ -57,6 +93,9 @@ export default function Cornerstone3DViewer({
   const [loadedSeriesFiles, setLoadedSeriesFiles] = useState(new Map());
   const [loadingSeries, setLoadingSeries] = useState(new Set());
   const [loadedSlicesCount, setLoadedSlicesCount] = useState(0);
+  const [activeTool, setActiveTool] = useState('windowLevel'); // 'windowLevel', 'length', 'probe'
+  const [isInverted, setIsInverted] = useState(false);
+  const [probeValue, setProbeValue] = useState(null); // HU value at cursor
 
   const viewerRef = useRef(null);
   const renderingEngineRef = useRef(null);
@@ -67,6 +106,7 @@ export default function Cornerstone3DViewer({
   const prefetchControllerRef = useRef(null);
   const fileListRef = useRef([]); // Stable ref for fileList
   const initStartedRef = useRef(false); // Prevent double initialization
+  const toolGroupRef = useRef(null); // Store tool group reference
 
   // Handle different document source formats
   const isZipSource = documents && typeof documents === 'object' && !Array.isArray(documents) && documents.source === 'zip';
@@ -135,9 +175,9 @@ export default function Cornerstone3DViewer({
         window.cornerstoneFileManager = fileManager;
       }
 
-      // 4. Initialize Tools (for scroll, zoom, pan)
+      // 4. Initialize Tools (for scroll, zoom, pan, measurement)
       const tools = await import('@cornerstonejs/tools');
-      const { init: initTools, StackScrollTool, PanTool, ZoomTool, WindowLevelTool, ToolGroupManager, Enums: ToolEnums } = tools;
+      const { init: initTools, StackScrollTool, PanTool, ZoomTool, WindowLevelTool, LengthTool, ProbeTool, ToolGroupManager, Enums: ToolEnums } = tools;
       initTools();
 
       // Add tools to Cornerstone
@@ -145,6 +185,8 @@ export default function Cornerstone3DViewer({
       tools.addTool(PanTool);
       tools.addTool(ZoomTool);
       tools.addTool(WindowLevelTool);
+      tools.addTool(LengthTool);
+      tools.addTool(ProbeTool);
 
       // 5. Register custom ZIP image loader
       registerZipImageLoader();
@@ -318,6 +360,82 @@ export default function Cornerstone3DViewer({
     }
   }, []);
 
+  // Switch active tool (for toolbar)
+  const switchTool = useCallback(async (toolName) => {
+    if (!toolGroupRef.current) return;
+
+    try {
+      const tools = await import('@cornerstonejs/tools');
+      const { Enums: ToolEnums } = tools;
+      const toolGroup = toolGroupRef.current;
+
+      // Deactivate current primary tool
+      if (activeTool === 'windowLevel') {
+        toolGroup.setToolPassive(tools.WindowLevelTool.toolName);
+      } else if (activeTool === 'length') {
+        toolGroup.setToolPassive(tools.LengthTool.toolName);
+      } else if (activeTool === 'probe') {
+        toolGroup.setToolPassive(tools.ProbeTool.toolName);
+        setProbeValue(null);
+      }
+
+      // Activate new tool
+      if (toolName === 'windowLevel') {
+        toolGroup.setToolActive(tools.WindowLevelTool.toolName, {
+          bindings: [{ mouseButton: ToolEnums.MouseBindings.Primary }]
+        });
+      } else if (toolName === 'length') {
+        toolGroup.setToolActive(tools.LengthTool.toolName, {
+          bindings: [{ mouseButton: ToolEnums.MouseBindings.Primary }]
+        });
+      } else if (toolName === 'probe') {
+        toolGroup.setToolActive(tools.ProbeTool.toolName, {
+          bindings: [{ mouseButton: ToolEnums.MouseBindings.Primary }]
+        });
+      }
+
+      setActiveTool(toolName);
+    } catch (err) {
+      console.error('[Cornerstone3D] Error switching tool:', err);
+    }
+  }, [activeTool]);
+
+  // Reset viewport to default view
+  const resetView = useCallback(() => {
+    if (!viewportRef.current || !renderingEngineRef.current) return;
+
+    try {
+      const viewport = viewportRef.current;
+      viewport.resetCamera();
+      viewport.resetProperties();
+      renderingEngineRef.current.renderViewports([viewport.id]);
+
+      // Reset invert state
+      setIsInverted(false);
+    } catch (err) {
+      console.error('[Cornerstone3D] Error resetting view:', err);
+    }
+  }, []);
+
+  // Toggle image inversion (negative mode)
+  const toggleInvert = useCallback(() => {
+    if (!viewportRef.current || !renderingEngineRef.current) return;
+
+    try {
+      const viewport = viewportRef.current;
+      const newInvertState = !isInverted;
+
+      // Get current properties and toggle invert
+      const properties = viewport.getProperties();
+      viewport.setProperties({ ...properties, invert: newInvertState });
+      renderingEngineRef.current.renderViewports([viewport.id]);
+
+      setIsInverted(newInvertState);
+    } catch (err) {
+      console.error('[Cornerstone3D] Error toggling invert:', err);
+    }
+  }, [isInverted]);
+
   // Lazy-load series files when series selection changes
   useEffect(() => {
     if (!isMultiSeries || !seriesList || !documents?.loadSeriesFiles) {
@@ -482,19 +600,25 @@ export default function Cornerstone3DViewer({
           let toolGroup = ToolGroupManager.createToolGroup(localToolGroupId);
 
           if (toolGroup && isMounted) {
+            // Store tool group reference for later use
+            toolGroupRef.current = toolGroup;
+
             // Add viewport to tool group
             toolGroup.addViewport(viewportId, renderingEngineId);
 
-            // Add and activate tools
+            // Add all tools to the group
             toolGroup.addTool(tools.StackScrollTool.toolName);
             toolGroup.addTool(tools.PanTool.toolName);
             toolGroup.addTool(tools.ZoomTool.toolName);
             toolGroup.addTool(tools.WindowLevelTool.toolName);
+            toolGroup.addTool(tools.LengthTool.toolName);
+            toolGroup.addTool(tools.ProbeTool.toolName);
 
-            // Set active tools
+            // Set active tools - scroll always on wheel
             toolGroup.setToolActive(tools.StackScrollTool.toolName, {
               bindings: [{ mouseButton: ToolEnums.MouseBindings.Wheel }]
             });
+            // Default: WindowLevel on primary (left click)
             toolGroup.setToolActive(tools.WindowLevelTool.toolName, {
               bindings: [{ mouseButton: ToolEnums.MouseBindings.Primary }]
             });
@@ -504,7 +628,44 @@ export default function Cornerstone3DViewer({
             toolGroup.setToolActive(tools.ZoomTool.toolName, {
               bindings: [{ mouseButton: ToolEnums.MouseBindings.Secondary }]
             });
+            // Length and Probe are passive by default (can be activated via toolbar)
+            toolGroup.setToolPassive(tools.LengthTool.toolName);
+            toolGroup.setToolPassive(tools.ProbeTool.toolName);
           }
+
+          // Add custom wheel/trackpad handler for slice scrolling
+          // This handles two-finger trackpad scrolling which may not trigger the standard wheel tool
+          let wheelAccumulator = 0;
+          const wheelThreshold = 50; // Pixels of scroll before changing slice
+
+          const handleWheel = (e) => {
+            if (!isMounted || !viewportRef.current) return;
+
+            // Prevent default scrolling behavior
+            e.preventDefault();
+
+            // Accumulate scroll delta (trackpad sends many small events)
+            wheelAccumulator += e.deltaY;
+
+            // Only change slice when threshold is reached
+            if (Math.abs(wheelAccumulator) >= wheelThreshold) {
+              const direction = wheelAccumulator > 0 ? 1 : -1;
+              wheelAccumulator = 0; // Reset accumulator
+
+              setCurrentIndex(prev => {
+                const newIndex = prev + direction;
+                const maxIndex = imageIdsRef.current.length - 1;
+                return Math.max(0, Math.min(maxIndex, newIndex));
+              });
+            }
+          };
+
+          container.addEventListener('wheel', handleWheel, { passive: false });
+
+          // Store cleanup function
+          container._wheelCleanup = () => {
+            container.removeEventListener('wheel', handleWheel);
+          };
         } catch (toolError) {
           console.warn('[Cornerstone3D] Tool setup error (non-fatal):', toolError);
         }
@@ -542,16 +703,22 @@ export default function Cornerstone3DViewer({
           try {
             const firstDoc = currentFileList[0];
             if (firstDoc.dicomMetadata || firstDoc.dicomDirMeta) {
+              const dirMeta = firstDoc.dicomDirMeta;
               const existingMeta = firstDoc.dicomMetadata ||
-                (firstDoc.dicomDirMeta?.image ? {
-                  instanceNumber: firstDoc.dicomDirMeta.image.instanceNumber,
-                  sliceLocation: firstDoc.dicomDirMeta.image.sliceLocation,
-                  modality: firstDoc.dicomDirMeta.series?.modality,
-                  studyDescription: firstDoc.dicomDirMeta.study?.studyDescription,
-                  seriesDescription: firstDoc.dicomDirMeta.series?.seriesDescription,
-                  studyDate: firstDoc.dicomDirMeta.study?.studyDate,
-                  bodyPartExamined: firstDoc.dicomDirMeta.series?.bodyPartExamined,
-                  institutionName: null
+                (dirMeta?.image ? {
+                  instanceNumber: dirMeta.image.instanceNumber,
+                  sliceLocation: dirMeta.image.sliceLocation,
+                  modality: dirMeta.series?.modality,
+                  studyDescription: dirMeta.study?.studyDescription,
+                  seriesDescription: dirMeta.series?.seriesDescription,
+                  studyDate: dirMeta.study?.studyDate,
+                  seriesDate: dirMeta.series?.seriesDate,
+                  seriesTime: dirMeta.series?.seriesTime,
+                  bodyPartExamined: dirMeta.series?.bodyPartExamined,
+                  // Institution can be at series or study level
+                  institutionName: dirMeta.series?.institutionName || dirMeta.study?.institutionName,
+                  institutionAddress: dirMeta.study?.institutionAddress,
+                  accessionNumber: dirMeta.study?.accessionNumber,
                 } : null);
               if (existingMeta) {
                 setDecodedMetadata(existingMeta);
@@ -607,6 +774,12 @@ export default function Cornerstone3DViewer({
       if (prefetchControllerRef.current) {
         prefetchControllerRef.current.abort();
         prefetchControllerRef.current = null;
+      }
+
+      // Cleanup wheel event listener
+      if (viewerRef.current?._wheelCleanup) {
+        viewerRef.current._wheelCleanup();
+        delete viewerRef.current._wheelCleanup;
       }
 
       // Destroy tool group
@@ -815,6 +988,83 @@ export default function Cornerstone3DViewer({
           </div>
         ) : (
           <>
+            {/* Toolbar */}
+            <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
+              <div className="flex gap-1 bg-black/80 rounded-lg p-1.5 backdrop-blur-sm">
+                {/* Window/Level Tool (default) */}
+                <button
+                  onClick={() => switchTool('windowLevel')}
+                  className={`p-2 rounded-md transition-colors ${
+                    activeTool === 'windowLevel'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                  title="Window/Level (adjust brightness/contrast)"
+                >
+                  <SunMoon className="w-5 h-5" />
+                </button>
+
+                {/* Length Measurement Tool */}
+                <button
+                  onClick={() => switchTool('length')}
+                  className={`p-2 rounded-md transition-colors ${
+                    activeTool === 'length'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                  title="Measure Distance (click and drag)"
+                >
+                  <Ruler className="w-5 h-5" />
+                </button>
+
+                {/* Probe Tool (HU values) */}
+                <button
+                  onClick={() => switchTool('probe')}
+                  className={`p-2 rounded-md transition-colors ${
+                    activeTool === 'probe'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                  title="Probe (show HU value at click)"
+                >
+                  <Crosshair className="w-5 h-5" />
+                </button>
+
+                <div className="w-px bg-gray-600 mx-1" />
+
+                {/* Invert Toggle */}
+                <button
+                  onClick={toggleInvert}
+                  className={`p-2 rounded-md transition-colors ${
+                    isInverted
+                      ? 'bg-yellow-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                  title="Invert (toggle negative mode)"
+                >
+                  <span className="w-5 h-5 flex items-center justify-center text-sm font-bold">
+                    {isInverted ? '−' : '+'}
+                  </span>
+                </button>
+
+                {/* Reset View */}
+                <button
+                  onClick={resetView}
+                  className="p-2 rounded-md bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
+                  title="Reset View"
+                >
+                  <RotateCcw className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Probe value display */}
+              {activeTool === 'probe' && probeValue !== null && (
+                <div className="bg-black/80 rounded-lg px-3 py-1.5 text-white text-sm backdrop-blur-sm">
+                  HU: {probeValue}
+                </div>
+              )}
+            </div>
+
             <div
               ref={viewerRef}
               className="w-full h-full"
@@ -879,37 +1129,70 @@ export default function Cornerstone3DViewer({
       {displayMetadata && (
         <div className="flex-shrink-0 bg-gray-900 text-white border-t border-gray-700 p-4 overflow-y-auto max-h-48">
           <h4 className="text-sm font-semibold mb-2">Scan Information</h4>
-          <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-2 text-sm">
+            {/* Modality */}
             {displayMetadata.modality && (
               <div>
                 <span className="font-medium text-gray-300">Modality: </span>
                 <span className="text-gray-400">{displayMetadata.modality}</span>
               </div>
             )}
-            {displayMetadata.studyDateFormatted && (
+            {/* Series Date (preferred) or Study Date */}
+            {(displayMetadata.seriesDate || displayMetadata.studyDate || displayMetadata.studyDateFormatted) && (
               <div>
-                <span className="font-medium text-gray-300">Study Date: </span>
-                <span className="text-gray-400">{displayMetadata.studyDateFormatted}</span>
+                <span className="font-medium text-gray-300">
+                  {displayMetadata.seriesDate ? 'Series Date: ' : 'Study Date: '}
+                </span>
+                <span className="text-gray-400">
+                  {displayMetadata.seriesDate
+                    ? formatDicomDate(displayMetadata.seriesDate)
+                    : (displayMetadata.studyDateFormatted || formatDicomDate(displayMetadata.studyDate))}
+                </span>
               </div>
             )}
+            {/* Series Time */}
+            {displayMetadata.seriesTime && (
+              <div>
+                <span className="font-medium text-gray-300">Time: </span>
+                <span className="text-gray-400">{formatDicomTime(displayMetadata.seriesTime)}</span>
+              </div>
+            )}
+            {/* Institution / Hospital */}
+            {displayMetadata.institutionName && (
+              <div className="col-span-1 md:col-span-2">
+                <span className="font-medium text-gray-300">Institution: </span>
+                <span className="text-gray-400">{displayMetadata.institutionName}</span>
+              </div>
+            )}
+            {/* Body Part */}
             {displayMetadata.bodyPartExamined && (
               <div>
                 <span className="font-medium text-gray-300">Body Part: </span>
                 <span className="text-gray-400">{displayMetadata.bodyPartExamined}</span>
               </div>
             )}
-            {displayMetadata.institutionName && (
-              <div>
-                <span className="font-medium text-gray-300">Institution: </span>
-                <span className="text-gray-400">{displayMetadata.institutionName}</span>
-              </div>
-            )}
+            {/* Series Description */}
             {displayMetadata.seriesDescription && (
-              <div>
+              <div className="col-span-1 md:col-span-2">
                 <span className="font-medium text-gray-300">Series: </span>
                 <span className="text-gray-400">{displayMetadata.seriesDescription}</span>
               </div>
             )}
+            {/* Study Description */}
+            {displayMetadata.studyDescription && displayMetadata.studyDescription !== displayMetadata.seriesDescription && (
+              <div className="col-span-1 md:col-span-2">
+                <span className="font-medium text-gray-300">Study: </span>
+                <span className="text-gray-400">{displayMetadata.studyDescription}</span>
+              </div>
+            )}
+            {/* Accession Number */}
+            {displayMetadata.accessionNumber && (
+              <div>
+                <span className="font-medium text-gray-300">Accession #: </span>
+                <span className="text-gray-400">{displayMetadata.accessionNumber}</span>
+              </div>
+            )}
+            {/* Slice Count */}
             {hasMultipleFiles ? (
               <div>
                 <span className="font-medium text-gray-300">Slices: </span>

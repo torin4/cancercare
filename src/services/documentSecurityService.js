@@ -22,7 +22,11 @@ const ALLOWED_MIME_TYPES = [
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'text/plain',
-  'text/csv'
+  'text/csv',
+  'application/dicom',
+  'application/x-dicom',
+  'application/zip',
+  'application/x-zip-compressed'
 ];
 
 /**
@@ -37,13 +41,17 @@ const ALLOWED_EXTENSIONS = [
   '.doc', '.DOC',
   '.docx', '.DOCX',
   '.txt', '.TXT',
-  '.csv', '.CSV'
+  '.csv', '.CSV',
+  '.dcm', '.DCM',
+  '.dicom', '.DICOM',
+  '.zip', '.ZIP'
 ];
 
 /**
- * Maximum file size: 10MB
+ * Maximum file size: 500MB (increased for DICOM ZIP files which can be very large)
+ * Individual DICOM files are typically 1-50MB, but ZIP archives of multiple scans can be 100-500MB+
  */
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
 
 /**
  * Minimum file size: 1KB (to prevent empty files)
@@ -55,32 +63,68 @@ const MIN_FILE_SIZE = 1024; // 1KB
  * @param {File} file - The file to validate
  * @returns {boolean} - True if file type is allowed
  */
-export const validateFileType = (file) => {
-  if (!file || !file.type) {
+export const validateFileType = async (file) => {
+  if (!file) {
     return false;
   }
   
-  // Check MIME type
-  const isValidMimeType = ALLOWED_MIME_TYPES.some(allowedType => {
-    // Support wildcard matching for image types
-    if (allowedType.endsWith('.*')) {
-      const baseType = allowedType.replace('.*', '');
-      return file.type.startsWith(baseType);
-    }
-    return file.type === allowedType;
-  });
-  
-  if (!isValidMimeType) {
-    return false;
-  }
-  
-  // Also check file extension as secondary validation
   const fileName = file.name || '';
+  const lowerName = fileName.toLowerCase();
+  
+  // Check file extension first
   const hasValidExtension = ALLOWED_EXTENSIONS.some(ext => 
-    fileName.toLowerCase().endsWith(ext.toLowerCase())
+    lowerName.endsWith(ext.toLowerCase())
   );
   
-  return hasValidExtension;
+  // If file has no extension, check if it might be a DICOM file by header
+  if (!hasValidExtension && !fileName.includes('.')) {
+    try {
+      // Check for DICOM signature (128-byte preamble + "DICM")
+      const headerSlice = file.slice(0, 132);
+      const arrayBuffer = await headerSlice.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      
+      if (uint8Array.length >= 132) {
+        const dicomSignature = String.fromCharCode(
+          uint8Array[128],
+          uint8Array[129],
+          uint8Array[130],
+          uint8Array[131]
+        );
+        
+        if (dicomSignature === 'DICM') {
+          return true; // Valid DICOM file without extension
+        }
+      }
+    } catch (error) {
+      // If we can't read header, continue with normal validation
+    }
+  }
+  
+  // If file has valid extension, check MIME type
+  if (hasValidExtension) {
+    // For files with extensions, MIME type check is optional (browsers may not detect it correctly)
+    // But if MIME type is provided and doesn't match, that's a problem
+    if (file.type) {
+      const isValidMimeType = ALLOWED_MIME_TYPES.some(allowedType => {
+        // Support wildcard matching for image types
+        if (allowedType.endsWith('.*')) {
+          const baseType = allowedType.replace('.*', '');
+          return file.type.startsWith(baseType);
+        }
+        return file.type === allowedType;
+      });
+      
+      // If MIME type is provided and doesn't match, reject (unless it's a DICOM file)
+      if (!isValidMimeType && !file.type.includes('dicom') && !file.type.includes('octet-stream')) {
+        return false;
+      }
+    }
+    
+    return true; // Valid extension found
+  }
+  
+  return false;
 };
 
 /**
@@ -107,19 +151,51 @@ export const validateFileSize = (file) => {
 /**
  * Comprehensive file validation
  * @param {File} file - The file to validate
- * @returns {{valid: boolean, error?: string}} - Validation result
+ * @returns {Promise<{valid: boolean, error?: string}>} - Validation result
  */
-export const validateFile = (file) => {
+export const validateFile = async (file) => {
   if (!file) {
     return { valid: false, error: 'No file provided' };
   }
   
-  // Validate file type
-  if (!validateFileType(file)) {
+  // Validate file type (now async to check DICOM headers)
+  const isValidType = await validateFileType(file);
+  if (!isValidType) {
+    // Check if it might be a DICOM file without extension
+    const fileName = file.name || '';
+    if (!fileName.includes('.')) {
+      // File has no extension - might be DICOM, check header
+      try {
+        const headerSlice = file.slice(0, 132);
+        const arrayBuffer = await headerSlice.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        
+        if (uint8Array.length >= 132) {
+          const dicomSignature = String.fromCharCode(
+            uint8Array[128],
+            uint8Array[129],
+            uint8Array[130],
+            uint8Array[131]
+          );
+          
+          if (dicomSignature === 'DICM') {
+            // It's a valid DICOM file without extension - allow it
+            const sizeValidation = validateFileSize(file);
+            if (!sizeValidation.valid) {
+              return sizeValidation;
+            }
+            return { valid: true };
+          }
+        }
+      } catch (error) {
+        // If we can't read header, continue with normal error
+      }
+    }
+    
     const allowedTypes = ALLOWED_EXTENSIONS.join(', ');
     return { 
       valid: false, 
-      error: `File type not allowed. Allowed types: ${allowedTypes}` 
+      error: `File type not allowed. Allowed types: ${allowedTypes}, or DICOM files (with or without extension)` 
     };
   }
   

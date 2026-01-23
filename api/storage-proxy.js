@@ -19,6 +19,11 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Max-Age', '3600');
   
+  // SharedArrayBuffer support: Add required headers for zero-copy transfers
+  // These headers enable SharedArrayBuffer in browsers (required for high-performance DICOM loading)
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  
   // Security headers
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
@@ -84,7 +89,11 @@ module.exports = async (req, res) => {
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'text/plain',
-      'text/csv'
+      'text/csv',
+      'application/dicom',
+      'application/x-dicom',
+      'application/zip',
+      'application/x-zip-compressed'
     ];
     
     const isAllowedContentType = allowedContentTypes.some(type => 

@@ -5,6 +5,8 @@ import { cleanupDocumentData, verifyCleanupComplete } from './documentCleanupSer
 import { buildDocumentPrompt } from '../processors/document/buildDocumentPrompt';
 import { classifyDocument } from '../processors/document/classifyDocument';
 import { normalizeLabName } from '../utils/normalizationUtils';
+import { extractDicomMetadata, isDicomFile } from './dicomService';
+import { isZipFile, extractDicomFilesFromZip } from './zipService';
 
 // Check if API key is available
 const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
@@ -27,6 +29,102 @@ const genAI = new GoogleGenerativeAI(apiKey || '');
  */
 export async function processDocument(file, userId, patientProfile = null, documentDate = null, documentNote = null, documentId = null, onProgress = null, onlyExistingMetrics = false, documentType = null, customInstructions = null) {
   try {
+    if (!file) {
+      throw new Error('No file provided to processDocument');
+    }
+    
+    // Log file info for debugging
+    const fileInfo = {
+      fileName: file.name || '',
+      fileSize: file.size || 0,
+      fileType: file.type || '',
+      fileConstructor: file.constructor.name,
+      hasName: !!file.name,
+      hasType: !!file.type
+    };
+    
+    console.log('processDocument called with:', fileInfo);
+    
+    // Check if file is a ZIP archive containing DICOM files (check this FIRST, before any other processing)
+    // Do this check multiple ways to be absolutely sure
+    const fileIsZip = isZipFile(file);
+    const fileNameLower = fileInfo.fileName.toLowerCase();
+    const isZipByExtension = fileNameLower.endsWith('.zip');
+    const isZipByMimeType = fileInfo.fileType === 'application/zip' || fileInfo.fileType === 'application/x-zip-compressed';
+    
+    console.log('ZIP detection results:', {
+      isZipFile: fileIsZip,
+      isZipByExtension,
+      isZipByMimeType,
+      fileName: fileInfo.fileName,
+      fileType: fileInfo.fileType
+    });
+    
+    // Check if input is ArrayBuffer (for ZIP files that were pre-read)
+    const isArrayBuffer = file instanceof ArrayBuffer || 
+                         (file && typeof file.byteLength === 'number' && !(file instanceof File));
+    
+    if (fileIsZip || isZipByExtension || isZipByMimeType || isArrayBuffer) {
+      console.log('ZIP file/ArrayBuffer confirmed, extracting DICOM files...');
+      try {
+        if (onProgress) {
+          onProgress(null, 'Detected ZIP archive, extracting DICOM files...');
+        }
+        // processZipFile now accepts both File and ArrayBuffer
+        const zipResult = await processZipFile(file, userId, patientProfile, documentDate, documentNote, onProgress);
+        console.log('ZIP processing result:', zipResult);
+        return zipResult;
+      } catch (error) {
+        console.error('ZIP processing error:', error);
+        // Wrap ZIP processing errors with more context
+        throw new Error(`Failed to process ZIP archive: ${error.message || 'Unknown error'}`);
+      }
+    }
+    
+    // Check if file is DICOM (async check that reads file header)
+    const isDicom = await isDicomFile(file);
+    if (isDicom) {
+      return await processDicomFile(file, userId, patientProfile, documentDate, documentNote, documentId, onProgress);
+    }
+
+    // CRITICAL SAFETY CHECK: Ensure this is NOT a ZIP file before proceeding to AI processing
+    // This is a safety check in case ZIP detection failed above
+    // Check multiple ways to be absolutely certain
+    const fileNameCheck = fileInfo.fileName;
+    const lowerNameCheck = fileNameCheck.toLowerCase();
+    const mimeTypeCheck = fileInfo.fileType;
+    
+    const isZipByAnyMeans = 
+      lowerNameCheck.endsWith('.zip') || 
+      mimeTypeCheck === 'application/zip' || 
+      mimeTypeCheck === 'application/x-zip-compressed' ||
+      (mimeTypeCheck === 'application/octet-stream' && lowerNameCheck.endsWith('.zip'));
+    
+    if (isZipByAnyMeans) {
+      console.error('CRITICAL: ZIP file detected in safety check but was not caught earlier!', {
+        fileName: fileInfo.fileName,
+        fileType: fileInfo.fileType,
+        fileSize: fileInfo.fileSize,
+        isZipFileResult: fileIsZip,
+        isZipByExtension,
+        isZipByMimeType
+      });
+      throw new Error(`ZIP files cannot be processed directly with AI. The file "${fileInfo.fileName}" appears to be a ZIP archive. Please extract DICOM files from the ZIP first, or upload the ZIP file directly and the system will extract them automatically.`);
+    }
+    
+    // For non-DICOM, non-ZIP files, convert to base64 for Gemini API
+    // But first check file size - very large files should not be converted to base64
+    const maxSizeForBase64 = 100 * 1024 * 1024; // 100MB
+    if (file.size > maxSizeForBase64) {
+      throw new Error(`File is too large (${(file.size / 1024 / 1024).toFixed(1)}MB) to process with AI. Maximum size is ${maxSizeForBase64 / 1024 / 1024}MB. Please split the file or use a different format.`);
+    }
+    
+    console.log('Converting file to base64 for AI processing:', {
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size
+    });
+    
     // Convert file to base64 for Gemini API
     const base64Data = await fileToBase64(file);
 
@@ -98,16 +196,225 @@ export async function processDocument(file, userId, patientProfile = null, docum
 }
 
 /**
+ * Process ZIP file containing DICOM files
+ * Returns information about extracted files for the caller to handle uploads
+ * @param {File|ArrayBuffer} zipFileOrBuffer - ZIP file or ArrayBuffer
+ * @param {string} userId - User ID
+ * @param {Object} patientProfile - Patient profile
+ * @param {string|null} documentDate - Optional document date
+ * @param {string|null} documentNote - Optional document note
+ * @param {Function|null} onProgress - Progress callback
+ * @returns {Promise<Object>} - Processing result with extracted files
+ */
+async function processZipFile(zipFileOrBuffer, userId, patientProfile = null, documentDate = null, documentNote = null, onProgress = null) {
+  try {
+    if (onProgress) {
+      onProgress(null, 'Extracting DICOM files from ZIP archive...');
+    }
+
+    // Extract DICOM files from ZIP (with progress callback)
+    // extractDicomFilesFromZip now accepts both File and ArrayBuffer
+    const extractionResult = await extractDicomFilesFromZip(zipFileOrBuffer, (current, total, message) => {
+      if (onProgress && message) {
+        onProgress(null, message);
+      }
+    });
+    
+    if (!extractionResult.success) {
+      throw new Error(extractionResult.error || 'Failed to extract files from ZIP archive. The file may be corrupted or not a valid ZIP file.');
+    }
+    
+    const totalFiles = extractionResult.count;
+    
+    if (totalFiles === 0) {
+      throw new Error('No DICOM files found in ZIP archive. Please ensure the ZIP contains .dcm or .dicom files (with or without extensions).');
+    }
+
+    if (onProgress) {
+      onProgress(null, `Found ${totalFiles} DICOM file${totalFiles !== 1 ? 's' : ''} in ZIP archive`);
+    }
+
+    // Handle on-demand extraction for large ZIPs
+    if (extractionResult.extractOnDemand) {
+      console.log(`[ZIP Processor] Large ZIP detected - using on-demand extraction for ${totalFiles} files`);
+
+      return {
+        success: true,
+        documentType: 'Scan',
+        isZipArchive: true,
+        extractedFiles: null,
+        extractOnDemand: true,
+        extractFile: extractionResult.extractFile,
+        totalFiles: totalFiles,
+        zipFileName: (zipFileOrBuffer instanceof File ? zipFileOrBuffer.name : 'archive.zip'),
+        summary: `ZIP archive contains ${totalFiles} DICOM file${totalFiles !== 1 ? 's' : ''} (large file - extracting on-demand)`,
+        dataPointCount: 0,
+        extractedDate: documentDate,
+        entries: extractionResult.entries || null,
+        dicomDirStructure: extractionResult.dicomDirStructure || null,
+      };
+    } else {
+      const dicomFiles = extractionResult.files;
+
+      return {
+        success: true,
+        documentType: 'Scan',
+        isZipArchive: true,
+        extractedFiles: dicomFiles,
+        extractOnDemand: false,
+        totalFiles: dicomFiles.length,
+        zipFileName: (zipFileOrBuffer instanceof File ? zipFileOrBuffer.name : 'archive.zip'),
+        summary: `ZIP archive contains ${dicomFiles.length} DICOM file${dicomFiles.length !== 1 ? 's' : ''}`,
+        dataPointCount: 0,
+        extractedDate: documentDate,
+        entries: extractionResult.entries || null,
+        dicomDirStructure: extractionResult.dicomDirStructure || null,
+      };
+    }
+  } catch (error) {
+    console.error('Error processing ZIP file:', error);
+    // Provide more helpful error messages
+    if (error.message && (error.message.includes('too large') || error.message.includes('memory'))) {
+      throw error; // Already a good error message
+    } else if (error.message && (error.message.includes('corrupted') || error.message.includes('invalid'))) {
+      throw new Error(`ZIP file appears to be corrupted or invalid: ${error.message}`);
+    } else if (error.message && error.message.includes('No DICOM files')) {
+      throw error; // Already a good error message
+    } else {
+      throw new Error(`Failed to process ZIP archive: ${error.message || 'Unknown error. Please ensure the file is a valid ZIP archive containing DICOM files.'}`);
+    }
+  }
+}
+
+/**
+ * Process DICOM file - extract metadata and return structured data
+ * @param {File} file - DICOM file
+ * @param {string} userId - User ID
+ * @param {Object} patientProfile - Patient profile
+ * @param {string|null} documentDate - Optional document date
+ * @param {string|null} documentNote - Optional document note
+ * @param {string|null} documentId - Optional document ID
+ * @param {Function|null} onProgress - Progress callback
+ * @returns {Promise<Object>} - Processing result
+ */
+async function processDicomFile(file, userId, patientProfile = null, documentDate = null, documentNote = null, documentId = null, onProgress = null) {
+  try {
+    if (onProgress) {
+      onProgress(null, 'Extracting DICOM metadata...');
+    }
+
+    // Extract DICOM metadata
+    const dicomResult = await extractDicomMetadata(file);
+    
+    if (!dicomResult.success || !dicomResult.metadata) {
+      const errorMsg = dicomResult.error || 'Failed to extract DICOM metadata';
+      // Provide more helpful error messages
+      if (errorMsg.includes('parse') || errorMsg.includes('Invalid')) {
+        throw new Error(`Invalid DICOM file format: ${errorMsg}. The file may be corrupted or not a valid DICOM file.`);
+      } else if (errorMsg.includes('read') || errorMsg.includes('access')) {
+        throw new Error(`Cannot read DICOM file: ${errorMsg}. Please ensure the file is not corrupted or locked.`);
+      } else {
+        throw new Error(`Failed to extract DICOM metadata: ${errorMsg}. The file may not be a valid DICOM format.`);
+      }
+    }
+
+    const metadata = dicomResult.metadata;
+
+    // Use study date from DICOM if available, otherwise use provided date
+    const extractedDate = metadata.studyDateFormatted || documentDate || null;
+
+    // Build extracted data structure compatible with existing system
+    const extractedData = {
+      documentType: 'Scan',
+      summary: `DICOM ${metadata.modality || 'imaging'} scan${metadata.studyDescription ? `: ${metadata.studyDescription}` : ''}`,
+      data: {
+        scan: {
+          scanType: metadata.modality || 'Unknown',
+          studyDescription: metadata.studyDescription || null,
+          bodyPart: metadata.bodyPartExamined || null,
+          studyDate: extractedDate,
+          institution: metadata.institutionName || null,
+          referringPhysician: metadata.referringPhysicianName || null,
+          seriesDescription: metadata.seriesDescription || null,
+          numberOfFrames: metadata.numberOfFrames || '1',
+          sliceThickness: metadata.sliceThickness || null,
+          pixelSpacing: metadata.pixelSpacing || null
+        }
+      },
+      dicomMetadata: metadata // Store full metadata for bot access
+    };
+
+    // Save document metadata to Firestore if documentId provided
+    if (documentId) {
+      try {
+        await documentService.saveDocument({
+          id: documentId,
+          dicomMetadata: metadata,
+          extractionSummary: {
+            documentType: 'Scan',
+            scanType: metadata.modality,
+            studyDescription: metadata.studyDescription,
+            bodyPart: metadata.bodyPartExamined,
+            studyDate: extractedDate
+          }
+        });
+      } catch (error) {
+        console.warn('Failed to update document with DICOM metadata:', error);
+      }
+    }
+
+    if (onProgress) {
+      onProgress(null, 'DICOM metadata extracted successfully');
+    }
+
+    return {
+      success: true,
+      documentType: 'Scan',
+      extractedData: {
+        scan: extractedData.data.scan
+      },
+      summary: extractedData.summary,
+      dataPointCount: 0, // DICOM files don't extract lab/vital values
+      extractedDate,
+      dicomMetadata: metadata
+    };
+  } catch (error) {
+    console.error('Error processing DICOM file:', error);
+    throw error;
+  }
+}
+
+/**
  * Convert file to base64 string
  */
 async function fileToBase64(file) {
+  if (!file) {
+    throw new Error('No file provided to convert to base64');
+  }
+  
+  // Check file size - warn if very large (might cause memory issues)
+  const maxSizeForBase64 = 100 * 1024 * 1024; // 100MB
+  if (file.size > maxSizeForBase64) {
+    throw new Error(`File is too large (${(file.size / 1024 / 1024).toFixed(1)}MB) to convert to base64. Maximum size is ${maxSizeForBase64 / 1024 / 1024}MB. For large files, use direct file processing instead.`);
+  }
+  
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
+      if (!reader.result) {
+        reject(new Error('FileReader returned empty result'));
+        return;
+      }
       const base64 = reader.result.split(',')[1];
+      if (!base64) {
+        reject(new Error('Failed to extract base64 data from file'));
+        return;
+      }
       resolve(base64);
     };
-    reader.onerror = reject;
+    reader.onerror = (error) => {
+      reject(new Error(`Failed to read file: ${error.message || 'Unknown error'}`));
+    };
     reader.readAsDataURL(file);
   });
 }
@@ -701,11 +1008,16 @@ GENERAL RULES:
   // Log document info for debugging
   console.log('Sending document to AI:', {
     mimeType,
-    base64Length: base64Data.length,
+    base64Length: base64Data?.length || 0,
     promptLength: finalPrompt.length,
     hasBase64Data: !!base64Data && base64Data.length > 0,
     documentType: documentType || 'unknown (classifying)'
   });
+  
+  // Validate base64Data before proceeding
+  if (!base64Data || typeof base64Data !== 'string' || base64Data.length === 0) {
+    throw new Error('Failed to convert file to base64. The file may be too large or corrupted. For ZIP files containing DICOM files, the system should extract them first.');
+  }
 
   const result = await model.generateContent([
     {

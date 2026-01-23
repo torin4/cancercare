@@ -34,6 +34,11 @@ const TAGS = {
   SERIES_DESCRIPTION: 'x0008103e',
   MODALITY: 'x00080060',
   BODY_PART_EXAMINED: 'x00180015',
+  SERIES_DATE: 'x00080021',
+  SERIES_TIME: 'x00080031',
+  // Institution (may be at study or series level)
+  INSTITUTION_NAME: 'x00080080',
+  INSTITUTION_ADDRESS: 'x00080081',
   // Image
   INSTANCE_NUMBER: 'x00200013',
   SLICE_LOCATION: 'x00201041',
@@ -169,6 +174,8 @@ export async function parseDicomDir(dicomDirInput) {
             studyDescription: getString(ds, TAGS.STUDY_DESCRIPTION),
             studyID: getString(ds, TAGS.STUDY_ID),
             accessionNumber: getString(ds, TAGS.ACCESSION_NUMBER),
+            institutionName: getString(ds, TAGS.INSTITUTION_NAME),
+            institutionAddress: getString(ds, TAGS.INSTITUTION_ADDRESS),
             series: [],
           };
           curPatient.studies.push(curStudy);
@@ -203,6 +210,9 @@ export async function parseDicomDir(dicomDirInput) {
             seriesDescription: getString(ds, TAGS.SERIES_DESCRIPTION),
             modality: getString(ds, TAGS.MODALITY),
             bodyPartExamined: getString(ds, TAGS.BODY_PART_EXAMINED),
+            seriesDate: getString(ds, TAGS.SERIES_DATE),
+            seriesTime: getString(ds, TAGS.SERIES_TIME),
+            institutionName: getString(ds, TAGS.INSTITUTION_NAME),
             images: [],
           };
           curStudy.series.push(curSeries);
@@ -306,6 +316,8 @@ export function flattenDicomDirStructure(structure) {
               studyDescription: s.studyDescription,
               studyID: s.studyID,
               accessionNumber: s.accessionNumber,
+              institutionName: s.institutionName,
+              institutionAddress: s.institutionAddress,
             },
             series: {
               seriesInstanceUID: r.seriesInstanceUID,
@@ -313,6 +325,9 @@ export function flattenDicomDirStructure(structure) {
               seriesDescription: r.seriesDescription,
               modality: r.modality,
               bodyPartExamined: r.bodyPartExamined,
+              seriesDate: r.seriesDate,
+              seriesTime: r.seriesTime,
+              institutionName: r.institutionName,
             },
             image: {
               instanceNumber: img.instanceNumber,
