@@ -806,8 +806,15 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
 
   return (
     <div 
-      className={`${isMobileOverlay ? 'lg:hidden fixed bottom-0 left-0 right-0 w-full h-3/4 z-50 rounded-t-2xl shadow-2xl' : `hidden lg:flex fixed top-0 bottom-0 z-40 transition-all duration-300 w-[512px]`} bg-white border-l border-medical-neutral-200 shadow-xl flex flex-col`}
-      style={!isMobileOverlay ? { right: 0, left: 'auto' } : undefined}
+      className={`${isMobileOverlay ? 'lg:hidden fixed left-0 right-0 w-full z-50 rounded-t-2xl shadow-2xl' : `hidden lg:flex fixed top-0 bottom-0 z-40 transition-all duration-300 w-[512px]`} bg-white border-l border-medical-neutral-200 shadow-xl flex flex-col`}
+      style={
+        isMobileOverlay
+          ? {
+              bottom: 'calc(env(safe-area-inset-bottom, 0px) + 72px)',
+              height: 'calc(75vh - 72px)'
+            }
+          : { right: 0, left: 'auto' }
+      }
     >
       {/* Collapse Button - Positioned outside sidebar */}
       {!isMobileOverlay && (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square, HelpCircle, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import QuestionCards, { removeQuestionsFromText } from '../QuestionCards';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
@@ -1043,6 +1043,15 @@ export default function ChatTab({ onTabChange }) {
         )}>
           <div className={combineClasses('flex items-center justify-between w-full', DesignTokens.spacing.gap.sm)}>
             <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'sm:gap-3', 'flex-1 min-w-0')}>
+              <button
+                onClick={() => onTabChange('dashboard')}
+                className="md:hidden flex items-center justify-center w-9 h-9 rounded-full bg-white border border-medical-neutral-200 text-medical-neutral-700 hover:bg-medical-neutral-50 active:bg-medical-neutral-100 transition"
+                aria-label="Back to dashboard"
+                title="Back to dashboard"
+                type="button"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
               <div className={combineClasses(DesignTokens.components.header.iconContainer, 'flex-shrink-0')}>
                 <Bot className={combineClasses(DesignTokens.icons.header.size.full, DesignTokens.components.header.icon)} />
               </div>
@@ -1625,7 +1634,10 @@ export default function ChatTab({ onTabChange }) {
         </div>
 
       {/* Bottom Section: AI Response Settings + Input Area */}
-      <div className="fixed left-0 right-0 z-20 md:relative md:z-auto bg-white" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))' }}>
+          <div
+            className="fixed left-0 right-0 z-20 md:relative md:z-auto bg-white"
+            style={{ bottom: 'calc(max(1rem, env(safe-area-inset-bottom, 1rem)) + 72px)' }}
+          >
         {/* AI Response Settings - Collapsible */}
         <div className="border-t border-medical-neutral-200 bg-white">
           {!showComplexityControl ? (

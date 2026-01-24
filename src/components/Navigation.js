@@ -239,27 +239,29 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
         </div>
       </div>
 
-      {/* Bottom Navigation - Mobile Only */}
-      <div className={combineClasses(DesignTokens.colors.app[50], 'border-t', DesignTokens.colors.app.border[200], DesignTokens.shadows.lg, DesignTokens.spacing.card.mobile, 'flex-shrink-0 fixed bottom-0 left-0 right-0 z-10 md:hidden')}>
-        <div className="flex justify-evenly items-center max-w-2xl mx-auto">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-          <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-            className={combineClasses('flex flex-col items-center justify-center', DesignTokens.spacing.gap.xs, 'px-2.5 py-2.5', DesignTokens.transitions.all, 'min-h-[44px] flex-1 relative', isActive ? DesignTokens.colors.app.text[900] : combineClasses(DesignTokens.colors.app.text[600], 'hover:' + DesignTokens.colors.app.text[900]))}
-          >
-                <div className={combineClasses('relative flex items-center justify-center', isActive ? combineClasses(DesignTokens.colors.app[200], DesignTokens.borders.radius.full, 'px-3 py-1.5') : '')}>
-                <Icon className="w-5 h-5 sm:w-5 sm:h-5" />
-                </div>
-                <span className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.typography.h3.weight)}>{item.label}</span>
-          </button>
-            );
-          })}
+      {/* Bottom Navigation - Mobile Only (hidden on chat) */}
+      {activeTab !== 'chat' && (
+        <div className={combineClasses(DesignTokens.colors.app[50], 'border-t', DesignTokens.colors.app.border[200], DesignTokens.shadows.lg, DesignTokens.spacing.card.mobile, 'flex-shrink-0 fixed bottom-0 left-0 right-0 z-10 md:hidden')}>
+          <div className="flex justify-evenly items-center max-w-2xl mx-auto">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+            <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+              className={combineClasses('flex flex-col items-center justify-center', DesignTokens.spacing.gap.xs, 'px-2.5 py-2.5', DesignTokens.transitions.all, 'min-h-[44px] flex-1 relative', isActive ? DesignTokens.colors.app.text[900] : combineClasses(DesignTokens.colors.app.text[600], 'hover:' + DesignTokens.colors.app.text[900]))}
+            >
+                  <div className={combineClasses('relative flex items-center justify-center', isActive ? combineClasses(DesignTokens.colors.app[200], DesignTokens.borders.radius.full, 'px-3 py-1.5') : '')}>
+                  <Icon className="w-5 h-5 sm:w-5 sm:h-5" />
+                  </div>
+                  <span className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.typography.h3.weight)}>{item.label}</span>
+            </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 }
