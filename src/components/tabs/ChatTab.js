@@ -1489,71 +1489,11 @@ export default function ChatTab({ onTabChange }) {
           <div ref={messagesEndRef} className="h-1" />
         </div>
 
-        {/* Trial Context Indicator */}
-        {currentTrialContext && (
-          <div className={combineClasses('p-2.5 sm:p-3 border-b flex items-center justify-between gap-2', DesignTokens.moduleAccent.trials.bg, DesignTokens.moduleAccent.trials.border)}>
-            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
-              <span className={combineClasses('text-xs sm:text-sm font-medium flex-shrink-0', DesignTokens.moduleAccent.trials.text)}>Discussing:</span>
-              <span className={combineClasses('text-xs sm:text-sm truncate', DesignTokens.moduleAccent.trials.text)}>{currentTrialContext.title || 'Trial'}</span>
-            </div>
-            <button
-              onClick={() => {
-                setCurrentTrialContext(null);
-                setMessages(prev => [...prev, {
-                  type: 'ai',
-                  text: 'Trial context cleared. You can now ask general questions or ask about a different trial.'
-                }]);
-              }}
-              className={combineClasses('text-xs sm:text-sm underline flex-shrink-0 min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70', DesignTokens.moduleAccent.trials.text, `hover:${DesignTokens.moduleAccent.trials.text.replace('text-', 'text-').replace('600', '800')}`)}
-            >
-              Clear
-            </button>
-          </div>
-        )}
+        {/* Trial Context Indicator hidden (context is always active) */}
 
-        {/* Health Context Indicator */}
-        {currentHealthContext && (
-          <div className="p-2.5 sm:p-3 bg-medical-primary-50 border-b border-medical-primary-200 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
-              <span className="text-medical-primary-600 text-xs sm:text-sm font-medium flex-shrink-0">Discussing:</span>
-              <span className="text-medical-primary-800 text-xs sm:text-sm truncate">Your Health Data (Labs, Vitals, Symptoms)</span>
-            </div>
-            <button
-              onClick={() => {
-                setCurrentHealthContext(null);
-                setMessages(prev => [...prev, {
-                  type: 'ai',
-                  text: 'Health context cleared. You can now ask general questions or ask about different health data.'
-                }]);
-              }}
-              className="text-medical-primary-600 hover:text-medical-primary-800 text-xs sm:text-sm underline flex-shrink-0 min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70"
-            >
-              Clear
-            </button>
-          </div>
-        )}
+        {/* Health Context Indicator hidden (context is always active) */}
 
-        {/* Notebook Context Indicator */}
-        {currentNotebookContext && (
-          <div className="p-2.5 sm:p-3 bg-yellow-50 border-b border-yellow-200 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
-              <span className="text-yellow-600 text-xs sm:text-sm font-medium flex-shrink-0">Discussing:</span>
-              <span className="text-yellow-800 text-xs sm:text-sm truncate">Your Health History & Timeline</span>
-            </div>
-            <button
-              onClick={() => {
-                setCurrentNotebookContext(null);
-                setMessages(prev => [...prev, {
-                  type: 'ai',
-                  text: 'History/timeline context cleared. You can now ask general questions or ask about different topics.'
-                }]);
-              }}
-              className="text-yellow-600 hover:text-yellow-700 text-xs sm:text-sm underline flex-shrink-0 min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70"
-            >
-              Clear
-            </button>
-          </div>
-        )}
+        {/* Notebook Context Indicator hidden (context is always active) */}
 
         {/* Chat Suggestions - Mobile Only */}
         <div
@@ -1634,10 +1574,10 @@ export default function ChatTab({ onTabChange }) {
         </div>
 
       {/* Bottom Section: AI Response Settings + Input Area */}
-          <div
-            className="fixed left-0 right-0 z-20 md:relative md:z-auto bg-white"
-            style={{ bottom: 'calc(max(1rem, env(safe-area-inset-bottom, 1rem)) + 72px)' }}
-          >
+      <div
+        className="fixed left-0 right-0 z-20 md:relative md:z-auto bg-white"
+        style={{ bottom: '0' }}
+      >
         {/* AI Response Settings - Collapsible */}
         <div className="border-t border-medical-neutral-200 bg-white">
           {!showComplexityControl ? (
@@ -1939,7 +1879,10 @@ export default function ChatTab({ onTabChange }) {
             </button>
           </div>
 
-          <div className="px-3 sm:px-4 pb-4 flex gap-2" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))' }}>
+          <div
+            className="px-3 sm:px-4 pb-4 flex gap-2"
+            style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
+          >
             <div className="relative flex-1">
             <input
               type="text"
