@@ -14,6 +14,7 @@ import { auth } from './firebase/config';
 import Login from './components/Login';
 import ClinicalTrials from './components/tabs/ClinicalTrials';
 import DocumentUploadOnboarding from './components/modals/DocumentUploadOnboarding';
+import DicomImportFlow from './components/modals/DicomImportFlow';
 import Onboarding from './components/Onboarding';
 import Navigation from './components/Navigation';
 import AddSymptomModal from './components/modals/AddSymptomModal';
@@ -110,6 +111,7 @@ export default function CancerCareApp() {
   });
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
   const [documentOnboardingMethod, setDocumentOnboardingMethod] = useState('picker');
+  const [showDicomImportFlow, setShowDicomImportFlow] = useState(false);
   const [hasUploadedDocument, setHasUploadedDocument] = useState(false);
   const [pendingDocumentDate, setPendingDocumentDate] = useState(null);
   const [pendingDocumentNote, setPendingDocumentNote] = useState(null);
@@ -233,7 +235,10 @@ export default function CancerCareApp() {
       setUploadProgress('Reading document...');
 
       // Get document date and note (user-provided or null)
-      const providedDate = pendingDocumentDate;
+      // CRITICAL: For DICOM files (docType === 'Scan'), always pass null for date
+      // DICOM metadata will provide the authoritative date
+      const isDicom = docType === 'Scan' || file.name?.toLowerCase().endsWith('.dcm') || file.name?.toLowerCase().endsWith('.dicom');
+      const providedDate = isDicom ? null : pendingDocumentDate; // Never use user date for DICOM
       const providedNote = pendingDocumentNote;
       // Clear pending date and note after use
       setPendingDocumentDate(null);
@@ -1331,6 +1336,7 @@ export default function CancerCareApp() {
           <DocumentUploadOnboarding
             isOnboarding={!hasUploadedDocument}
             onClose={() => setShowDocumentOnboarding(false)}
+            onImportDicom={() => setShowDicomImportFlow(true)}
             onUploadClick={(documentType, documentDate = null, documentNote = null, file = null) => {
               // Store document date and note for use in upload
               setPendingDocumentDate(documentDate);
@@ -1356,6 +1362,42 @@ export default function CancerCareApp() {
             }}
           />
         )
+      }
+
+      {/* DICOM Import Flow Modal */}
+      {showDicomImportFlow && (
+        <DicomImportFlow
+          show={showDicomImportFlow}
+          onClose={() => setShowDicomImportFlow(false)}
+          onViewNow={(viewerData) => {
+            setShowDicomImportFlow(false);
+            setDicomViewerDocuments(viewerData);
+          }}
+          onSaveToLibrary={async (files, note) => {
+            setShowDicomImportFlow(false);
+            setIsUploading(true);
+            setUploadProgress('Saving scan files to library...');
+            
+            try {
+              // Process files sequentially (reuse existing logic)
+              // Pass null for date - DICOM metadata will provide the date
+              for (let i = 0; i < files.length; i++) {
+                await handleRealFileUpload(files[i], 'Scan');
+              }
+              
+              setIsUploading(false);
+              setUploadProgress('');
+              showSuccess(`Successfully saved ${files.length} scan file${files.length !== 1 ? 's' : ''} to library`);
+            } catch (error) {
+              console.error('Error saving scan files to library:', error);
+              setIsUploading(false);
+              setUploadProgress('');
+              showError(`Failed to save files: ${error.message}`);
+            }
+          }}
+          userId={user?.uid}
+        />
+      )
       }
 
       <AddLabValueModal

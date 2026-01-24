@@ -15,6 +15,7 @@ import { getHealthContextInstructions } from '../prompts/context/healthContext';
 import { getTrialContextInstructions } from '../prompts/context/trialContext';
 import { getNotebookContextInstructions } from '../prompts/context/notebookContext';
 import { buildPatientDemographicsContext } from '../prompts/context/patientDemographics';
+import { buildDicomContext, getDicomChatInstructions } from '../prompts/context/dicomContext';
 import {
   buildNoTrialDataResponse,
   buildNoHealthDataResponse,
@@ -1032,7 +1033,8 @@ function buildChatPrompt({
   healthContextSection,
   notebookContextSection,
   userRoleContext,
-  responseComplexity = null
+  responseComplexity = null,
+  dicomContextSection = null
 }) {
   const complexity = responseComplexity || patientProfile?.responseComplexity || 'standard';
   
@@ -1061,6 +1063,7 @@ function buildChatPrompt({
     trialContextSection,
     healthContextSection,
     notebookContextSection,
+    dicomContextSection,
     conversationHistory,
     patientProfile,
     responseComplexity: complexity,
@@ -1077,10 +1080,14 @@ function buildChatPrompt({
  * @param {Object} healthContext - Optional health context (labs, vitals, symptoms)
  * @param {Object} notebookContext - Optional notebook context (timeline entries, journal notes, documents)
  * @param {Object} patientProfile - Patient demographics (age, gender, weight) for normal range adjustments
+ * @param {Object} dicomContext - Optional DICOM context (metadata, viewer state) for medical imaging chat
  */
-export async function processChatMessage(message, userId, conversationHistory = [], trialContext = null, healthContext = null, notebookContext = null, patientProfile = null, abortSignal = null) {
+export async function processChatMessage(message, userId, conversationHistory = [], trialContext = null, healthContext = null, notebookContext = null, patientProfile = null, abortSignal = null, dicomContext = null) {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    // Determine if we need vision model (if DICOM image data is provided)
+    const hasImage = dicomContext?.imageData?.imageData;
+    const modelName = hasImage ? 'gemini-2.5-flash' : 'gemini-2.5-flash'; // Both use same model, but request format differs
+    const model = genAI.getGenerativeModel({ model: modelName });
 
     // Detect intent from message
     const { 
@@ -1130,38 +1137,39 @@ export async function processChatMessage(message, userId, conversationHistory = 
     const hasVitals = healthContext?.vitals && healthContext.vitals.length > 0;
     const hasSymptoms = healthContext?.symptoms && healthContext.symptoms.length > 0;
     const hasHealthData = hasLabs || hasVitals || hasSymptoms;
-    
+
     // If question requires health data analysis but none is available, provide helpful response
     // BUT skip this if user is adding data (they're providing it now)
-    if (requiresHealthData && !hasHealthData) {
+    // ALSO skip this if DICOM context is provided (this is a DICOM scan question, not health data)
+    if (requiresHealthData && !hasHealthData && !dicomContext) {
       return {
         response: buildNoHealthDataResponse(),
         extractedData: null
       };
     }
     
-    if (requiresLabs && !hasLabs && hasHealthData) {
+    if (requiresLabs && !hasLabs && hasHealthData && !dicomContext) {
       return {
         response: buildNoLabDataResponse(),
         extractedData: null
       };
     }
-    
-    if (requiresVitals && !hasVitals && hasHealthData) {
+
+    if (requiresVitals && !hasVitals && hasHealthData && !dicomContext) {
       return {
         response: buildNoVitalDataResponse(),
         extractedData: null
       };
     }
-    
-    if (requiresSymptoms && !hasSymptoms && hasHealthData) {
+
+    if (requiresSymptoms && !hasSymptoms && hasHealthData && !dicomContext) {
       return {
         response: buildNoSymptomDataResponse(),
         extractedData: null
       };
     }
 
-    if (requiresTrendAnalysis && hasHealthData) {
+    if (requiresTrendAnalysis && hasHealthData && !dicomContext) {
       // Check if there's enough data for trend analysis (need at least 2-3 data points)
       let hasEnoughData = false;
       if (requiresLabs && hasLabs) {
@@ -1205,6 +1213,19 @@ export async function processChatMessage(message, userId, conversationHistory = 
     const structuredInsights = healthContextResult.insights || [];
     const notebookContextSection = buildNotebookContextSection(notebookContext);
 
+    // Build DICOM context section if provided
+    let dicomContextSection = null;
+    if (dicomContext) {
+      dicomContextSection = buildDicomContext(
+        dicomContext.metadata,
+        dicomContext.currentIndex,
+        dicomContext.totalFiles,
+        dicomContext.viewerState
+      );
+      // Add DICOM-specific instructions
+      dicomContextSection = getDicomChatInstructions() + '\n\n' + dicomContextSection;
+    }
+
     // Build prompt for extraction
     // Determine user role for personalized responses
     const isPatient = patientProfile?.isPatient !== false; // Default to true if not set
@@ -1220,7 +1241,8 @@ export async function processChatMessage(message, userId, conversationHistory = 
       trialContextSection,
       healthContextSection,
       notebookContextSection,
-      userRoleContext
+      userRoleContext,
+      dicomContextSection
     });
 
     // Check if aborted before making API call
@@ -1228,13 +1250,37 @@ export async function processChatMessage(message, userId, conversationHistory = 
       throw new Error('Request aborted');
     }
 
-    const result = await model.generateContent(prompt);
-    
+    let result;
+
+    // If image data is provided, use multimodal request
+    if (hasImage && dicomContext.imageData.imageData) {
+      const imageData = dicomContext.imageData.imageData;
+
+      // Convert base64 to inline data format for Gemini
+      // Remove "data:image/jpeg;base64," prefix if present
+      const base64Image = imageData.includes('base64,')
+        ? imageData.split('base64,')[1]
+        : imageData;
+
+      const imagePart = {
+        inlineData: {
+          data: base64Image,
+          mimeType: 'image/jpeg'
+        }
+      };
+
+      // Multimodal request: [text prompt, image]
+      result = await model.generateContent([prompt, imagePart]);
+    } else {
+      // Text-only request
+      result = await model.generateContent(prompt);
+    }
+
     // Check if aborted after API call but before reading response
     if (abortSignal?.aborted) {
       throw new Error('Request aborted');
     }
-    
+
     const response = await result.response;
     const text = response.text();
     

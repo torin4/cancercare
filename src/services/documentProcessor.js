@@ -320,8 +320,14 @@ async function processDicomFile(file, userId, patientProfile = null, documentDat
 
     const metadata = dicomResult.metadata;
 
-    // Use study date from DICOM if available, otherwise use provided date
-    const extractedDate = metadata.studyDateFormatted || documentDate || null;
+    // CRITICAL: For DICOM files, ALWAYS use study/series date from metadata, NEVER user-provided date
+    // DICOM metadata is the authoritative source for dates
+    const extractedDate = metadata.studyDateFormatted || metadata.seriesDate || null;
+    
+    // Log warning if user provided date but we're using DICOM date
+    if (documentDate && (metadata.studyDate || metadata.seriesDate)) {
+      console.log('[DICOM] Using study/series date from metadata, ignoring user-provided date');
+    }
 
     // Build extracted data structure compatible with existing system
     const extractedData = {

@@ -11,6 +11,7 @@ export function buildMainPrompt({
   trialContextSection,
   healthContextSection,
   notebookContextSection,
+  dicomContextSection,
   conversationHistory,
   patientProfile,
   responseComplexity,
@@ -18,7 +19,18 @@ export function buildMainPrompt({
 }) {
   const complexity = responseComplexity || patientProfile?.responseComplexity || 'standard';
   const depth = insightDepth || patientProfile?.insightDepth || 'standard';
-  
+
+  // If DICOM context is provided, use DICOM-specific prompt structure
+  if (dicomContextSection) {
+    return buildDicomPrompt({
+      message,
+      dicomContextSection,
+      conversationHistory,
+      complexity,
+      depth
+    });
+  }
+
   return `You are CancerCare's AI health assistant helping track medical data for a patient${patientProfile?.diagnosis ? ` with ${patientProfile.diagnosis}` : ''}. You can discuss ANYTHING related to the patient's health, disease, treatment, symptoms, medications, test results, or overall medical condition - there are no topic restrictions as long as it's health-related.
 
 **CRITICAL - BE SPECIFIC AND DETAILED**: When answering questions, provide specific, detailed information. DO NOT be vague or generic. Use your extensive knowledge base to provide comprehensive answers. For drug-related questions, provide detailed mechanisms, side effects, clinical data, and correlations with observed health patterns. Avoid repetitive, generic statements.
@@ -258,4 +270,62 @@ function getInsightDepthInstructions(insightDepth) {
   * Provide 1-2 sentences of explanation for each insight
   * Balance between simplicity and useful detail`;
   }
+}
+
+/**
+ * Build DICOM-specific prompt for medical imaging chat
+ */
+function buildDicomPrompt({
+  message,
+  dicomContextSection,
+  conversationHistory,
+  complexity,
+  depth
+}) {
+  // Check if this is a vision analysis request (image will be attached separately)
+  const hasVisionKeywords = /see|look|show|visible|appear|image|analyze|examine|view|displayed|abnormal|finding|structure|density|opacity|spot|mass|lesion|bright|dark|what am i looking at|what is this/i.test(message);
+
+  const visionInstructions = hasVisionKeywords
+    ? `
+IMAGE ANALYSIS INSTRUCTIONS (if image is provided):
+- An image of the current DICOM slice may be attached to this request
+- If you can see the image, analyze what anatomical structures are visible
+- Describe the image in educational terms (brightness, contrast, visible anatomy)
+- Note any clearly visible structures based on the body part and modality
+- Be cautious - do NOT diagnose abnormalities or pathology
+- Focus on describing what you see educationally, not clinically
+- Reference the slice position and imaging parameters from the metadata
+`
+    : '';
+
+  return `${dicomContextSection}
+
+USER MESSAGE: "${message}"
+
+CONVERSATION HISTORY:
+${conversationHistory.slice(-5).map(msg => `${msg.role}: ${msg.content}`).join('\n')}
+${visionInstructions}
+RESPONSE INSTRUCTIONS:
+- Provide clear, educational responses about the DICOM scan
+- Use plain language and explain medical terminology
+- Ground responses in the metadata provided
+- If an image is visible, describe anatomical structures you can see
+- Be specific and detailed when explaining scan parameters
+- Always end with: "Please consult your healthcare provider for medical interpretation."
+${getResponseStyle(complexity)}
+
+Return a JSON object with this structure:
+{
+  "conversationalResponse": "Your educational response about the DICOM scan. Be friendly, clear, and informative.",
+  "insight": "A brief one-sentence insight or key point from your response.",
+  "extractedData": null
+}
+
+IMPORTANT:
+- Do NOT extract medical data from DICOM chats - this is educational only
+- Always set extractedData to null
+- Do NOT diagnose abnormalities, pathology, or clinical findings
+- Focus on educational descriptions of anatomy and imaging characteristics
+- Use MARKDOWN formatting for better readability (bold for key terms, bullet points for lists)
+- Return ONLY valid JSON`;
 }

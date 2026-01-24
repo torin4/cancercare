@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Activity, Dna, FileText, X, CheckCircle, ChevronRight, AlertTriangle, Camera, Trash2 } from 'lucide-react';
+import { Upload, Activity, Dna, FileText, X, CheckCircle, ChevronRight, AlertTriangle, Camera, Trash2, FileImage } from 'lucide-react';
 import { useHealthContext } from '../../contexts/HealthContext';
 import DatePicker from '../DatePicker';
 import { DesignTokens, combineClasses } from '../../design/designTokens';
 
-const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true }) => {
+const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true, onImportDicom = null }) => {
   const { hasRealLabData, hasRealVitalData } = useHealthContext();
   const [selectedType, setSelectedType] = useState(null);
   const [documentDate, setDocumentDate] = useState('');
@@ -93,20 +93,33 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
       helpText: 'We\'ll extract mutations, biomarkers (TMB, MSI, HRD), and match you with targeted therapies and clinical trials.'
     },
     {
+      id: 'dicom-import',
+      title: 'View CT / MRI / PET Scans',
+      icon: FileImage,
+      description: 'Open scan images in our viewer. ZIP file required (or individual .dcm files)',
+      examples: [
+        'ZIP from imaging CD or download (multi-series)',
+        'Scan files (.dcm)',
+        'Folder exports from medical CDs',
+        'CT, MRI, or PET scan images'
+      ],
+      color: 'blue',
+      helpText: 'ZIP files work best for multi-series scans. Dates come from the scan. Open in our imaging viewer.'
+    },
+    {
       id: 'other',
       title: 'Other Medical Document',
       icon: FileText,
-      description: 'Imaging scans, reports, pathology, treatment notes, etc.',
+      description: 'Reports, pathology, treatment notes, etc. (Not scan images)',
       examples: [
-        'DICOM files (CT, MRI, PET scans)',
-        'CT/MRI/PET scan reports',
+        'CT/MRI/PET scan reports (text)',
         'Pathology reports',
         'Oncology progress notes',
         'Treatment plans',
         'Surgical reports'
       ],
       color: 'green',
-      helpText: 'We\'ll extract relevant medical information and keep everything organized in one place. DICOM files will be viewable in our medical imaging viewer.'
+      helpText: 'We\'ll extract relevant medical information and keep everything organized. For CT/MRI/PET scan images, use "View CT / MRI / PET Scans" instead.'
     }
   ];
 
@@ -114,7 +127,13 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
   const progressPercentage = (currentStep / totalSteps) * 100;
 
   const handleContinueFromStep1 = () => {
-    if (selectedType) {
+    if (selectedType === 'dicom-import') {
+      // Close this modal and open DICOM import flow
+      onClose();
+      if (onImportDicom) {
+        onImportDicom();
+      }
+    } else if (selectedType) {
       setCurrentStep(2); // Go to date step
     }
   };
@@ -169,6 +188,45 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
     
     input.onchange = async (e) => {
       const files = Array.from(e.target.files || []);
+      
+      if (files.length > 0 && selectedType === 'other') {
+        // Check if any files are DICOM
+        const { isDicomFile } = await import('../../services/dicomService');
+        const { isZipFile } = await import('../../services/zipService');
+        
+        const dicomFiles = await Promise.all(
+          files.map(async (file) => {
+            const isDicom = await isDicomFile(file);
+            const isZip = isZipFile(file);
+            // Check if ZIP might contain DICOM (heuristic: if it's a ZIP, it might be DICOM)
+            return { file, isDicom, isZip };
+          })
+        );
+        
+        const hasDicom = dicomFiles.some(f => f.isDicom || (f.isZip && f.file.name.toLowerCase().includes('dicom')));
+        
+        if (hasDicom) {
+          // Show message suggesting Import DICOM
+          const useDicom = window.confirm(
+            'You selected scan image files. For the best experience, use "View CT / MRI / PET Scans" instead.\n\n' +
+            'Switch to the scan viewer?'
+          );
+          
+          if (useDicom) {
+            setSelectedType('dicom-import');
+            // Trigger DICOM import flow
+            if (onImportDicom) {
+              onClose();
+              onImportDicom();
+            }
+            // Clean up
+            if (document.body.contains(input)) {
+              document.body.removeChild(input);
+            }
+            return;
+          }
+        }
+      }
       
       if (files.length > 0) {
         // Add files to selectedFiles state instead of uploading immediately
@@ -580,15 +638,15 @@ const DocumentUploadOnboarding = ({ onClose, onUploadClick, isOnboarding = true 
               )}>
                 <h3 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, DesignTokens.colors.neutral.text[900], 'mb-4')}>Add Photos or Files</h3>
                 
-                {/* Note about DICOM files without extensions */}
+                {/* Note about scan files without extensions */}
                 {selectedType === 'other' && (
                   <div className={combineClasses('mb-4 p-3 rounded-lg bg-blue-50 border border-blue-200', DesignTokens.borders.radius.md)}>
                     <p className={combineClasses('text-sm', DesignTokens.colors.neutral.text[700])}>
-                      <strong>Note:</strong> If DICOM files (like files in DCMDT folders) appear greyed out, you can:
+                      <strong>Note:</strong> If scan image files (e.g. from imaging CDs) appear greyed out:
                     </p>
                     <ul className={combineClasses('text-sm mt-2 ml-4 list-disc', DesignTokens.colors.neutral.text[700])}>
-                      <li>Select "All Files" from the file type dropdown in the picker</li>
-                      <li>Or upload the entire ZIP file containing the DICOM files</li>
+                      <li>Select "All Files" in the file picker, or</li>
+                      <li>Use "View CT / MRI / PET Scans" and select the ZIP file</li>
                     </ul>
                   </div>
                 )}

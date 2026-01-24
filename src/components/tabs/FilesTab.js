@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical, Loader2, BookOpen, FileText, MessageSquare, Search, Bot, Trash2, Eye } from 'lucide-react';
+import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical, Loader2, BookOpen, FileText, MessageSquare, Search, Bot, Trash2, Eye, FileImage } from 'lucide-react';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
@@ -13,6 +13,7 @@ import { processDocument, generateExtractionSummary, generateChatSummary } from 
 import { getNotebookEntries } from '../../services/notebookService';
 import { prepareZipForViewing } from '../../services/zipViewerService';
 import DocumentUploadOnboarding from '../modals/DocumentUploadOnboarding';
+import DicomImportFlow from '../modals/DicomImportFlow';
 import EditDocumentNoteModal from '../modals/EditDocumentNoteModal';
 import UploadProgressOverlay from '../UploadProgressOverlay';
 import DeletionConfirmationModal from '../modals/DeletionConfirmationModal';
@@ -46,7 +47,6 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
   const [extractedDataCounts, setExtractedDataCounts] = useState(null);
   const [currentDocumentType, setCurrentDocumentType] = useState(null);
   const [documentProgress, setDocumentProgress] = useState({ current: 0, total: 0 }); // Track document processing progress
-  const [isRefreshing, setIsRefreshing] = useState(false); // Track refresh button animation state
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({
     show: false,
@@ -66,6 +66,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
   const [openMenuId, setOpenMenuId] = useState(null); // Track which file's menu is open (for mobile)
   const [expandedDicomGroups, setExpandedDicomGroups] = useState(new Set()); // Track expanded DICOM groups
   const [zipChoiceModal, setZipChoiceModal] = useState(null); // { file, processingResult, onViewNow, onSaveToLibrary }
+  const [showDicomImportFlow, setShowDicomImportFlow] = useState(false); // DICOM import flow modal
 
   // Tab state for Documents vs Notes view
   const [activeSubTab, setActiveSubTab] = useState('notes'); // 'documents' or 'notes'
@@ -309,6 +310,10 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
     setShowDocumentOnboarding(true);
   };
 
+  const handleImportDicom = () => {
+    setShowDicomImportFlow(true);
+  };
+
   const simulateDocumentUpload = (docType) => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -529,7 +534,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
         const totalFiles = processingResult.totalFiles || (processingResult.extractedFiles ? processingResult.extractedFiles.length : 0);
 
         if (totalFiles === 0) {
-          throw new Error('No DICOM files found in ZIP archive. Please ensure the ZIP contains .dcm or .dicom files.');
+          throw new Error('No scan files found in ZIP archive. Please ensure the ZIP contains .dcm files or CT/MRI/PET scan images.');
         }
 
         // Show choice modal: View Now (instant) or Save to Library (upload to Firebase)
@@ -622,12 +627,12 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
 
             // Initialize document progress tracking - show 0/0 initially, then update to 0/totalFiles
             setDocumentProgress({ current: 0, total: 0 });
-            setUploadProgress(`${fileProgressPrefix}${extractOnDemand ? 'Preparing to process' : 'Extracting DICOM files from ZIP'}...`);
+            setUploadProgress(`${fileProgressPrefix}${extractOnDemand ? 'Preparing to process' : 'Extracting scan files from ZIP'}...`);
 
             // Small delay to show initial state, then update with actual count
             await new Promise(resolve => setTimeout(resolve, 100));
             setDocumentProgress({ current: 0, total: totalFiles });
-            setUploadProgress(`${fileProgressPrefix}Processing ${totalFiles} DICOM file${totalFiles !== 1 ? 's' : ''} from ZIP...`);
+            setUploadProgress(`${fileProgressPrefix}Processing ${totalFiles} scan file${totalFiles !== 1 ? 's' : ''} from ZIP...`);
 
             // Track successes and failures
             let successCount = 0;
@@ -760,14 +765,14 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
             const errorDetails = failedFiles.length > 0
               ? `\n\nFailed files:\n${failedFiles.map((f, idx) => `${idx + 1}. ${f.fileName}: ${f.error}`).join('\n')}`
               : '';
-            throw new Error(`Failed to process all ${totalFiles} DICOM file${totalFiles !== 1 ? 's' : ''} from ZIP archive.${errorDetails}`);
+            throw new Error(`Failed to process all ${totalFiles} scan file${totalFiles !== 1 ? 's' : ''} from ZIP archive.${errorDetails}`);
           } else if (failureCount > 0) {
             const errorDetails = failedFiles.length <= 5
               ? `\n\nFailed files:\n${failedFiles.map((f, idx) => `${idx + 1}. ${f.fileName}: ${f.error}`).join('\n')}`
               : `\n\n${failedFiles.length} files failed. First 5 errors:\n${failedFiles.slice(0, 5).map((f, idx) => `${idx + 1}. ${f.fileName}: ${f.error}`).join('\n')}`;
-            showError(`Processed ${successCount} of ${totalFiles} DICOM file${totalFiles !== 1 ? 's' : ''} successfully. ${failureCount} file${failureCount !== 1 ? 's' : ''} failed.${errorDetails}`);
+            showError(`Processed ${successCount} of ${totalFiles} scan file${totalFiles !== 1 ? 's' : ''} successfully. ${failureCount} file${failureCount !== 1 ? 's' : ''} failed.${errorDetails}`);
           } else {
-            showSuccess(`Successfully processed ${successCount} DICOM file${successCount !== 1 ? 's' : ''} from ZIP archive`);
+            showSuccess(`Successfully processed ${successCount} scan file${successCount !== 1 ? 's' : ''} from ZIP archive`);
           }
 
           // Reload documents and health data
@@ -919,13 +924,13 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
         
         // Enhance error messages for common issues
         if (errorMessage.includes('ZIP') || errorMessage.includes('zip')) {
-          errorMessage = `Failed to process ZIP file: ${errorMessage}\n\nPlease ensure:\n- The file is a valid ZIP archive\n- The ZIP contains DICOM files (.dcm or files without extensions)\n- The file is not corrupted`;
-        } else if (errorMessage.includes('DICOM') || errorMessage.includes('dicom')) {
-          errorMessage = `Failed to process DICOM file: ${errorMessage}\n\nPlease ensure:\n- The file is a valid DICOM format\n- The file is not corrupted\n- Try uploading individual files if ZIP upload fails`;
+          errorMessage = `Failed to process ZIP file: ${errorMessage}\n\nPlease ensure:\n- The file is a valid ZIP archive\n- The ZIP contains scan images (.dcm or from imaging CDs)\n- The file is not corrupted`;
+        } else if (errorMessage.includes('DICOM') || errorMessage.includes('dicom') || errorMessage.includes('scan')) {
+          errorMessage = `Failed to process scan file: ${errorMessage}\n\nPlease ensure:\n- The file is a valid CT/MRI/PET scan format\n- The file is not corrupted\n- Try uploading individual files if ZIP upload fails`;
         } else if (errorMessage.includes('validation') || errorMessage.includes('File type not allowed')) {
-          errorMessage = `File validation failed: ${errorMessage}\n\nSupported file types: PDF, images, documents, DICOM files (.dcm), and ZIP archives containing DICOM files`;
+          errorMessage = `File validation failed: ${errorMessage}\n\nSupported file types: PDF, images, documents, scan files (.dcm), and ZIP archives of scan images`;
         } else if (errorMessage.includes('size') || errorMessage.includes('too large')) {
-          errorMessage = `File size error: ${errorMessage}\n\nMaximum file size is 50MB for DICOM files and ZIP archives`;
+          errorMessage = `File size error: ${errorMessage}\n\nMaximum file size is 50MB for scan files and ZIP archives`;
         }
         
         showError(`Failed to process document: ${errorMessage}\n\nThe file was not uploaded. Please try again or contact support if the issue persists.`);
@@ -1123,6 +1128,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
       {/* Documents Tab Content */}
       {activeSubTab === 'documents' && (
         <div className={combineClasses(DesignTokens.components.card.container)}>
+        <>
         {documents.length > 0 && (
           <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.section.mobile)}>
             <div className={combineClasses(
@@ -1147,51 +1153,32 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
             )}
           </div>
             <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm)}>
-            <button
-              onClick={async () => {
-                try {
-                  setIsRefreshing(true);
-                  const docs = await documentService.getDocuments(user.uid);
-                  setDocuments(docs);
-                  setHasUploadedDocument(docs.length > 0);
-                  console.log('Manually refreshed documents:', docs.length);
-                } catch (error) {
-                  console.error('Error refreshing documents:', error);
-                } finally {
-                  // Keep animation for at least 500ms for visual feedback
-                  setTimeout(() => setIsRefreshing(false), 500);
-                }
-              }}
-              className={combineClasses(
-                'flex items-center',
-                DesignTokens.spacing.gap.sm,
-                DesignTokens.colors.neutral.text[500],
-                'hover:' + DesignTokens.colors.neutral.text[700],
-                DesignTokens.transitions.default
-              )}
-              title="Refresh document list"
-            >
-              <RefreshCw 
+              <button
+                onClick={handleImportDicom}
                 className={combineClasses(
-                  DesignTokens.icons.standard.size.full,
-                  isRefreshing ? 'animate-spin' : '',
+                  'flex items-center',
+                  DesignTokens.spacing.gap.sm,
+                  'text-blue-600',
+                  'hover:text-blue-700',
                   DesignTokens.transitions.default
-                )} 
-              />
-            </button>
-            <button
-              onClick={() => openDocumentOnboarding('general')}
-              className={combineClasses(
-                'flex items-center',
-                DesignTokens.spacing.gap.sm,
-                DesignTokens.colors.app.text[600],
-                'hover:' + DesignTokens.colors.app.text[700],
-                DesignTokens.transitions.default
-              )}
-            >
-              <Plus className={DesignTokens.icons.standard.size.full} />
-              <span className={combineClasses(DesignTokens.typography.body.sm, 'font-medium')}>Add File</span>
-            </button>
+                )}
+              >
+                <FileImage className={DesignTokens.icons.standard.size.full} />
+                <span className={combineClasses(DesignTokens.typography.body.sm, 'font-medium')}>View scans</span>
+              </button>
+              <button
+                onClick={() => openDocumentOnboarding('general')}
+                className={combineClasses(
+                  'flex items-center',
+                  DesignTokens.spacing.gap.sm,
+                  DesignTokens.colors.app.text[600],
+                  'hover:' + DesignTokens.colors.app.text[700],
+                  DesignTokens.transitions.default
+                )}
+              >
+                <Plus className={DesignTokens.icons.standard.size.full} />
+                <span className={combineClasses(DesignTokens.typography.body.sm, 'font-medium')}>Add File</span>
+              </button>
             </div>
           </div>
         )}
@@ -1201,8 +1188,8 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
               <FolderOpen className={combineClasses(DesignTokens.components.emptyState.icon, DesignTokens.colors.neutral.text[300])} />
             </div>
             <h3 className={combineClasses(DesignTokens.components.emptyState.title, DesignTokens.typography.h3.color)}>No documents uploaded yet</h3>
-            <p className={combineClasses(DesignTokens.components.emptyState.message, DesignTokens.colors.neutral.text[600])}>Upload lab results, imaging scans, clinical reports, or genomic test results</p>
-            <div className={DesignTokens.components.emptyState.actions}>
+            <p className={combineClasses(DesignTokens.components.emptyState.message, DesignTokens.colors.neutral.text[600])}>Upload lab results, clinical reports, or genomic test results. View CT/MRI/PET scans separately.</p>
+            <div className={combineClasses(DesignTokens.components.emptyState.actions, 'flex flex-col sm:flex-row gap-3')}>
               <button
                 onClick={() => openDocumentOnboarding('general')}
                 className={combineClasses(
@@ -1213,6 +1200,17 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
               >
                 <Upload className={DesignTokens.icons.button.size.full} />
                 Upload Your First Document
+              </button>
+              <button
+                onClick={handleImportDicom}
+                className={combineClasses(
+                  DesignTokens.components.button.secondary || 'bg-white border-2 border-blue-500 text-blue-600 hover:bg-blue-50',
+                  DesignTokens.spacing.button.full,
+                  'py-2.5 sm:py-3 font-medium min-h-[44px] touch-manipulation active:opacity-70'
+                )}
+              >
+                <FileImage className={DesignTokens.icons.button.size.full} />
+                View scans
               </button>
             </div>
           </div>
@@ -1378,7 +1376,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
                     const iconConfig = getIconConfig(groupDoc.documentType || groupDoc.type);
                     const groupName = group.studyDescription || 
                                      (group.modality ? `${group.modality} Study` : null) ||
-                                     `DICOM Study (${group.files.length} file${group.files.length !== 1 ? 's' : ''})`;
+                                     `Scan study (${group.files.length} file${group.files.length !== 1 ? 's' : ''})`;
 
                     return (
                       <div
@@ -1483,7 +1481,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
                                 'text-white',
                                 'hover:' + DesignTokens.colors.app[600]
                               )}
-                              title={`View all ${group.files.length} DICOM files in series viewer`}
+                              title={`View all ${group.files.length} scan files in viewer`}
                             >
                               View All
                             </button>
@@ -1515,11 +1513,11 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
                                 e.stopPropagation();
                                 const groupName = group.studyDescription || 
                                                 group.modality || 
-                                                `DICOM Study (${group.files.length} file${group.files.length !== 1 ? 's' : ''})`;
+                                                `Scan study (${group.files.length} file${group.files.length !== 1 ? 's' : ''})`;
                                 setDeleteConfirm({
                                   show: true,
-                                  title: `Delete DICOM Study?`,
-                                  message: `This will permanently delete all ${group.files.length} DICOM file${group.files.length !== 1 ? 's' : ''} in this study "${groupName}". This action cannot be undone.`,
+                                  title: `Delete scan study?`,
+                                  message: `This will permanently delete all ${group.files.length} scan file${group.files.length !== 1 ? 's' : ''} in this study "${groupName}". This action cannot be undone.`,
                                   itemName: `"${groupName}"`,
                                   confirmText: 'Yes, Delete Permanently',
                                   onConfirm: async () => {
@@ -1568,10 +1566,10 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
                                       if (failureCount > 0) {
                                         showError(`Deleted ${successCount} file${successCount !== 1 ? 's' : ''} successfully, but ${failureCount} file${failureCount !== 1 ? 's' : ''} failed to delete.`);
                                       } else {
-                                        showSuccess(`Deleted ${successCount} DICOM file${successCount !== 1 ? 's' : ''} successfully.`);
+                                        showSuccess(`Deleted ${successCount} scan file${successCount !== 1 ? 's' : ''} successfully.`);
                                       }
                                     } catch (error) {
-                                      showError('Failed to delete DICOM study. Please try again.');
+                                      showError('Failed to delete scan study. Please try again.');
                                     } finally {
                                       setIsDeleting(false);
                                     }
@@ -1586,7 +1584,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
                                 'hover:bg-red-600',
                                 'hover:text-white'
                               )}
-                              title="Delete all files in this DICOM study"
+                              title="Delete all files in this scan study"
                             >
                               <Trash2 className="w-4 h-4 inline mr-1" />
                               Delete
@@ -1769,7 +1767,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
                                   )}
                                 >
                                   <Eye className="w-4 h-4" />
-                                  {isDicom ? 'View DICOM' : 'View File'}
+                                  {isDicom ? 'View scan' : 'View File'}
                                 </button>
                               );
                             })()}
@@ -1894,7 +1892,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
                                       'absolute top-full right-0 mt-1 px-2 py-1 rounded text-xs whitespace-nowrap z-50 pointer-events-none',
                                       'bg-gray-900 text-white shadow-lg'
                                     )}>
-                                      View DICOM
+                                      View scan
                                     </div>
                                   )}
                                 </>
@@ -2140,6 +2138,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
           </div>
           </div>
         )}
+        </>
         </div>
       )}
 
@@ -2260,6 +2259,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
         <DocumentUploadOnboarding
           isOnboarding={!hasUploadedDocument}
           onClose={() => setShowDocumentOnboarding(false)}
+          onImportDicom={handleImportDicom}
           onUploadClick={async (documentType, documentDate = null, documentNote = null, fileOrFiles = null, onlyExistingMetrics = false, customInstructions = null) => {
             addDebugLog(`onUploadClick: ${documentType}, hasFile: ${!!fileOrFiles}`, 'info');
             
@@ -2535,7 +2535,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
             </h3>
 
             <p className={combineClasses(DesignTokens.typography.body.sm, 'text-center mb-6', DesignTokens.colors.neutral.text[600])}>
-              Found {zipChoiceModal.totalFiles} DICOM file{zipChoiceModal.totalFiles !== 1 ? 's' : ''} in this ZIP archive.
+              Found {zipChoiceModal.totalFiles} scan file{zipChoiceModal.totalFiles !== 1 ? 's' : ''} in this ZIP archive.
               <br />
               <br />
               <strong>View Now:</strong> Load instantly in viewer (no upload, like IMAIOS)
@@ -2573,6 +2573,51 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
           </div>
         </div>
       )}
+      {/* DICOM Import Flow Modal */}
+      {showDicomImportFlow && (
+        <DicomImportFlow
+          show={showDicomImportFlow}
+          onClose={() => setShowDicomImportFlow(false)}
+          onViewNow={(viewerData) => {
+            setShowDicomImportFlow(false);
+            if (onOpenDicomViewer) {
+              onOpenDicomViewer(viewerData);
+            }
+          }}
+          onSaveToLibrary={async (files, note) => {
+            setShowDicomImportFlow(false);
+            setIsUploading(true);
+            setUploadProgress('Saving scan files to library...');
+            
+            try {
+              // Process files sequentially (reuse existing logic)
+              if (files.length === 1) {
+                // Single file - use handleRealFileUpload with null date (DICOM metadata will provide date)
+                await handleRealFileUpload(files[0], 'Scan', null, note, null, null, false, null);
+              } else {
+                // Multiple files - use handleMultipleFileUpload with null date
+                await handleMultipleFileUpload(files, 'Scan', null, note, false, null);
+              }
+              
+              // Reload documents
+              const updatedDocs = await documentService.getDocuments(user.uid);
+              setDocuments(updatedDocs);
+              setHasUploadedDocument(updatedDocs.length > 0);
+              
+              setIsUploading(false);
+              setUploadProgress('');
+              showSuccess(`Successfully saved ${files.length} scan file${files.length !== 1 ? 's' : ''} to library`);
+            } catch (error) {
+              console.error('Error saving scan files to library:', error);
+              setIsUploading(false);
+              setUploadProgress('');
+              showError(`Failed to save files: ${error.message}`);
+            }
+          }}
+          userId={user?.uid}
+        />
+      )}
+
       {/* DICOM Viewer is now handled by parent App component as full-screen page */}
 
       <AddJournalNoteModal

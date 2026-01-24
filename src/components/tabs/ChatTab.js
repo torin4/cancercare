@@ -15,6 +15,7 @@ import { processDocument, generateExtractionSummary } from '../../services/docum
 import { uploadDocument } from '../../firebase/storage';
 import { generalSuggestions, trialSuggestions, healthSuggestions, timelineSuggestions } from '../../constants/chatSuggestions';
 import DocumentUploadOnboarding from '../modals/DocumentUploadOnboarding';
+import DicomImportFlow from '../modals/DicomImportFlow';
 import UploadProgressOverlay from '../UploadProgressOverlay';
 import DeletionConfirmationModal from '../modals/DeletionConfirmationModal';
 import ExtractionSummary from '../ExtractionSummary';
@@ -303,6 +304,7 @@ export default function ChatTab({ onTabChange }) {
   // Document upload state
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
   const [documentOnboardingMethod, setDocumentOnboardingMethod] = useState('picker');
+  const [showDicomImportFlow, setShowDicomImportFlow] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
   const [pendingDocumentDate, setPendingDocumentDate] = useState(null);
@@ -964,11 +966,11 @@ export default function ChatTab({ onTabChange }) {
       
       // Enhance error messages for common issues
       if (errorMessage.includes('ZIP') || errorMessage.includes('zip')) {
-        errorMessage = `Failed to process ZIP file: ${errorMessage}\n\nPlease ensure:\n- The file is a valid ZIP archive\n- The ZIP contains DICOM files (.dcm or files without extensions)\n- The file is not corrupted`;
-      } else if (errorMessage.includes('DICOM') || errorMessage.includes('dicom')) {
-        errorMessage = `Failed to process DICOM file: ${errorMessage}\n\nPlease ensure:\n- The file is a valid DICOM format\n- The file is not corrupted\n- Try uploading individual files if ZIP upload fails`;
+        errorMessage = `Failed to process ZIP file: ${errorMessage}\n\nPlease ensure:\n- The file is a valid ZIP archive\n- The ZIP contains scan images (.dcm or from imaging CDs)\n- The file is not corrupted`;
+      } else if (errorMessage.includes('DICOM') || errorMessage.includes('dicom') || errorMessage.includes('scan')) {
+        errorMessage = `Failed to process scan file: ${errorMessage}\n\nPlease ensure:\n- The file is a valid CT/MRI/PET scan format\n- The file is not corrupted\n- Try uploading individual files if ZIP upload fails`;
       } else if (errorMessage.includes('validation') || errorMessage.includes('File type not allowed')) {
-        errorMessage = `File validation failed: ${errorMessage}\n\nSupported file types: PDF, images, documents, DICOM files (.dcm), and ZIP archives containing DICOM files`;
+        errorMessage = `File validation failed: ${errorMessage}\n\nSupported file types: PDF, images, documents, scan files (.dcm), and ZIP archives of scan images`;
       }
 
       // Update messages with error
@@ -986,6 +988,10 @@ export default function ChatTab({ onTabChange }) {
       setIsUploading(false);
       setUploadProgress('');
     }
+  };
+
+  const handleImportDicom = () => {
+    setShowDicomImportFlow(true);
   };
 
   const simulateDocumentUpload = (docType) => {
@@ -1993,6 +1999,7 @@ export default function ChatTab({ onTabChange }) {
             setShowDocumentOnboarding(false);
             setDocumentOnboardingMethod('picker');
           }}
+          onImportDicom={handleImportDicom}
           onFileSelect={async (file, docType, date, note) => {
             setPendingDocumentDate(date);
             setPendingDocumentNote(note);
@@ -2005,6 +2012,37 @@ export default function ChatTab({ onTabChange }) {
           }}
           method={documentOnboardingMethod}
           hasUploadedDocument={hasUploadedDocument}
+        />
+      )}
+
+      {/* DICOM Import Flow Modal */}
+      {showDicomImportFlow && (
+        <DicomImportFlow
+          show={showDicomImportFlow}
+          onClose={() => setShowDicomImportFlow(false)}
+          onViewNow={null} // ChatTab doesn't have DICOM viewer access
+          onSaveToLibrary={async (files, note) => {
+            setShowDicomImportFlow(false);
+            setIsUploading(true);
+            setUploadProgress('Saving scan files to library...');
+            
+            try {
+              // Process files sequentially (reuse existing logic)
+              for (let i = 0; i < files.length; i++) {
+                await handleRealFileUpload(files[i], 'Scan', null, note); // null date - DICOM metadata will provide
+              }
+              
+              setIsUploading(false);
+              setUploadProgress('');
+              showSuccess(`Successfully saved ${files.length} scan file${files.length !== 1 ? 's' : ''} to library`);
+            } catch (error) {
+              console.error('Error saving scan files to library:', error);
+              setIsUploading(false);
+              setUploadProgress('');
+              showError(`Failed to save files: ${error.message}`);
+            }
+          }}
+          userId={user?.uid}
         />
       )}
 

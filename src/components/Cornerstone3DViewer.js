@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { X, Loader2, AlertCircle, ChevronLeft, ChevronRight, Ruler, Crosshair, RotateCcw, SunMoon } from 'lucide-react';
+import { X, Loader2, AlertCircle, ChevronLeft, ChevronRight, Ruler, Crosshair, RotateCcw, SunMoon, MessageSquare } from 'lucide-react';
 import { downloadFileAsBlob } from '../firebase/storage';
 import { extractDicomMetadata } from '../services/dicomService';
 import { registerZipImageLoader, registerZipStructure, generateZipImageId, unregisterZipImageLoader } from '../services/zipImageLoader';
+import DicomChatDisclaimerModal from './modals/DicomChatDisclaimerModal';
+import DicomChatSidebar from './DicomChatSidebar';
 
 /**
  * Cornerstone3D DICOM Viewer Component (Stack-based)
@@ -96,6 +98,17 @@ export default function Cornerstone3DViewer({
   const [activeTool, setActiveTool] = useState('windowLevel'); // 'windowLevel', 'length', 'probe'
   const [isInverted, setIsInverted] = useState(false);
   const [probeValue, setProbeValue] = useState(null); // HU value at cursor
+
+  // Chat sidebar state
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [showChatDisclaimer, setShowChatDisclaimer] = useState(false);
+  const [hasChatDisclaimerAccepted, setHasChatDisclaimerAccepted] = useState(() => {
+    // Check localStorage for disclaimer acceptance
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('dicomChatDisclaimerAccepted') === 'true';
+    }
+    return false;
+  });
 
   const viewerRef = useRef(null);
   const renderingEngineRef = useRef(null);
@@ -750,7 +763,7 @@ export default function Cornerstone3DViewer({
         let errorMessage = err.message || 'Failed to initialize viewer';
 
         if (err.message?.includes('memory')) {
-          errorMessage = `Memory error: The DICOM file is too large. (${fileListRef.current.length} files)`;
+          errorMessage = `Memory error: The scan is too large. (${fileListRef.current.length} files)`;
         }
 
         setError(errorMessage);
@@ -892,25 +905,76 @@ export default function Cornerstone3DViewer({
     };
   }, [handleEmergencyClose, handleKeyDown]);
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
-      {/* Emergency Close Button */}
-      <button
-        onClick={onClose}
-        className="fixed top-4 right-4 z-[100] p-3 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg transition-colors"
-        title="Close Viewer (ESC)"
-        type="button"
-        aria-label="Close viewer"
-      >
-        <X className="w-6 h-6" />
-      </button>
+  // Handle chat toggle
+  const handleChatToggle = () => {
+    if (!hasChatDisclaimerAccepted) {
+      setShowChatDisclaimer(true);
+    } else {
+      setIsChatOpen(!isChatOpen);
+    }
+  };
 
-      {/* Header */}
-      <div className="flex-shrink-0 bg-gray-900 text-white px-6 py-4 border-b border-gray-700">
+  const handleAcceptDisclaimer = () => {
+    setHasChatDisclaimerAccepted(true);
+    localStorage.setItem('dicomChatDisclaimerAccepted', 'true');
+    setShowChatDisclaimer(false);
+    setIsChatOpen(true);
+  };
+
+  /**
+   * Capture current slice as base64 image for AI analysis
+   * Returns { imageData, width, height } or null if capture fails
+   */
+  const captureCurrentSlice = useCallback(() => {
+    try {
+      const viewport = viewportRef.current;
+      if (!viewport) {
+        console.warn('[DicomViewer] No viewport available for image capture');
+        return null;
+      }
+
+      // Get the canvas element from the viewport
+      const canvas = viewport.canvas;
+      if (!canvas) {
+        console.warn('[DicomViewer] No canvas available for image capture');
+        return null;
+      }
+
+      // Convert canvas to base64 JPEG (more efficient than PNG for medical images)
+      // Use quality 0.9 to balance file size and quality
+      const imageData = canvas.toDataURL('image/jpeg', 0.9);
+
+      return {
+        imageData, // base64 string
+        width: canvas.width,
+        height: canvas.height,
+        sliceIndex: currentIndex + 1,
+        totalSlices: totalFiles
+      };
+    } catch (error) {
+      console.error('[DicomViewer] Error capturing slice:', error);
+      return null;
+    }
+  }, [currentIndex, totalFiles]);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black flex">
+      {/* Disclaimer Modal */}
+      {showChatDisclaimer && (
+        <DicomChatDisclaimerModal
+          onAccept={handleAcceptDisclaimer}
+          onClose={() => setShowChatDisclaimer(false)}
+        />
+      )}
+
+      {/* Main Viewer Container */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <div className="flex-shrink-0 bg-gray-900 text-white px-6 py-4 border-b border-gray-700">
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 min-w-0 flex flex-wrap items-center gap-4">
             <div>
-              <h2 className="text-xl font-semibold">DICOM Viewer</h2>
+              <h2 className="text-xl font-semibold">Scan viewer</h2>
               {displayMetadata && (
                 <p className="text-sm text-gray-300 mt-1">
                   {displayMetadata.modality || 'Imaging'} - {displayMetadata.studyDescription || 'Medical Scan'}
@@ -979,7 +1043,7 @@ export default function Cornerstone3DViewer({
         {error ? (
           <div className="absolute inset-0 flex items-center justify-center flex-col p-8">
             <AlertCircle className="w-12 h-12 mb-4 text-red-500" />
-            <p className="text-lg font-medium mb-2 text-white">Error Loading DICOM File</p>
+            <p className="text-lg font-medium mb-2 text-white">Error loading scan</p>
             <p className="text-sm text-gray-300">{error}</p>
           </div>
         ) : !showViewer && isMultiSeries ? (
@@ -1054,6 +1118,21 @@ export default function Cornerstone3DViewer({
                   title="Reset View"
                 >
                   <RotateCcw className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Chat Button */}
+              <div className="flex gap-1 bg-black/80 rounded-lg p-1.5 backdrop-blur-sm">
+                <button
+                  onClick={handleChatToggle}
+                  className={`p-2 rounded-md transition-colors ${
+                    isChatOpen
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                  title="AI Chat Assistant (ask about this scan)"
+                >
+                  <MessageSquare className="w-5 h-5" />
                 </button>
               </div>
 
@@ -1205,6 +1284,25 @@ export default function Cornerstone3DViewer({
               </div>
             )}
           </div>
+        </div>
+      )}
+      </div>
+
+      {/* Chat Sidebar */}
+      {isChatOpen && (
+        <div className="fixed right-0 top-0 bottom-0 w-96 bg-white shadow-2xl z-[60] flex flex-col">
+          <DicomChatSidebar
+            metadata={displayMetadata}
+            currentIndex={currentIndex}
+            totalFiles={totalFiles}
+            viewerState={{
+              activeTool,
+              isInverted,
+              probeValue
+            }}
+            onCaptureImage={captureCurrentSlice}
+            onClose={() => setIsChatOpen(false)}
+          />
         </div>
       )}
     </div>

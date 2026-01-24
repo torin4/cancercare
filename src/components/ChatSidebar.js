@@ -17,6 +17,7 @@ import { processDocument, generateExtractionSummary } from '../services/document
 import { uploadDocument } from '../firebase/storage';
 import { generalSuggestions, trialSuggestions, healthSuggestions, timelineSuggestions } from '../constants/chatSuggestions';
 import DocumentUploadOnboarding from './modals/DocumentUploadOnboarding';
+import DicomImportFlow from './modals/DicomImportFlow';
 import UploadProgressOverlay from './UploadProgressOverlay';
 import DeletionConfirmationModal from './modals/DeletionConfirmationModal';
 
@@ -299,6 +300,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
   const [documentOnboardingMethod, setDocumentOnboardingMethod] = useState('picker');
   const [isUploading, setIsUploading] = useState(false);
+  const [showDicomImportFlow, setShowDicomImportFlow] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
   const [pendingDocumentDate, setPendingDocumentDate] = useState(null);
   const [pendingDocumentNote, setPendingDocumentNote] = useState(null);
@@ -1492,6 +1494,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
             setShowDocumentOnboarding(false);
             setDocumentOnboardingMethod('picker');
           }}
+          onImportDicom={() => setShowDicomImportFlow(true)}
           onFileSelect={async (file, docType, date, note) => {
             setPendingDocumentDate(date);
             setPendingDocumentNote(note);
@@ -1501,6 +1504,25 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
           }}
           method={documentOnboardingMethod}
           hasUploadedDocument={hasUploadedDocument}
+        />
+      )}
+
+      {/* DICOM Import Flow Modal */}
+      {showDicomImportFlow && (
+        <DicomImportFlow
+          show={showDicomImportFlow}
+          onClose={() => setShowDicomImportFlow(false)}
+          onViewNow={null} // ChatSidebar doesn't have DICOM viewer access
+          onSaveToLibrary={async (files, note) => {
+            setShowDicomImportFlow(false);
+            // Navigate to Files tab for full upload functionality
+            if (onTabChange) {
+              onTabChange('files');
+            }
+            // Show message that they can import from Files tab
+            showSuccess('Please use the Files tab to view CT/MRI/PET scans with full functionality.');
+          }}
+          userId={user?.uid}
         />
       )}
 
