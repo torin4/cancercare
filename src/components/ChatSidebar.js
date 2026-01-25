@@ -437,10 +437,12 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
       try {
         if (activeTab === 'health') {
           // Load health context automatically
+          console.log('[ChatSidebar] loadContextForTab - Health tab - loading health context');
           const labs = await labService.getLabs(user.uid);
+          console.log('[ChatSidebar] Health tab - Fetched', labs.length, 'labs');
           const vitals = await vitalService.getVitals(user.uid);
           const symptoms = await symptomService.getSymptoms(user.uid);
-          
+
           const labsWithValues = await Promise.all(labs.map(async (lab) => {
             if (lab.id) {
               const values = await labService.getLabValues(lab.id);
@@ -448,7 +450,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
             }
             return lab;
           }));
-          
+
           const vitalsWithValues = await Promise.all(vitals.map(async (vital) => {
             if (vital.id) {
               const values = await vitalService.getVitalValues(vital.id);
@@ -456,7 +458,14 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
             }
             return vital;
           }));
-          
+
+          console.log('[ChatSidebar] Health tab - Health context loaded:', {
+            labCount: labsWithValues.length,
+            vitalCount: vitalsWithValues.length,
+            symptomCount: symptoms.length,
+            labNames: labsWithValues.map(l => l.name)
+          });
+
           setCurrentHealthContext({
             labs: labsWithValues,
             vitals: vitalsWithValues,
@@ -477,8 +486,38 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
           setCurrentTrialContext(null);
           setCurrentHealthContext(null);
           setCurrentNotebookContext(null);
+        } else if (activeTab === 'dashboard') {
+          // Dashboard tab - load health context so chat can access patient data
+          console.log('[ChatSidebar] loadContextForTab - Dashboard tab - loading health context');
+          const labs = await labService.getLabs(user.uid);
+          const vitals = await vitalService.getVitals(user.uid);
+          const symptoms = await symptomService.getSymptoms(user.uid);
+
+          const labsWithValues = await Promise.all(labs.map(async (lab) => {
+            if (lab.id) {
+              const values = await labService.getLabValues(lab.id);
+              return { ...lab, values: values || [] };
+            }
+            return lab;
+          }));
+
+          const vitalsWithValues = await Promise.all(vitals.map(async (vital) => {
+            if (vital.id) {
+              const values = await vitalService.getVitalValues(vital.id);
+              return { ...vital, values: values || [] };
+            }
+            return vital;
+          }));
+
+          setCurrentHealthContext({
+            labs: labsWithValues,
+            vitals: vitalsWithValues,
+            symptoms: symptoms
+          });
+          setCurrentTrialContext(null);
+          setCurrentNotebookContext(null);
         } else {
-          // Dashboard or other tabs - clear context
+          // Other tabs - clear context
           setCurrentHealthContext(null);
           setCurrentTrialContext(null);
           setCurrentNotebookContext(null);
@@ -591,12 +630,17 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
 
     try {
       let healthContextToUse = currentHealthContext;
+      console.log('[ChatSidebar] handleSendMessage - currentHealthContext:', currentHealthContext);
+
       // Detect if question would benefit from health data - expanded patterns to catch more health-related questions
-      const requiresHealthData = /(explain|analyze|what does|how is|why is|why are|why does|why do|trend|progress|mean|interpret|tell me about|what about|what are|what is|my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications|data|results|values|numbers|test|tests)|ca-125|hemoglobin|blood pressure|heart rate|temperature|weight|tired|fatigue|energy|feeling|feels|symptom|pain|nausea|dizzy|weak|weakness|anemia|blood|cbc|wbc|rbc|platelet|anxiety|depression|sleep|appetite|nauseous)/i.test(userMessage);
-      
+      const requiresHealthData = /(explain|analyze|what does|how is|why is|why are|why does|why do|trend|progress|mean|interpret|tell me about|what about|what are|what is|look at|check|show|my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications|data|results|values|numbers|test|tests|marker|markers|metric|metrics|function)|her (lab|labs|vital|vitals|marker|markers|metric|metrics)|ca-125|hemoglobin|blood pressure|heart rate|temperature|weight|tired|fatigue|energy|feeling|feels|symptom|pain|nausea|dizzy|weak|weakness|anemia|blood|cbc|wbc|rbc|platelet|anxiety|depression|sleep|appetite|nauseous|bilirubin|albumin|alb|liver|kidney|renal|function|ast|alt|creatinine|egfr|bun|ldh|crp|glucose|a1c|cholesterol|triglyceride|hdl|ldl|sodium|potassium|calcium|magnesium|phosphorus|protein|globulin|inr|pt|ptt|esr|ferritin|iron|b12|folate|vitamin d|d3|tsh|t3|t4|psa|afp|cea|tumor marker)/i.test(userMessage);
+      console.log('[ChatSidebar] requiresHealthData:', requiresHealthData, 'for message:', userMessage);
+
       if (requiresHealthData && !healthContextToUse && user) {
+        console.log('[ChatSidebar] Fetching health context for message...');
         try {
           const labs = await labService.getLabs(user.uid);
+          console.log('[ChatSidebar] Fetched labs:', labs.length, 'labs');
           const vitals = await vitalService.getVitals(user.uid);
           const symptoms = await symptomService.getSymptoms(user.uid);
           
@@ -621,8 +665,15 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
             vitals: vitalsWithValues,
             symptoms: symptoms
           };
+          console.log('[ChatSidebar] Health context loaded:', {
+            labCount: labsWithValues.length,
+            vitalCount: vitalsWithValues.length,
+            symptomCount: symptoms.length,
+            labNames: labsWithValues.map(l => l.name)
+          });
           setCurrentHealthContext(healthContextToUse);
         } catch (error) {
+          console.error('[ChatSidebar] Error loading health context:', error);
         }
       }
 

@@ -980,7 +980,8 @@ function detectChatIntent(message, trialContext) {
     // General questions like "what is prognosis" or "what are treatment options" should NOT require health data
     // Questions about "my" data, trends in user's data, or analysis of user's specific values require health data
     // Also detect comparison/retrieval queries and edit queries that need health data
-    const hasUserDataReference = /(my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications|data|results|values|numbers|test|tests|current|recent|trends|progress)|what do my|how are my|how's my|tell me about my|explain my|analyze my|my ca-125|my hemoglobin|my blood|my tests|my results)/i.test(message);
+    // Support both "my" and "her" for patient data queries, and specific lab/marker names
+    const hasUserDataReference = /(my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications|data|results|values|numbers|test|tests|current|recent|trends|progress|marker|markers|metric|metrics)|her (lab|labs|vital|vitals|marker|markers|metric|metrics|bilirubin|albumin|alb|liver|function|reading|readings|latest|current)|what do my|how are my|how's my|tell me about my|explain my|analyze my|my ca-125|my hemoglobin|my blood|my tests|my results|what's her|what is her|whats her|look at (her|the|my)|check (her|the|my)|show (her|the|my))/i.test(message);
     const isComparisonOrRetrievalQuery = /(compare|comparison|how does|how did|versus|vs|difference|change from|compared to|last (measurement|value|result|test|date|two|three|few)|previous|before that|one before|earlier|prior|historical|retrieve|show me|tell me about|what (was|were)|the (last|previous|earlier)|and the (one|next)|yes please|yes|yep|yeah|yup|sure|ok|okay)/i.test(message);
     const isEditQuery = /(edit|update|change|correct|fix|modify|replace|set to|change (my|the) (.*) (to|from)|update (my|the) (.*) (to|from)|correct (my|the) (.*)|fix (my|the) (.*))/i.test(message);
     const isDeleteQuery = /(delete|remove|clean up|remove duplicate|remove duplicates|delete duplicate|delete duplicates|clean|deduplicate|dedupe)/i.test(message);
@@ -990,7 +991,7 @@ function detectChatIntent(message, trialContext) {
     
   // Check if question requires specific data type that isn't available
   // Only check if user is asking about data, not adding it
-  const requiresLabs = !isAddingData && /(lab|labs|ca-125|hemoglobin|wbc|platelets|blood test|test result)/i.test(message);
+  const requiresLabs = !isAddingData && /(lab|labs|ca-125|hemoglobin|wbc|platelets|blood test|test result|bilirubin|albumin|alb|liver|kidney|renal|function|ast|alt|creatinine|egfr|bun|ldh|crp|glucose|a1c|marker|tumor marker|cea|afp|psa)/i.test(message);
   const requiresVitals = !isAddingData && /(vital|vitals|blood pressure|heart rate|pulse|temperature|temp|weight|oxygen|spo2)/i.test(message);
   const requiresSymptoms = !isAddingData && /(symptom|symptoms|feeling|pain|nausea|fatigue)/i.test(message);
   
