@@ -1,67 +1,10 @@
-stages:
-  - build
-  - pages
-
-build:
-  stage: build
-  image: node:18
-  cache:
-    paths:
-      - node_modules/
-  variables:
-    NODE_OPTIONS: "--max-old-space-size=4096"
-  before_script:
-    - npm ci --prefer-offline --no-audit
-  script:
-    - npm run build
-  artifacts:
-    paths:
-      - build/
-    expire_in: 1 week
-  only:
-    - main
-    - master
-  # Only run on main/master to save CI minutes
-  # This job will NOT trigger Vercel integration
-  # Pipeline will succeed even if external stages fail
-  # Allow failure to prevent pipeline failure when quota is exhausted
-  allow_failure: true
-  retry:
-    max: 2
-    when:
-      - runner_system_failure
-      - stuck_or_timeout_failure
-
-pages:
-  stage: pages
-  image: alpine:latest
-  script:
-    - apk add --no-cache bash
-    - mkdir -p public
-    - |
-      if [ -d "docs" ] && [ "$(ls -A docs/*.html 2>/dev/null)" ]; then
-        echo "Copying HTML files from docs/ to public/"
-        cp docs/*.html public/ 2>/dev/null || true
-        ls -la public/
-        echo "Files copied successfully"
-      else
-        echo "Warning: No HTML files found in docs/"
-        ls -la docs/ || echo "docs/ directory does not exist"
-      fi
-    - |
-      if [ ! -f "public/index.html" ] && [ -f "public/privacy-policy.html" ]; then
-        echo "Creating index.html redirect to privacy-policy.html"
-        cat > public/index.html << 'EOF'
-        <!DOCTYPE html>
-        <html><head><meta http-equiv="refresh" content="0; url=privacy-policy.html"></head></html>
-        EOF
-      fi
-    - echo "Deploying to GitLab Pages"
-    - ls -la public/
-  artifacts:
-    paths:
-      - public
-    expire_in: 1 week
-  only:
-    - main
-    - master
+# The Docker image that will be used to build your app
+image: alpine:latest
+create-pages:
+  pages:
+    # The folder that contains the files to be exposed at the Page URL
+    publish: public
+  rules:
+    # This ensures that only pushes to the default branch will trigger
+    # a pages deploy
+    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
