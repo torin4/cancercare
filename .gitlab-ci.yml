@@ -36,13 +36,32 @@ pages:
   stage: pages
   image: alpine:latest
   script:
+    - apk add --no-cache bash
     - mkdir -p public
-    - cp -r docs/* public/ || true
-    - echo "Deploying privacy policy to GitLab Pages"
+    - |
+      if [ -d "docs" ] && [ "$(ls -A docs/*.html 2>/dev/null)" ]; then
+        echo "Copying HTML files from docs/ to public/"
+        cp docs/*.html public/ 2>/dev/null || true
+        ls -la public/
+        echo "Files copied successfully"
+      else
+        echo "Warning: No HTML files found in docs/"
+        ls -la docs/ || echo "docs/ directory does not exist"
+      fi
+    - |
+      if [ ! -f "public/index.html" ] && [ -f "public/privacy-policy.html" ]; then
+        echo "Creating index.html redirect to privacy-policy.html"
+        cat > public/index.html << 'EOF'
+        <!DOCTYPE html>
+        <html><head><meta http-equiv="refresh" content="0; url=privacy-policy.html"></head></html>
+        EOF
+      fi
+    - echo "Deploying to GitLab Pages"
+    - ls -la public/
   artifacts:
     paths:
       - public
+    expire_in: 1 week
   only:
     - main
     - master
-  allow_failure: true
