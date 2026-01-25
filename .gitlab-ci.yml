@@ -23,7 +23,8 @@ build:
   # Only run on main/master to save CI minutes
   # This job will NOT trigger Vercel integration
   # Pipeline will succeed even if external stages fail
-  allow_failure: false
+  # Allow failure to prevent pipeline failure when quota is exhausted
+  allow_failure: true
   retry:
     max: 2
     when:
