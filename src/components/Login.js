@@ -5,6 +5,7 @@ import { Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { DesignTokens, combineClasses } from '../design/designTokens';
 import logoSecondary from '../assets/logo_secondary.svg';
 import logoLightBg from '../assets/logo_light_bg.svg';
+import PrivacyPolicyModal from './modals/PrivacyPolicyModal';
 
 export default function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
@@ -13,6 +14,7 @@ export default function Login({ onLoginSuccess }) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -197,7 +199,25 @@ export default function Login({ onLoginSuccess }) {
             <strong>Note:</strong> For first-time use, create an account. Your email will be used as your patient ID.
           </p>
         </div>
+
+        {/* Privacy Policy Link */}
+        <div className="mt-4 text-center">
+          <button
+            type="button"
+            onClick={() => setShowPrivacyPolicy(true)}
+            className="text-xs text-gray-600 hover:text-gray-800 underline transition-colors"
+            disabled={loading}
+          >
+            Privacy Policy
+          </button>
+        </div>
       </div>
+
+      {/* Privacy Policy Modal */}
+      <PrivacyPolicyModal
+        show={showPrivacyPolicy}
+        onClose={() => setShowPrivacyPolicy(false)}
+      />
     </div>
   );
 }
