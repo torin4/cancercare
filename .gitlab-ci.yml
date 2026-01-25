@@ -1,36 +1,8 @@
 stages:
-  - build
   - pages
 
-build:
-  stage: build
-  image: node:18
-  cache:
-    paths:
-      - node_modules/
-  variables:
-    NODE_OPTIONS: "--max-old-space-size=4096"
-  before_script:
-    - npm ci --prefer-offline --no-audit
-  script:
-    - npm run build
-  artifacts:
-    paths:
-      - build/
-    expire_in: 1 week
-  only:
-    - main
-    - master
-  # Only run on main/master to save CI minutes
-  # This job will NOT trigger Vercel integration
-  # Pipeline will succeed even if external stages fail
-  # Allow failure to prevent pipeline failure when quota is exhausted
-  allow_failure: true
-  retry:
-    max: 2
-    when:
-      - runner_system_failure
-      - stuck_or_timeout_failure
+# Build is handled by Vercel externally, so we skip it here to avoid quota issues
+# Only Pages deployment runs in GitLab CI
 
 pages:
   stage: pages
