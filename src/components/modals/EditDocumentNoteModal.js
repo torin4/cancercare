@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, AlertTriangle } from 'lucide-react';
+import { X, Save, AlertTriangle, Trash2 } from 'lucide-react';
 import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { documentService, labService, vitalService } from '../../firebase/services';
+import { deleteDocument } from '../../firebase/storage';
+import { cleanupDocumentData } from '../../services/documentCleanupService';
 import { useBanner } from '../../contexts/BannerContext';
 import { parseLocalDate, formatDateString } from '../../utils/helpers';
 import DatePicker from '../DatePicker';
@@ -28,6 +30,7 @@ export default function EditDocumentNoteModal({
   const [dateRange, setDateRange] = useState({ min: null, max: null });
   const [isCheckingDates, setIsCheckingDates] = useState(false);
   const [acknowledgeOverwrite, setAcknowledgeOverwrite] = useState(false); // User acknowledges they want to overwrite all dates
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Check for multiple dates when modal opens - OPTIMIZED VERSION
   useEffect(() => {
@@ -319,6 +322,45 @@ export default function EditDocumentNoteModal({
     onClose();
   };
 
+  const handleDelete = async () => {
+    if (!editingDocumentNote || !user || isDeleting) return;
+
+    const confirmDelete = window.confirm(
+      'Delete this document and all related data points (labs, vitals, medications, symptoms)? This cannot be undone.'
+    );
+    if (!confirmDelete) return;
+
+    try {
+      setIsDeleting(true);
+
+      const cleanupResults = await cleanupDocumentData(editingDocumentNote.id, user.uid, false);
+
+      if (editingDocumentNote.storagePath) {
+        await deleteDocument(editingDocumentNote.id, editingDocumentNote.storagePath, user.uid);
+      } else {
+        await documentService.deleteDocument(editingDocumentNote.id);
+      }
+
+      setDocuments(docs => docs.filter(d => d.id !== editingDocumentNote.id));
+      await reloadHealthData();
+
+      setEditingDocumentNote(null);
+      setDocumentNoteEdit('');
+
+      const deletedCount = (
+        cleanupResults.labValuesDeleted +
+        cleanupResults.vitalValuesDeleted +
+        cleanupResults.medicationsDeleted +
+        cleanupResults.symptomsDeleted
+      );
+      showSuccess(`Document deleted. ${deletedCount} related data point${deletedCount !== 1 ? 's' : ''} removed.`);
+    } catch (error) {
+      showError('Error deleting document. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className={combineClasses(DesignTokens.components.modal.backdrop, 'z-[101] animate-in fade-in duration-200')}>
       <div className={combineClasses('w-full h-full md:h-auto md:rounded-xl md:max-w-md md:max-h-[90vh] overflow-hidden flex flex-col animate-slide-up', DesignTokens.components.modal.container)}>
@@ -463,17 +505,37 @@ export default function EditDocumentNoteModal({
           </div>
         </div>
         <div className={combineClasses('flex-shrink-0 border-t p-4', DesignTokens.components.modal.footer)}>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={handleClose}
-              disabled={isSaving}
+              disabled={isSaving || isDeleting}
               className={combineClasses('flex-1 py-2.5 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed', DesignTokens.components.button.secondary)}
             >
               Cancel
             </button>
             <button
+              onClick={handleDelete}
+              disabled={isSaving || isDeleting}
+              className={combineClasses(
+                'flex-1 py-2.5 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2',
+                'bg-red-600 text-white hover:bg-red-700'
+              )}
+            >
+              {isDeleting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4" />
+                  Delete Document
+                </>
+              )}
+            </button>
+            <button
               onClick={handleSave}
-              disabled={isSaving}
+              disabled={isSaving || isDeleting}
               className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed')}
             >
               {isSaving ? (

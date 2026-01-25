@@ -246,9 +246,51 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
     }
   };
 
-  // Handle delete journal note - show confirmation modal
-  const handleDeleteJournalNote = (noteId) => {
+  // Handle delete note (journal or document) - show confirmation modal
+  const handleDeleteNotebookNote = (noteId, sourceType = 'journal') => {
     if (!user?.uid || !noteId) return;
+
+    if (sourceType === 'document') {
+      setDeleteConfirm({
+        show: true,
+        title: 'Delete Document and Data?',
+        message: 'This will permanently delete the document and all extracted labs, vitals, medications, and symptoms from it. This action cannot be undone.',
+        itemName: 'document',
+        confirmText: 'Yes, Delete Permanently',
+        onConfirm: async () => {
+          setIsDeleting(true);
+          try {
+            const doc = await documentService.getDocument(noteId);
+            if (!doc) {
+              showError('Document not found. Please refresh and try again.');
+              return;
+            }
+
+            // Clean up associated health data first (non-aggressive)
+            await cleanupDocumentData(doc.id, user.uid, false);
+
+            // Delete document + storage file if available
+            if (doc.storagePath) {
+              await deleteDocument(doc.id, doc.storagePath, user.uid);
+            } else {
+              await documentService.deleteDocument(doc.id);
+            }
+
+            const updatedDocs = await documentService.getDocuments(user.uid);
+            setDocuments(updatedDocs);
+            setHasUploadedDocument(updatedDocs.length > 0);
+            reloadNotebookEntries();
+            await reloadHealthData();
+            showSuccess('Document and related data deleted successfully.');
+          } catch (error) {
+            showError('Failed to delete document. Please try again.');
+          } finally {
+            setIsDeleting(false);
+          }
+        }
+      });
+      return;
+    }
 
     setDeleteConfirm({
       show: true,
@@ -2245,7 +2287,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
                 setAddNoteDate(date);
                 setShowAddJournalNote(true);
               }}
-              onDeleteNote={handleDeleteJournalNote}
+              onDeleteNote={handleDeleteNotebookNote}
               onEditNote={handleEditNote}
             />
           </>

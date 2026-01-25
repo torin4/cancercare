@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '../firebase/config';
-import { Mail, Lock, AlertCircle } from 'lucide-react';
+import { Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { DesignTokens, combineClasses } from '../design/designTokens';
 import logoSecondary from '../assets/logo_secondary.svg';
 import logoLightBg from '../assets/logo_light_bg.svg';
@@ -9,6 +9,7 @@ import logoLightBg from '../assets/logo_light_bg.svg';
 export default function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -99,15 +100,24 @@ export default function Login({ onLoginSuccess }) {
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-medical-neutral-400" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className={combineClasses(DesignTokens.components.input.base, 'pl-10')}
+                className={combineClasses(DesignTokens.components.input.base, 'pl-10 pr-11')}
                 placeholder="••••••••"
                 disabled={loading}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(prev => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-medical-neutral-400 hover:text-medical-neutral-600 transition-colors"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                disabled={loading}
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
             {isSignUp && (
               <p className="text-xs text-medical-neutral-500 mt-1">

@@ -33,10 +33,14 @@ export async function extractDicomMetadata(file) {
     // Get this first without Japanese encoding check (to avoid circular dependency)
     const specificCharacterSetRaw = dataSet.string('x00080005') || '';
     const specificCharacterSet = specificCharacterSetRaw.trim() || '';
-    const hasJapaneseEncoding = specificCharacterSet.includes('ISO 2022 IR 87') || 
+    console.log('[DICOM] Specific Character Set detected:', specificCharacterSet);
+
+    const hasJapaneseEncoding = specificCharacterSet.includes('ISO 2022 IR 87') ||
                                 specificCharacterSet.includes('ISO_IR 87') ||
                                 specificCharacterSet.includes('ISO\\2022\\IR 87') ||
                                 specificCharacterSet.includes('ISO_2022_IR_87');
+
+    console.log('[DICOM] Has Japanese encoding:', hasJapaneseEncoding);
 
     // Extract standard DICOM tags (pass hasJapaneseEncoding and characterSet for proper decoding)
     const metadata = {
@@ -73,7 +77,13 @@ export async function extractDicomMetadata(file) {
       sliceThickness: getTagValue(dataSet, 'x00180050', hasJapaneseEncoding, specificCharacterSet) || null,
 
       // Institution and Equipment
-      institutionName: getTagValue(dataSet, 'x00080080', hasJapaneseEncoding, specificCharacterSet) || null,
+      institutionName: (() => {
+        const rawValue = dataSet.string('x00080080');
+        console.log('[DICOM] Institution name RAW:', rawValue);
+        const decoded = getTagValue(dataSet, 'x00080080', hasJapaneseEncoding, specificCharacterSet);
+        console.log('[DICOM] Institution name DECODED:', decoded);
+        return decoded || null;
+      })(),
       manufacturer: getTagValue(dataSet, 'x00080070', hasJapaneseEncoding, specificCharacterSet) || null,
       manufacturerModelName: getTagValue(dataSet, 'x00081090', hasJapaneseEncoding, specificCharacterSet) || null,
       stationName: getTagValue(dataSet, 'x00081010', hasJapaneseEncoding, specificCharacterSet) || null,
@@ -131,13 +141,23 @@ function decodeDicomText(dataSet, tag, characterSet, vr = 'LO') {
 
     // Get raw bytes for this tag
     const rawBytes = dataSet.byteArray.subarray(element.dataOffset, element.dataOffset + element.length);
-    
+
     // Use dicom-character-set library to properly decode
     try {
-      const decoded = convertBytes(characterSet, rawBytes, { vr });
+      // Normalize character set string - convertBytes expects specific formats
+      let normalizedCharSet = characterSet;
+      if (characterSet.includes('ISO 2022 IR 87') || characterSet.includes('ISO_2022_IR_87')) {
+        normalizedCharSet = 'ISO 2022 IR 87';  // JIS X 0208
+      } else if (characterSet.includes('ISO\\2022\\IR 87')) {
+        normalizedCharSet = 'ISO 2022 IR 87';
+      }
+
+      console.log(`Decoding tag ${tag} with character set: "${normalizedCharSet}", raw bytes length: ${rawBytes.length}`);
+      const decoded = convertBytes(normalizedCharSet, rawBytes, { vr });
+      console.log(`Decoded result for tag ${tag}: "${decoded}"`);
       return decoded && decoded.trim() ? decoded.trim() : null;
     } catch (decodeError) {
-      console.warn(`Failed to decode with dicom-character-set for tag ${tag}:`, decodeError);
+      console.warn(`Failed to decode with dicom-character-set for tag ${tag}, characterSet="${characterSet}":`, decodeError);
       // Fallback to default string() method
       const value = dataSet.string(tag);
       return value && value.trim() ? value.trim() : null;
@@ -172,20 +192,19 @@ function getTagValue(dataSet, tag, hasJapaneseEncoding = false, specificCharacte
       // This works for PN (Person Name), DA (Date), TM (Time), DS (Decimal String), IS (Integer String), etc.
       let value = dataSet.string(tag);
       
-      // If we have Japanese encoding, use dicom-character-set library for proper decoding
+      // If we have Japanese encoding, always try to decode from raw bytes
       if (hasJapaneseEncoding && value) {
-        // Check if value looks corrupted (contains mojibake patterns)
-        const mojibakePattern = /[\x00-\x1F][$B\(\)]|\\x1B|[$B\(\)]/;
-        if (mojibakePattern.test(value) || value.includes('$B') || value.includes('(J') || value.includes('\\x1B')) {
+        // Check if value contains escape sequences (indicating it needs decoding)
+        if (value.includes('\x1B') || value.includes('$B') || value.includes('(J') || value.includes('(I')) {
           try {
-            // Use dicom-character-set library to properly decode
+            // Use dicom-character-set library to properly decode from raw bytes
             const decoded = decodeDicomText(dataSet, tag, specificCharacterSet, element.vr || 'LO');
-            if (decoded && decoded.trim().length > 0 && decoded !== value) {
+            if (decoded && decoded.trim().length > 0) {
               console.log(`Successfully decoded Japanese text for tag ${tag}: "${value}" -> "${decoded}"`);
               value = decoded;
             }
           } catch (decodeError) {
-            console.warn(`Failed to decode Japanese text for tag ${tag} with dicom-character-set:`, decodeError);
+            console.warn(`Failed to decode Japanese text for tag ${tag}:`, decodeError);
             // Keep original value as fallback
           }
         }

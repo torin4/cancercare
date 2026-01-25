@@ -50,9 +50,10 @@ export function buildDicomContext(metadata, currentIndex, totalFiles, viewerStat
     isInverted,
     probeValue,
     windowLevel,
-    hasMeasurements,
     measurements
   } = viewerState;
+
+  const hasMeasurements = measurements && Array.isArray(measurements) && measurements.length > 0;
 
   // Format dates properly
   const formatDate = (dateStr) => {
@@ -202,12 +203,10 @@ export function buildDicomContext(metadata, currentIndex, totalFiles, viewerStat
       sections.push(`- HU Value at Probe: ${probeValue}`);
     }
 
-    if (hasMeasurements && measurements) {
+    if (hasMeasurements) {
       sections.push(`- Active Measurements: ${measurements.length} measurement(s)`);
-      measurements.forEach((m, i) => {
-        if (m.length) {
-          sections.push(`  ${i + 1}. Length: ${m.length.toFixed(2)} mm`);
-        }
+      measurements.forEach((m) => {
+        sections.push(`  ${m.index}. Length: ${m.lengthMm} mm (${m.lengthCm} cm) - Located in ${m.position}`);
       });
     }
     sections.push('');
@@ -241,9 +240,29 @@ export function buildDicomContext(metadata, currentIndex, totalFiles, viewerStat
 
 /**
  * Build DICOM-specific system instructions for AI
+ * @param {boolean} isMultiSlice - Whether multiple slices are being analyzed
+ * @param {boolean} hasMeasurements - Whether measurements are present
  * @returns {string} System-level instructions for DICOM chat
  */
-export function getDicomChatInstructions() {
+export function getDicomChatInstructions(isMultiSlice = false, hasMeasurements = false) {
+  const multiSliceInstructions = isMultiSlice ? `
+
+MULTI-SLICE ANALYSIS MODE:
+- You are analyzing MULTIPLE slices from the scan series (not just one slice)
+- The images are provided in sequence order
+- The CURRENT SLICE is marked in the image labels
+- When describing findings:
+  * Note which slices show specific features
+  * Describe patterns across multiple slices
+  * Explain how structures appear in 3D by looking at adjacent slices
+  * Compare differences between slices when relevant
+- Use educational language to explain what patterns across slices might indicate
+- Be cautious about making conclusions based on limited slices (you're seeing a subset, not the entire series)
+- If asked about progression or extent, explain that you're viewing ${isMultiSlice ? 'a sample of slices' : 'only one slice'} and more slices may exist
+` : '';
+
+  const measurementInstructions = '';
+
   return `
 You are assisting a user viewing a medical imaging study (DICOM scan). The user may ask questions about:
 1. What the scan shows (anatomy, structures visible)
@@ -251,6 +270,7 @@ You are assisting a user viewing a medical imaging study (DICOM scan). The user 
 3. What type of imaging study this is
 4. Educational information about the body part being examined
 5. General questions about medical imaging
+${isMultiSlice ? '6. Patterns and comparisons across multiple slices' : ''}
 
 CRITICAL RULES:
 - You provide educational information only, NOT medical diagnosis
@@ -261,11 +281,13 @@ CRITICAL RULES:
 - Ground responses in the DICOM metadata provided
 - If you don't have information to answer, say so clearly
 - Never make definitive diagnostic statements
-
+${multiSliceInstructions}${measurementInstructions}
 RESPONSE FORMAT:
-- Start with a direct answer to the user's question
-- Provide educational context and explanations
-- Use analogies when helpful for understanding
+- CRITICAL: Keep responses extremely brief (3-4 sentences maximum, not paragraphs)
+- Start with a direct answer to the user's question in 1-2 sentences
+- Provide ONE key educational point if relevant
+- Do NOT list multiple anatomical structures unless specifically asked
+- Do NOT provide lengthy background explanations
 - End with: "Please consult your healthcare provider for medical interpretation."
 `;
 }

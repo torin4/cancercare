@@ -18,6 +18,7 @@ export default function DicomChatSidebar({
   totalFiles,
   viewerState,
   onCaptureImage,
+  onCaptureMultipleSlices,
   onClose
 }) {
   const { user } = useAuth();
@@ -58,6 +59,24 @@ export default function DicomChatSidebar({
     return visualKeywords.some(keyword => lowerMsg.includes(keyword));
   };
 
+  /**
+   * Detect if message requires multi-slice context analysis
+   * Questions about progression, comparison, or patterns need multiple slices
+   */
+  const shouldCaptureMultipleSlices = (message) => {
+    const lowerMsg = message.toLowerCase();
+    const multiSliceKeywords = [
+      'compare', 'comparison', 'different slices', 'other slices',
+      'through', 'throughout', 'across', 'progression', 'pattern',
+      'changing', 'changes', 'change', 'varies', 'variation',
+      'before', 'after', 'adjacent', 'nearby', 'surrounding',
+      'series', 'sequence', 'multiple', 'all slices', 'entire',
+      'tumor', 'lesion', 'mass', 'abnormality', 'pathology'
+    ];
+
+    return multiSliceKeywords.some(keyword => lowerMsg.includes(keyword));
+  };
+
   const handleSendMessage = async () => {
     if (!inputText.trim() || isLoading) return;
 
@@ -76,19 +95,42 @@ export default function DicomChatSidebar({
     try {
       // Detect if image analysis is needed
       const needsImage = shouldCaptureImage(userMessage);
-      let capturedImage = null;
+      const needsMultiSlice = shouldCaptureMultipleSlices(userMessage);
+
+      // If multi-slice is needed, image is automatically needed too
+      const requiresImageCapture = needsImage || needsMultiSlice;
+
+      let capturedImages = null; // Can be single image object or array of images
 
       console.log('[DicomChat] Processing message:', userMessage);
       console.log('[DicomChat] Needs image:', needsImage);
+      console.log('[DicomChat] Needs multi-slice:', needsMultiSlice);
+      console.log('[DicomChat] Requires image capture:', requiresImageCapture);
+      console.log('[DicomChat] Has onCaptureMultipleSlices:', !!onCaptureMultipleSlices);
+      console.log('[DicomChat] Has onCaptureImage:', !!onCaptureImage);
 
-      if (needsImage && onCaptureImage) {
-        console.log('[DicomChat] Attempting image capture...');
-        capturedImage = onCaptureImage();
-        if (capturedImage) {
+      // Prioritize multi-slice capture if requested
+      if (requiresImageCapture && needsMultiSlice && onCaptureMultipleSlices) {
+        console.log('[DicomChat] Attempting multi-slice capture...');
+        capturedImages = await onCaptureMultipleSlices();
+        if (capturedImages && Array.isArray(capturedImages)) {
+          console.log('[DicomChat] Multi-slice capture successful:', {
+            sliceCount: capturedImages.length,
+            slices: capturedImages.map(s => s.sliceIndex)
+          });
+        } else {
+          console.warn('[DicomChat] Multi-slice capture requested but failed, falling back to single slice');
+          // Fallback to single slice
+          capturedImages = onCaptureImage ? onCaptureImage() : null;
+        }
+      } else if (requiresImageCapture && onCaptureImage) {
+        console.log('[DicomChat] Attempting single image capture...');
+        capturedImages = onCaptureImage();
+        if (capturedImages) {
           console.log('[DicomChat] Image captured successfully:', {
-            width: capturedImage.width,
-            height: capturedImage.height,
-            sliceIndex: capturedImage.sliceIndex
+            width: capturedImages.width,
+            height: capturedImages.height,
+            sliceIndex: capturedImages.sliceIndex
           });
         } else {
           console.warn('[DicomChat] Image capture requested but failed');
@@ -96,17 +138,22 @@ export default function DicomChatSidebar({
       }
 
       // Build DICOM context for AI
+      // Handle both single image and multi-slice arrays
+      const isMultiSlice = Array.isArray(capturedImages);
       const dicomContext = {
         metadata,
         currentIndex,
         totalFiles,
         viewerState,
-        imageData: capturedImage // Include captured image if available
+        imageData: !isMultiSlice ? capturedImages : null, // Single image (legacy support)
+        images: isMultiSlice ? capturedImages : null // Multiple images (new multi-slice feature)
       };
 
       console.log('[DicomChat] DICOM context built:', {
         hasMetadata: !!metadata,
-        hasImage: !!capturedImage,
+        hasImage: isMultiSlice ? false : !!capturedImages,
+        hasMultipleSlices: isMultiSlice,
+        sliceCount: isMultiSlice ? capturedImages.length : 1,
         sliceIndex: currentIndex + 1,
         totalSlices: totalFiles
       });

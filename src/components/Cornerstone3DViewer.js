@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { X, Loader2, AlertCircle, ChevronLeft, ChevronRight, Ruler, Crosshair, RotateCcw, SunMoon, MessageSquare } from 'lucide-react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { X, Loader2, AlertCircle, ChevronLeft, ChevronRight, Ruler, Crosshair, RotateCcw, SunMoon, MessageSquare, Bot } from 'lucide-react';
 import { downloadFileAsBlob } from '../firebase/storage';
 import { extractDicomMetadata } from '../services/dicomService';
 import { registerZipImageLoader, registerZipStructure, generateZipImageId, unregisterZipImageLoader } from '../services/zipImageLoader';
@@ -95,7 +95,7 @@ export default function Cornerstone3DViewer({
   const [loadedSeriesFiles, setLoadedSeriesFiles] = useState(new Map());
   const [loadingSeries, setLoadingSeries] = useState(new Set());
   const [loadedSlicesCount, setLoadedSlicesCount] = useState(0);
-  const [activeTool, setActiveTool] = useState('windowLevel'); // 'windowLevel', 'length', 'probe'
+  const [activeTool, setActiveTool] = useState(null); // null (no default active tool), 'windowLevel', 'length', 'probe'
   const [isInverted, setIsInverted] = useState(false);
   const [probeValue, setProbeValue] = useState(null); // HU value at cursor
 
@@ -152,8 +152,8 @@ export default function Cornerstone3DViewer({
       const { init: initCornerstoneCore, cache } = cornerstoneCore;
 
       // CRITICAL: Set cache size BEFORE init to prevent CACHE_SIZE_EXCEEDED
-      // 500MB max cache - enough for ~100 CT slices, old ones get evicted
-      cache.setMaxCacheSize(500 * 1024 * 1024); // 500MB
+      // 200MB max cache - enough for ~40 CT slices, prevents memory bloat
+      cache.setMaxCacheSize(200 * 1024 * 1024); // 200MB
 
       initCornerstoneCore({
         gpuTier: { tier: 2 },
@@ -192,6 +192,11 @@ export default function Cornerstone3DViewer({
       const tools = await import('@cornerstonejs/tools');
       const { init: initTools, StackScrollTool, PanTool, ZoomTool, WindowLevelTool, LengthTool, ProbeTool, ToolGroupManager, Enums: ToolEnums } = tools;
       initTools();
+
+      // Store tools globally for access by measurement functions
+      if (typeof window !== 'undefined') {
+        window.cornerstone3DTools = tools;
+      }
 
       // Add tools to Cornerstone
       tools.addTool(StackScrollTool);
@@ -327,9 +332,9 @@ export default function Cornerstone3DViewer({
 
     const { imageLoader, cache } = await import('@cornerstonejs/core');
 
-    // Only prefetch 2 slices ahead/behind to avoid cache overflow
-    // With 500MB cache and ~5MB per CT slice, we can hold ~100 slices
-    const prefetchRadius = 2;
+    // Only prefetch 1 slice ahead/behind to minimize memory usage
+    // With 200MB cache and ~5MB per CT slice, we can hold ~40 slices
+    const prefetchRadius = 1;
 
     // Calculate indices to prefetch (prioritize forward direction)
     const indicesToPrefetch = [];
@@ -349,9 +354,9 @@ export default function Cornerstone3DViewer({
       // Check cache usage before prefetching
       const cacheInfo = cache.getCacheSize();
       const maxCache = cache.getMaxCacheSize();
-      if (cacheInfo > maxCache * 0.8) {
-        // Cache is 80% full, stop prefetching
-        console.log('[Cornerstone3D] Cache 80% full, stopping prefetch');
+      if (cacheInfo > maxCache * 0.6) {
+        // Cache is 60% full, stop prefetching to prevent memory bloat
+        console.log('[Cornerstone3D] Cache 60% full, stopping prefetch');
         break;
       }
 
@@ -392,7 +397,7 @@ export default function Cornerstone3DViewer({
         setProbeValue(null);
       }
 
-      // Activate new tool
+      // Activate new tool (only if not null)
       if (toolName === 'windowLevel') {
         toolGroup.setToolActive(tools.WindowLevelTool.toolName, {
           bindings: [{ mouseButton: ToolEnums.MouseBindings.Primary }]
@@ -405,6 +410,9 @@ export default function Cornerstone3DViewer({
         toolGroup.setToolActive(tools.ProbeTool.toolName, {
           bindings: [{ mouseButton: ToolEnums.MouseBindings.Primary }]
         });
+      } else if (toolName === null) {
+        // No tool active - all tools are passive
+        // Pan and zoom remain on their bindings
       }
 
       setActiveTool(toolName);
@@ -631,10 +639,8 @@ export default function Cornerstone3DViewer({
             toolGroup.setToolActive(tools.StackScrollTool.toolName, {
               bindings: [{ mouseButton: ToolEnums.MouseBindings.Wheel }]
             });
-            // Default: WindowLevel on primary (left click)
-            toolGroup.setToolActive(tools.WindowLevelTool.toolName, {
-              bindings: [{ mouseButton: ToolEnums.MouseBindings.Primary }]
-            });
+            // WindowLevel is passive by default (can be activated via toolbar)
+            toolGroup.setToolPassive(tools.WindowLevelTool.toolName);
             toolGroup.setToolActive(tools.PanTool.toolName, {
               bindings: [{ mouseButton: ToolEnums.MouseBindings.Auxiliary }]
             });
@@ -828,6 +834,14 @@ export default function Cornerstone3DViewer({
             }
           } catch (e) { /* ignore */ }
         }
+
+        // Force cache purge to reclaim memory
+        try {
+          cache.purgeCache();
+          console.log('[Cornerstone3D] Cache purged on cleanup');
+        } catch (e) {
+          console.warn('[Cornerstone3D] Failed to purge cache:', e);
+        }
       }).catch(() => {});
 
       // Clear ZIP caches
@@ -940,8 +954,7 @@ export default function Cornerstone3DViewer({
         return null;
       }
 
-      // Convert canvas to base64 JPEG (more efficient than PNG for medical images)
-      // Use quality 0.9 to balance file size and quality
+      // Convert canvas to base64 JPEG
       const imageData = canvas.toDataURL('image/jpeg', 0.9);
 
       return {
@@ -957,6 +970,80 @@ export default function Cornerstone3DViewer({
     }
   }, [currentIndex, totalFiles]);
 
+  /**
+   * Capture multiple slices for multi-slice context analysis
+   * Captures current slice + adjacent slices (2 before, 2 after = 5 total)
+   * Returns array of slice objects or null if capture fails
+   */
+  const captureMultipleSlices = useCallback(async () => {
+    try {
+      const viewport = viewportRef.current;
+      if (!viewport) {
+        console.warn('[DicomViewer] No viewport available for multi-slice capture');
+        return null;
+      }
+
+      const canvas = viewport.canvas;
+      if (!canvas) {
+        console.warn('[DicomViewer] No canvas available for multi-slice capture');
+        return null;
+      }
+
+      // Determine which slices to capture (current +/- 2)
+      const slicesToCapture = [];
+      const centerIndex = currentIndex;
+
+      // Calculate range (2 before, current, 2 after)
+      for (let offset = -2; offset <= 2; offset++) {
+        const sliceIndex = centerIndex + offset;
+        if (sliceIndex >= 0 && sliceIndex < totalFiles) {
+          slicesToCapture.push(sliceIndex);
+        }
+      }
+
+      console.log('[DicomViewer] Capturing slices:', slicesToCapture.map(i => i + 1));
+
+      const capturedSlices = [];
+      const originalIndex = currentIndex;
+
+      // Capture each slice
+      for (const sliceIndex of slicesToCapture) {
+        // Navigate to slice if not current
+        if (sliceIndex !== currentIndex) {
+          await navigateToIndex(sliceIndex);
+          // Small delay to ensure rendering completes
+          await new Promise(resolve => setTimeout(resolve, 150));
+        }
+
+        // Capture the slice as JPEG
+        const imageData = canvas.toDataURL('image/jpeg', 0.85); // Slightly lower quality for multiple images
+
+        capturedSlices.push({
+          imageData,
+          width: canvas.width,
+          height: canvas.height,
+          sliceIndex: sliceIndex + 1,
+          totalSlices: totalFiles,
+          isCurrent: sliceIndex === originalIndex
+        });
+      }
+
+      // Navigate back to original slice
+      if (currentIndex !== originalIndex) {
+        await navigateToIndex(originalIndex);
+      }
+
+      console.log(`[DicomViewer] Captured ${capturedSlices.length} slices successfully`);
+
+      return capturedSlices;
+    } catch (error) {
+      console.error('[DicomViewer] Error capturing multiple slices:', error);
+      return null;
+    }
+  }, [currentIndex, totalFiles, navigateToIndex]);
+
+
+  // Memoize measurements to prevent infinite render loop
   return (
     <div className="fixed inset-0 z-50 bg-black flex">
       {/* Disclaimer Modal */}
@@ -1118,21 +1205,6 @@ export default function Cornerstone3DViewer({
                   title="Reset View"
                 >
                   <RotateCcw className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Chat Button */}
-              <div className="flex gap-1 bg-black/80 rounded-lg p-1.5 backdrop-blur-sm">
-                <button
-                  onClick={handleChatToggle}
-                  className={`p-2 rounded-md transition-colors ${
-                    isChatOpen
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                  title="AI Chat Assistant (ask about this scan)"
-                >
-                  <MessageSquare className="w-5 h-5" />
                 </button>
               </div>
 
@@ -1301,10 +1373,24 @@ export default function Cornerstone3DViewer({
               probeValue
             }}
             onCaptureImage={captureCurrentSlice}
+            onCaptureMultipleSlices={captureMultipleSlices}
             onClose={() => setIsChatOpen(false)}
           />
         </div>
       )}
+
+      {/* Iris AI Chat FAB */}
+      <button
+        onClick={handleChatToggle}
+        className={`fixed right-4 bottom-4 z-50 w-16 h-16 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center ${
+          isChatOpen
+            ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white'
+            : 'bg-gradient-to-br from-blue-600 to-purple-700 text-white hover:scale-105'
+        }`}
+        title="Ask Iris (AI Chat Assistant)"
+      >
+        <Bot className="w-7 h-7" />
+      </button>
     </div>
   );
 }

@@ -9,6 +9,7 @@
  */
 
 import dicomParser from 'dicom-parser';
+import { convertBytes } from 'dicom-character-set';
 
 /** DICOM tags */
 const TAGS = {
@@ -52,16 +53,97 @@ const RECORD_TYPES = {
 };
 
 /**
+ * Decode ISO-2022-JP encoded bytes to UTF-8 string
+ * Handles common escape sequences manually
+ * @param {Uint8Array} bytes - raw bytes
+ * @returns {string|null}
+ */
+function decodeISO2022JP(bytes) {
+  try {
+    let result = '';
+    let i = 0;
+    let inKanji = false;
+
+    while (i < bytes.length) {
+      // ESC $ B - Switch to JIS X 0208 (Kanji)
+      if (bytes[i] === 0x1B && i + 2 < bytes.length && bytes[i + 1] === 0x24 && bytes[i + 2] === 0x42) {
+        inKanji = true;
+        i += 3;
+        continue;
+      }
+
+      // ESC ( J - Switch to JIS X 0201 Roman
+      // ESC ( I - Switch to JIS X 0201 Katakana
+      // ESC ( B - Switch to ASCII
+      if (bytes[i] === 0x1B && i + 2 < bytes.length && bytes[i + 1] === 0x28) {
+        inKanji = false;
+        i += 3;
+        continue;
+      }
+
+      if (inKanji && i + 1 < bytes.length) {
+        // Two-byte Kanji character
+        const jisCode = ((bytes[i] & 0x7F) << 8) | (bytes[i + 1] & 0x7F);
+
+        // Convert JIS X 0208 to Unicode
+        // This is a simplified conversion - add 0x8080 to get EUC-JP, then decode
+        const eucJP = new Uint8Array([bytes[i] | 0x80, bytes[i + 1] | 0x80]);
+        try {
+          const decoder = new TextDecoder('euc-jp');
+          result += decoder.decode(eucJP);
+        } catch {
+          result += '??';
+        }
+        i += 2;
+      } else {
+        // ASCII character
+        result += String.fromCharCode(bytes[i]);
+        i++;
+      }
+    }
+
+    return result;
+  } catch (e) {
+    console.warn('[DICOMDIR] Failed to manually decode ISO-2022-JP:', e);
+    return null;
+  }
+}
+
+/**
  * Safely get string from a directory record dataSet
  * @param {Object} ds - dataSet (sequence item)
  * @param {string} tag - DICOM tag
  * @returns {string|null}
  */
-function getString(ds, tag) {
+function getString(ds, tag, characterSet = null) {
   try {
     const el = ds.elements[tag];
     if (!el || el.length === 0) return null;
-    const s = ds.string(tag);
+
+    let s = ds.string(tag);
+
+    // If we detect Japanese encoding (ISO-2022-JP escape sequences), decode it
+    // Even if character set tag is missing, try to decode based on escape sequences
+    if (s && (s.includes('\x1B') || s.includes('$B') || s.includes('(J') || s.includes('(I'))) {
+      try {
+        // Get raw bytes for proper decoding
+        const rawBytes = ds.byteArray.subarray(el.dataOffset, el.dataOffset + el.length);
+
+        console.log(`[DICOMDIR] Attempting to decode Japanese text for tag ${tag}`);
+        console.log(`[DICOMDIR] Raw bytes (hex):`, Array.from(rawBytes).map(b => b.toString(16).padStart(2, '0')).join(' '));
+
+        const decoded = decodeISO2022JP(rawBytes);
+        if (decoded && decoded.trim() && !decoded.includes('?')) {
+          console.log(`[DICOMDIR] Successfully decoded: "${s}" -> "${decoded}"`);
+          s = decoded;
+        } else {
+          console.log(`[DICOMDIR] Manual decode failed, keeping original`);
+        }
+      } catch (decodeError) {
+        console.warn(`[DICOMDIR] Failed to decode Japanese text for tag ${tag}:`, decodeError);
+      }
+    }
+
     return s && typeof s === 'string' ? s.trim() || null : null;
   } catch {
     return null;
@@ -124,6 +206,11 @@ export async function parseDicomDir(dicomDirInput) {
     }
 
     const dataSet = dicomParser.parseDicom(byteArray);
+
+    // Check for Specific Character Set (0008,0005)
+    const specificCharacterSet = dataSet.string('x00080005') || '';
+    console.log('[DICOMDIR] Character Set detected:', specificCharacterSet);
+
     const seqEl = dataSet.elements[TAGS.DIRECTORY_RECORD_SEQUENCE];
     if (!seqEl || !seqEl.items || seqEl.items.length === 0) {
       return { success: false, error: 'DICOMDIR has no Directory Record Sequence' };
@@ -139,17 +226,17 @@ export async function parseDicomDir(dicomDirInput) {
       const ds = item.dataSet;
       if (!ds) continue;
 
-      const recordType = (getString(ds, TAGS.DIRECTORY_RECORD_TYPE) || '').toUpperCase();
+      const recordType = (getString(ds, TAGS.DIRECTORY_RECORD_TYPE, specificCharacterSet) || '').toUpperCase();
 
       switch (recordType) {
         case RECORD_TYPES.PATIENT: {
           curStudy = null;
           curSeries = null;
           curPatient = {
-            patientId: getString(ds, TAGS.PATIENT_ID),
-            patientName: getString(ds, TAGS.PATIENT_NAME),
-            patientBirthDate: getString(ds, TAGS.PATIENT_BIRTH_DATE),
-            patientSex: getString(ds, TAGS.PATIENT_SEX),
+            patientId: getString(ds, TAGS.PATIENT_ID, specificCharacterSet),
+            patientName: getString(ds, TAGS.PATIENT_NAME, specificCharacterSet),
+            patientBirthDate: getString(ds, TAGS.PATIENT_BIRTH_DATE, specificCharacterSet),
+            patientSex: getString(ds, TAGS.PATIENT_SEX, specificCharacterSet),
             studies: [],
           };
           patients.push(curPatient);
@@ -168,14 +255,14 @@ export async function parseDicomDir(dicomDirInput) {
           }
           curSeries = null;
           curStudy = {
-            studyInstanceUID: getString(ds, TAGS.STUDY_INSTANCE_UID),
-            studyDate: getString(ds, TAGS.STUDY_DATE),
-            studyTime: getString(ds, TAGS.STUDY_TIME),
-            studyDescription: getString(ds, TAGS.STUDY_DESCRIPTION),
-            studyID: getString(ds, TAGS.STUDY_ID),
-            accessionNumber: getString(ds, TAGS.ACCESSION_NUMBER),
-            institutionName: getString(ds, TAGS.INSTITUTION_NAME),
-            institutionAddress: getString(ds, TAGS.INSTITUTION_ADDRESS),
+            studyInstanceUID: getString(ds, TAGS.STUDY_INSTANCE_UID, specificCharacterSet),
+            studyDate: getString(ds, TAGS.STUDY_DATE, specificCharacterSet),
+            studyTime: getString(ds, TAGS.STUDY_TIME, specificCharacterSet),
+            studyDescription: getString(ds, TAGS.STUDY_DESCRIPTION, specificCharacterSet),
+            studyID: getString(ds, TAGS.STUDY_ID, specificCharacterSet),
+            accessionNumber: getString(ds, TAGS.ACCESSION_NUMBER, specificCharacterSet),
+            institutionName: getString(ds, TAGS.INSTITUTION_NAME, specificCharacterSet),
+            institutionAddress: getString(ds, TAGS.INSTITUTION_ADDRESS, specificCharacterSet),
             series: [],
           };
           curPatient.studies.push(curStudy);
@@ -205,14 +292,14 @@ export async function parseDicomDir(dicomDirInput) {
             }
           }
           curSeries = {
-            seriesInstanceUID: getString(ds, TAGS.SERIES_INSTANCE_UID),
-            seriesNumber: getString(ds, TAGS.SERIES_NUMBER),
-            seriesDescription: getString(ds, TAGS.SERIES_DESCRIPTION),
-            modality: getString(ds, TAGS.MODALITY),
-            bodyPartExamined: getString(ds, TAGS.BODY_PART_EXAMINED),
-            seriesDate: getString(ds, TAGS.SERIES_DATE),
-            seriesTime: getString(ds, TAGS.SERIES_TIME),
-            institutionName: getString(ds, TAGS.INSTITUTION_NAME),
+            seriesInstanceUID: getString(ds, TAGS.SERIES_INSTANCE_UID, specificCharacterSet),
+            seriesNumber: getString(ds, TAGS.SERIES_NUMBER, specificCharacterSet),
+            seriesDescription: getString(ds, TAGS.SERIES_DESCRIPTION, specificCharacterSet),
+            modality: getString(ds, TAGS.MODALITY, specificCharacterSet),
+            bodyPartExamined: getString(ds, TAGS.BODY_PART_EXAMINED, specificCharacterSet),
+            seriesDate: getString(ds, TAGS.SERIES_DATE, specificCharacterSet),
+            seriesTime: getString(ds, TAGS.SERIES_TIME, specificCharacterSet),
+            institutionName: getString(ds, TAGS.INSTITUTION_NAME, specificCharacterSet),
             images: [],
           };
           curStudy.series.push(curSeries);
@@ -223,9 +310,9 @@ export async function parseDicomDir(dicomDirInput) {
           if (!filePath) continue;
           const img = {
             filePath,
-            instanceNumber: getString(ds, TAGS.INSTANCE_NUMBER),
-            sliceLocation: getString(ds, TAGS.SLICE_LOCATION),
-            sopInstanceUID: getString(ds, TAGS.REFERENCED_SOP_INSTANCE_UID),
+            instanceNumber: getString(ds, TAGS.INSTANCE_NUMBER, specificCharacterSet),
+            sliceLocation: getString(ds, TAGS.SLICE_LOCATION, specificCharacterSet),
+            sopInstanceUID: getString(ds, TAGS.REFERENCED_SOP_INSTANCE_UID, specificCharacterSet),
           };
           if (curSeries) {
             curSeries.images.push(img);

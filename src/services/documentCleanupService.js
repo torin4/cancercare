@@ -1,4 +1,4 @@
-import { labService, vitalService, medicationService } from '../firebase/services';
+import { labService, vitalService, medicationService, symptomService } from '../firebase/services';
 
 /**
  * Comprehensive document data cleanup service
@@ -20,6 +20,7 @@ export async function cleanupDocumentData(documentId, userId, aggressiveCleanup 
     labValuesDeleted: 0,
     vitalValuesDeleted: 0,
     medicationsDeleted: 0,
+    symptomsDeleted: 0,
     orphanedLabsDeleted: 0,
     orphanedVitalsDeleted: 0,
     legacyLabValuesDeleted: 0,
@@ -47,7 +48,11 @@ export async function cleanupDocumentData(documentId, userId, aggressiveCleanup 
     const medicationResults = await cleanupMedicationsByDocument(documentId, userId);
     results.medicationsDeleted = medicationResults.medicationsDeleted;
 
-    // Step 4: Run full orphaned cleanup to catch anything missed
+    // Step 4: Delete all symptoms with this documentId (if any)
+    const symptomResults = await cleanupSymptomsByDocument(documentId, userId);
+    results.symptomsDeleted = symptomResults.symptomsDeleted;
+
+    // Step 5: Run full orphaned cleanup to catch anything missed
     const additionalOrphans = await runFullOrphanedCleanup(userId);
     results.orphanedLabsDeleted += additionalOrphans.labs;
     results.orphanedVitalsDeleted += additionalOrphans.vitals;
@@ -319,6 +324,38 @@ async function cleanupMedicationsByDocument(documentId, userId) {
 }
 
 /**
+ * Clean up all symptoms associated with a document
+ * @param {string} documentId - The document ID
+ * @param {string} userId - User ID
+ * @returns {Object} Cleanup results
+ */
+async function cleanupSymptomsByDocument(documentId, userId) {
+  const results = {
+    symptomsDeleted: 0
+  };
+
+  try {
+    const allSymptoms = await symptomService.getSymptoms(userId);
+    const symptomsToDelete = allSymptoms.filter(symptom => symptom.documentId === documentId);
+
+    for (let i = 0; i < symptomsToDelete.length; i += 10) {
+      const batch = symptomsToDelete.slice(i, i + 10);
+      await Promise.all(batch.map(async (symptom) => {
+        try {
+          await symptomService.deleteSymptom(symptom.id);
+          results.symptomsDeleted++;
+        } catch (error) {
+        }
+      }));
+    }
+
+    return results;
+  } catch (error) {
+    throw error;
+  }
+}
+
+/**
  * Run full orphaned cleanup to catch any missed orphans
  * @param {string} userId - User ID
  * @returns {Object} Number of orphaned items deleted
@@ -356,6 +393,7 @@ export async function verifyCleanupComplete(documentId, userId) {
     labValuesRemaining: 0,
     vitalValuesRemaining: 0,
     medicationsRemaining: 0,
+    symptomsRemaining: 0,
     isComplete: true
   };
 
@@ -380,10 +418,15 @@ export async function verifyCleanupComplete(documentId, userId) {
     const allMedications = await medicationService.getMedications(userId);
     results.medicationsRemaining = allMedications.filter(med => med.documentId === documentId).length;
 
+    // Check symptoms
+    const allSymptoms = await symptomService.getSymptoms(userId);
+    results.symptomsRemaining = allSymptoms.filter(symptom => symptom.documentId === documentId).length;
+
     results.isComplete = (
       results.labValuesRemaining === 0 &&
       results.vitalValuesRemaining === 0 &&
-      results.medicationsRemaining === 0
+      results.medicationsRemaining === 0 &&
+      results.symptomsRemaining === 0
     );
 
     if (!results.isComplete) {

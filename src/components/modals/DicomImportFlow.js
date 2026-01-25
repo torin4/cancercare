@@ -139,10 +139,16 @@ export default function DicomImportFlow({
     try {
       // Check if we have a ZIP file
       const zipFile = selectedFiles.find(f => isZipFile(f));
-      
+
       if (zipFile) {
         // Handle ZIP file
-        const arrayBuffer = await zipFile.arrayBuffer();
+        let arrayBuffer;
+        try {
+          arrayBuffer = await zipFile.arrayBuffer();
+        } catch (fileError) {
+          // File access lost (common after browser refresh)
+          throw new Error('File access lost. Please re-select your files and try again.');
+        }
         setProcessingMessage('Processing ZIP archive...');
         
         const zipViewerResult = await prepareZipForViewing(
@@ -180,10 +186,24 @@ export default function DicomImportFlow({
         }
       } else {
         // Handle individual DICOM files
+        // Verify file access is still available
+        try {
+          // Test file access by checking if we can read the first file
+          if (selectedFiles.length > 0 && selectedFiles[0] instanceof File) {
+            // Just check the size property to verify file is still accessible
+            const testSize = selectedFiles[0].size;
+            if (typeof testSize !== 'number') {
+              throw new Error('File access lost');
+            }
+          }
+        } catch (fileError) {
+          throw new Error('File access lost. Please re-select your files and try again.');
+        }
+
         // For single/multi DICOM files, pass as array
         // The viewer expects an array of document objects or a viewer data structure
         const viewerData = Array.isArray(selectedFiles) ? selectedFiles : [selectedFiles];
-        
+
         setIsProcessing(false);
         onClose();
         if (onViewNow) {

@@ -154,11 +154,14 @@ export async function prepareZipForViewing(zipFileOrBuffer, onProgress = null) {
     
     // If DICOMDIR exists, parse it FIRST and use it to build file list (IMAIOS approach)
     if (dicomDirZipEntry) {
+      console.log('[ZIP Viewer] Found DICOMDIR, parsing...');
       if (onProgress) onProgress(0, 0, 'Parsing DICOMDIR...');
       try {
         const blob = await dicomDirZipEntry.zipEntry.async('blob');
         const ab = await blob.arrayBuffer();
+        console.log('[ZIP Viewer] Calling parseDicomDir with ArrayBuffer size:', ab.byteLength);
         const parseResult = await parseDicomDir(ab);
+        console.log('[ZIP Viewer] parseDicomDir result:', parseResult);
         if (parseResult.success && parseResult.structure) {
           dicomDirStructure = parseResult.structure;
           const flat = flattenDicomDirStructure(parseResult.structure);

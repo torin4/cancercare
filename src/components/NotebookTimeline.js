@@ -146,7 +146,7 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
                                 const isJournalNote = note.source === 'journal';
                                 const isDocumentNote = note.source === 'document';
                                 const canEdit = (isJournalNote || isDocumentNote) && onEditNote;
-                                const canDelete = isJournalNote && onDeleteNote;
+                                const canDelete = (isJournalNote || isDocumentNote) && onDeleteNote;
                                 return (
                                   <div
                                     key={note.id}
@@ -180,7 +180,7 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              onDeleteNote(note.sourceId);
+                                              onDeleteNote(note.sourceId, note.source);
                                             }}
                                             className={combineClasses(DesignTokens.components.status.high.text, `hover:${DesignTokens.components.alert.text.error}`, `hover:${DesignTokens.components.status.high.bg}`, 'p-1.5 rounded', DesignTokens.transitions.default)}
                                             title="Delete note"

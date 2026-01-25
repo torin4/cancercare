@@ -1085,7 +1085,7 @@ function buildChatPrompt({
 export async function processChatMessage(message, userId, conversationHistory = [], trialContext = null, healthContext = null, notebookContext = null, patientProfile = null, abortSignal = null, dicomContext = null) {
   try {
     // Determine if we need vision model (if DICOM image data is provided)
-    const hasImage = dicomContext?.imageData?.imageData;
+    const hasImage = dicomContext?.imageData?.imageData || (dicomContext?.images && dicomContext.images.length > 0);
     const modelName = hasImage ? 'gemini-2.5-flash' : 'gemini-2.5-flash'; // Both use same model, but request format differs
     const model = genAI.getGenerativeModel({ model: modelName });
 
@@ -1216,14 +1216,24 @@ export async function processChatMessage(message, userId, conversationHistory = 
     // Build DICOM context section if provided
     let dicomContextSection = null;
     if (dicomContext) {
+      const isMultiSlice = dicomContext.images && Array.isArray(dicomContext.images) && dicomContext.images.length > 1;
+      const hasMeasurements = dicomContext.viewerState?.measurements && Array.isArray(dicomContext.viewerState.measurements) && dicomContext.viewerState.measurements.length > 0;
+
       dicomContextSection = buildDicomContext(
         dicomContext.metadata,
         dicomContext.currentIndex,
         dicomContext.totalFiles,
         dicomContext.viewerState
       );
-      // Add DICOM-specific instructions
-      dicomContextSection = getDicomChatInstructions() + '\n\n' + dicomContextSection;
+
+      // Add DICOM-specific instructions (with multi-slice and measurement flags)
+      dicomContextSection = getDicomChatInstructions(isMultiSlice, hasMeasurements) + '\n\n' + dicomContextSection;
+
+      // If multi-slice, add note about which slices are being analyzed
+      if (isMultiSlice) {
+        const sliceNumbers = dicomContext.images.map(img => img.sliceIndex).join(', ');
+        dicomContextSection += `\n\nMULTI-SLICE CONTEXT: You are viewing ${dicomContext.images.length} slices from this series (slices: ${sliceNumbers}).`;
+      }
     }
 
     // Build prompt for extraction
@@ -1253,24 +1263,57 @@ export async function processChatMessage(message, userId, conversationHistory = 
     let result;
 
     // If image data is provided, use multimodal request
-    if (hasImage && dicomContext.imageData.imageData) {
-      const imageData = dicomContext.imageData.imageData;
+    if (hasImage) {
+      const contentParts = [prompt];
 
-      // Convert base64 to inline data format for Gemini
-      // Remove "data:image/jpeg;base64," prefix if present
-      const base64Image = imageData.includes('base64,')
-        ? imageData.split('base64,')[1]
-        : imageData;
+      // Handle multi-slice images (array)
+      if (dicomContext.images && Array.isArray(dicomContext.images)) {
+        console.log(`[chatProcessor] Processing ${dicomContext.images.length} slices for multi-slice analysis`);
 
-      const imagePart = {
-        inlineData: {
-          data: base64Image,
-          mimeType: 'image/jpeg'
-        }
-      };
+        // Add each slice image to the content
+        dicomContext.images.forEach((slice, index) => {
+          const imageData = slice.imageData;
+          const base64Image = imageData.includes('base64,')
+            ? imageData.split('base64,')[1]
+            : imageData;
 
-      // Multimodal request: [text prompt, image]
-      result = await model.generateContent([prompt, imagePart]);
+          contentParts.push({
+            inlineData: {
+              data: base64Image,
+              mimeType: 'image/jpeg'
+            }
+          });
+
+          // Add a text label for each slice (helps AI understand sequence)
+          if (index === 0) {
+            contentParts.push(`Image 1: Slice ${slice.sliceIndex}/${slice.totalSlices}${slice.isCurrent ? ' (CURRENT SLICE)' : ''}`);
+          } else {
+            contentParts.push(`Image ${index + 1}: Slice ${slice.sliceIndex}/${slice.totalSlices}${slice.isCurrent ? ' (CURRENT SLICE)' : ''}`);
+          }
+        });
+
+        result = await model.generateContent(contentParts);
+      }
+      // Handle single image (legacy support)
+      else if (dicomContext.imageData && dicomContext.imageData.imageData) {
+        const imageData = dicomContext.imageData.imageData;
+
+        // Convert base64 to inline data format for Gemini
+        // Remove "data:image/jpeg;base64," prefix if present
+        const base64Image = imageData.includes('base64,')
+          ? imageData.split('base64,')[1]
+          : imageData;
+
+        const imagePart = {
+          inlineData: {
+            data: base64Image,
+            mimeType: 'image/jpeg'
+          }
+        };
+
+        // Multimodal request: [text prompt, image]
+        result = await model.generateContent([prompt, imagePart]);
+      }
     } else {
       // Text-only request
       result = await model.generateContent(prompt);
