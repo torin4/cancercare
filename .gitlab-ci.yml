@@ -8,13 +8,17 @@ pages:
   stage: pages
   image: alpine:latest
   script:
-    - apk add --no-cache bash
     - echo "Starting Pages deployment..."
     - mkdir -p public
-    - echo "Copying HTML files from docs/ to public/"
-    - cp docs/*.html public/
-    - echo "Files in public/:"
-    - ls -la public/
+    - |
+      if [ -d "docs" ] && ls docs/*.html 1> /dev/null 2>&1; then
+        echo "Copying HTML files from docs/ to public/"
+        cp docs/*.html public/
+        echo "Files copied successfully"
+      else
+        echo "ERROR: No HTML files found in docs/"
+        exit 1
+      fi
     - |
       if [ ! -f "public/index.html" ]; then
         echo "Creating index.html"
@@ -23,10 +27,18 @@ pages:
         <html><head><meta http-equiv="refresh" content="0; url=privacy-policy.html"></head></html>
         EOF
       fi
+    - echo "Verifying files in public/:"
+    - ls -la public/
+    - |
+      if [ ! -f "public/privacy-policy.html" ]; then
+        echo "ERROR: privacy-policy.html not found"
+        exit 1
+      fi
     - echo "✅ Pages deployment ready"
   artifacts:
     paths:
       - public
   rules:
-    # This ensures that only pushes to the default branch will trigger a pages deploy
     - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+  # Allow failure if quota is exhausted - Pages can be deployed manually if needed
+  allow_failure: true
