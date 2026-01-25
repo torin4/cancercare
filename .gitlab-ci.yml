@@ -37,17 +37,15 @@ pages:
   image: alpine:latest
   script:
     - apk add --no-cache bash
+    - echo "Starting Pages deployment..."
+    - echo "Current directory: $(pwd)"
+    - echo "Contents of docs/:"
+    - ls -la docs/ || echo "docs/ directory does not exist"
     - mkdir -p public
-    - |
-      if [ -d "docs" ] && [ "$(ls -A docs/*.html 2>/dev/null)" ]; then
-        echo "Copying HTML files from docs/ to public/"
-        cp docs/*.html public/ 2>/dev/null || true
-        ls -la public/
-        echo "Files copied successfully"
-      else
-        echo "Warning: No HTML files found in docs/"
-        ls -la docs/ || echo "docs/ directory does not exist"
-      fi
+    - echo "Copying HTML files from docs/ to public/"
+    - cp docs/*.html public/ || (echo "ERROR: Failed to copy HTML files" && exit 1)
+    - echo "Files in public/ after copy:"
+    - ls -la public/
     - |
       if [ ! -f "public/index.html" ] && [ -f "public/privacy-policy.html" ]; then
         echo "Creating index.html redirect to privacy-policy.html"
@@ -56,8 +54,14 @@ pages:
         <html><head><meta http-equiv="refresh" content="0; url=privacy-policy.html"></head></html>
         EOF
       fi
-    - echo "Deploying to GitLab Pages"
+    - echo "Final contents of public/:"
     - ls -la public/
+    - |
+      if [ ! -f "public/privacy-policy.html" ]; then
+        echo "ERROR: privacy-policy.html not found in public/"
+        exit 1
+      fi
+    - echo "✅ Pages deployment ready"
   artifacts:
     pages:
       # The folder that contains the files to be exposed at the Page URL
