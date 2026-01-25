@@ -4,8 +4,13 @@ stages:
 build:
   stage: build
   image: node:18
+  cache:
+    paths:
+      - node_modules/
+  variables:
+    NODE_OPTIONS: "--max-old-space-size=4096"
   before_script:
-    - npm ci
+    - npm ci --prefer-offline --no-audit
   script:
     - npm run build
   artifacts:
@@ -19,4 +24,9 @@ build:
   # This job will NOT trigger Vercel integration
   # Pipeline will succeed even if external stages fail
   allow_failure: false
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
 
