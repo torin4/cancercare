@@ -21,10 +21,10 @@ export function calculateYAxisBounds(data, normalRange = null) {
   let minVal = Math.min(...values);
   let maxVal = Math.max(...values);
 
-  // Parse normal range if available
+  // Parse normal range if available (supports negative numbers and zero)
   if (normalRange) {
-    // Try standard range format "X-Y"
-    let rangeMatch = normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+    // Try standard range format "X-Y" (e.g., "-5-5", "0-10", "-10--5")
+    let rangeMatch = normalRange.match(/(-?\d+\.?\d*)\s*-\s*(-?\d+\.?\d*)/);
     if (rangeMatch) {
       const normMin = parseFloat(rangeMatch[1]);
       const normMax = parseFloat(rangeMatch[2]);
@@ -33,8 +33,8 @@ export function calculateYAxisBounds(data, normalRange = null) {
         maxVal = Math.max(maxVal, normMax);
       }
     } else {
-      // Try "< X" format
-      const lessThanMatch = normalRange.match(/<\s*(\d+\.?\d*)/);
+      // Try "< X" format (e.g., "< 0.5", "< -5")
+      const lessThanMatch = normalRange.match(/<\s*(-?\d+\.?\d*)/);
       if (lessThanMatch) {
         const threshold = parseFloat(lessThanMatch[1]);
         if (!isNaN(threshold)) {
@@ -42,8 +42,8 @@ export function calculateYAxisBounds(data, normalRange = null) {
           maxVal = Math.max(maxVal, threshold);
         }
       } else {
-        // Try "> X" format
-        const greaterThanMatch = normalRange.match(/>\s*(\d+\.?\d*)/);
+        // Try "> X" format (e.g., "> 60", "> -10")
+        const greaterThanMatch = normalRange.match(/>\s*(-?\d+\.?\d*)/);
         if (greaterThanMatch) {
           const threshold = parseFloat(greaterThanMatch[1]);
           if (!isNaN(threshold)) {
@@ -85,8 +85,8 @@ export function generateYAxisLabels(yMin, yMax) {
 export function parseNormalRangeForChart(normalRange, yMin, yRange) {
   if (!normalRange) return null;
 
-  // Try standard range format "X-Y"
-  let rangeMatch = normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+  // Try standard range format "X-Y" (supports negative numbers and zero)
+  let rangeMatch = normalRange.match(/(-?\d+\.?\d*)\s*-\s*(-?\d+\.?\d*)/);
   if (rangeMatch) {
     const normMin = parseFloat(rangeMatch[1]);
     const normMax = parseFloat(rangeMatch[2]);
@@ -97,8 +97,8 @@ export function parseNormalRangeForChart(normalRange, yMin, yRange) {
     }
   }
 
-  // Try "< X" format
-  const lessThanMatch = normalRange.match(/<\s*(\d+\.?\d*)/);
+  // Try "< X" format (e.g., "< 0.5", "< -5")
+  const lessThanMatch = normalRange.match(/<\s*(-?\d+\.?\d*)/);
   if (lessThanMatch) {
     const threshold = parseFloat(lessThanMatch[1]);
     if (!isNaN(threshold) && isFinite(threshold)) {
@@ -107,8 +107,8 @@ export function parseNormalRangeForChart(normalRange, yMin, yRange) {
     }
   }
 
-  // Try "> X" format
-  const greaterThanMatch = normalRange.match(/>\s*(\d+\.?\d*)/);
+  // Try "> X" format (e.g., "> 60", "> -10")
+  const greaterThanMatch = normalRange.match(/>\s*(-?\d+\.?\d*)/);
   if (greaterThanMatch) {
     const threshold = parseFloat(greaterThanMatch[1]);
     if (!isNaN(threshold) && isFinite(threshold)) {

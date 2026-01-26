@@ -14,63 +14,206 @@ export const getCancerRelevanceScore = (labType) => {
   return 0;
 };
 
+/**
+ * Normalize lab value for status comparison.
+ * Maps "negative", "-", "—", 0, "0" → { num: 0, semantic: 'negative' }
+ * Maps "positive", "+" → { num: 1, semantic: 'positive' }
+ * Numeric values → { num, semantic: 'numeric' }
+ */
+function normalizeLabValueForStatus(value) {
+  if (value == null || value === '') {
+    return { num: null, semantic: null };
+  }
+  const s = String(value).trim().toLowerCase();
+  if (s === 'negative' || s === 'neg' || s === '-' || s === '—' || s === 'n/a' || s === 'na') {
+    return { num: 0, semantic: 'negative' };
+  }
+  if (s === 'positive' || s === 'pos' || s === '+') {
+    return { num: 1, semantic: 'positive' };
+  }
+  const num = typeof value === 'number' ? value : parseFloat(value);
+  if (typeof num === 'number' && !isNaN(num)) {
+    if (num === 0) {
+      return { num: 0, semantic: 'negative' };
+    }
+    return { num, semantic: 'numeric' };
+  }
+  return { num: null, semantic: null };
+}
+
+/**
+ * Parse "Negative or 0", "0, Negative, or -" style normal ranges.
+ * Returns Set of 'negative' | '0' | 'positive' | string (numeric) or null if not this format.
+ */
+function parseMultiOptionNormalRange(normalRange) {
+  const lower = normalRange.toLowerCase().trim();
+  // Split on common separators: comma, slash, "or", "and" (with spaces or word boundaries)
+  const tokens = lower.split(/\s*(?:[,/]|\s+or\s+|\s+and\s+)\s*/i).map(t => t.trim()).filter(Boolean);
+  if (tokens.length < 2) return null;
+
+  const allowed = new Set();
+  for (const t of tokens) {
+    if (t === 'negative' || t === 'neg' || t === '-' || t === '—') {
+      allowed.add('negative');
+    } else if (t === 'positive' || t === 'pos' || t === '+') {
+      allowed.add('positive');
+    } else if (t === '0' || t === '0.0') {
+      allowed.add('0');
+    } else {
+      const n = parseFloat(t);
+      if (!isNaN(n)) allowed.add(String(n));
+    }
+  }
+  return allowed.size >= 1 ? allowed : null;
+}
+
 // Calculate detailed status with color coding based on normal range
 export const getLabStatus = (value, normalRange) => {
-  const num = typeof value === 'number' ? value : parseFloat(value);
-  if (!normalRange || (typeof num !== 'number' || isNaN(num))) {
+  if (!normalRange) {
     return { status: 'unknown', color: 'gray', label: 'Unknown' };
   }
 
-  // Parse different normal range formats
-  const rangeMatch = normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
-  if (rangeMatch) {
-    const min = parseFloat(rangeMatch[1]);
-    const max = parseFloat(rangeMatch[2]);
-    const range = max - min;
-    const warningThreshold = range * 0.1; // 10% buffer zone
+  const parsed = normalizeLabValueForStatus(value);
+  const { num, semantic } = parsed;
 
-    if (num < min) {
-      // Below normal range
-      if (num >= min - warningThreshold) {
-        return { status: 'warning-low', color: 'yellow', label: 'Slightly Low' };
-      }
-      return { status: 'abnormal-low', color: 'red', label: 'Low' };
-    } else if (num > max) {
-      // Above normal range
-      if (num <= max + warningThreshold) {
-        return { status: 'warning-high', color: 'yellow', label: 'Slightly High' };
-      }
-      return { status: 'abnormal-high', color: 'red', label: 'High' };
-    } else {
-      // Within normal range
+  const normalRangeLower = normalRange.toLowerCase().trim();
+
+  // Handle normal range of just "0" - means "normal is 0 or negative"
+  if (normalRangeLower === '0' || normalRangeLower === '0.0') {
+    const isNegativeOrZero = semantic === 'negative' || (num != null && num === 0);
+    if (isNegativeOrZero) {
       return { status: 'normal', color: 'green', label: 'Normal' };
     }
+    // If value is > 0, it's abnormal (high)
+    if (num != null && num > 0) {
+      return { status: 'abnormal-high', color: 'red', label: 'High' };
+    }
+    return { status: 'unknown', color: 'gray', label: 'Unknown' };
   }
 
-  // Handle "< X" format (e.g., D-dimer: "< 0.5")
-  const lessThanMatch = normalRange.match(/<\s*(\d+\.?\d*)/);
-  if (lessThanMatch) {
-    const threshold = parseFloat(lessThanMatch[1]);
-    const warningThreshold = threshold * 0.1;
+  // Handle "Negative or 0", "0, Negative, or -", "Negative / 0" etc.
+  const multiAllowed = parseMultiOptionNormalRange(normalRange);
+  if (multiAllowed) {
+    const isNegativeOrZero = semantic === 'negative' || (num != null && num === 0);
+    const acceptsNegativeOrZero = multiAllowed.has('negative') || multiAllowed.has('0');
 
-    if (num <= threshold) {
+    if (isNegativeOrZero && acceptsNegativeOrZero) {
       return { status: 'normal', color: 'green', label: 'Normal' };
-    } else if (num < threshold + warningThreshold) {
+    }
+    if (semantic === 'positive' || (num != null && num > 0 && semantic === 'numeric')) {
+      if (multiAllowed.has('positive')) {
+        return { status: 'normal', color: 'green', label: 'Normal' };
+      }
+      return { status: 'abnormal-high', color: 'red', label: 'High' };
+    }
+    if (num != null && multiAllowed.has(String(num))) {
+      return { status: 'normal', color: 'green', label: 'Normal' };
+    }
+    return { status: 'unknown', color: 'gray', label: 'Unknown' };
+  }
+
+  // From here on we need a numeric value for numeric range parsing
+  const numForRanges = parsed.num;
+  if (numForRanges == null || (typeof numForRanges !== 'number' || isNaN(numForRanges))) {
+    return { status: 'unknown', color: 'gray', label: 'Unknown' };
+  }
+
+  // Handle text-based formats: "Negative", "Positive", "Negative to X", "X to Positive"
+  if (normalRangeLower === 'negative') {
+    if (numForRanges < 0.5) {
+      return { status: 'normal', color: 'green', label: 'Normal' };
+    } else if (numForRanges < 1.0) {
       return { status: 'warning-high', color: 'yellow', label: 'Slightly High' };
     } else {
       return { status: 'abnormal-high', color: 'red', label: 'High' };
     }
   }
 
-  // Handle "> X" format (e.g., eGFR: "> 60")
-  const greaterThanMatch = normalRange.match(/>\s*(\d+\.?\d*)/);
+  if (normalRangeLower === 'positive') {
+    if (numForRanges > 0) {
+      return { status: 'normal', color: 'green', label: 'Normal' };
+    } else {
+      return { status: 'abnormal-low', color: 'red', label: 'Low' };
+    }
+  }
+
+  // Handle "Negative to X" format (e.g., "Negative to 0.5")
+  const negativeToMatch = normalRangeLower.match(/negative\s+to\s+(-?\d+\.?\d*)/);
+  if (negativeToMatch) {
+    const max = parseFloat(negativeToMatch[1]);
+    if (!isNaN(max)) {
+      if (numForRanges <= max) {
+        return { status: 'normal', color: 'green', label: 'Normal' };
+      } else if (numForRanges <= max * 1.2) {
+        return { status: 'warning-high', color: 'yellow', label: 'Slightly High' };
+      } else {
+        return { status: 'abnormal-high', color: 'red', label: 'High' };
+      }
+    }
+  }
+
+  // Handle "X to Positive" format (e.g., "0 to Positive", "1.0 to Positive")
+  const toPositiveMatch = normalRangeLower.match(/(-?\d+\.?\d*)\s+to\s+positive/);
+  if (toPositiveMatch) {
+    const min = parseFloat(toPositiveMatch[1]);
+    if (!isNaN(min)) {
+      if (numForRanges >= min) {
+        return { status: 'normal', color: 'green', label: 'Normal' };
+      } else if (numForRanges >= min * 0.8) {
+        return { status: 'warning-low', color: 'yellow', label: 'Slightly Low' };
+      } else {
+        return { status: 'abnormal-low', color: 'red', label: 'Low' };
+      }
+    }
+  }
+
+  // Parse different normal range formats (supports negative numbers and zero)
+  const rangeMatch = normalRange.match(/(-?\d+\.?\d*)\s*-\s*(-?\d+\.?\d*)/);
+  if (rangeMatch) {
+    const min = parseFloat(rangeMatch[1]);
+    const max = parseFloat(rangeMatch[2]);
+    const range = max - min;
+    const warningThreshold = range * 0.1; // 10% buffer zone
+
+    if (numForRanges < min) {
+      if (numForRanges >= min - warningThreshold) {
+        return { status: 'warning-low', color: 'yellow', label: 'Slightly Low' };
+      }
+      return { status: 'abnormal-low', color: 'red', label: 'Low' };
+    } else if (numForRanges > max) {
+      if (numForRanges <= max + warningThreshold) {
+        return { status: 'warning-high', color: 'yellow', label: 'Slightly High' };
+      }
+      return { status: 'abnormal-high', color: 'red', label: 'High' };
+    } else {
+      return { status: 'normal', color: 'green', label: 'Normal' };
+    }
+  }
+
+  // Handle "< X" format (e.g., D-dimer: "< 0.5", or "< -5")
+  const lessThanMatch = normalRange.match(/<\s*(-?\d+\.?\d*)/);
+  if (lessThanMatch) {
+    const threshold = parseFloat(lessThanMatch[1]);
+    const warningThreshold = threshold * 0.1;
+
+    if (numForRanges <= threshold) {
+      return { status: 'normal', color: 'green', label: 'Normal' };
+    } else if (numForRanges < threshold + warningThreshold) {
+      return { status: 'warning-high', color: 'yellow', label: 'Slightly High' };
+    } else {
+      return { status: 'abnormal-high', color: 'red', label: 'High' };
+    }
+  }
+
+  // Handle "> X" format (e.g., eGFR: "> 60", or "> -10")
+  const greaterThanMatch = normalRange.match(/>\s*(-?\d+\.?\d*)/);
   if (greaterThanMatch) {
     const threshold = parseFloat(greaterThanMatch[1]);
     const warningThreshold = threshold * 0.1;
 
-    if (num >= threshold) {
+    if (numForRanges >= threshold) {
       return { status: 'normal', color: 'green', label: 'Normal' };
-    } else if (num > threshold - warningThreshold) {
+    } else if (numForRanges > threshold - warningThreshold) {
       return { status: 'warning-low', color: 'yellow', label: 'Slightly Low' };
     } else {
       return { status: 'abnormal-low', color: 'red', label: 'Low' };
@@ -134,8 +277,59 @@ export const getVitalStatus = (value, normalRange, vitalType = null) => {
     return { status: 'unknown', color: 'gray', label: 'Unknown' };
   }
 
-  // Parse different normal range formats
-  const rangeMatch = normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+  const normalRangeLower = normalRange.toLowerCase().trim();
+
+  // Handle text-based formats: "Negative", "Positive", "Negative to X", "X to Positive"
+  if (normalRangeLower === 'negative') {
+    if (numValue < 0.5) {
+      return { status: 'normal', color: 'green', label: 'Normal' };
+    } else if (numValue < 1.0) {
+      return { status: 'warning-high', color: 'yellow', label: 'Slightly High' };
+    } else {
+      return { status: 'abnormal-high', color: 'red', label: 'High' };
+    }
+  }
+
+  if (normalRangeLower === 'positive') {
+    if (numValue > 0) {
+      return { status: 'normal', color: 'green', label: 'Normal' };
+    } else {
+      return { status: 'abnormal-low', color: 'red', label: 'Low' };
+    }
+  }
+
+  // Handle "Negative to X" format
+  const negativeToMatch = normalRangeLower.match(/negative\s+to\s+(-?\d+\.?\d*)/);
+  if (negativeToMatch) {
+    const max = parseFloat(negativeToMatch[1]);
+    if (!isNaN(max)) {
+      if (numValue <= max) {
+        return { status: 'normal', color: 'green', label: 'Normal' };
+      } else if (numValue <= max * 1.2) {
+        return { status: 'warning-high', color: 'yellow', label: 'Slightly High' };
+      } else {
+        return { status: 'abnormal-high', color: 'red', label: 'High' };
+      }
+    }
+  }
+
+  // Handle "X to Positive" format
+  const toPositiveMatch = normalRangeLower.match(/(-?\d+\.?\d*)\s+to\s+positive/);
+  if (toPositiveMatch) {
+    const min = parseFloat(toPositiveMatch[1]);
+    if (!isNaN(min)) {
+      if (numValue >= min) {
+        return { status: 'normal', color: 'green', label: 'Normal' };
+      } else if (numValue >= min * 0.8) {
+        return { status: 'warning-low', color: 'yellow', label: 'Slightly Low' };
+      } else {
+        return { status: 'abnormal-low', color: 'red', label: 'Low' };
+      }
+    }
+  }
+
+  // Parse different normal range formats (supports negative numbers and zero)
+  const rangeMatch = normalRange.match(/(-?\d+\.?\d*)\s*-\s*(-?\d+\.?\d*)/);
   if (rangeMatch) {
     const min = parseFloat(rangeMatch[1]);
     const max = parseFloat(rangeMatch[2]);
@@ -160,8 +354,8 @@ export const getVitalStatus = (value, normalRange, vitalType = null) => {
     }
   }
 
-  // Handle "< X" format (e.g., D-dimer: "< 0.5")
-  const lessThanMatch = normalRange.match(/<\s*(\d+\.?\d*)/);
+  // Handle "< X" format (e.g., D-dimer: "< 0.5", or "< -5")
+  const lessThanMatch = normalRange.match(/<\s*(-?\d+\.?\d*)/);
   if (lessThanMatch) {
     const threshold = parseFloat(lessThanMatch[1]);
     const warningThreshold = threshold * 0.1;
@@ -175,8 +369,8 @@ export const getVitalStatus = (value, normalRange, vitalType = null) => {
     }
   }
 
-  // Handle "> X" format (e.g., eGFR: "> 60" or SpO2: ">95")
-  const greaterThanMatch = normalRange.match(/>\s*(\d+\.?\d*)/);
+  // Handle "> X" format (e.g., eGFR: "> 60", or "> -10")
+  const greaterThanMatch = normalRange.match(/>\s*(-?\d+\.?\d*)/);
   if (greaterThanMatch) {
     const threshold = parseFloat(greaterThanMatch[1]);
     const warningThreshold = threshold * 0.1;
