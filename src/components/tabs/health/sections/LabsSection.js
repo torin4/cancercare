@@ -22,7 +22,7 @@ import { usePatientContext } from '../../../../contexts/PatientContext';
 import { useHealthContext } from '../../../../contexts/HealthContext';
 import { useBanner } from '../../../../contexts/BannerContext';
 import { labService, patientService } from '../../../../firebase/services';
-import { getLabStatus } from '../../../../utils/healthUtils';
+import { getLabStatus, numericValueForChart } from '../../../../utils/healthUtils';
 import { 
   normalizeLabName, 
   getLabDisplayName, 
@@ -349,8 +349,8 @@ function LabsSection({
     }
 
     const values = currentLab.data
-      .map(d => parseFloat(d.value))
-      .filter(v => !isNaN(v) && isFinite(v));
+      .map(d => numericValueForChart(d.value))
+      .filter(v => typeof v === 'number' && !isNaN(v) && isFinite(v));
 
     if (values.length === 0) {
       return null;
@@ -699,12 +699,13 @@ function LabsSection({
                               {currentLab.data.map((d, i) => {
                                 const dataLength = chartData.dataLength;
                                 const x = (i / dataLength) * 100;
-                                const val = parseFloat(d.value);
+                                const val = numericValueForChart(d.value);
+                                const valForY = (typeof val === 'number' && !isNaN(val)) ? val : 0;
                                 const { yMin, yRange } = chartData.bounds;
-                                const y = ((val - yMin) / yRange) * 100;
+                                const y = ((valForY - yMin) / yRange) * 100;
                                 const isLatest = i === currentLab.data.length - 1;
                                 
-                                const labStatus = getLabStatus(val, detailEffectiveRange);
+                                const labStatus = getLabStatus(d.value, detailEffectiveRange);
                                 const statusColors = {
                                   green: '#10b981',
                                   yellow: '#f59e0b',

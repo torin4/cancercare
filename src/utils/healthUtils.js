@@ -42,6 +42,16 @@ function normalizeLabValueForStatus(value) {
 }
 
 /**
+ * Numeric value for chart Y positioning. Use raw value for getLabStatus.
+ * Maps "negative", "-", 0, etc. → 0; other numerics → as-is; unparseable → NaN.
+ */
+export function numericValueForChart(value) {
+  const p = normalizeLabValueForStatus(value);
+  if (p.num != null && typeof p.num === 'number' && !isNaN(p.num)) return p.num;
+  return NaN;
+}
+
+/**
  * Parse "Negative or 0", "0, Negative, or -" style normal ranges.
  * Returns Set of 'negative' | '0' | 'positive' | string (numeric) or null if not this format.
  */
@@ -80,7 +90,7 @@ export const getLabStatus = (value, normalRange) => {
 
   // Handle normal range of just "0" - means "normal is 0 or negative"
   if (normalRangeLower === '0' || normalRangeLower === '0.0') {
-    const isNegativeOrZero = semantic === 'negative' || (num != null && num === 0);
+    const isNegativeOrZero = semantic === 'negative' || (num != null && num <= 0);
     if (isNegativeOrZero) {
       return { status: 'normal', color: 'green', label: 'Normal' };
     }
@@ -94,7 +104,7 @@ export const getLabStatus = (value, normalRange) => {
   // Handle "Negative or 0", "0, Negative, or -", "Negative / 0" etc.
   const multiAllowed = parseMultiOptionNormalRange(normalRange);
   if (multiAllowed) {
-    const isNegativeOrZero = semantic === 'negative' || (num != null && num === 0);
+    const isNegativeOrZero = semantic === 'negative' || (num != null && num <= 0);
     const acceptsNegativeOrZero = multiAllowed.has('negative') || multiAllowed.has('0');
 
     if (isNegativeOrZero && acceptsNegativeOrZero) {

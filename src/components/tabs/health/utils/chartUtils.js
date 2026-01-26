@@ -2,6 +2,8 @@
  * Utility functions for chart calculations and rendering
  */
 
+import { numericValueForChart } from '../../../../utils/healthUtils';
+
 /**
  * Calculate Y-axis bounds for a chart based on data and normal range
  * @param {Array} data - Array of data points with value property
@@ -9,10 +11,9 @@
  * @returns {Object} - { yMin, yMax, yRange }
  */
 export function calculateYAxisBounds(data, normalRange = null) {
-  // Filter out non-numeric values and ensure we have valid numbers
   const values = data
-    .map(d => parseFloat(d.value))
-    .filter(v => !isNaN(v) && isFinite(v));
+    .map(d => numericValueForChart(d.value))
+    .filter(v => typeof v === 'number' && !isNaN(v) && isFinite(v));
 
   if (values.length === 0) {
     return { yMin: 0, yMax: 100, yRange: 100 };
@@ -131,9 +132,10 @@ export function parseNormalRangeForChart(normalRange, yMin, yRange) {
 export function generateChartPoints(data, yMin, yRange, width = 400) {
   const dataLength = Math.max(data.length - 1, 1); // Prevent division by zero
   return data.map((d, i) => {
-    const val = parseFloat(d.value);
+    const val = numericValueForChart(d.value);
+    const v = (typeof val === 'number' && !isNaN(val)) ? val : 0;
     const x = (i / dataLength) * width;
-    const y = 160 - ((val - yMin) / yRange) * 160;
+    const y = 160 - ((v - yMin) / yRange) * 160;
     return `${x},${y}`;
   }).join(' ');
 }
