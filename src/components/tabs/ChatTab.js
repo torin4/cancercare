@@ -311,6 +311,10 @@ export default function ChatTab({ onTabChange }) {
   const [pendingDocumentNote, setPendingDocumentNote] = useState(null);
   const [documents, setDocuments] = useState([]);
 
+  // Simple image attachment state (for sending images to bot)
+  const [pendingImageAttachment, setPendingImageAttachment] = useState(null); // { base64, mimeType, fileName, preview }
+  const imageInputRef = useRef(null);
+
   // Load profile image: prioritize uploaded profileImage, then Google photoURL
   useEffect(() => {
     if (patientProfile?.profileImage) {
@@ -379,7 +383,8 @@ export default function ChatTab({ onTabChange }) {
               type: msg.type,
               text: msg.text,
               isAnalysis: msg.isAnalysis || false,
-              insight: msg.insight || null
+              insight: msg.insight || null,
+              insights: msg.insights || null
             })));
           }
           setChatHistoryLoaded(true);
@@ -486,7 +491,9 @@ export default function ChatTab({ onTabChange }) {
               const aiMsg = {
                 type: 'ai',
                 text: responseText,
-                isAnalysis: !!result.extractedData
+                isAnalysis: !!result.extractedData,
+                insight: result.insight || null,
+                insights: result.insights || null
               };
               setMessages(prev => [...prev, aiMsg]);
 
@@ -496,7 +503,9 @@ export default function ChatTab({ onTabChange }) {
                 type: 'ai',
                 text: responseText,
                 isAnalysis: !!result.extractedData,
-                extractedData: result.extractedData || null
+                extractedData: result.extractedData || null,
+                insight: result.insight || null,
+                insights: result.insights || null
               });
 
               // Clear loading state
@@ -620,13 +629,20 @@ export default function ChatTab({ onTabChange }) {
   }, [user]);
 
   const handleSendMessage = async () => {
-    if (!inputText.trim() || !user) return;
+    // Allow sending if there's text OR an image attachment
+    if ((!inputText.trim() && !pendingImageAttachment) || !user) return;
 
     const userMessage = inputText;
+    const imageToSend = pendingImageAttachment; // Capture before clearing
     setInputText('');
+    setPendingImageAttachment(null); // Clear the attachment
 
-    // Add user message immediately
-    const userMsg = { type: 'user', text: userMessage };
+    // Add user message immediately (include image indicator if present)
+    const userMsg = {
+      type: 'user',
+      text: imageToSend ? (userMessage || '[Image attached]') : userMessage,
+      imagePreview: imageToSend?.preview || null // Store preview for display
+    };
     setMessages(prev => [...prev, userMsg]);
     
     // Auto-scroll to bottom after user message
@@ -649,13 +665,14 @@ export default function ChatTab({ onTabChange }) {
     }
 
     try {
-      // Auto-load health context if user asks about health data but context isn't set
-      let healthContextToUse = currentHealthContext;
+      // Auto-load health context if user asks about health data
+      // ALWAYS refresh to get latest data - don't use stale cached context
+      let healthContextToUse = null;
       // Detect if question would benefit from health data - expanded patterns to catch more health-related questions
       // Include comparison/retrieval queries and edit queries like "compare", "last measurement", "previous", "update", "change", etc.
       const requiresHealthData = /(explain|analyze|what does|how is|why is|why are|why does|why do|trend|progress|mean|interpret|tell me about|what about|what are|what is|my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications|data|results|values|numbers|test|tests)|ca-125|hemoglobin|blood pressure|heart rate|temperature|weight|tired|fatigue|energy|feeling|feels|symptom|pain|nausea|dizzy|weak|weakness|anemia|blood|cbc|wbc|rbc|platelet|anxiety|depression|sleep|appetite|nauseous|compare|comparison|how does|how did|versus|vs|difference|change from|compared to|last (measurement|value|result|test|date|two|three|few)|previous|before that|one before|earlier|prior|historical|retrieve|show me|what (was|were)|the (last|previous|earlier)|and the (one|next)|plt|platelet|edit|update|change|correct|fix|modify|replace|set to)/i.test(userMessage);
-      
-      if (requiresHealthData && !healthContextToUse && user) {
+
+      if (requiresHealthData && user) {
         try {
           const labs = await labService.getLabs(user.uid);
           const vitals = await vitalService.getVitals(user.uid);
@@ -762,7 +779,7 @@ export default function ChatTab({ onTabChange }) {
       }
       
       const result = await processChatMessage(
-        userMessage,
+        userMessage || (imageToSend ? 'What is in this image?' : ''), // Default prompt for image-only
         user.uid,
         messages.slice(-10).map(msg => ({
           role: msg.type === 'user' ? 'user' : 'assistant',
@@ -772,7 +789,9 @@ export default function ChatTab({ onTabChange }) {
         healthContextToUse, // Pass health context (auto-loaded if needed)
         notebookContextToUse, // Pass notebook context (auto-loaded if needed)
         patientProfile, // Pass patient profile for demographic-based normal ranges
-        abortControllerRef.current?.signal // Pass abort signal
+        abortControllerRef.current?.signal, // Pass abort signal
+        null, // dicomContext
+        imageToSend // imageAttachment
       );
       
       // Check if request was aborted after processing
@@ -796,10 +815,11 @@ export default function ChatTab({ onTabChange }) {
         text: responseText,
         isAnalysis: !!result.extractedData,
         insight: result.insight || null,
+        insights: result.insights || null, // New structured insights array
         extractionSummary: extractionSummary || null
       };
       setMessages(prev => [...prev, aiMsg]);
-      
+
       // Auto-scroll to bottom after AI response
       setTimeout(() => {
         scrollToBottom();
@@ -814,6 +834,7 @@ export default function ChatTab({ onTabChange }) {
           isAnalysis: !!result.extractedData,
           extractedData: result.extractedData || null,
           insight: result.insight || null,
+          insights: result.insights || null, // New structured insights array
           extractionSummary: extractionSummary || null
         });
       }
@@ -831,13 +852,32 @@ export default function ChatTab({ onTabChange }) {
         return;
       }
       
+      // Log error for debugging
+      console.error('[ChatTab] Error processing message:', error);
+      console.error('[ChatTab] Error details:', {
+        message: userMessage,
+        errorName: error.name,
+        errorMessage: error.message,
+        errorStack: error.stack
+      });
+      
       // Clear loading state
       setIsBotProcessing(false);
       abortControllerRef.current = null;
       
+      // Provide more helpful error message based on error type
+      let errorText = 'Sorry, I\'m having trouble processing your message right now. Please try again in a moment.';
+      if (error.message?.includes('timeout') || error.message?.includes('Timeout')) {
+        errorText = 'The request took too long to process. Please try again with a shorter question or check your connection.';
+      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        errorText = 'Network error. Please check your internet connection and try again.';
+      } else if (error.message?.includes('JSON') || error.message?.includes('parse')) {
+        errorText = 'There was an issue processing the response. Please try rephrasing your question.';
+      }
+      
       const errorMsg = {
         type: 'ai',
-        text: 'Sorry, I\'m having trouble processing your message right now. Please try again in a moment.'
+        text: errorText
       };
       setMessages(prev => [...prev, errorMsg]);
       
@@ -1027,6 +1067,47 @@ export default function ChatTab({ onTabChange }) {
     };
 
     input.click();
+  };
+
+  // Simple image attachment for chat (not full document processing)
+  const handleSimpleImageUpload = () => {
+    if (imageInputRef.current) {
+      imageInputRef.current.click();
+    }
+  };
+
+  const handleImageFileSelect = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate it's an image
+    if (!file.type.startsWith('image/')) {
+      showError('Please select an image file (JPG, PNG, etc.)');
+      return;
+    }
+
+    // Convert to base64
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target.result;
+      setPendingImageAttachment({
+        base64,
+        mimeType: file.type,
+        fileName: file.name,
+        preview: base64 // For display
+      });
+    };
+    reader.onerror = () => {
+      showError('Failed to read image file');
+    };
+    reader.readAsDataURL(file);
+
+    // Clear the input so the same file can be selected again
+    e.target.value = '';
+  };
+
+  const clearImageAttachment = () => {
+    setPendingImageAttachment(null);
   };
 
   return (
@@ -1236,7 +1317,16 @@ export default function ChatTab({ onTabChange }) {
                       : DesignTokens.components.chat.aiBubble
                 )}>
                 {msg.type === 'user' ? (
-                  <p className="text-sm sm:text-base whitespace-pre-wrap">{msg.text}</p>
+                  <div>
+                    {msg.imagePreview && (
+                      <img
+                        src={msg.imagePreview}
+                        alt="Attached"
+                        className="max-h-40 w-auto rounded-lg mb-2"
+                      />
+                    )}
+                    <p className="text-sm sm:text-base whitespace-pre-wrap">{msg.text}</p>
+                  </div>
                 ) : (
                   <div className="text-sm sm:text-base prose prose-sm max-w-none">
                      {/* Check if this is an upload summary and add action buttons */}
@@ -1620,11 +1710,17 @@ export default function ChatTab({ onTabChange }) {
                   </label>
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
                     patientProfile?.responseComplexity === 'simple' ? 'bg-blue-100 text-blue-700' :
-                    patientProfile?.responseComplexity === 'detailed' ? 'bg-purple-100 text-purple-700' :
+                    patientProfile?.responseComplexity === 'basic' ? 'bg-blue-50 text-blue-600' :
+                    patientProfile?.responseComplexity === 'standard' ? 'bg-anchor-100 text-anchor-700' :
+                    patientProfile?.responseComplexity === 'detailed' ? 'bg-purple-50 text-purple-600' :
+                    patientProfile?.responseComplexity === 'advanced' ? 'bg-purple-100 text-purple-700' :
                     'bg-anchor-100 text-anchor-700'
                   }`}>
                     {patientProfile?.responseComplexity === 'simple' ? 'Simple' : 
-                     patientProfile?.responseComplexity === 'detailed' ? 'Detailed' : 
+                     patientProfile?.responseComplexity === 'basic' ? 'Basic' :
+                     patientProfile?.responseComplexity === 'standard' ? 'Standard' :
+                     patientProfile?.responseComplexity === 'detailed' ? 'Detailed' :
+                     patientProfile?.responseComplexity === 'advanced' ? 'Advanced' : 
                      'Standard'}
                   </span>
                 </div>
@@ -1637,12 +1733,15 @@ export default function ChatTab({ onTabChange }) {
                       <input
                         type="range"
                         min="0"
-                        max="2"
+                        max="4"
                         step="1"
                         value={patientProfile?.responseComplexity === 'simple' ? 0 : 
-                               patientProfile?.responseComplexity === 'detailed' ? 2 : 1}
+                               patientProfile?.responseComplexity === 'basic' ? 1 :
+                               patientProfile?.responseComplexity === 'standard' ? 2 :
+                               patientProfile?.responseComplexity === 'detailed' ? 3 :
+                               patientProfile?.responseComplexity === 'advanced' ? 4 : 2}
                         onChange={async (e) => {
-                          const values = ['simple', 'standard', 'detailed'];
+                          const values = ['simple', 'basic', 'standard', 'detailed', 'advanced'];
                           const newComplexity = values[parseInt(e.target.value)];
                           const previousComplexity = patientProfile?.responseComplexity || 'standard';
                           
@@ -1678,7 +1777,15 @@ export default function ChatTab({ onTabChange }) {
                         }}
                         className="w-full h-2 bg-medical-neutral-200 rounded-lg appearance-none cursor-pointer relative z-10"
                         style={{
-                          background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((patientProfile?.responseComplexity === 'simple' ? 0 : patientProfile?.responseComplexity === 'detailed' ? 2 : 1) / 2) * 100}%, #e5e7eb ${((patientProfile?.responseComplexity === 'simple' ? 0 : patientProfile?.responseComplexity === 'detailed' ? 2 : 1) / 2) * 100}%, #e5e7eb 100%)`
+                          background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((patientProfile?.responseComplexity === 'simple' ? 0 : 
+                                                                                      patientProfile?.responseComplexity === 'basic' ? 1 :
+                                                                                      patientProfile?.responseComplexity === 'standard' ? 2 :
+                                                                                      patientProfile?.responseComplexity === 'detailed' ? 3 :
+                                                                                      patientProfile?.responseComplexity === 'advanced' ? 4 : 2) / 4) * 100}%, #e5e7eb ${((patientProfile?.responseComplexity === 'simple' ? 0 : 
+                                                                                      patientProfile?.responseComplexity === 'basic' ? 1 :
+                                                                                      patientProfile?.responseComplexity === 'standard' ? 2 :
+                                                                                      patientProfile?.responseComplexity === 'detailed' ? 3 :
+                                                                                      patientProfile?.responseComplexity === 'advanced' ? 4 : 2) / 4) * 100}%, #e5e7eb 100%)`
                         }}
                         title="Adjust response complexity: Simple = plain language, Detailed = comprehensive explanations"
                       />
@@ -1687,11 +1794,13 @@ export default function ChatTab({ onTabChange }) {
                         <div className="w-1 h-1 rounded-full bg-white"></div>
                         <div className="w-1 h-1 rounded-full bg-white"></div>
                         <div className="w-1 h-1 rounded-full bg-white"></div>
+                        <div className="w-1 h-1 rounded-full bg-white"></div>
+                        <div className="w-1 h-1 rounded-full bg-white"></div>
                       </div>
                     </div>
                     <span className={`text-xs whitespace-nowrap ${
-                      patientProfile?.responseComplexity === 'detailed' ? 'font-semibold text-purple-700' : 'text-medical-neutral-500'
-                    }`}>Detailed</span>
+                      patientProfile?.responseComplexity === 'advanced' ? 'font-semibold text-purple-700' : 'text-medical-neutral-500'
+                    }`}>Advanced</span>
                   </div>
                 </div>
               </div>
@@ -1862,10 +1971,19 @@ export default function ChatTab({ onTabChange }) {
             
             {/* Vertical Divider - Before Upload (desktop only) */}
             <div className="h-6 w-px bg-medical-neutral-300 flex-shrink-0 hidden md:block" />
-            
+
+            {/* Hidden file input for simple image upload */}
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageFileSelect}
+              className="hidden"
+            />
+
             <button
-              onClick={() => openDocumentOnboarding(null, 'picker')}
-              title="Attach file or take photo"
+              onClick={handleSimpleImageUpload}
+              title="Attach image"
               className={combineClasses(
                 'px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 flex items-center gap-1.5 touch-manipulation',
                 'border-2 border-gray-300',
@@ -1875,9 +1993,32 @@ export default function ChatTab({ onTabChange }) {
               )}
             >
               <Paperclip className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Upload</span>
+              <span className="hidden md:inline">Image</span>
             </button>
           </div>
+
+          {/* Image attachment preview */}
+          {pendingImageAttachment && (
+            <div className="px-3 sm:px-4 pb-2">
+              <div className="relative inline-block">
+                <img
+                  src={pendingImageAttachment.preview}
+                  alt="Attached"
+                  className="h-20 w-auto rounded-lg border border-medical-neutral-200 object-cover"
+                />
+                <button
+                  onClick={clearImageAttachment}
+                  className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition"
+                  title="Remove image"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+                <span className="absolute bottom-1 left-1 text-xs bg-black/60 text-white px-1.5 py-0.5 rounded">
+                  {pendingImageAttachment.fileName?.substring(0, 15) || 'Image'}
+                </span>
+              </div>
+            </div>
+          )}
 
           <div
             className="px-3 sm:px-4 pb-4 flex gap-2"
@@ -1933,7 +2074,7 @@ export default function ChatTab({ onTabChange }) {
                     : DesignTokens.components.button.primary,
                   DesignTokens.shadows.sm
                 )}
-                disabled={!inputText.trim() && !isBotProcessing}
+                disabled={!inputText.trim() && !pendingImageAttachment && !isBotProcessing}
               >
                 {isBotProcessing ? (
                   <Square className="w-5 h-5" />

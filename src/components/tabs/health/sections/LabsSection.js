@@ -60,6 +60,7 @@ function LabsSection({
 
   // Labs-specific state
   const [selectedLab, setSelectedLab] = useState('ca125');
+  const [isDataCalculationExpanded, setIsDataCalculationExpanded] = useState(false);
 
   // Check for lab to expand from dashboard click
   useEffect(() => {
@@ -2078,6 +2079,56 @@ function LabsSection({
           })()}
         </>
       )}
+
+      {/* PRO-CTCAE Information Card - Collapsible */}
+      <div className={combineClasses(
+        DesignTokens.components.card.container,
+        'border-l-4 border-medical-primary-500'
+      )}>
+        <button
+          onClick={() => setIsDataCalculationExpanded(!isDataCalculationExpanded)}
+          className="w-full flex items-center justify-between gap-3 text-left"
+        >
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="flex-shrink-0">
+              <Info className="w-5 h-5 text-medical-primary-600" />
+            </div>
+            <h3 className="text-sm font-semibold text-anchor-900">
+              How We Calculate Your Data
+            </h3>
+          </div>
+          <div className="flex-shrink-0">
+            {isDataCalculationExpanded ? (
+              <ChevronUp className="w-5 h-5 text-medical-neutral-500" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-medical-neutral-500" />
+            )}
+          </div>
+        </button>
+        
+        {isDataCalculationExpanded && (
+          <div className="mt-4 pt-4 border-t border-medical-neutral-100">
+            <p className="text-xs sm:text-sm text-anchor-700 mb-3">
+              The severity ratings shown on each lab category (Normal, Mild, Moderate, Severe, Very severe) are calculated using the{' '}
+              <a 
+                href="https://healthcaredelivery.cancer.gov/pro-ctcae/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-medical-primary-600 hover:text-medical-primary-700 underline font-medium"
+              >
+                Patient-Reported Outcomes version of the Common Terminology Criteria for Adverse Events (PRO-CTCAE)
+              </a>
+              {' '}methodology developed by the National Cancer Institute.
+            </p>
+            <p className="text-xs sm:text-sm text-anchor-700 mb-3">
+              <strong>Normal Ranges:</strong> Normal ranges are extracted from your uploaded lab reports and medical documents. When not available in documents, we use age- and gender-appropriate clinical reference values, or standard default ranges for common lab tests.
+            </p>
+            <p className="text-xs text-anchor-600">
+              For applicable categories, we use CTCAE grading criteria (Grades 0-4) to assess the severity of abnormal lab values. The overall category rating reflects the worst grade found in that category, helping you understand the overall health status of each lab category at a glance.
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Modals */}
       <AddLabModal

@@ -1437,12 +1437,15 @@ export default function ProfileTab({ onTabChange }) {
                   <input
                     type="range"
                     min="0"
-                    max="2"
+                    max="4"
                     step="1"
                     value={patientProfile?.responseComplexity === 'simple' ? 0 : 
-                           patientProfile?.responseComplexity === 'detailed' ? 2 : 1}
+                           patientProfile?.responseComplexity === 'basic' ? 1 :
+                           patientProfile?.responseComplexity === 'standard' ? 2 :
+                           patientProfile?.responseComplexity === 'detailed' ? 3 :
+                           patientProfile?.responseComplexity === 'advanced' ? 4 : 2}
                     onChange={async (e) => {
-                      const values = ['simple', 'standard', 'detailed'];
+                      const values = ['simple', 'basic', 'standard', 'detailed', 'advanced'];
                       const newComplexity = values[parseInt(e.target.value)];
                       const previousComplexity = patientProfile?.responseComplexity || 'standard';
                       
@@ -1474,13 +1477,23 @@ export default function ProfileTab({ onTabChange }) {
                     }}
                     className="w-full h-2 bg-medical-neutral-200 rounded-lg appearance-none cursor-pointer slider"
                     style={{
-                      background: `linear-gradient(to right, ${DesignTokens.colors.app[500]} 0%, ${DesignTokens.colors.app[500]} ${((patientProfile?.responseComplexity === 'simple' ? 0 : patientProfile?.responseComplexity === 'detailed' ? 2 : 1) / 2) * 100}%, ${DesignTokens.colors.app[200]} ${((patientProfile?.responseComplexity === 'simple' ? 0 : patientProfile?.responseComplexity === 'detailed' ? 2 : 1) / 2) * 100}%, ${DesignTokens.colors.app[200]} 100%)`
+                      background: `linear-gradient(to right, ${DesignTokens.colors.app[500]} 0%, ${DesignTokens.colors.app[500]} ${((patientProfile?.responseComplexity === 'simple' ? 0 : 
+                                                                                                                                    patientProfile?.responseComplexity === 'basic' ? 1 :
+                                                                                                                                    patientProfile?.responseComplexity === 'standard' ? 2 :
+                                                                                                                                    patientProfile?.responseComplexity === 'detailed' ? 3 :
+                                                                                                                                    patientProfile?.responseComplexity === 'advanced' ? 4 : 2) / 4) * 100}%, ${DesignTokens.colors.app[200]} ${((patientProfile?.responseComplexity === 'simple' ? 0 : 
+                                                                                                                                    patientProfile?.responseComplexity === 'basic' ? 1 :
+                                                                                                                                    patientProfile?.responseComplexity === 'standard' ? 2 :
+                                                                                                                                    patientProfile?.responseComplexity === 'detailed' ? 3 :
+                                                                                                                                    patientProfile?.responseComplexity === 'advanced' ? 4 : 2) / 4) * 100}%, ${DesignTokens.colors.app[200]} 100%)`
                     }}
                   />
                   <div className="flex justify-between mt-1">
                     <span className="text-xs text-medical-neutral-500">Simple</span>
+                    <span className="text-xs text-medical-neutral-500">Basic</span>
                     <span className="text-xs text-medical-neutral-500">Standard</span>
                     <span className="text-xs text-medical-neutral-500">Detailed</span>
+                    <span className="text-xs text-medical-neutral-500">Advanced</span>
                   </div>
                 </div>
               </div>

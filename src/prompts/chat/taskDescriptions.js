@@ -25,8 +25,14 @@ Example format:
   // Detect if this is a delete/remove/duplicate removal query
   const isDeleteQuery = /(delete|remove|clean up|remove duplicate|remove duplicates|delete duplicate|delete duplicates|clean|deduplicate|dedupe)/i.test(message);
   
-  // Detect if this is a recovery/undo query
-  const isRecoveryQuery = /(undo|recover|restore|get back|bring back|revert|restore deleted|undo delete|recover deleted|get my values back)/i.test(message);
+  // Detect if this is a recovery/undo query about deleted/lost data (NOT medical recovery questions)
+  // Requires explicit data recovery phrases OR recovery words + context about data/values/deletion
+  const isRecoveryQuery = (
+    // Explicit recovery phrases about deleted data
+    /(restore deleted|undo delete|recover deleted|get my values back|how can i undo|how do i recover|recover my (data|values|labs?)|restore my (data|values|labs?)|undo (the )?deletion|get back my (data|values|labs?)|bring back my (data|values|labs?))/i.test(message) ||
+    // Generic recovery words BUT only if also mentioning data/values/deletion
+    (/(undo|recover|restore|get back|bring back|revert)\b/i.test(message) && /(data|values?|labs?|delete|deleted|lost|removed|missing|gone)/i.test(message))
+  );
   
   // Detect if this is an edit/update query
   const isEditQuery = /(edit|update|change|correct|fix|modify|replace|set to|change (my|the) (.*) (to|from)|update (my|the) (.*) (to|from)|correct (my|the) (.*)|fix (my|the) (.*))/i.test(message);

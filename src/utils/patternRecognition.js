@@ -87,12 +87,22 @@ export function detectTreatmentCycles(events, getDate = (e) => e.date, medicatio
   });
   
   if (!largestGroup || maxCount < 3) return [];
-  
+
   // Calculate average and range
   const avgInterval = largestGroup.intervals.reduce((a, b) => a + b, 0) / largestGroup.intervals.length;
   const minInterval = Math.min(...largestGroup.intervals);
   const maxInterval = Math.max(...largestGroup.intervals);
-  
+
+  // Filter out meaningless patterns:
+  // - Require at least 5 occurrences for statistical significance
+  // - Require at least 5 days average interval (very short intervals are just frequent data entry, not patterns)
+  // - Require the pattern to cover at least 3 weeks total span
+  const occurrences = maxCount + 1;
+  const totalSpanDays = avgInterval * occurrences;
+  if (occurrences < 5 || avgInterval < 5 || totalSpanDays < 21) {
+    return [];
+  }
+
   // Check if matches medication frequency
   let matchesMedication = null;
   if (medications.length > 0) {
@@ -211,11 +221,13 @@ export function detectClusters(events, getDate = (e) => e.date, getType = (e) =>
  * @param {Function} checkCondition1 - Function to check if event1 meets threshold condition
  * @param {Function} checkCondition2 - Function to check if event2 meets threshold condition
  * @param {number} windowDays - Time window for correlation (default: 7)
+ * @param {string} event1Name - Name/label for event type 1 (e.g., "lab changes", "low hemoglobin")
+ * @param {string} event2Name - Name/label for event type 2 (e.g., "symptoms", "fatigue")
  * @returns {Array} - Array of correlation pattern objects
  */
-export function detectTemporalCorrelations(events1, events2, getDate1 = (e) => e.date, getDate2 = (e) => e.date, checkCondition1 = () => true, checkCondition2 = () => true, windowDays = 7) {
+export function detectTemporalCorrelations(events1, events2, getDate1 = (e) => e.date, getDate2 = (e) => e.date, checkCondition1 = () => true, checkCondition2 = () => true, windowDays = 7, event1Name = null, event2Name = null) {
   if (!hasSufficientData(events1, 3) || !hasSufficientData(events2, 3)) return [];
-  
+
   const correlations = findTimeWindowCorrelations(
     events1.filter(checkCondition1),
     events2.filter(checkCondition2),
@@ -223,20 +235,22 @@ export function detectTemporalCorrelations(events1, events2, getDate1 = (e) => e
     getDate2,
     windowDays
   );
-  
+
   if (correlations.length < 3) return [];
-  
+
   // Group by direction and calculate average lag
   const forward = correlations.filter(c => c.direction === 'event1-first');
   const backward = correlations.filter(c => c.direction === 'event2-first');
-  
+
   const patterns = [];
-  
+
   if (forward.length >= 3) {
     const avgLag = forward.reduce((sum, c) => sum + c.daysDiff, 0) / forward.length;
     patterns.push({
       type: 'correlation',
       direction: 'forward',
+      event1: event1Name,
+      event2: event2Name,
       avgLag: Math.round(avgLag),
       occurrences: forward.length,
       lagRange: {
@@ -245,12 +259,14 @@ export function detectTemporalCorrelations(events1, events2, getDate1 = (e) => e
       }
     });
   }
-  
+
   if (backward.length >= 3) {
     const avgLag = backward.reduce((sum, c) => sum + c.daysDiff, 0) / backward.length;
     patterns.push({
       type: 'correlation',
       direction: 'backward',
+      event1: event2Name, // Swap for backward - event2 comes first
+      event2: event1Name,
       avgLag: Math.round(avgLag),
       occurrences: backward.length,
       lagRange: {
@@ -259,7 +275,7 @@ export function detectTemporalCorrelations(events1, events2, getDate1 = (e) => e
       }
     });
   }
-  
+
   return patterns;
 }
 
@@ -454,18 +470,9 @@ export async function detectAllPatterns(healthData, options = {}) {
     })
   }));
   
-  // Detect cycles for symptoms
-  if (hasSufficientData(symptoms, 5)) {
-    const cycles = detectTreatmentCycles(symptoms, (s) => s.date, medications);
-    cycles.forEach(cycle => {
-      insights.push({
-        type: 'cycle',
-        priority: 3,
-        rawData: cycle,
-        confidence: `Based on ${cycle.occurrences} occurrences`
-      });
-    });
-  }
+  // Note: Generic symptom cycle detection disabled because "symptoms" as a category
+  // is too vague to be actionable. In the future, this could detect cycles for
+  // specific symptom types (e.g., "fatigue tends to occur every 3 weeks").
   
   // Detect cycles for labs (per lab type)
   filteredLabs.forEach(lab => {
@@ -496,25 +503,10 @@ export async function detectAllPatterns(healthData, options = {}) {
     });
   }
   
-  // Detect temporal correlations (lab-symptom, lab-vital, etc.)
-  // Lab-Symptom correlations
-  if (hasSufficientData(filteredLabs.flatMap(l => l.values || []), 3) && hasSufficientData(symptoms, 3)) {
-    // Simplified - would need more sophisticated threshold checking
-    const correlations = detectTemporalCorrelations(
-      filteredLabs.flatMap(l => (l.values || []).map(v => ({ ...v, labType: l.labType }))),
-      symptoms,
-      (v) => v.date,
-      (s) => s.date
-    );
-    correlations.forEach(corr => {
-      insights.push({
-        type: 'correlation',
-        priority: 2,
-        rawData: corr,
-        confidence: `Based on ${corr.occurrences} occurrences`
-      });
-    });
-  }
+  // Note: Generic lab-symptom correlations have been disabled because they produce
+  // meaningless insights like "when lab changes happen, symptoms follow" which is
+  // always true and not actionable. In the future, this could be improved to detect
+  // specific correlations like "when hemoglobin drops below X, fatigue follows".
   
   // Detect temporal patterns (treatment-relative)
   if (medications.length > 0) {

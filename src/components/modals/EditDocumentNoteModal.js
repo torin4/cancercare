@@ -497,6 +497,7 @@ export default function EditDocumentNoteModal({
               placeholder="e.g., Before starting treatment, After cycle 2, Post-surgery..."
               rows={3}
               disabled={isSaving}
+              maxLength={200}
               className={combineClasses(DesignTokens.components.input.base, DesignTokens.components.input.textarea, isSaving ? DesignTokens.components.input.disabled : '')}
             />
             <p className={combineClasses('text-xs mt-1', DesignTokens.colors.neutral.text[500])}>

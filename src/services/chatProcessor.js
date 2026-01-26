@@ -8,6 +8,7 @@ import { processDocument } from './documentProcessor';
 import { detectAllPatterns } from '../utils/patternRecognition';
 import { generateCacheKey, getCachedInsights, setCachedInsights, clearContextCache } from '../utils/insightCache';
 import { translatePattern, generateHeadline, generateExplanation, suggestAction } from '../utils/insightLanguage';
+import { validateAndEnhanceInsights } from '../utils/clinicalInsightValidator';
 // Import prompts
 import { buildMainPrompt } from '../prompts/chat/mainPrompt';
 import { getTaskDescription } from '../prompts/chat/taskDescriptions';
@@ -461,7 +462,7 @@ ${trialUrl ? `\n   - For trial information: Include the trial study link: [View 
  * @param {Object} patientProfile - Patient profile for insight depth setting
  * @returns {Object} - { contextString, insights } - Context string and structured insights array
  */
-async function buildHealthContextSection(healthContext, userId, patientProfile = null) {
+async function buildHealthContextSection(healthContext, userId, patientProfile = null, shouldGenerateInsights = false) {
   if (!healthContext) return { contextString: '', insights: [] };
   
   const insightDepth = patientProfile?.insightDepth || 'standard';
@@ -727,8 +728,7 @@ async function buildHealthContextSection(healthContext, userId, patientProfile =
     // Continue without medications/notes if loading fails
   }
 
-  // Generate structured insights using pattern recognition
-  let structuredInsights = [];
+  // Note: Insights are now only generated when patterns are specifically requested
   // Build DICOM scans context section
   let dicomContextSection = '';
   if (dicomScans.length > 0) {
@@ -745,97 +745,109 @@ async function buildHealthContextSection(healthContext, userId, patientProfile =
     });
   }
 
-  try {
-    // Check cache first
-    const cacheKey = generateCacheKey(userId, 'health', {
-      labs: healthContext.labs || [],
-      vitals: healthContext.vitals || [],
-      symptoms: healthContext.symptoms || [],
-      notes,
-      medications,
-      dicomScans: dicomScans.length
-    });
-    
-    let insights = getCachedInsights(cacheKey);
-    
-    if (!insights) {
-      // Detect patterns
-      const rawPatterns = await detectAllPatterns({
+  // Only generate insights if specifically requested (patterns/trends/correlations)
+  let structuredInsights = [];
+  
+  if (shouldGenerateInsights) {
+    try {
+      // Check cache first
+      const cacheKey = generateCacheKey(userId, 'health', {
         labs: healthContext.labs || [],
         vitals: healthContext.vitals || [],
         symptoms: healthContext.symptoms || [],
         notes,
-        medications
-      }, {
-        insightDepth,
-        timeWindowMonths: 18,
         medications,
-        patientProfile
+        dicomScans: dicomScans.length
       });
       
-      // Translate patterns to structured insights
-      insights = rawPatterns.map(pattern => {
-        const translated = translatePattern(pattern.rawData || pattern, {
+      let insights = getCachedInsights(cacheKey);
+      
+      if (!insights) {
+        // Detect patterns
+        const rawPatterns = await detectAllPatterns({
+          labs: healthContext.labs || [],
+          vitals: healthContext.vitals || [],
+          symptoms: healthContext.symptoms || [],
+          notes,
+          medications
+        }, {
+          insightDepth,
+          timeWindowMonths: 18,
           medications,
           patientProfile
         });
-        return {
-          type: pattern.type,
-          priority: pattern.priority || 5,
-          headline: generateHeadline({ ...translated, ...pattern }),
-          explanation: generateExplanation({ ...translated, ...pattern }),
-          actionable: suggestAction({ ...translated, ...pattern }),
-          confidence: pattern.confidence || translated.confidence,
-          rawData: pattern.rawData || pattern,
-          details: translated.details || generateExplanation({ ...translated, ...pattern }),
-          ...translated
-        };
-      });
-      
-      // Cache the insights
-      setCachedInsights(cacheKey, insights);
-    }
-    
-    // Deduplicate insights by headline/explanation to avoid repetitive insights
-    const uniqueInsights = [];
-    const seenContent = new Set();
-    insights.forEach(insight => {
-      // Check both headline and explanation for duplicates
-      const headline = (insight.headline || '').toLowerCase().trim();
-      const explanation = (insight.explanation || '').toLowerCase().trim();
-      
-      // Use headline as primary key, or explanation if headline is empty
-      const primaryKey = headline || explanation;
-      
-      // Also check if headline and explanation are the same (to catch duplicates)
-      const isDuplicate = headline && explanation && headline === explanation;
-      
-      // Create a unique key that combines both if they're different
-      const contentKey = headline && explanation && headline !== explanation 
-        ? `${headline}|||${explanation}` 
-        : primaryKey;
-      
-      if (contentKey && contentKey.length > 0 && !seenContent.has(contentKey)) {
-        seenContent.add(contentKey);
-        // If headline and explanation are identical, keep only headline
-        if (isDuplicate && insight.headline) {
-          uniqueInsights.push({
-            ...insight,
-            explanation: null // Remove duplicate explanation
+        
+        // Translate patterns to structured insights
+        const translatedInsights = rawPatterns.map(pattern => {
+          const translated = translatePattern(pattern.rawData || pattern, {
+            medications,
+            patientProfile
           });
-        } else {
-          uniqueInsights.push(insight);
-        }
+          return {
+            type: pattern.type,
+            priority: pattern.priority || 5,
+            headline: generateHeadline({ ...translated, ...pattern }),
+            explanation: generateExplanation({ ...translated, ...pattern }),
+            actionable: suggestAction({ ...translated, ...pattern }),
+            confidence: pattern.confidence || translated.confidence,
+            rawData: pattern.rawData || pattern,
+            details: translated.details || generateExplanation({ ...translated, ...pattern }),
+            ...translated
+          };
+        });
+        
+        // Validate and filter to only clinically meaningful insights with plain language
+        insights = validateAndEnhanceInsights(translatedInsights);
+        
+        // Cache the insights
+        setCachedInsights(cacheKey, insights);
       }
-    });
-    
-    // Limit to top 3 for initial display, sorted by priority
-    structuredInsights = uniqueInsights
-      .sort((a, b) => (a.priority || 5) - (b.priority || 5))
-      .slice(0, 3);
-  } catch (error) {
-    console.error('Error generating insights:', error);
-    // Continue without insights if pattern detection fails
+      
+      // Ensure insights is an array before deduplication
+      if (insights && Array.isArray(insights) && insights.length > 0) {
+        // Deduplicate insights by headline/explanation to avoid repetitive insights
+        const uniqueInsights = [];
+        const seenContent = new Set();
+        insights.forEach(insight => {
+          // Check both headline and explanation for duplicates
+          const headline = (insight.headline || '').toLowerCase().trim();
+          const explanation = (insight.explanation || '').toLowerCase().trim();
+          
+          // Use headline as primary key, or explanation if headline is empty
+          const primaryKey = headline || explanation;
+          
+          // Also check if headline and explanation are the same (to catch duplicates)
+          const isDuplicate = headline && explanation && headline === explanation;
+          
+          // Create a unique key that combines both if they're different
+          const contentKey = headline && explanation && headline !== explanation 
+            ? `${headline}|||${explanation}` 
+            : primaryKey;
+          
+          if (contentKey && contentKey.length > 0 && !seenContent.has(contentKey)) {
+            seenContent.add(contentKey);
+            // If headline and explanation are identical, keep only headline
+            if (isDuplicate && insight.headline) {
+              uniqueInsights.push({
+                ...insight,
+                explanation: null // Remove duplicate explanation
+              });
+            } else {
+              uniqueInsights.push(insight);
+            }
+          }
+        });
+        
+        // Limit to top 3 for initial display, sorted by priority
+        structuredInsights = uniqueInsights
+          .sort((a, b) => (a.priority || 5) - (b.priority || 5))
+          .slice(0, 3);
+      }
+    } catch (error) {
+      console.error('Error generating insights:', error);
+      // Continue without insights if pattern detection fails
+      structuredInsights = [];
+    }
   }
 
   const contextString = `
@@ -999,6 +1011,9 @@ function detectChatIntent(message, trialContext) {
   // Only check if user is asking about trends, not adding data
   const requiresTrendAnalysis = !isAddingData && /(trend|progress|over time|changing|increasing|decreasing|pattern)/i.test(message);
   
+  // Detect if question is specifically asking about patterns, correlations, or relationships
+  const requiresPatternInsights = !isAddingData && /(pattern|patterns|correlation|correlations|relationship|relationships|connection|connections|related|associate|associated|link|linked|when.*happens.*(then|often|usually|typically)|tend to|tends to|often (follow|follows|occur|occurs|happen|happens)|usually (follow|follows|occur|occurs|happen|happens)|typically (follow|follows|occur|occurs|happen|happens)|what patterns|what correlations|what relationships|any patterns|any correlations|any relationships|do you see.*pattern|do you see.*correlation|do you see.*relationship|notice.*pattern|notice.*correlation|notice.*relationship|detect.*pattern|detect.*correlation|detect.*relationship)/i.test(message);
+  
   return {
     isAddingData,
     requiresHealthData,
@@ -1007,7 +1022,8 @@ function detectChatIntent(message, trialContext) {
     requiresVitals,
     requiresSymptoms,
     requiresTrendAnalysis,
-    requiresTrialData
+    requiresTrialData,
+    requiresPatternInsights
   };
 }
 
@@ -1082,11 +1098,12 @@ function buildChatPrompt({
  * @param {Object} notebookContext - Optional notebook context (timeline entries, journal notes, documents)
  * @param {Object} patientProfile - Patient demographics (age, gender, weight) for normal range adjustments
  * @param {Object} dicomContext - Optional DICOM context (metadata, viewer state) for medical imaging chat
+ * @param {Object} imageAttachment - Optional simple image attachment { base64: string, mimeType: string, fileName: string }
  */
-export async function processChatMessage(message, userId, conversationHistory = [], trialContext = null, healthContext = null, notebookContext = null, patientProfile = null, abortSignal = null, dicomContext = null) {
+export async function processChatMessage(message, userId, conversationHistory = [], trialContext = null, healthContext = null, notebookContext = null, patientProfile = null, abortSignal = null, dicomContext = null, imageAttachment = null) {
   try {
-    // Determine if we need vision model (if DICOM image data is provided)
-    const hasImage = dicomContext?.imageData?.imageData || (dicomContext?.images && dicomContext.images.length > 0);
+    // Determine if we need vision model (if DICOM image data or simple image attachment is provided)
+    const hasImage = dicomContext?.imageData?.imageData || (dicomContext?.images && dicomContext.images.length > 0) || imageAttachment?.base64;
     const modelName = hasImage ? 'gemini-2.5-flash' : 'gemini-2.5-flash'; // Both use same model, but request format differs
     const model = genAI.getGenerativeModel({ model: modelName });
 
@@ -1099,11 +1116,19 @@ export async function processChatMessage(message, userId, conversationHistory = 
       requiresSymptoms,
       requiresTrendAnalysis,
       requiresTrialData,
-      isBulkScanQuery
+      isBulkScanQuery,
+      requiresPatternInsights
     } = detectChatIntent(message, trialContext);
     
-    // Check if this is a recovery query
-    const isRecoveryQuery = /(undo|recover|restore|get back|bring back|revert|restore deleted|undo delete|recover deleted|get my values back|how can i undo|how do i recover)/i.test(message);
+    // Check if this is a recovery query about deleted/lost data (NOT medical recovery questions)
+    // Use word boundaries and require context words like "deleted", "values", "data", etc.
+    // to avoid matching medical questions like "is kidney damage recoverable?"
+    const isRecoveryQuery = (
+      // Explicit recovery phrases about deleted data
+      /(restore deleted|undo delete|recover deleted|get my values back|how can i undo|how do i recover|recover my (data|values|labs?)|restore my (data|values|labs?)|undo (the )?deletion|get back my (data|values|labs?)|bring back my (data|values|labs?))/i.test(message) ||
+      // Generic recovery words BUT only if also mentioning data/values/deletion
+      (/(undo|recover|restore|get back|bring back|revert)\b/i.test(message) && /(data|values?|labs?|delete|deleted|lost|removed|missing|gone)/i.test(message))
+    );
     
     if (isRecoveryQuery) {
       return {
@@ -1209,7 +1234,9 @@ export async function processChatMessage(message, userId, conversationHistory = 
     // Build context sections
     const patientDemographicsSection = buildPatientDemographicsContext(patientProfile);
     const trialContextSection = buildTrialContextSection(trialContext);
-    const healthContextResult = await buildHealthContextSection(healthContext, userId, patientProfile);
+    // Only generate insights when patterns are specifically requested
+    const shouldGenerateInsights = requiresPatternInsights || requiresTrendAnalysis;
+    const healthContextResult = await buildHealthContextSection(healthContext, userId, patientProfile, shouldGenerateInsights);
     const healthContextSection = healthContextResult.contextString || '';
     const structuredInsights = healthContextResult.insights || [];
     const notebookContextSection = buildNotebookContextSection(notebookContext);
@@ -1267,8 +1294,29 @@ export async function processChatMessage(message, userId, conversationHistory = 
     if (hasImage) {
       const contentParts = [prompt];
 
+      // Handle simple image attachment (from chat upload)
+      if (imageAttachment?.base64) {
+        console.log(`[chatProcessor] Processing simple image attachment: ${imageAttachment.fileName || 'image'}`);
+
+        const base64Image = imageAttachment.base64.includes('base64,')
+          ? imageAttachment.base64.split('base64,')[1]
+          : imageAttachment.base64;
+
+        contentParts.push({
+          inlineData: {
+            data: base64Image,
+            mimeType: imageAttachment.mimeType || 'image/jpeg'
+          }
+        });
+
+        if (imageAttachment.fileName) {
+          contentParts.push(`Attached image: ${imageAttachment.fileName}`);
+        }
+
+        result = await model.generateContent(contentParts);
+      }
       // Handle multi-slice images (array)
-      if (dicomContext.images && Array.isArray(dicomContext.images)) {
+      else if (dicomContext?.images && Array.isArray(dicomContext.images)) {
         console.log(`[chatProcessor] Processing ${dicomContext.images.length} slices for multi-slice analysis`);
 
         // Add each slice image to the content
@@ -1295,8 +1343,8 @@ export async function processChatMessage(message, userId, conversationHistory = 
 
         result = await model.generateContent(contentParts);
       }
-      // Handle single image (legacy support)
-      else if (dicomContext.imageData && dicomContext.imageData.imageData) {
+      // Handle single DICOM image (legacy support)
+      else if (dicomContext?.imageData && dicomContext.imageData.imageData) {
         const imageData = dicomContext.imageData.imageData;
 
         // Convert base64 to inline data format for Gemini
@@ -1317,7 +1365,21 @@ export async function processChatMessage(message, userId, conversationHistory = 
       }
     } else {
       // Text-only request
-      result = await model.generateContent(prompt);
+      console.log('[chatProcessor] Making API call with prompt length:', prompt.length);
+      try {
+        result = await model.generateContent(prompt);
+        console.log('[chatProcessor] API call successful');
+      } catch (apiError) {
+        console.error('[chatProcessor] API call failed:', apiError);
+        console.error('[chatProcessor] API error details:', {
+          name: apiError.name,
+          message: apiError.message,
+          stack: apiError.stack,
+          status: apiError.status,
+          statusText: apiError.statusText
+        });
+        throw apiError;
+      }
     }
 
     // Check if aborted after API call but before reading response
@@ -1325,8 +1387,16 @@ export async function processChatMessage(message, userId, conversationHistory = 
       throw new Error('Request aborted');
     }
 
-    const response = await result.response;
-    const text = response.text();
+    let response;
+    let text;
+    try {
+      response = await result.response;
+      text = response.text();
+      console.log('[chatProcessor] Response received, length:', text.length);
+    } catch (responseError) {
+      console.error('[chatProcessor] Error reading response:', responseError);
+      throw new Error(`Failed to read API response: ${responseError.message}`);
+    }
     
     // Check if aborted after getting response
     if (abortSignal?.aborted) {
@@ -1334,16 +1404,31 @@ export async function processChatMessage(message, userId, conversationHistory = 
     }
 
     // Parse JSON response
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      // No JSON found, just return conversational response
+    let jsonMatch;
+    let parsed;
+    try {
+      jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        // No JSON found, just return conversational response
+        console.log('[chatProcessor] No JSON found in response, returning text as-is');
         return {
-        response: text,
+          response: text,
           extractedData: null
         };
       }
 
-    const parsed = JSON.parse(jsonMatch[0]);
+      console.log('[chatProcessor] Parsing JSON response...');
+      parsed = JSON.parse(jsonMatch[0]);
+      console.log('[chatProcessor] JSON parsed successfully');
+    } catch (parseError) {
+      console.error('[chatProcessor] JSON parse error:', parseError);
+      console.error('[chatProcessor] Response text (first 500 chars):', text.substring(0, 500));
+      // If JSON parsing fails, try to return the text as conversational response
+      return {
+        response: text || 'I received a response but had trouble parsing it. Please try rephrasing your question.',
+        extractedData: null
+      };
+    }
 
     // Check if this is a question query - don't save data for search/discussion queries
     const isQuestionQuery = message.toLowerCase().includes('questions should i ask') || 

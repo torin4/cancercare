@@ -100,8 +100,22 @@ export default function InsightCard({ insight, onDiscussWithDoctor }) {
               {insight.explanation}
             </p>
           )}
-          {/* Show details if no explanation or if details is different */}
+          
+          {/* Prominently display discussion point if available (clinically validated insights) */}
+          {insight.discussionPoint && (
+            <div className={combineClasses('text-xs leading-relaxed mb-2 p-2 rounded bg-white/50 border', colors.border)}>
+              <p className={combineClasses('font-medium mb-1', colors.text)}>
+                💬 What to discuss with your doctor:
+              </p>
+              <p className={combineClasses('text-xs', colors.text, 'opacity-90')}>
+                {insight.discussionPoint}
+              </p>
+            </div>
+          )}
+          
+          {/* Show details if no discussion point or if details is different */}
           {insight.details && 
+           !insight.discussionPoint &&
            insight.details !== insight.headline && 
            insight.details !== insight.explanation &&
            insight.details.trim().toLowerCase() !== (insight.headline || '').trim().toLowerCase() &&
@@ -117,43 +131,100 @@ export default function InsightCard({ insight, onDiscussWithDoctor }) {
             </p>
           )}
           
-          {isExpanded && insight.details && (
-            <div className={combineClasses('text-xs mt-2 pt-2 border-t', colors.border, colors.text, 'opacity-80')}>
-              {insight.details}
-            </div>
-          )}
+          {/* Check if details contains new information beyond what's already shown */}
+          {(() => {
+            if (!insight.details) return null;
+            
+            const headlineLower = (insight.headline || '').trim().toLowerCase();
+            const explanationLower = (insight.explanation || '').trim().toLowerCase();
+            const discussionPointLower = (insight.discussionPoint || '').trim().toLowerCase();
+            const detailsLower = insight.details.trim().toLowerCase();
+            
+            // Check if details is substantially different from what's already displayed
+            const hasNewInfo = 
+              detailsLower !== headlineLower &&
+              detailsLower !== explanationLower &&
+              detailsLower !== discussionPointLower &&
+              // Also check if details doesn't just contain the same content
+              !detailsLower.includes(headlineLower) &&
+              !detailsLower.includes(explanationLower) &&
+              !detailsLower.includes(discussionPointLower) &&
+              // Make sure details is long enough to be meaningful (at least 20 chars more than what's shown)
+              insight.details.length > Math.max(
+                (insight.headline || '').length,
+                (insight.explanation || '').length,
+                (insight.discussionPoint || '').length
+              ) + 20;
+            
+            if (!hasNewInfo) return null;
+            
+            return (
+              <>
+                {isExpanded && (
+                  <div className={combineClasses('text-xs mt-2 pt-2 border-t', colors.border, colors.text, 'opacity-80')}>
+                    {insight.details}
+                  </div>
+                )}
+              </>
+            );
+          })()}
           
           <div className="flex items-center gap-2 mt-3">
-            {insight.details && (
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className={combineClasses(
-                  'text-xs flex items-center gap-1 transition-colors',
-                  colors.text,
-                  'opacity-75 hover:opacity-100'
-                )}
-              >
-                {isExpanded ? (
-                  <>
-                    <ChevronUp className="w-3 h-3" />
-                    Show less
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="w-3 h-3" />
-                    Learn more
-                  </>
-                )}
-              </button>
-            )}
+            {/* Only show "Learn more" if details has new information */}
+            {(() => {
+              if (!insight.details) return null;
+              
+              const headlineLower = (insight.headline || '').trim().toLowerCase();
+              const explanationLower = (insight.explanation || '').trim().toLowerCase();
+              const discussionPointLower = (insight.discussionPoint || '').trim().toLowerCase();
+              const detailsLower = insight.details.trim().toLowerCase();
+              
+              const hasNewInfo = 
+                detailsLower !== headlineLower &&
+                detailsLower !== explanationLower &&
+                detailsLower !== discussionPointLower &&
+                !detailsLower.includes(headlineLower) &&
+                !detailsLower.includes(explanationLower) &&
+                !detailsLower.includes(discussionPointLower) &&
+                insight.details.length > Math.max(
+                  (insight.headline || '').length,
+                  (insight.explanation || '').length,
+                  (insight.discussionPoint || '').length
+                ) + 20;
+              
+              if (!hasNewInfo) return null;
+              
+              return (
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className={combineClasses(
+                    'text-xs flex items-center gap-1 transition-colors',
+                    colors.text,
+                    'opacity-75 hover:opacity-100'
+                  )}
+                >
+                  {isExpanded ? (
+                    <>
+                      <ChevronUp className="w-3 h-3" />
+                      Show less
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-3 h-3" />
+                      Learn more
+                    </>
+                  )}
+                </button>
+              );
+            })()}
             
-            {onDiscussWithDoctor && (insight.doctorQuestions || insight.type !== 'general') && (
+            {onDiscussWithDoctor && (insight.discussionPoint || insight.doctorQuestions || insight.type !== 'general') && (
               <button
                 onClick={() => onDiscussWithDoctor(insight)}
                 className={combineClasses(
-                  'text-xs flex items-center gap-1 transition-colors ml-auto',
+                  'text-xs flex items-center gap-1 transition-colors ml-auto font-medium',
                   colors.text,
-                  'opacity-75 hover:opacity-100 underline'
+                  'opacity-90 hover:opacity-100 underline'
                 )}
               >
                 <MessageSquare className="w-3 h-3" />

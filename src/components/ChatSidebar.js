@@ -306,6 +306,10 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
   const [pendingDocumentNote, setPendingDocumentNote] = useState(null);
   const [documents, setDocuments] = useState([]);
 
+  // Simple image attachment state
+  const [pendingImageAttachment, setPendingImageAttachment] = useState(null);
+  const imageInputRef = useRef(null);
+
   // Load profile image
   useEffect(() => {
     if (patientProfile?.profileImage) {
@@ -555,7 +559,8 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
               type: msg.type,
               text: msg.text,
               isAnalysis: msg.isAnalysis || false,
-              insight: msg.insight || null
+              insight: msg.insight || null,
+              insights: msg.insights || null
             })));
           }
           setChatHistoryLoaded(true);
@@ -605,12 +610,19 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
   }, [messages, scrollToBottom]);
 
   const handleSendMessage = async () => {
-    if (!inputText.trim() || !user) return;
+    // Allow sending if there's text OR an image attachment
+    if ((!inputText.trim() && !pendingImageAttachment) || !user) return;
 
     const userMessage = inputText;
+    const imageToSend = pendingImageAttachment;
     setInputText('');
+    setPendingImageAttachment(null);
 
-    const userMsg = { type: 'user', text: userMessage };
+    const userMsg = {
+      type: 'user',
+      text: imageToSend ? (userMessage || '[Image attached]') : userMessage,
+      imagePreview: imageToSend?.preview || null
+    };
     setMessages(prev => [...prev, userMsg]);
     
     setTimeout(() => {
@@ -629,14 +641,15 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
     }
 
     try {
-      let healthContextToUse = currentHealthContext;
-      console.log('[ChatSidebar] handleSendMessage - currentHealthContext:', currentHealthContext);
+      // ALWAYS refresh health context to get latest data - don't use stale cached context
+      let healthContextToUse = null;
+      console.log('[ChatSidebar] handleSendMessage - will fetch fresh health context');
 
       // Detect if question would benefit from health data - expanded patterns to catch more health-related questions
       const requiresHealthData = /(explain|analyze|what does|how is|why is|why are|why does|why do|trend|progress|mean|interpret|tell me about|what about|what are|what is|look at|check|show|my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications|data|results|values|numbers|test|tests|marker|markers|metric|metrics|function)|her (lab|labs|vital|vitals|marker|markers|metric|metrics)|ca-125|hemoglobin|blood pressure|heart rate|temperature|weight|tired|fatigue|energy|feeling|feels|symptom|pain|nausea|dizzy|weak|weakness|anemia|blood|cbc|wbc|rbc|platelet|anxiety|depression|sleep|appetite|nauseous|bilirubin|albumin|alb|liver|kidney|renal|function|ast|alt|creatinine|egfr|bun|ldh|crp|glucose|a1c|cholesterol|triglyceride|hdl|ldl|sodium|potassium|calcium|magnesium|phosphorus|protein|globulin|inr|pt|ptt|esr|ferritin|iron|b12|folate|vitamin d|d3|tsh|t3|t4|psa|afp|cea|tumor marker)/i.test(userMessage);
       console.log('[ChatSidebar] requiresHealthData:', requiresHealthData, 'for message:', userMessage);
 
-      if (requiresHealthData && !healthContextToUse && user) {
+      if (requiresHealthData && user) {
         console.log('[ChatSidebar] Fetching health context for message...');
         try {
           const labs = await labService.getLabs(user.uid);
@@ -738,7 +751,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
       }
       
       const result = await processChatMessage(
-        userMessage,
+        userMessage || (imageToSend ? 'What is in this image?' : ''),
         user.uid,
         messages.slice(-10).map(msg => ({
           role: msg.type === 'user' ? 'user' : 'assistant',
@@ -748,7 +761,9 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
         healthContextToUse,
         notebookContextToUse,
         patientProfile,
-        abortControllerRef.current?.signal // Pass abort signal
+        abortControllerRef.current?.signal, // Pass abort signal
+        null, // dicomContext
+        imageToSend // imageAttachment
       );
       
       // Check if request was aborted after processing
@@ -777,10 +792,11 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
         text: responseText,
         isAnalysis: !!result.extractedData,
         insight: result.insight || null,
+        insights: result.insights || null, // New structured insights array
         extractionSummary: extractionSummary || null
       };
       setMessages(prev => [...prev, aiMsg]);
-      
+
       setTimeout(() => {
         scrollToBottom();
       }, 100);
@@ -793,6 +809,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
           isAnalysis: !!result.extractedData,
           extractedData: result.extractedData || null,
           insight: result.insight || null,
+          insights: result.insights || null, // New structured insights array
           extractionSummary: extractionSummary || null
         });
       }
@@ -808,12 +825,41 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
         abortControllerRef.current = null;
         return;
       }
+      
+      // Log detailed error for debugging
+      console.error('[ChatSidebar] Error processing message:', error);
+      console.error('[ChatSidebar] Error details:', {
+        message: userMessage,
+        errorName: error.name,
+        errorMessage: error.message,
+        errorStack: error.stack,
+        healthContextLoaded: !!healthContextToUse,
+        healthContextSize: healthContextToUse ? {
+          labs: healthContextToUse.labs?.length || 0,
+          vitals: healthContextToUse.vitals?.length || 0,
+          symptoms: healthContextToUse.symptoms?.length || 0
+        } : null,
+        hasHealthContext: typeof healthContextToUse !== 'undefined'
+      });
+      
       setIsBotProcessing(false);
       abortControllerRef.current = null;
       
+      // Provide more helpful error message based on error type
+      let errorText = 'Sorry, I\'m having trouble processing your message right now. Please try again in a moment.';
+      if (error.message?.includes('timeout') || error.message?.includes('Timeout')) {
+        errorText = 'The request took too long to process. Please try again with a shorter question or check your connection.';
+      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        errorText = 'Network error. Please check your internet connection and try again.';
+      } else if (error.message?.includes('JSON') || error.message?.includes('parse')) {
+        errorText = 'There was an issue processing the response. Please try rephrasing your question.';
+      } else if (error.message?.includes('safety') || error.message?.includes('blocked') || error.message?.includes('filter')) {
+        errorText = 'The request was blocked by safety filters. Please try rephrasing your question.';
+      }
+      
       const errorMsg = {
         type: 'ai',
-        text: 'Sorry, I\'m having trouble processing your message right now. Please try again in a moment.'
+        text: errorText
       };
       setMessages(prev => [...prev, errorMsg]);
       
@@ -836,7 +882,41 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
     setDocumentOnboardingMethod(method || 'picker');
     setShowDocumentOnboarding(true);
   };
-  
+
+  // Simple image attachment for chat
+  const handleSimpleImageUpload = () => {
+    if (imageInputRef.current) {
+      imageInputRef.current.click();
+    }
+  };
+
+  const handleImageFileSelect = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showError('Please select an image file');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setPendingImageAttachment({
+        base64: event.target.result,
+        mimeType: file.type,
+        fileName: file.name,
+        preview: event.target.result
+      });
+    };
+    reader.onerror = () => showError('Failed to read image file');
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const clearImageAttachment = () => {
+    setPendingImageAttachment(null);
+  };
+
   // If collapsed and not mobile overlay, show just a floating icon button
   if (collapsed && !isMobileOverlay) {
     return (
@@ -1089,7 +1169,16 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                         : DesignTokens.components.chat.aiBubble
                   )}>
                     {msg.type === 'user' ? (
-                      <p className="text-xs whitespace-pre-wrap">{msg.text}</p>
+                      <div>
+                        {msg.imagePreview && (
+                          <img
+                            src={msg.imagePreview}
+                            alt="Attached"
+                            className="max-h-32 w-auto rounded-lg mb-2"
+                          />
+                        )}
+                        <p className="text-xs whitespace-pre-wrap">{msg.text}</p>
+                      </div>
                     ) : (
                       <div className="text-xs prose prose-xs max-w-none">
                         <ReactMarkdown
@@ -1311,11 +1400,17 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                 </label>
                 <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
                   patientProfile?.responseComplexity === 'simple' ? 'bg-blue-100 text-blue-700' :
-                  patientProfile?.responseComplexity === 'detailed' ? 'bg-purple-100 text-purple-700' :
+                  patientProfile?.responseComplexity === 'basic' ? 'bg-blue-50 text-blue-600' :
+                  patientProfile?.responseComplexity === 'standard' ? 'bg-anchor-100 text-anchor-700' :
+                  patientProfile?.responseComplexity === 'detailed' ? 'bg-purple-50 text-purple-600' :
+                  patientProfile?.responseComplexity === 'advanced' ? 'bg-purple-100 text-purple-700' :
                   'bg-anchor-100 text-anchor-700'
                 }`}>
                   {patientProfile?.responseComplexity === 'simple' ? 'Simple' : 
-                   patientProfile?.responseComplexity === 'detailed' ? 'Detailed' : 
+                   patientProfile?.responseComplexity === 'basic' ? 'Basic' :
+                   patientProfile?.responseComplexity === 'standard' ? 'Standard' :
+                   patientProfile?.responseComplexity === 'detailed' ? 'Detailed' :
+                   patientProfile?.responseComplexity === 'advanced' ? 'Advanced' : 
                    'Standard'}
                 </span>
               </div>
@@ -1328,12 +1423,15 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                     <input
                       type="range"
                       min="0"
-                      max="2"
+                      max="4"
                       step="1"
                       value={patientProfile?.responseComplexity === 'simple' ? 0 : 
-                             patientProfile?.responseComplexity === 'detailed' ? 2 : 1}
+                             patientProfile?.responseComplexity === 'basic' ? 1 :
+                             patientProfile?.responseComplexity === 'standard' ? 2 :
+                             patientProfile?.responseComplexity === 'detailed' ? 3 :
+                             patientProfile?.responseComplexity === 'advanced' ? 4 : 2}
                       onChange={async (e) => {
-                        const values = ['simple', 'standard', 'detailed'];
+                        const values = ['simple', 'basic', 'standard', 'detailed', 'advanced'];
                         const newComplexity = values[parseInt(e.target.value)];
                         const previousComplexity = patientProfile?.responseComplexity || 'standard';
                         
@@ -1369,7 +1467,15 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                       }}
                       className="w-full h-2 bg-medical-neutral-200 rounded-lg appearance-none cursor-pointer relative z-10"
                       style={{
-                        background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((patientProfile?.responseComplexity === 'simple' ? 0 : patientProfile?.responseComplexity === 'detailed' ? 2 : 1) / 2) * 100}%, #e5e7eb ${((patientProfile?.responseComplexity === 'simple' ? 0 : patientProfile?.responseComplexity === 'detailed' ? 2 : 1) / 2) * 100}%, #e5e7eb 100%)`
+                        background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((patientProfile?.responseComplexity === 'simple' ? 0 : 
+                                                                                        patientProfile?.responseComplexity === 'basic' ? 1 :
+                                                                                        patientProfile?.responseComplexity === 'standard' ? 2 :
+                                                                                        patientProfile?.responseComplexity === 'detailed' ? 3 :
+                                                                                        patientProfile?.responseComplexity === 'advanced' ? 4 : 2) / 4) * 100}%, #e5e7eb ${((patientProfile?.responseComplexity === 'simple' ? 0 : 
+                                                                                        patientProfile?.responseComplexity === 'basic' ? 1 :
+                                                                                        patientProfile?.responseComplexity === 'standard' ? 2 :
+                                                                                        patientProfile?.responseComplexity === 'detailed' ? 3 :
+                                                                                        patientProfile?.responseComplexity === 'advanced' ? 4 : 2) / 4) * 100}%, #e5e7eb 100%)`
                       }}
                       title="Adjust response complexity: Simple = plain language, Detailed = comprehensive explanations"
                     />
@@ -1378,11 +1484,13 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                       <div className="w-1 h-1 rounded-full bg-white"></div>
                       <div className="w-1 h-1 rounded-full bg-white"></div>
                       <div className="w-1 h-1 rounded-full bg-white"></div>
+                      <div className="w-1 h-1 rounded-full bg-white"></div>
+                      <div className="w-1 h-1 rounded-full bg-white"></div>
                     </div>
                   </div>
                   <span className={`text-xs whitespace-nowrap ${
-                    patientProfile?.responseComplexity === 'detailed' ? 'font-semibold text-purple-700' : 'text-medical-neutral-500'
-                  }`}>Detailed</span>
+                    patientProfile?.responseComplexity === 'advanced' ? 'font-semibold text-purple-700' : 'text-medical-neutral-500'
+                  }`}>Advanced</span>
                 </div>
               </div>
             </div>
@@ -1479,7 +1587,48 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
       {/* Input Area */}
       {!collapsed && (
       <div className={`px-3 pt-0 pb-0 bg-white ${isMobileOverlay ? 'border-t border-medical-neutral-200' : ''}`} style={{ paddingBottom: isMobileOverlay ? 'max(1rem, env(safe-area-inset-bottom, 1rem))' : '0.5rem' }}>
+        {/* Image attachment preview */}
+        {pendingImageAttachment && (
+          <div className="pb-2">
+            <div className="relative inline-block">
+              <img
+                src={pendingImageAttachment.preview}
+                alt="Attached"
+                className="h-16 w-auto rounded-lg border border-medical-neutral-200 object-cover"
+              />
+              <button
+                onClick={clearImageAttachment}
+                className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition"
+                title="Remove image"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Hidden file input for image upload */}
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleImageFileSelect}
+          className="hidden"
+        />
+
         <div className="flex gap-2 mb-4">
+          {/* Image upload button */}
+          <button
+            onClick={handleSimpleImageUpload}
+            title="Attach image"
+            className={combineClasses(
+              'w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center min-h-[44px] min-w-[44px] touch-manipulation',
+              'border border-medical-neutral-200 text-gray-500 hover:bg-gray-50 transition'
+            )}
+          >
+            <Paperclip className="w-4 h-4" />
+          </button>
+
           <div className="relative flex-1">
             <input
               type="text"
@@ -1487,12 +1636,12 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
               onChange={(e) => setInputText(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
               placeholder={
-                currentTrialContext 
+                currentTrialContext
                   ? (currentTrialContext._isSearchResults
                       ? `Ask about these ${currentTrialContext._searchResultsCount} trials...`
                       : `Ask about ${currentTrialContext.title || 'this trial'}...`)
-                  : currentHealthContext 
-                    ? "Ask about health data..." 
+                  : currentHealthContext
+                    ? "Ask about health data..."
                     : "Ask a question..."
               }
               className={combineClasses(
@@ -1532,7 +1681,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                 : DesignTokens.components.button.primary,
               DesignTokens.shadows.sm
             )}
-            disabled={!inputText.trim() && !isBotProcessing}
+            disabled={!inputText.trim() && !pendingImageAttachment && !isBotProcessing}
           >
             {isBotProcessing ? (
               <Square className="w-4 h-4" />
