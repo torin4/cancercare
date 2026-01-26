@@ -890,8 +890,8 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
       )}>
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'sm:gap-3', 'flex-1 min-w-0')}>
-            <div className={combineClasses(DesignTokens.components.header.iconContainer, 'flex-shrink-0')}>
-              <Bot className={combineClasses(DesignTokens.icons.header.size.full, DesignTokens.components.header.icon)} />
+            <div className={combineClasses('bg-anchor-900 p-2 sm:p-2.5 rounded-lg flex-shrink-0')}>
+              <Bot className={combineClasses(DesignTokens.icons.header.size.full, 'text-white')} />
             </div>
             <div className="min-w-0">
               <h2 className={combineClasses(DesignTokens.components.header.title, 'mb-0 text-base flex items-end gap-1.5')}>
