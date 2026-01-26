@@ -1,4 +1,4 @@
-import { Target, Activity, Heart, Droplet, AlertCircle, Zap, Plus } from 'lucide-react';
+import { Target, Activity, Heart, Droplet, AlertCircle, Zap, Plus, Filter, Beaker } from 'lucide-react';
 
 export const categoryDescriptions = {
   'Disease-Specific Markers': 'Tumor markers and cancer-specific biomarkers used to monitor disease progression and treatment response',
@@ -16,8 +16,8 @@ export const categoryDescriptions = {
 
 export const categoryIcons = {
   'Disease-Specific Markers': Target,
-  'Liver Function': Activity,
-  'Kidney Function': Heart,
+  'Liver Function': Beaker,
+  'Kidney Function': Filter,
   'Blood Counts': Droplet,
   'Thyroid Function': Activity,
   'Cardiac Markers': Heart,

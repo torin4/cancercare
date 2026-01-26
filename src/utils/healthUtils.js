@@ -16,7 +16,8 @@ export const getCancerRelevanceScore = (labType) => {
 
 // Calculate detailed status with color coding based on normal range
 export const getLabStatus = (value, normalRange) => {
-  if (!normalRange || typeof value !== 'number') {
+  const num = typeof value === 'number' ? value : parseFloat(value);
+  if (!normalRange || (typeof num !== 'number' || isNaN(num))) {
     return { status: 'unknown', color: 'gray', label: 'Unknown' };
   }
 
@@ -28,15 +29,15 @@ export const getLabStatus = (value, normalRange) => {
     const range = max - min;
     const warningThreshold = range * 0.1; // 10% buffer zone
 
-    if (value < min) {
+    if (num < min) {
       // Below normal range
-      if (value >= min - warningThreshold) {
+      if (num >= min - warningThreshold) {
         return { status: 'warning-low', color: 'yellow', label: 'Slightly Low' };
       }
       return { status: 'abnormal-low', color: 'red', label: 'Low' };
-    } else if (value > max) {
+    } else if (num > max) {
       // Above normal range
-      if (value <= max + warningThreshold) {
+      if (num <= max + warningThreshold) {
         return { status: 'warning-high', color: 'yellow', label: 'Slightly High' };
       }
       return { status: 'abnormal-high', color: 'red', label: 'High' };
@@ -52,9 +53,9 @@ export const getLabStatus = (value, normalRange) => {
     const threshold = parseFloat(lessThanMatch[1]);
     const warningThreshold = threshold * 0.1;
 
-    if (value <= threshold) {
+    if (num <= threshold) {
       return { status: 'normal', color: 'green', label: 'Normal' };
-    } else if (value < threshold + warningThreshold) {
+    } else if (num < threshold + warningThreshold) {
       return { status: 'warning-high', color: 'yellow', label: 'Slightly High' };
     } else {
       return { status: 'abnormal-high', color: 'red', label: 'High' };
@@ -67,9 +68,9 @@ export const getLabStatus = (value, normalRange) => {
     const threshold = parseFloat(greaterThanMatch[1]);
     const warningThreshold = threshold * 0.1;
 
-    if (value >= threshold) {
+    if (num >= threshold) {
       return { status: 'normal', color: 'green', label: 'Normal' };
-    } else if (value > threshold - warningThreshold) {
+    } else if (num > threshold - warningThreshold) {
       return { status: 'warning-low', color: 'yellow', label: 'Slightly Low' };
     } else {
       return { status: 'abnormal-low', color: 'red', label: 'Low' };

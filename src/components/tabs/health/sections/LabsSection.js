@@ -27,6 +27,7 @@ import {
   normalizeLabName, 
   getLabDisplayName, 
   labValueDescriptions, 
+  labDefaultNormalRanges,
   categorizeLabs 
 } from '../../../../utils/normalizationUtils';
 import { categoryIcons, categoryDescriptions } from '../../../../constants/categories';
@@ -41,6 +42,8 @@ import { getTodayLocalDate, formatDateString } from '../../../../utils/helpers';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { getIrrelevantCategories, extractCancerTypeFromDiagnosis } from '../../../../utils/diseaseRelevantCategories';
 import { CANCER_TYPES } from '../../../../constants/cancerTypes';
+import { calculateSectionInsight } from '../../../../utils/sectionInsights';
+import SectionInsightBadge from '../components/SectionInsightBadge';
 
 function LabsSection({ 
   onTabChange,
@@ -330,6 +333,15 @@ function LabsSection({
     return filtered;
   }, [categorizedLabs, debouncedSearchQuery, hideEmptyMetrics, hiddenLabs, showHiddenLabs]);
 
+  // Calculate section insights for each category (CTCAE-based health scores)
+  const sectionInsights = useMemo(() => {
+    const insights = {};
+    for (const [category, labs] of Object.entries(filteredCategorizedLabs)) {
+      insights[category] = calculateSectionInsight(category, labs);
+    }
+    return insights;
+  }, [filteredCategorizedLabs]);
+
   // Memoize chart calculations for current lab
   const chartData = useMemo(() => {
     if (!currentLab || !currentLab.isNumeric || !currentLab.data || currentLab.data.length === 0) {
@@ -344,9 +356,11 @@ function LabsSection({
       return null;
     }
 
-    const bounds = calculateYAxisBounds(currentLab.data, currentLab.normalRange);
+    const chartCanonicalKey = normalizeLabName(currentLab?.name || selectedLab);
+    const chartEffectiveRange = currentLab.normalRange || (chartCanonicalKey && labDefaultNormalRanges[chartCanonicalKey]);
+    const bounds = calculateYAxisBounds(currentLab.data, chartEffectiveRange);
     const { yMin, yMax, yRange } = bounds;
-    const normalRange = parseNormalRangeForChart(currentLab.normalRange, yMin, yRange);
+    const normalRange = parseNormalRangeForChart(chartEffectiveRange, yMin, yRange);
     const dataLength = Math.max(currentLab.data.length - 1, 1);
     const points = generateChartPoints(currentLab.data, yMin, yRange, 400);
 
@@ -357,7 +371,7 @@ function LabsSection({
       dataLength,
       hasData: true
     };
-  }, [currentLab]);
+  }, [currentLab, selectedLab]);
 
   // Memoize X-axis labels calculation
   const xAxisLabels = useMemo(() => {
@@ -556,12 +570,17 @@ function LabsSection({
 
               {currentLab && currentLab.isNumeric ? (
                 <>
+                  {(() => {
+                    const detailCanonicalKey = normalizeLabName(currentLab?.name || selectedLab);
+                    const detailEffectiveRange = currentLab.normalRange || (detailCanonicalKey && labDefaultNormalRanges[detailCanonicalKey]);
+                    return (
+                  <>
                   <div className="mb-4">
                     <div className="flex items-baseline gap-2 mb-1">
                       <span className={combineClasses('text-2xl sm:text-3xl font-bold', DesignTokens.colors.neutral.text[900])}>{currentLab.current}</span>
                       <span className={combineClasses('text-sm', DesignTokens.colors.neutral.text[600])}>{currentLab.unit}</span>
                       {(() => {
-                        const labStatus = getLabStatus(currentLab.current, currentLab.normalRange);
+                        const labStatus = getLabStatus(currentLab.current, detailEffectiveRange);
                         const statusColors = {
                           green: combineClasses(DesignTokens.components.status.normal.bg, DesignTokens.components.status.normal.text),
                           yellow: combineClasses(DesignTokens.components.status.low.bg, DesignTokens.components.alert.text.warning),
@@ -575,7 +594,7 @@ function LabsSection({
                         );
                       })()}
                     </div>
-                    <p className={combineClasses('text-xs sm:text-sm', DesignTokens.colors.neutral.text[600])}>Normal range: {currentLab.normalRange} {currentLab.unit}</p>
+                    <p className={combineClasses('text-xs sm:text-sm', DesignTokens.colors.neutral.text[600])}>Normal range: {detailEffectiveRange || '--'} {currentLab.unit}</p>
                   </div>
 
                   {/* Chart - Responsive with Y-axis and hover tooltips */}
@@ -685,7 +704,7 @@ function LabsSection({
                                 const y = ((val - yMin) / yRange) * 100;
                                 const isLatest = i === currentLab.data.length - 1;
                                 
-                                const labStatus = getLabStatus(val, currentLab.normalRange);
+                                const labStatus = getLabStatus(val, detailEffectiveRange);
                                 const statusColors = {
                                   green: '#10b981',
                                   yellow: '#f59e0b',
@@ -981,6 +1000,8 @@ function LabsSection({
                     </div>
                   </div>
                 </>
+                ); })()}
+                </>
               ) : (
                 <div className={combineClasses("text-center py-8", DesignTokens.colors.neutral.text[400])}>
                   <p>No numeric data available for charting</p>
@@ -994,7 +1015,9 @@ function LabsSection({
             // Helper function to render lab card
             const renderLabCard = (key, lab) => {
               if (lab.isNumeric) {
-                const labStatus = getLabStatus(lab.current, lab.normalRange);
+                const canonicalKey = normalizeLabName(lab.name || key);
+                const effectiveRange = lab.normalRange || (canonicalKey && labDefaultNormalRanges[canonicalKey]);
+                const labStatus = getLabStatus(lab.current, effectiveRange);
                 const statusColors = {
                   green: { dot: 'bg-medical-accent-500', text: 'text-medical-accent-700' },
                   yellow: { dot: combineClasses('', DesignTokens.components.status.low.icon.replace('text-', 'bg-')), text: combineClasses('', DesignTokens.components.alert.text.warning) },
@@ -1002,7 +1025,6 @@ function LabsSection({
                   gray: { dot: 'bg-medical-neutral-400', text: 'text-medical-neutral-600' }
                 };
                 const colors = statusColors[labStatus.color];
-                const canonicalKey = normalizeLabName(lab.name);
                 const labDescription = canonicalKey ? (labValueDescriptions[canonicalKey] || '') : '';
                 const displayName = getLabDisplayName(lab.name);
 
@@ -1970,7 +1992,12 @@ function LabsSection({
                             <CategoryIcon className="w-5 h-5 sm:w-6 sm:h-6 text-medical-primary-600" />
                           </div>
                           <div className="text-left flex-1 min-w-0">
-                            <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900">{category}</h3>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="text-base sm:text-lg font-semibold text-medical-neutral-900">{category}</h3>
+                              {sectionInsights[category] && (
+                                <SectionInsightBadge insight={sectionInsights[category]} />
+                              )}
+                            </div>
                             <p className="text-xs sm:text-sm text-medical-neutral-600 mt-1">{description}</p>
                             <p className="text-xs text-medical-neutral-500 mt-1">{labsInCategory.length} value{labsInCategory.length !== 1 ? 's' : ''} tracked</p>
                           </div>

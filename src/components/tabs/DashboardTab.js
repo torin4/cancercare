@@ -525,7 +525,7 @@ setIsUploading(false);
                 if (labB.relevanceScore !== labA.relevanceScore) {
                   return labB.relevanceScore - labA.relevanceScore;
                 }
-                const criticalOrder = ['ca125', 'cea', 'wbc', 'hemoglobin', 'platelets', 'creatinine', 'alt', 'ast', 'albumin', 'ldh'];
+                const criticalOrder = ['ca125', 'cea', 'wbc', 'hemoglobin', 'platelets', 'creatinine', 'egfr', 'alt', 'ast', 'albumin', 'ldh'];
                 const idxA = criticalOrder.indexOf(a.toLowerCase());
                 const idxB = criticalOrder.indexOf(b.toLowerCase());
                 if (idxA !== -1 && idxB !== -1) return idxA - idxB;
@@ -736,10 +736,7 @@ setIsUploading(false);
           </div>
 
           {/* Trials Tab Summary */}
-          <div className={combineClasses(
-            DesignTokens.components.card.container,
-            DesignTokens.components.card.withColoredBorder(DesignTokens.moduleAccent.trials.border)
-          )}>
+          <div className={DesignTokens.components.card.withColoredBorder(DesignTokens.moduleAccent.trials.border)}>
             <div className={combineClasses('flex items-center justify-between mb-4')}>
               <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm)}>
                 <div className={combineClasses(DesignTokens.moduleAccent.trials.bg, DesignTokens.spacing.iconContainer.mobile, DesignTokens.borders.radius.sm)}>

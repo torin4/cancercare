@@ -116,7 +116,7 @@ export const labSynonymMap = {
   
   // Kidney Function
   'creatinine': ['creatinine', 'cre'],
-  'egfr': ['egfr', 'e gfr'],
+  'egfr': ['egfr', 'e gfr', 'e-gfr', 'estimated gfr', 'estimated glomerular filtration rate', 'gfr', 'glomerular filtration rate', 'egfr estimated', 'egfr-estimated', 'egfr (estimated)', 'egfr(estimated)'],
   'bun': ['bun'],
   'urea': ['urea'],
   'urineprotein': ['urineprotein', 'urine protein', 'protein urine'],
@@ -495,7 +495,7 @@ export const labValueDescriptions = {
   'reticulocyte_pct': 'Reticulocyte percentage. Percentage of reticulocytes among total red blood cells. Helps distinguish whether anemia is due to decreased production or increased destruction.',
   // Kidney Function
   'creatinine': 'Waste product filtered by kidneys. High levels indicate kidney dysfunction or dehydration.',
-  'egfr': 'Estimated glomerular filtration rate. Measures kidney filtering capacity. Adjusted for age, gender, and race.',
+  'egfr': 'Estimated glomerular filtration rate. Measures kidney filtering capacity. Adjusted for age, gender, and race. Normal is typically ≥90 mL/min/1.73m². Values 60-89 indicate mild kidney dysfunction, <60 indicates chronic kidney disease.',
   'bun': 'Blood urea nitrogen. Waste product from protein breakdown. High levels may indicate kidney dysfunction.',
   'urea': 'Waste product from protein metabolism. Filtered by kidneys. High levels indicate kidney dysfunction or dehydration.',
   'urineprotein': 'Protein in urine. Normally minimal. Elevated levels (proteinuria) indicate kidney damage or disease.',
@@ -561,6 +561,27 @@ export const labValueDescriptions = {
   'procalcitonin': 'Procalcitonin. A biomarker of bacterial infection that helps distinguish infection from inflammation or immune-related adverse events in cancer patients.',
   'il6': 'IL-6 (Interleukin-6). An inflammatory cytokine often elevated in cancer, infection, and cytokine release syndromes, useful for monitoring immune-related toxicity.'
   };
+
+/**
+ * Default normal ranges for known labs when not stored (e.g. imported data).
+ * Used by getLabStatus so metric cards show Normal/Low/High instead of Unknown.
+ * Keys: canonical lab keys. Values: normal range strings (e.g. ">60", "0-35").
+ */
+export const labDefaultNormalRanges = {
+  'egfr': '>60',
+  'creatinine': '0.6-1.2',
+  'bun': '7-20',
+  'ca125': '<35',
+  'hemoglobin': '12-16',
+  'platelets': '150-400',
+  'wbc': '4.5-11',
+  'alt': '7-56',
+  'ast': '10-40',
+  'albumin': '3.4-5.4',
+  'ldh': '140-280',
+  'crp': '<10',
+  'tsh': '0.4-4.0'
+};
 
 // Categorize labs by organ function and type
 export const categorizeLabs = (labs) => {

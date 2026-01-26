@@ -24,6 +24,9 @@ yarn-error.log*
 # Editor
 .vscode/
 .idea/
+
+# Cursor project MCP (contains API key)
+.cursor/mcp.json
 *.swp
 *.swo
 *~

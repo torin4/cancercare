@@ -1,0 +1,11 @@
+# Context7 integration
+
+When the user asks about:
+- Library APIs or documentation
+- Framework setup or configuration (e.g. React, Next.js)
+- Code examples for external packages
+- How to use a specific library feature
+
+Use Context7 MCP to fetch current documentation. Don't rely on training data for library-specific code.
+
+For React: use context7 for React, or use context7 for React 18 when version matters.
