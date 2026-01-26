@@ -595,7 +595,7 @@ export default function Onboarding({ onComplete }) {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Stage *</label>
-                    <select value={formData.stage} onChange={(e) => updateField('stage', e.target.value)} className={combineClasses(DesignTokens.components.input.base, 'bg-white')}>
+                    <select value={formData.stage} onChange={(e) => updateField('stage', e.target.value)} className={combineClasses(DesignTokens.components.select.base, 'bg-white')}>
                       <option value="">Select stage</option>
                       {STAGE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
@@ -619,7 +619,7 @@ export default function Onboarding({ onComplete }) {
                         setCustomTreatmentStatus('');
                       }
                     }}
-                    className={combineClasses(DesignTokens.components.input.base, 'bg-white')}
+                    className={combineClasses(DesignTokens.components.select.base, 'bg-white')}
                   >
                     <option value="">Select treatment status</option>
                     {TREATMENT_STATUS_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
@@ -641,14 +641,14 @@ export default function Onboarding({ onComplete }) {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>ECOG Performance *</label>
-                    <select value={formData.performanceStatus} onChange={(e) => updateField('performanceStatus', e.target.value)} className={combineClasses(DesignTokens.components.input.base, 'bg-white')}>
+                    <select value={formData.performanceStatus} onChange={(e) => updateField('performanceStatus', e.target.value)} className={combineClasses(DesignTokens.components.select.base, 'bg-white')}>
                       <option value="">Select ECOG</option>
                       {PERFORMANCE_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className={combineClasses('block text-sm font-medium mb-1', DesignTokens.colors.neutral.text[700])}>Disease Status *</label>
-                    <select value={formData.diseaseStatus} onChange={(e) => updateField('diseaseStatus', e.target.value)} className={combineClasses(DesignTokens.components.input.base, 'bg-white')}>
+                    <select value={formData.diseaseStatus} onChange={(e) => updateField('diseaseStatus', e.target.value)} className={combineClasses(DesignTokens.components.select.base, 'bg-white')}>
                       <option value="">Select status</option>
                       {DISEASE_STATUS_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>

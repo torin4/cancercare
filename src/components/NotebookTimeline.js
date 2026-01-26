@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileText, Activity, Calendar, FileIcon, ChevronDown, ChevronUp, Eye, Plus, Trash2, Edit2 } from 'lucide-react';
 import { formatDateString } from '../utils/helpers';
 import { DesignTokens, combineClasses } from '../design/designTokens';
@@ -12,8 +12,15 @@ import { DesignTokens, combineClasses } from '../design/designTokens';
  * - Documents uploaded that day
  * - Symptoms logged that day
  */
-export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onDeleteNote, onEditNote }) {
-  const [expandedEntries, setExpandedEntries] = useState({});
+export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onDeleteNote, onEditNote, initialExpandedEntries = {} }) {
+  const [expandedEntries, setExpandedEntries] = useState(initialExpandedEntries);
+
+  // Sync initialExpandedEntries prop with internal state
+  useEffect(() => {
+    if (Object.keys(initialExpandedEntries).length > 0) {
+      setExpandedEntries(prev => ({ ...prev, ...initialExpandedEntries }));
+    }
+  }, [initialExpandedEntries]);
 
   if (!entries || entries.length === 0) {
     return (
@@ -68,6 +75,7 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
               return (
                 <div
                   key={entry.dateKey}
+                  data-notebook-entry-datekey={entry.dateKey}
                   className={combineClasses('relative pl-8 pb-3 border-l-2 last:border-transparent last:pb-0', DesignTokens.moduleAccent.files.border)}
                 >
                   {/* Timeline Dot */}

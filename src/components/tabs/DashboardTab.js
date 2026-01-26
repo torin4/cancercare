@@ -469,10 +469,11 @@ setIsUploading(false);
                   DesignTokens.typography.body.sm,
                   'font-medium',
                   DesignTokens.colors.app.text[600],
-                  `hover:${DesignTokens.colors.app.text[700]}`,
-                          DesignTokens.transitions.default,
                   'flex items-center',
-                  DesignTokens.spacing.gap.xs
+                  DesignTokens.spacing.gap.xs,
+                  'px-3 py-1.5 rounded-lg',
+                  'transition-colors',
+                  'hover:bg-anchor-50'
                         )}
                       >
                 View All <ChevronRight className={DesignTokens.icons.small.size.full} />
@@ -624,11 +625,23 @@ setIsUploading(false);
                   DesignTokens.components.status.normal.icon;
 
           return (
-                  <div key={`${itemType}-${item.key}`} className={combineClasses(
-                    'p-2 rounded-lg',
-                    DesignTokens.colors.app[50],
-                    'border',
-                    DesignTokens.colors.app.border[200]
+                  <div 
+                    key={`${itemType}-${item.key}`} 
+                    onClick={() => {
+                      // Store metric info to open in Health tab
+                      sessionStorage.setItem('expandMetric', JSON.stringify({
+                        key: item.key,
+                        type: itemType
+                      }));
+                      onTabChange('health');
+                    }}
+                    className={combineClasses(
+                      'p-2 rounded-lg',
+                      DesignTokens.colors.app[50],
+                      'border',
+                      DesignTokens.colors.app.border[200],
+                      'cursor-pointer hover:bg-gray-50 transition-all duration-200',
+                      'hover:shadow-md hover:-translate-y-0.5'
                     )}>
                     <div className={combineClasses('flex items-center justify-between mb-1')}>
                       <span className={combineClasses(DesignTokens.typography.body.xs, 'font-medium', DesignTokens.colors.app.text[700])}>
@@ -686,9 +699,9 @@ setIsUploading(false);
                   setShowAddVitalValueModal(true);
                           }}
                           className={combineClasses(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium',
                   DesignTokens.components.button.outline.primary,
-                  'hover:shadow-sm active:scale-[0.98]'
+                  'hover:bg-medical-primary-50 hover:border-medical-primary-400 hover:text-medical-primary-700'
                           )}
                         >
                 <Heart className="w-3.5 h-3.5" />
@@ -713,9 +726,9 @@ setIsUploading(false);
                   setShowAddLabValueModal(true);
                 }}
                 className={combineClasses(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium',
                   DesignTokens.components.button.outline.primary,
-                  'hover:shadow-sm active:scale-[0.98]'
+                  'hover:bg-medical-primary-50 hover:border-medical-primary-400 hover:text-medical-primary-700'
                 )}
               >
                 <ClipboardList className="w-3.5 h-3.5" />
@@ -724,9 +737,9 @@ setIsUploading(false);
               <button
                 onClick={() => setShowAddSymptomModal(true)}
                 className={combineClasses(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium',
                   DesignTokens.components.button.outline.primary,
-                  'hover:shadow-sm active:scale-[0.98]'
+                  'hover:bg-medical-primary-50 hover:border-medical-primary-400 hover:text-medical-primary-700'
                 )}
               >
                 <Activity className="w-3.5 h-3.5" />
@@ -752,10 +765,11 @@ setIsUploading(false);
                     DesignTokens.typography.body.sm,
                     'font-medium',
                   DesignTokens.colors.app.text[600],
-                  `hover:${DesignTokens.colors.app.text[700]}`,
-                    DesignTokens.transitions.default,
                   'flex items-center',
-                    DesignTokens.spacing.gap.xs
+                    DesignTokens.spacing.gap.xs,
+                    'px-3 py-1.5 rounded-lg',
+                    'transition-colors',
+                    'hover:bg-anchor-50'
                   )}
                 >
                 View All <ChevronRight className={DesignTokens.icons.small.size.full} />
@@ -774,10 +788,10 @@ setIsUploading(false);
                   <div
                     key={trial.id}
                     className={combineClasses(
-                      'p-3 rounded-lg border cursor-pointer transition-all',
+                      'p-3 rounded-lg border cursor-pointer transition-all duration-200',
                       DesignTokens.colors.app[50],
                       DesignTokens.colors.app.border[200],
-                      'hover:shadow-sm'
+                      'hover:shadow-md hover:-translate-y-0.5'
                     )}
                     onClick={() => onTabChange('trials')}
                   >
@@ -803,9 +817,9 @@ setIsUploading(false);
                   <button
                 onClick={() => onTabChange('trials')}
                     className={combineClasses(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium',
                   DesignTokens.components.button.outline.primary,
-                  'hover:shadow-sm active:scale-[0.98]'
+                  'hover:bg-green-50 hover:border-care-600 hover:text-care-600'
                     )}
                   >
                 <Search className="w-3.5 h-3.5" />
@@ -834,10 +848,11 @@ setIsUploading(false);
                   DesignTokens.typography.body.sm,
                   'font-medium',
                   DesignTokens.colors.app.text[600],
-                  `hover:${DesignTokens.colors.app.text[700]}`,
-                  DesignTokens.transitions.default,
                   'flex items-center',
-                  DesignTokens.spacing.gap.xs
+                  DesignTokens.spacing.gap.xs,
+                  'px-3 py-1.5 rounded-lg',
+                  'transition-colors',
+                  'hover:bg-anchor-50'
                 )}
               >
                 View All <ChevronRight className={DesignTokens.icons.small.size.full} />
@@ -861,10 +876,17 @@ setIsUploading(false);
                       {recentDocuments.slice(0, 2).map((doc) => (
                         <div
                           key={doc.id}
+                          onClick={() => {
+                            // Store document ID to expand in Files tab
+                            sessionStorage.setItem('expandDocumentId', doc.id);
+                            onTabChange('files');
+                          }}
                           className={combineClasses(
                             'p-2 rounded-lg border flex items-center gap-2',
                             DesignTokens.colors.app[50],
-                            DesignTokens.colors.app.border[200]
+                            DesignTokens.colors.app.border[200],
+                            'cursor-pointer hover:bg-gray-50 transition-all duration-200',
+                            'hover:shadow-md hover:-translate-y-0.5'
                           )}
                 >
                           <FileText className={combineClasses('w-4 h-4 flex-shrink-0', DesignTokens.colors.app.text[500])} />
@@ -899,10 +921,17 @@ setIsUploading(false);
                       {recentNotebookEntries.slice(0, 2).map((entry) => (
                         <div
                           key={entry.dateKey}
+                          onClick={() => {
+                            // Store entry dateKey to expand in Files tab
+                            sessionStorage.setItem('expandNotebookEntry', entry.dateKey);
+                            onTabChange('files');
+                          }}
                           className={combineClasses(
                             'p-2 rounded-lg border',
                             DesignTokens.colors.app[50],
-                            DesignTokens.colors.app.border[200]
+                            DesignTokens.colors.app.border[200],
+                            'cursor-pointer hover:bg-gray-50 transition-all duration-200',
+                            'hover:shadow-md hover:-translate-y-0.5'
                           )}
                         >
                           <div className={combineClasses('flex items-center gap-2 mb-1')}>
@@ -941,9 +970,9 @@ setIsUploading(false);
                   }
                 }}
                   className={combineClasses(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium',
                   DesignTokens.components.button.outline.primary,
-                  'hover:shadow-sm active:scale-[0.98]'
+                  'hover:bg-medical-secondary-50 hover:border-medical-secondary-400 hover:text-medical-secondary-700'
                 )}
               >
                 <Upload className="w-3.5 h-3.5" />
@@ -952,9 +981,9 @@ setIsUploading(false);
               <button
                 onClick={() => setShowAddJournalNoteModal(true)}
                 className={combineClasses(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium',
                   DesignTokens.components.button.outline.primary,
-                  'hover:shadow-sm active:scale-[0.98]'
+                  'hover:bg-medical-secondary-50 hover:border-medical-secondary-400 hover:text-medical-secondary-700'
                   )}
                 >
                 <FileText className="w-3.5 h-3.5" />

@@ -65,11 +65,13 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false); // Loading state for documents
   const [openMenuId, setOpenMenuId] = useState(null); // Track which file's menu is open (for mobile)
   const [expandedDicomGroups, setExpandedDicomGroups] = useState(new Set()); // Track expanded DICOM groups
+  const [highlightedDocumentId, setHighlightedDocumentId] = useState(null); // Track which document to highlight
   const [zipChoiceModal, setZipChoiceModal] = useState(null); // { file, processingResult, onViewNow, onSaveToLibrary }
   const [showDicomImportFlow, setShowDicomImportFlow] = useState(false); // DICOM import flow modal
 
   // Tab state for Documents vs Notes view
   const [activeSubTab, setActiveSubTab] = useState('notes'); // 'documents' or 'notes'
+  const [initialExpandedNotebookEntries, setInitialExpandedNotebookEntries] = useState({});
 
   // Track if component is mounted to prevent setState after unmount
   const isMountedRef = useRef(true);
@@ -199,6 +201,92 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
     loadDocuments();
   }, [user]);
 
+  // Helper function to expand a document
+  const expandDocument = useCallback((expandDocumentId) => {
+    if (!expandDocumentId) return;
+
+    // Clear the sessionStorage immediately to prevent re-expanding
+    sessionStorage.removeItem('expandDocumentId');
+
+    // Find the document in the list
+    const doc = documents.find(d => d.id === expandDocumentId);
+    if (!doc) return;
+
+    // Check if it's a DICOM file that might be in a group
+    const isDicom = doc.dicomMetadata ||
+      (doc.fileName && (doc.fileName.toLowerCase().endsWith('.dcm') || doc.fileName.toLowerCase().endsWith('.dicom'))) ||
+      (doc.fileType && (doc.fileType === 'application/dicom' || doc.fileType === 'application/x-dicom'));
+
+    if (isDicom && doc.dicomMetadata) {
+      // Find the group key for this DICOM file
+      const md = doc.dicomMetadata;
+      const ddm = doc.dicomDirMeta || null;
+      const studyUID = (ddm?.study?.studyInstanceUID) || md.studyInstanceUID;
+      const seriesUID = (ddm?.series?.seriesInstanceUID) || md.seriesInstanceUID;
+      const groupKey = seriesUID || studyUID;
+
+      if (groupKey) {
+        // Expand the DICOM group
+        setExpandedDicomGroups(prev => {
+          const next = new Set(prev);
+          next.add(groupKey);
+          return next;
+        });
+
+        // Highlight and scroll to the document within the group after expansion
+        setTimeout(() => {
+          setHighlightedDocumentId(expandDocumentId);
+          const docElement = document.querySelector(`[data-document-id="${expandDocumentId}"]`);
+          if (docElement) {
+            docElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Remove highlight after 3 seconds
+            setTimeout(() => {
+              setHighlightedDocumentId(null);
+            }, 3000);
+          } else {
+            // If document not found, scroll to group
+            const groupElement = document.querySelector(`[data-dicom-group-key="${groupKey}"]`);
+            if (groupElement) {
+              groupElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }
+        }, 300); // Increased delay to allow group expansion to render
+        return;
+      }
+    }
+
+    // For non-DICOM or standalone documents, highlight and scroll to the document
+    setTimeout(() => {
+      setHighlightedDocumentId(expandDocumentId);
+      const docElement = document.querySelector(`[data-document-id="${expandDocumentId}"]`);
+      if (docElement) {
+        docElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Remove highlight after 3 seconds
+        setTimeout(() => {
+          setHighlightedDocumentId(null);
+        }, 3000);
+      }
+    }, 200);
+  }, [documents]);
+
+  // Handle expanding document from dashboard click
+  useEffect(() => {
+    const expandDocumentId = sessionStorage.getItem('expandDocumentId');
+    if (!expandDocumentId || documents.length === 0) return;
+
+    // Switch to documents sub-tab if we're on notes
+    if (activeSubTab === 'notes') {
+      setActiveSubTab('documents');
+      // Wait for tab switch before expanding
+      setTimeout(() => {
+        expandDocument(expandDocumentId);
+      }, 100);
+      return;
+    }
+
+    expandDocument(expandDocumentId);
+  }, [documents, activeSubTab, expandDocument]);
+
   // Load notebook entries
   useEffect(() => {
     const loadNotebookEntries = async () => {
@@ -225,6 +313,43 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
 
     loadNotebookEntries();
   }, [user]);
+
+  // Handle expanding notebook entry from dashboard click
+  useEffect(() => {
+    const expandEntryDateKey = sessionStorage.getItem('expandNotebookEntry');
+    if (!expandEntryDateKey || notebookEntries.length === 0) return;
+
+    // Switch to notes sub-tab if we're on documents
+    if (activeSubTab === 'documents') {
+      setActiveSubTab('notes');
+      // Wait for tab switch before expanding
+      setTimeout(() => {
+        setInitialExpandedNotebookEntries({ [expandEntryDateKey]: true });
+        sessionStorage.removeItem('expandNotebookEntry');
+        
+        // Scroll to the entry after a short delay
+        setTimeout(() => {
+          const entryElement = document.querySelector(`[data-notebook-entry-datekey="${expandEntryDateKey}"]`);
+          if (entryElement) {
+            entryElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 200);
+      }, 100);
+      return;
+    }
+
+    // Already on notes tab, expand immediately
+    setInitialExpandedNotebookEntries({ [expandEntryDateKey]: true });
+    sessionStorage.removeItem('expandNotebookEntry');
+    
+    // Scroll to the entry after a short delay
+    setTimeout(() => {
+      const entryElement = document.querySelector(`[data-notebook-entry-datekey="${expandEntryDateKey}"]`);
+      if (entryElement) {
+        entryElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 200);
+  }, [notebookEntries, activeSubTab]);
 
   // Reload notebook entries (called after adding or deleting a note)
   const reloadNotebookEntries = async () => {
@@ -1423,6 +1548,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
                     return (
                       <div
                         key={`dicom-group-${group.key}`}
+                        data-dicom-group-key={group.key}
                         className={combineClasses(
                           DesignTokens.components.card.base,
                           DesignTokens.borders.radius.lg,
@@ -1642,13 +1768,16 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
                               const fileName = doc.fileName || doc.name || 'Untitled Document';
                               const fileDate = doc.date ? formatDateString(doc.date) : null;
 
+                              const isHighlighted = highlightedDocumentId === doc.id;
                               return (
                                 <div
                                   key={doc.id}
+                                  data-document-id={doc.id}
                                   className={combineClasses(
                                     'flex items-center justify-between gap-4 p-3 rounded-lg',
                                     'hover:bg-gray-50',
-                                    DesignTokens.transitions.default
+                                    DesignTokens.transitions.default,
+                                    isHighlighted ? 'bg-blue-50 border-2 border-blue-400 shadow-lg' : ''
                                   )}
                                 >
                                   <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -1733,15 +1862,20 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
                 });
               };
 
+              const isHighlighted = highlightedDocumentId === doc.id;
               return (
-                <div key={doc.id} className={combineClasses(
-                  DesignTokens.components.card.nested,
-                  'relative flex flex-col sm:flex-row sm:items-center',
-                  DesignTokens.spacing.gap.sm,
-                  'sm:gap-3',
-                  DesignTokens.transitions.default,
-                  `hover:${DesignTokens.colors.neutral[50]}`
-                )}>
+                <div 
+                  key={doc.id} 
+                  data-document-id={doc.id}
+                  className={combineClasses(
+                    DesignTokens.components.card.nested,
+                    'relative flex flex-col sm:flex-row sm:items-center',
+                    DesignTokens.spacing.gap.sm,
+                    'sm:gap-3',
+                    DesignTokens.transitions.default,
+                    `hover:${DesignTokens.colors.neutral[50]}`,
+                    isHighlighted ? 'bg-blue-50 border-2 border-blue-400 shadow-lg' : ''
+                  )}>
                   {/* Action buttons - Desktop: individual buttons, Mobile: three-dot menu */}
                   <div className="absolute top-2 right-2 z-10">
                     {/* Mobile: Three-dot menu */}
@@ -2280,6 +2414,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
                 );
                 return dateStr.includes(query) || notesMatch || documentsMatch;
               })} 
+              initialExpandedEntries={initialExpandedNotebookEntries}
               onEntryClick={(entry) => {
                 // Handle entry click if needed
               }}

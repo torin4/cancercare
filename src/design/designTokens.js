@@ -475,6 +475,13 @@ export const DesignTokens = {
       withIcon: 'pl-10',
     },
     
+    // Select Dropdowns
+    select: {
+      base: 'px-2 sm:px-3 pr-12 sm:pr-14 py-2 sm:py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-offset-0 focus:ring-anchor-900 focus:border-anchor-900 transition-all duration-200 bg-white',
+      // pr-12 sm:pr-14 ensures native chevron has generous spacing from right edge
+      // Note: appearance-none removed to keep native browser chevron visible
+    },
+    
     // Loading States
     loading: {
       overlay: 'fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50',

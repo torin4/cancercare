@@ -77,6 +77,29 @@ export default function HealthTab({ onTabChange, initialSection = null, onOpenMo
       sessionStorage.removeItem('healthSection');
     }
   }, []);
+
+  // Check for metric to expand from dashboard click
+  useEffect(() => {
+    const expandMetricStr = sessionStorage.getItem('expandMetric');
+    if (expandMetricStr) {
+      try {
+        const expandMetric = JSON.parse(expandMetricStr);
+        if (expandMetric.type === 'lab') {
+          setHealthSection('labs');
+          // Store the lab key for LabsSection to pick up
+          sessionStorage.setItem('expandLabKey', expandMetric.key);
+        } else if (expandMetric.type === 'vital') {
+          setHealthSection('vitals');
+          // Store the vital key for VitalsSection to pick up
+          sessionStorage.setItem('expandVitalKey', expandMetric.key);
+        }
+        sessionStorage.removeItem('expandMetric');
+      } catch (e) {
+        console.error('Failed to parse expandMetric:', e);
+        sessionStorage.removeItem('expandMetric');
+      }
+    }
+  }, []);
   
   // Lab, vital, symptom, and medication state are now managed by their respective section components
   const [isUploading, setIsUploading] = useState(false);

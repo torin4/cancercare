@@ -60,6 +60,54 @@ function LabsSection({
 
   // Labs-specific state
   const [selectedLab, setSelectedLab] = useState('ca125');
+
+  // Check for lab to expand from dashboard click
+  useEffect(() => {
+    const expandLabKey = sessionStorage.getItem('expandLabKey');
+    if (expandLabKey && labsData && Object.keys(labsData).length > 0) {
+      // Check if the lab exists in labsData
+      const normalizedKey = normalizeLabName(expandLabKey);
+      const labExists = Object.keys(labsData).some(key => {
+        const normalized = normalizeLabName(key);
+        return normalized === normalizedKey || key === expandLabKey;
+      });
+      
+      if (labExists) {
+        // Find the actual key in labsData (might be different case/variation)
+        const actualKey = Object.keys(labsData).find(key => {
+          const normalized = normalizeLabName(key);
+          return normalized === normalizedKey || key === expandLabKey;
+        }) || expandLabKey;
+        
+        // Find the category for this lab and expand it
+        const lab = labsData[actualKey];
+        if (lab) {
+          const categories = categorizeLabs({ [actualKey]: lab });
+          const category = Object.keys(categories)[0]; // Get the first category
+          if (category) {
+            setExpandedCategories(prev => ({
+              ...prev,
+              [category]: true
+            }));
+          }
+        }
+        
+        setSelectedLab(actualKey);
+        sessionStorage.removeItem('expandLabKey');
+        
+        // Scroll to the lab card after a short delay
+        setTimeout(() => {
+          const labElement = document.querySelector(`[data-lab-key="${actualKey}"]`);
+          if (labElement) {
+            labElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 200);
+      } else {
+        // Lab not found, clear the sessionStorage
+        sessionStorage.removeItem('expandLabKey');
+      }
+    }
+  }, [labsData]);
   const [labSearchQuery, setLabSearchQuery] = useState('');
   // Debounce search query to avoid filtering on every keystroke
   const debouncedSearchQuery = useDebouncedValue(labSearchQuery, 300);
@@ -471,7 +519,7 @@ function LabsSection({
                 <select
                   value={selectedLab}
                   onChange={(e) => setSelectedLab(e.target.value)}
-                  className={combineClasses('text-sm border rounded-lg px-2 sm:px-3 py-2 sm:py-1.5 focus:ring-2 focus:ring-green-500 min-h-[44px] w-full sm:w-auto touch-manipulation', DesignTokens.colors.neutral.border[300])}
+                  className={combineClasses(DesignTokens.components.select.base, 'min-h-[44px] w-full sm:w-auto touch-manipulation focus:ring-green-500', DesignTokens.colors.neutral.border[300])}
                 >
                   {(() => {
                     // Organize labs by category for dropdown
@@ -1033,6 +1081,7 @@ function LabsSection({
                 return (
                   <div
                     key={key}
+                    data-lab-key={key}
                     className={combineClasses(
                       'relative cursor-pointer',
                       DesignTokens.transitions.all,
