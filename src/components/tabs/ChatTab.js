@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import PropTypes from 'prop-types';
 import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square, HelpCircle, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import QuestionCards, { removeQuestionsFromText } from '../QuestionCards';
@@ -2173,3 +2174,8 @@ export default function ChatTab({ onTabChange }) {
   );
 }
 
+
+
+ChatTab.propTypes = {
+  onTabChange: PropTypes.func.isRequired
+};

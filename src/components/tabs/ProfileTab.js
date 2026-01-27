@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import PropTypes from 'prop-types';
 import { Camera, User, Calendar, MapPin, TrendingUp, Activity, Edit2, Dna, Upload, AlertCircle, Users, Phone, Plus, Settings, Link2, Loader2, Unlink, LogOut, Trash2, Sliders, Shield, HeartHandshake, Copy, MoreVertical } from 'lucide-react';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { signOut, linkWithPopup, unlink, GoogleAuthProvider, deleteUser, EmailAuthProvider, linkWithCredential, reauthenticateWithCredential, reauthenticateWithPopup, updatePassword } from 'firebase/auth';
@@ -1837,3 +1838,8 @@ export default function ProfileTab({ onTabChange }) {
   );
 }
 
+
+
+ProfileTab.propTypes = {
+  onTabChange: PropTypes.func.isRequired
+};

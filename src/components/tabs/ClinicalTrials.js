@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import PropTypes from 'prop-types';
 import { CheckCircle, AlertTriangle, XCircle, Search as SearchIcon, MapPin, Globe, X, MessageSquare, Bookmark, FlaskConical, FileText, ChevronDown, ChevronUp, Loader2, Bot } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { auth } from '../../firebase/config';
@@ -1465,3 +1466,10 @@ const ClinicalTrials = ({ onTrialSelected, resetKey, onOpenMobileChat }) => {
 };
 
 export default ClinicalTrials;
+
+
+ClinicalTrials.propTypes = {
+  onTrialSelected: PropTypes.func,
+  resetKey: PropTypes.any,
+  onOpenMobileChat: PropTypes.func
+};

@@ -1,25 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, BarChart, Heart, Thermometer, Pill, Plus, Upload, Edit2, X, TrendingUp, TrendingDown, Minus, Activity, Info, Calendar, Clock, Check, AlertCircle, Trash2, MoreVertical, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Eye, EyeOff, Star, ClipboardList, Bot } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
+import { BarChart, Heart, Thermometer, Pill, ClipboardList, Bot } from 'lucide-react';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
 import { useBanner } from '../../contexts/BannerContext';
-import { labService, vitalService, symptomService, patientService } from '../../firebase/services';
-import { getLabStatus, getVitalStatus, getWeightNormalRange } from '../../utils/healthUtils';
-import { normalizeLabName, getLabDisplayName, labValueDescriptions, normalizeVitalName, getVitalDisplayName, vitalDescriptions, categorizeLabs } from '../../utils/normalizationUtils';
-import { categoryIcons, categoryDescriptions } from '../../constants/categories';
-import { getTodayLocalDate, formatDateString } from '../../utils/helpers';
-// Symptom and Medication modals are now handled by their respective section components
-import AddLabModal from '../modals/AddLabModal';
-import AddVitalModal from '../modals/AddVitalModal';
-import AddVitalValueModal from '../modals/AddVitalValueModal';
-import AddLabValueModal from '../modals/AddLabValueModal';
-import EditLabModal from '../modals/EditLabModal';
-import DocumentUploadOnboarding from '../modals/DocumentUploadOnboarding';
-import DeletionConfirmationModal from '../modals/DeletionConfirmationModal';
+import { labService, vitalService, symptomService } from '../../firebase/services';
 import UploadProgressOverlay from '../UploadProgressOverlay';
-import LabTooltipModal from '../modals/LabTooltipModal';
 import { processDocument, generateChatSummary } from '../../services/documentProcessor';
 import { uploadDocument } from '../../firebase/storage';
 import LabsSection from './health/sections/LabsSection';
@@ -325,7 +313,9 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
             onClick={() => {
               handleAskAboutHealth().then(() => {
                 onOpenMobileChat();
-              }).catch(() => {});
+              }).catch(error => {
+                console.error('[HealthTab] Failed to prepare health chat:', error);
+              });
             }}
             className="lg:hidden text-medical-neutral-600 hover:text-medical-neutral-900 min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70 flex items-center justify-center transition-colors"
             title="Ask about health data"
@@ -423,3 +413,10 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
   );
 }
 
+
+
+HealthTab.propTypes = {
+  onTabChange: PropTypes.func.isRequired,
+  initialSection: PropTypes.oneOf(['labs', 'vitals', 'symptoms', 'medications']),
+  onOpenMobileChat: PropTypes.func
+};

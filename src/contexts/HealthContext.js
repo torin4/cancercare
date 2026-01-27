@@ -54,10 +54,13 @@ export const HealthProvider = ({ children }) => {
         vitalService.cleanupOrphanedVitals(user.uid)
       ]).then(([labCount, vitalCount]) => {
         if (labCount > 0 || vitalCount > 0) {
+          console.log(`[HealthContext] Cleaned up ${labCount} orphaned labs, ${vitalCount} orphaned vitals`);
         }
       }).catch(error => {
+        console.warn('[HealthContext] Background cleanup failed:', error.message);
       });
     } catch (error) {
+      console.error('[HealthContext] Failed to reload health data:', error);
     } finally {
       setLoading(false);
     }
@@ -104,10 +107,13 @@ export const HealthProvider = ({ children }) => {
           vitalService.cleanupOrphanedVitals(user.uid)
         ]).then(([labCount, vitalCount]) => {
           if (labCount > 0 || vitalCount > 0) {
+            console.log(`[HealthContext] Cleaned up ${labCount} orphaned labs, ${vitalCount} orphaned vitals`);
           }
         }).catch(error => {
+          console.warn('[HealthContext] Background cleanup failed:', error.message);
         });
       } catch (error) {
+        console.error('[HealthContext] Failed to load health data:', error);
       } finally {
         setLoading(false);
       }

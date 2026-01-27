@@ -25,12 +25,15 @@ export const transformLabsData = async (labs) => {
     let mergedKey = normalizedLabType;
     for (const existingKey of Object.keys(labsByType)) {
       // Check if labType or label matches any existing key
-      const labTypeMatch = shouldMergeLabNames(lab.labType, existingKey) || 
+      const labTypeMatch = shouldMergeLabNames(lab.labType, existingKey) ||
                            shouldMergeLabNames(lab.label, existingKey);
-      const existingLab = labsByType[existingKey][0];
-      const existingMatch = shouldMergeLabNames(existingLab.labType, normalizedLabType) ||
-                           shouldMergeLabNames(existingLab.label, normalizedLabType);
-      
+      const existingLabArray = labsByType[existingKey];
+      const existingLab = existingLabArray && existingLabArray.length > 0 ? existingLabArray[0] : null;
+      const existingMatch = existingLab && (
+        shouldMergeLabNames(existingLab.labType, normalizedLabType) ||
+        shouldMergeLabNames(existingLab.label, normalizedLabType)
+      );
+
       if (labTypeMatch || existingMatch) {
         mergedKey = existingKey;
         break;

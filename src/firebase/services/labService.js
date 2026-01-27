@@ -195,7 +195,7 @@ export const labService = {
         if (!testRemainingValues.empty) {
           const mostRecentValue = testRemainingValues.docs[0].data();
           await updateDoc(testLabRef, {
-            currentValue: mostRecentValue.value,
+            currentValue: mostRecentValue?.value ?? null,
             updatedAt: serverTimestamp()
           });
         }
@@ -395,10 +395,10 @@ export const labService = {
         } else {
           const mostRecentValue = testRemainingValues.docs[0].data();
           await updateDoc(testLabRef, {
-            currentValue: mostRecentValue.value,
+            currentValue: mostRecentValue?.value ?? null,
             updatedAt: serverTimestamp()
           });
-          console.log(`deleteLabValue: Updated currentValue for lab ${testLabId} to ${mostRecentValue.value}`);
+          console.log(`deleteLabValue: Updated currentValue for lab ${testLabId} to ${mostRecentValue?.value}`);
         }
       } else {
         // Value not found in this lab - let's check what values actually exist

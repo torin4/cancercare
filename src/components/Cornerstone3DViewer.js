@@ -806,8 +806,12 @@ export default function Cornerstone3DViewer({
         import('@cornerstonejs/tools').then(({ ToolGroupManager }) => {
           try {
             ToolGroupManager.destroyToolGroup(localToolGroupId);
-          } catch (e) { /* ignore */ }
-        }).catch(() => {});
+          } catch (e) {
+            // Tool group may already be destroyed - safe to ignore
+          }
+        }).catch(error => {
+          console.warn('[Cornerstone3D] Failed to load tools for cleanup:', error.message);
+        });
       }
 
       // Destroy rendering engine
@@ -842,7 +846,9 @@ export default function Cornerstone3DViewer({
         } catch (e) {
           console.warn('[Cornerstone3D] Failed to purge cache:', e);
         }
-      }).catch(() => {});
+      }).catch(error => {
+        console.warn('[Cornerstone3D] Failed to load core for cleanup:', error.message);
+      });
 
       // Clear ZIP caches
       unregisterZipImageLoader();

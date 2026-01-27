@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import PropTypes from 'prop-types';
 import { Activity, TrendingUp, Upload, AlertCircle, ClipboardList, Info, Dna, Bookmark, ChevronRight, Search, MessageSquare, X, Heart, Loader2, BarChart, Home, FileText, Plus, FolderOpen, User, Calendar } from 'lucide-react';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
@@ -1269,3 +1270,8 @@ setIsUploading(false);
   );
 }
 
+
+
+DashboardTab.propTypes = {
+  onTabChange: PropTypes.func.isRequired
+};

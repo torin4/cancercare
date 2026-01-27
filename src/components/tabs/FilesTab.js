@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import PropTypes from 'prop-types';
 import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical, Loader2, BookOpen, FileText, MessageSquare, Search, Bot, Trash2, Eye, FileImage } from 'lucide-react';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
@@ -2826,3 +2827,10 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
   );
 }
 
+
+
+FilesTab.propTypes = {
+  onTabChange: PropTypes.func.isRequired,
+  onOpenMobileChat: PropTypes.func,
+  onOpenDicomViewer: PropTypes.func
+};
