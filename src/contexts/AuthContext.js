@@ -17,6 +17,13 @@ export const AuthProvider = ({ children }) => {
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
+    // Check if auth is available (Firebase initialized)
+    if (!auth) {
+      console.warn('⚠️ Firebase Auth not available - check environment variables');
+      setAuthLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setAuthLoading(false);

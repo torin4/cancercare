@@ -13,8 +13,7 @@ const firebaseConfig = {
   appId: process.env.REACT_APP_FIREBASE_APP_ID
 };
 
-// Validate required environment variables (warn only, don't throw)
-// Firebase will handle missing config gracefully with its own error messages
+// Validate required environment variables
 const requiredEnvVars = {
   REACT_APP_FIREBASE_API_KEY: process.env.REACT_APP_FIREBASE_API_KEY,
   REACT_APP_FIREBASE_PROJECT_ID: process.env.REACT_APP_FIREBASE_PROJECT_ID,
@@ -26,27 +25,46 @@ const missingVars = Object.entries(requiredEnvVars)
   .filter(([key, value]) => !value)
   .map(([key]) => key);
 
-if (missingVars.length > 0) {
+const hasValidConfig = missingVars.length === 0;
+
+if (!hasValidConfig) {
   const error = `Missing required environment variables: ${missingVars.join(', ')}`;
-  // Only warn, don't throw - let Firebase handle the error gracefully
-  // This prevents the app from crashing if env vars aren't set yet
   if (process.env.NODE_ENV === 'development') {
     console.error(`⚠️ ${error}`);
     console.error('Please check your .env file');
   } else {
-    // In production, log to console but don't throw
-    // Firebase initialization will fail gracefully if config is invalid
     console.warn(`⚠️ ${error} - Firebase features may not work correctly`);
   }
 }
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase only if we have valid config
+// If config is invalid, Firebase will throw an error, so we catch it
+let app = null;
+let db = null;
+let auth = null;
+let storage = null;
 
-// Initialize services
-export const db = getFirestore(app);
-export const auth = getAuth(app);
-export const storage = getStorage(app);
+try {
+  if (hasValidConfig && firebaseConfig.apiKey && firebaseConfig.projectId) {
+    app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    auth = getAuth(app);
+    storage = getStorage(app);
+  } else {
+    // Don't initialize if config is invalid
+    console.warn('⚠️ Firebase not initialized - environment variables missing or invalid');
+  }
+} catch (error) {
+  // Firebase initialization failed - log error but don't crash
+  console.error('⚠️ Firebase initialization failed:', error.message);
+  console.error('Please check your Firebase configuration and environment variables');
+  
+  // Services will be null - code using them should check before use
+  // This prevents the app from crashing on import
+}
 
+// Export services (will be null if initialization failed)
+// Code using these should check if they're null before calling methods
+export { db, auth, storage };
 export default app;
 

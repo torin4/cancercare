@@ -21,6 +21,13 @@ export default function Login({ onLoginSuccess }) {
     setError('');
     setLoading(true);
 
+    // Check if Firebase Auth is available
+    if (!auth) {
+      setError('Firebase is not configured. Please check environment variables.');
+      setLoading(false);
+      return;
+    }
+
     try {
       if (isSignUp) {
         // Create new user
@@ -40,6 +47,13 @@ export default function Login({ onLoginSuccess }) {
   const handleGoogleSignIn = async () => {
     setError('');
     setLoading(true);
+
+    // Check if Firebase Auth is available
+    if (!auth) {
+      setError('Firebase is not configured. Please check environment variables.');
+      setLoading(false);
+      return;
+    }
 
     try {
       const provider = new GoogleAuthProvider();
