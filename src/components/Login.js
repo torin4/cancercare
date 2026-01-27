@@ -57,10 +57,35 @@ export default function Login({ onLoginSuccess }) {
 
     try {
       const provider = new GoogleAuthProvider();
+      // Add additional scopes if needed
+      provider.addScope('profile');
+      provider.addScope('email');
+      
       await signInWithPopup(auth, provider);
       // onLoginSuccess will be called automatically via auth state change
     } catch (err) {
-      setError(err.message || 'Google sign-in failed. Please try again.');
+      // Handle specific error cases with user-friendly messages
+      let errorMessage = 'Google sign-in failed. Please try again.';
+      
+      if (err.code === 'auth/popup-closed-by-user') {
+        // User closed the popup - don't show error, just stop loading
+        setLoading(false);
+        return;
+      } else if (err.code === 'auth/popup-blocked') {
+        errorMessage = 'Popup was blocked by your browser. Please allow popups for this site and try again.';
+      } else if (err.code === 'auth/cancelled-popup-request') {
+        // Multiple popups opened - just stop loading
+        setLoading(false);
+        return;
+      } else if (err.code === 'auth/account-exists-with-different-credential') {
+        errorMessage = 'An account already exists with this email. Please sign in with your email and password instead.';
+      } else if (err.code === 'auth/invalid-api-key' || err.code === 'auth/invalid-credential') {
+        errorMessage = 'Firebase configuration error. Please contact support.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
       setLoading(false);
     }
   };
