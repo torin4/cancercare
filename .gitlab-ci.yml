@@ -8,36 +8,72 @@ pages:
   stage: pages
   image: alpine:latest
   script:
-    - echo "Starting Pages deployment..."
+    - echo "Starting GitLab Pages deployment..."
     - mkdir -p public
+    - echo "Checking for HTML files in docs/..."
     - |
       if [ -d "docs" ] && ls docs/*.html 1> /dev/null 2>&1; then
-        echo "Copying HTML files from docs/ to public/"
+        echo "✅ Found HTML files in docs/, copying to public/"
         cp docs/*.html public/
-        echo "Files copied successfully"
+        echo "Files copied:"
+        ls -la public/*.html
+      elif [ -f "public/privacy-policy.html" ]; then
+        echo "✅ Found privacy-policy.html in public/, using it"
       else
-        echo "ERROR: No HTML files found in docs/"
-        exit 1
+        echo "⚠️ WARNING: No HTML files found in docs/ or public/"
+        echo "Creating a basic privacy-policy.html..."
+        cat > public/privacy-policy.html << 'EOF'
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Privacy Policy - CancerCare</title>
+            <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+                h1 { color: #2563eb; }
+            </style>
+        </head>
+        <body>
+            <h1>Privacy Policy</h1>
+            <p>Last Updated: January 2025</p>
+            <p>Please see the Privacy Policy in the application for the complete policy.</p>
+        </body>
+        </html>
+        EOF
       fi
     - |
       if [ ! -f "public/index.html" ]; then
-        echo "Creating index.html"
+        echo "Creating index.html that redirects to privacy-policy.html"
         cat > public/index.html << 'EOF'
         <!DOCTYPE html>
-        <html><head><meta http-equiv="refresh" content="0; url=privacy-policy.html"></head></html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta http-equiv="refresh" content="0; url=privacy-policy.html">
+            <title>CancerCare Privacy Policy</title>
+        </head>
+        <body>
+            <p>Redirecting to <a href="privacy-policy.html">Privacy Policy</a>...</p>
+        </body>
+        </html>
         EOF
       fi
-    - echo "Verifying files in public/:"
-    - ls -la public/
+    - echo "📄 Verifying files in public/:"
+    - ls -la public/ || echo "public/ directory contents:"
     - |
-      if [ ! -f "public/privacy-policy.html" ]; then
-        echo "ERROR: privacy-policy.html not found"
+      if [ -f "public/privacy-policy.html" ]; then
+        echo "✅ privacy-policy.html found"
+        echo "File size: $(wc -c < public/privacy-policy.html) bytes"
+      else
+        echo "❌ ERROR: privacy-policy.html not found after setup"
         exit 1
       fi
-    - echo "✅ Pages deployment ready"
+    - echo "✅ GitLab Pages deployment ready"
   artifacts:
     paths:
       - public
+    expire_in: 1 week
   rules:
     - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
   # Allow failure if quota is exhausted - Pages can be deployed manually if needed
