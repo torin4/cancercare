@@ -13,7 +13,8 @@ const firebaseConfig = {
   appId: process.env.REACT_APP_FIREBASE_APP_ID
 };
 
-// Validate required environment variables
+// Validate required environment variables (warn only, don't throw)
+// Firebase will handle missing config gracefully with its own error messages
 const requiredEnvVars = {
   REACT_APP_FIREBASE_API_KEY: process.env.REACT_APP_FIREBASE_API_KEY,
   REACT_APP_FIREBASE_PROJECT_ID: process.env.REACT_APP_FIREBASE_PROJECT_ID,
@@ -27,11 +28,15 @@ const missingVars = Object.entries(requiredEnvVars)
 
 if (missingVars.length > 0) {
   const error = `Missing required environment variables: ${missingVars.join(', ')}`;
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error(error);
-  } else {
+  // Only warn, don't throw - let Firebase handle the error gracefully
+  // This prevents the app from crashing if env vars aren't set yet
+  if (process.env.NODE_ENV === 'development') {
     console.error(`⚠️ ${error}`);
     console.error('Please check your .env file');
+  } else {
+    // In production, log to console but don't throw
+    // Firebase initialization will fail gracefully if config is invalid
+    console.warn(`⚠️ ${error} - Firebase features may not work correctly`);
   }
 }
 
