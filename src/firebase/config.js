@@ -66,5 +66,11 @@ try {
 // Export services (will be null if initialization failed)
 // Code using these should check if they're null before calling methods
 export { db, auth, storage };
+
+// Export a helper to check if Firebase is configured
+export function isFirebaseConfigured() {
+  return !!(app && auth && db && storage);
+}
+
 export default app;
 
