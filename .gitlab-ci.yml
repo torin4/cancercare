@@ -1,7 +1,7 @@
 stages:
   - pages
 
-# Build is handled by Vercel externally, so we skip it here to avoid quota issues
+# Build is handled by Vercel externally
 # Only Pages deployment runs in GitLab CI
 
 pages:
@@ -76,5 +76,3 @@ pages:
     expire_in: 1 week
   rules:
     - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
-  # Allow failure if quota is exhausted - Pages can be deployed manually if needed
-  allow_failure: true
