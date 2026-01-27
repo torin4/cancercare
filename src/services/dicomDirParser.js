@@ -129,15 +129,9 @@ function getString(ds, tag, characterSet = null) {
         // Get raw bytes for proper decoding
         const rawBytes = ds.byteArray.subarray(el.dataOffset, el.dataOffset + el.length);
 
-        console.log(`[DICOMDIR] Attempting to decode Japanese text for tag ${tag}`);
-        console.log(`[DICOMDIR] Raw bytes (hex):`, Array.from(rawBytes).map(b => b.toString(16).padStart(2, '0')).join(' '));
-
         const decoded = decodeISO2022JP(rawBytes);
         if (decoded && decoded.trim() && !decoded.includes('?')) {
-          console.log(`[DICOMDIR] Successfully decoded: "${s}" -> "${decoded}"`);
           s = decoded;
-        } else {
-          console.log(`[DICOMDIR] Manual decode failed, keeping original`);
         }
       } catch (decodeError) {
         console.warn(`[DICOMDIR] Failed to decode Japanese text for tag ${tag}:`, decodeError);
@@ -209,7 +203,6 @@ export async function parseDicomDir(dicomDirInput) {
 
     // Check for Specific Character Set (0008,0005)
     const specificCharacterSet = dataSet.string('x00080005') || '';
-    console.log('[DICOMDIR] Character Set detected:', specificCharacterSet);
 
     const seqEl = dataSet.elements[TAGS.DIRECTORY_RECORD_SEQUENCE];
     if (!seqEl || !seqEl.items || seqEl.items.length === 0) {

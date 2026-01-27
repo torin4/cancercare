@@ -323,12 +323,9 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
 
   // Check for context from sessionStorage (search results, individual trial, etc.)
   useEffect(() => {
-    console.log('[ChatSidebar] Checking for context from sessionStorage');
     // Check for no-results message first (from header button when no search results)
     const noResultsMessageStr = sessionStorage.getItem('trialsNoResultsMessage');
-    console.log('[ChatSidebar] trialsNoResultsMessage:', noResultsMessageStr ? 'FOUND' : 'not found');
     if (noResultsMessageStr) {
-      console.log('[ChatSidebar] Found trialsNoResultsMessage - clearing context and setting flag');
       // Clear any context - we'll show the instruction message instead
       setCurrentTrialContext(null);
       setCurrentHealthContext(null);
@@ -392,9 +389,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
 
   // Auto-load context based on active tab
   useEffect(() => {
-    console.log('[ChatSidebar] Auto-load useEffect - user:', !!user, 'chatHistoryLoaded:', chatHistoryLoaded, 'activeTab:', activeTab, 'hasProcessedNoResults:', hasProcessedNoResultsRef.current);
     if (!user || !chatHistoryLoaded) {
-      console.log('[ChatSidebar] Auto-load skipped - waiting for user or chat history');
       return;
     }
 
@@ -407,14 +402,6 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
     const hasNoResultsMessage = sessionStorage.getItem('trialsNoResultsMessage');
     const hasContextFromStorage = hasSearchResultsContext || hasTrialContext || hasNoResultsMessage || hasProcessedNoResultsRef.current;
 
-    console.log('[ChatSidebar] Context check:', {
-      hasSearchResultsContext: !!hasSearchResultsContext,
-      hasTrialContext: !!hasTrialContext,
-      hasNoResultsMessage: !!hasNoResultsMessage,
-      hasProcessedNoResults: hasProcessedNoResultsRef.current,
-      hasContextFromStorage
-    });
-
     const loadContextForTab = async () => {
       // Double-check sessionStorage before loading - in case it was set during this effect
       // Also check the ref to see if we've already processed no-results
@@ -423,27 +410,14 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
       const stillHasNoResults = sessionStorage.getItem('trialsNoResultsMessage');
       const stillHasContextFromStorage = stillHasSearchResults || stillHasTrial || stillHasNoResults || hasProcessedNoResultsRef.current;
       
-      console.log('[ChatSidebar] loadContextForTab - Double-check before loading:', {
-        stillHasSearchResults: !!stillHasSearchResults,
-        stillHasTrial: !!stillHasTrial,
-        stillHasNoResults: !!stillHasNoResults,
-        hasProcessedNoResults: hasProcessedNoResultsRef.current,
-        stillHasContextFromStorage
-      });
-
       if (stillHasContextFromStorage) {
-        console.log('[ChatSidebar] loadContextForTab - Context from storage detected, skipping auto-load');
         return; // Don't auto-load if context was set from sessionStorage
       }
-
-      console.log('[ChatSidebar] loadContextForTab - Starting auto-load for tab:', activeTab);
 
       try {
         if (activeTab === 'health') {
           // Load health context automatically
-          console.log('[ChatSidebar] loadContextForTab - Health tab - loading health context');
           const labs = await labService.getLabs(user.uid);
-          console.log('[ChatSidebar] Health tab - Fetched', labs.length, 'labs');
           const vitals = await vitalService.getVitals(user.uid);
           const symptoms = await symptomService.getSymptoms(user.uid);
 
@@ -463,13 +437,6 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
             return vital;
           }));
 
-          console.log('[ChatSidebar] Health tab - Health context loaded:', {
-            labCount: labsWithValues.length,
-            vitalCount: vitalsWithValues.length,
-            symptomCount: symptoms.length,
-            labNames: labsWithValues.map(l => l.name)
-          });
-
           setCurrentHealthContext({
             labs: labsWithValues,
             vitals: vitalsWithValues,
@@ -486,13 +453,11 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
         } else if (activeTab === 'trials') {
           // NEVER auto-load saved trials - when on trials tab, we should only use context from button clicks
           // If no context is provided, show general trials context (not saved trials)
-          console.log('[ChatSidebar] loadContextForTab - Trials tab - NOT loading saved trials (only use context from button clicks)');
           setCurrentTrialContext(null);
           setCurrentHealthContext(null);
           setCurrentNotebookContext(null);
         } else if (activeTab === 'dashboard') {
           // Dashboard tab - load health context so chat can access patient data
-          console.log('[ChatSidebar] loadContextForTab - Dashboard tab - loading health context');
           const labs = await labService.getLabs(user.uid);
           const vitals = await vitalService.getVitals(user.uid);
           const symptoms = await symptomService.getSymptoms(user.uid);
@@ -534,17 +499,13 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
     // For trials tab, NEVER auto-load saved trials - only use context from button clicks
     // For other tabs, auto-load if no context from sessionStorage
     if (activeTab === 'trials') {
-      console.log('[ChatSidebar] Trials tab - NEVER auto-load saved trials, only use context from button clicks');
       // Don't call loadContextForTab for trials tab - context comes from button clicks only
       return;
     }
     
     // Only auto-load if no context was set from sessionStorage (for non-trials tabs)
     if (!hasContextFromStorage) {
-      console.log('[ChatSidebar] No context from storage - calling loadContextForTab');
       loadContextForTab();
-    } else {
-      console.log('[ChatSidebar] Context from storage detected - skipping auto-load');
     }
   }, [activeTab, user, chatHistoryLoaded]);
 
@@ -643,17 +604,13 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
     try {
       // ALWAYS refresh health context to get latest data - don't use stale cached context
       let healthContextToUse = null;
-      console.log('[ChatSidebar] handleSendMessage - will fetch fresh health context');
 
       // Detect if question would benefit from health data - expanded patterns to catch more health-related questions
       const requiresHealthData = /(explain|analyze|what does|how is|why is|why are|why does|why do|trend|progress|mean|interpret|tell me about|what about|what are|what is|look at|check|show|my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications|data|results|values|numbers|test|tests|marker|markers|metric|metrics|function)|her (lab|labs|vital|vitals|marker|markers|metric|metrics)|ca-125|hemoglobin|blood pressure|heart rate|temperature|weight|tired|fatigue|energy|feeling|feels|symptom|pain|nausea|dizzy|weak|weakness|anemia|blood|cbc|wbc|rbc|platelet|anxiety|depression|sleep|appetite|nauseous|bilirubin|albumin|alb|liver|kidney|renal|function|ast|alt|creatinine|egfr|bun|ldh|crp|glucose|a1c|cholesterol|triglyceride|hdl|ldl|sodium|potassium|calcium|magnesium|phosphorus|protein|globulin|inr|pt|ptt|esr|ferritin|iron|b12|folate|vitamin d|d3|tsh|t3|t4|psa|afp|cea|tumor marker)/i.test(userMessage);
-      console.log('[ChatSidebar] requiresHealthData:', requiresHealthData, 'for message:', userMessage);
 
       if (requiresHealthData && user) {
-        console.log('[ChatSidebar] Fetching health context for message...');
         try {
           const labs = await labService.getLabs(user.uid);
-          console.log('[ChatSidebar] Fetched labs:', labs.length, 'labs');
           const vitals = await vitalService.getVitals(user.uid);
           const symptoms = await symptomService.getSymptoms(user.uid);
           
@@ -678,12 +635,6 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
             vitals: vitalsWithValues,
             symptoms: symptoms
           };
-          console.log('[ChatSidebar] Health context loaded:', {
-            labCount: labsWithValues.length,
-            vitalCount: vitalsWithValues.length,
-            symptomCount: symptoms.length,
-            labNames: labsWithValues.map(l => l.name)
-          });
           setCurrentHealthContext(healthContextToUse);
         } catch (error) {
           console.error('[ChatSidebar] Error loading health context:', error);
@@ -1435,8 +1386,6 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                         const newComplexity = values[parseInt(e.target.value)];
                         const previousComplexity = patientProfile?.responseComplexity || 'standard';
                         
-                        console.log('[ChatSidebar] Complexity change:', { from: previousComplexity, to: newComplexity, sliderValue: e.target.value });
-                        
                         // Update local state first
                         let updatedProfileState = null;
                         setPatientProfile(prev => {
@@ -1452,11 +1401,9 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                           const { patientService } = await import('../firebase/services');
                           // Use the updated state we just set, or fall back to merging with current
                           const profileToSave = updatedProfileState || (patientProfile ? { ...patientProfile, responseComplexity: newComplexity } : { responseComplexity: newComplexity });
-                          console.log('[ChatSidebar] Saving complexity to Firebase:', newComplexity);
                           await patientService.savePatient(user.uid, profileToSave);
                           // Refresh to ensure sync
-                          const refreshed = await refreshPatient();
-                          console.log('[ChatSidebar] Complexity saved, refreshed profile:', refreshed || 'refreshPatient does not return');
+                          await refreshPatient();
                         } catch (error) {
                           console.error('[ChatSidebar] Error saving complexity:', error);
                           setPatientProfile(prev => {
@@ -1546,11 +1493,9 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                         try {
                           const { patientService } = await import('../firebase/services');
                           const profileToSave = updatedProfileState || (patientProfile ? { ...patientProfile, insightDepth } : { insightDepth });
-                          console.log('[ChatSidebar] Saving insight depth to Firebase:', insightDepth);
                           await patientService.savePatient(user.uid, profileToSave);
                           // Refresh to ensure sync
-                          const refreshed = await refreshPatient();
-                          console.log('[ChatSidebar] Insight depth saved, refreshed profile:', refreshed || 'refreshPatient does not return');
+                          await refreshPatient();
                         } catch (error) {
                           console.error('[ChatSidebar] Error saving insight depth:', error);
                           setPatientProfile(prev => {

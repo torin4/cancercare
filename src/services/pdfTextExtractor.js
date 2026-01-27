@@ -25,8 +25,6 @@ export async function extractTextFromPDF(file, options = {}) {
     const pageCount = pdf.numPages;
     const pagesToExtract = Math.min(pageCount, maxPages);
 
-    console.log(`Extracting text from ${pagesToExtract} pages (total: ${pageCount})`);
-
     let fullText = '';
 
     // Extract text from each page
@@ -47,8 +45,6 @@ export async function extractTextFromPDF(file, options = {}) {
 
       fullText += pageText + '\n\n';
     }
-
-    console.log(`Extracted ${fullText.length} characters from ${pagesToExtract} pages`);
 
     return {
       text: fullText.trim(),

@@ -1746,8 +1746,6 @@ export default function ChatTab({ onTabChange }) {
                           const newComplexity = values[parseInt(e.target.value)];
                           const previousComplexity = patientProfile?.responseComplexity || 'standard';
                           
-                          console.log('[ChatTab] Complexity change:', { from: previousComplexity, to: newComplexity, sliderValue: e.target.value });
-                          
                           // Update local state first
                           let updatedProfileState = null;
                           setPatientProfile(prev => {
@@ -1763,11 +1761,9 @@ export default function ChatTab({ onTabChange }) {
                             const { patientService } = await import('../../firebase/services');
                             // Use the updated state we just set, or fall back to merging with current
                             const profileToSave = updatedProfileState || (patientProfile ? { ...patientProfile, responseComplexity: newComplexity } : { responseComplexity: newComplexity });
-                            console.log('[ChatTab] Saving complexity to Firebase:', newComplexity);
                             await patientService.savePatient(user.uid, profileToSave);
                             // Refresh to ensure sync
-                            const refreshed = await refreshPatient();
-                            console.log('[ChatTab] Complexity saved, refreshed profile:', refreshed || 'refreshPatient does not return');
+                            await refreshPatient();
                           } catch (error) {
                             console.error('[ChatTab] Error saving complexity:', error);
                             setPatientProfile(prev => {
@@ -1857,11 +1853,9 @@ export default function ChatTab({ onTabChange }) {
                           try {
                             const { patientService } = await import('../../firebase/services');
                             const profileToSave = updatedProfileState || (patientProfile ? { ...patientProfile, insightDepth } : { insightDepth });
-                            console.log('[ChatTab] Saving insight depth to Firebase:', insightDepth);
                             await patientService.savePatient(user.uid, profileToSave);
                             // Refresh to ensure sync
-                            const refreshed = await refreshPatient();
-                            console.log('[ChatTab] Insight depth saved, refreshed profile:', refreshed || 'refreshPatient does not return');
+                            await refreshPatient();
                           } catch (error) {
                             console.error('[ChatTab] Error saving insight depth:', error);
                             setPatientProfile(prev => {

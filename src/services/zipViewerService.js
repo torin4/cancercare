@@ -37,16 +37,6 @@ import { parseDicomDir, flattenDicomDirStructure } from './dicomDirParser';
  */
 export async function prepareZipForViewing(zipFileOrBuffer, onProgress = null) {
   try {
-    // Debug: Log what we received
-    console.log('[ZIP Viewer] prepareZipForViewing called with:', {
-      type: typeof zipFileOrBuffer,
-      isArrayBuffer: zipFileOrBuffer instanceof ArrayBuffer,
-      isFile: zipFileOrBuffer instanceof File,
-      constructor: zipFileOrBuffer?.constructor?.name,
-      hasByteLength: 'byteLength' in zipFileOrBuffer,
-      hasSize: 'size' in zipFileOrBuffer
-    });
-    
     let arrayBuffer;
     let fileName = 'archive.zip';
     let fileSizeMB = 0;
@@ -64,17 +54,11 @@ export async function prepareZipForViewing(zipFileOrBuffer, onProgress = null) {
       arrayBuffer = zipFileOrBuffer;
       fileSizeMB = arrayBuffer.byteLength / (1024 * 1024);
       fileName = 'archive.zip';
-      console.log(`[ZIP Viewer] Using provided ArrayBuffer (${fileSizeMB.toFixed(1)}MB)`);
     } else if (isFile) {
       // It's a File object - try to read it
       fileName = zipFileOrBuffer.name || 'archive.zip';
       fileSizeMB = zipFileOrBuffer.size / (1024 * 1024);
       
-      // Only log for large files to reduce console noise
-      if (fileSizeMB > 100) {
-        console.log(`[ZIP Viewer] Preparing ZIP: ${fileName} (${fileSizeMB.toFixed(1)}MB)`);
-      }
-
       // Warn about very large files that may cause memory issues
       if (fileSizeMB > 500) {
         console.warn(`[ZIP Viewer] Very large ZIP (${fileSizeMB.toFixed(1)}MB) - may cause memory issues`);
@@ -88,15 +72,7 @@ export async function prepareZipForViewing(zipFileOrBuffer, onProgress = null) {
       }
 
       try {
-        console.log('[ZIP Viewer] Attempting to read File object...');
         arrayBuffer = await zipFileOrBuffer.arrayBuffer();
-        console.log('[ZIP Viewer] Successfully read File, size:', arrayBuffer.byteLength);
-        
-        // Only log memory usage for large files
-        if (fileSizeMB > 100) {
-          const arrayBufferMB = arrayBuffer.byteLength / (1024 * 1024);
-          console.log(`[ZIP Viewer] ZIP loaded: ${arrayBufferMB.toFixed(1)}MB in memory`);
-        }
       } catch (readError) {
         console.error('[ZIP Viewer] Error reading ZIP file:', readError);
         console.error('[ZIP Viewer] Error details:', {
@@ -154,14 +130,11 @@ export async function prepareZipForViewing(zipFileOrBuffer, onProgress = null) {
     
     // If DICOMDIR exists, parse it FIRST and use it to build file list (IMAIOS approach)
     if (dicomDirZipEntry) {
-      console.log('[ZIP Viewer] Found DICOMDIR, parsing...');
       if (onProgress) onProgress(0, 0, 'Parsing DICOMDIR...');
       try {
         const blob = await dicomDirZipEntry.zipEntry.async('blob');
         const ab = await blob.arrayBuffer();
-        console.log('[ZIP Viewer] Calling parseDicomDir with ArrayBuffer size:', ab.byteLength);
         const parseResult = await parseDicomDir(ab);
-        console.log('[ZIP Viewer] parseDicomDir result:', parseResult);
         if (parseResult.success && parseResult.structure) {
           dicomDirStructure = parseResult.structure;
           const flat = flattenDicomDirStructure(parseResult.structure);
@@ -244,7 +217,6 @@ export async function prepareZipForViewing(zipFileOrBuffer, onProgress = null) {
           dicomFileEntries.sort((a, b) => (a.dicomDirSortKey || '').localeCompare(b.dicomDirSortKey || ''));
           
           if (dicomFileEntries.length > 0) {
-            console.log(`[ZIP Viewer] Loaded ${dicomFileEntries.length} DICOM files from DICOMDIR (fast path)`);
           }
         }
       } catch (e) {
@@ -313,7 +285,6 @@ export async function prepareZipForViewing(zipFileOrBuffer, onProgress = null) {
       }
 
       if (dicomFileEntries.length > 0) {
-        console.log(`[ZIP Viewer] Found ${dicomFileEntries.length} DICOM file${dicomFileEntries.length !== 1 ? 's' : ''} (fallback scan)`);
       }
     }
 

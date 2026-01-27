@@ -53,9 +53,7 @@ export const HealthProvider = ({ children }) => {
         labService.cleanupOrphanedLabs(user.uid),
         vitalService.cleanupOrphanedVitals(user.uid)
       ]).then(([labCount, vitalCount]) => {
-        if (labCount > 0 || vitalCount > 0) {
-          console.log(`[HealthContext] Cleaned up ${labCount} orphaned labs, ${vitalCount} orphaned vitals`);
-        }
+        // Cleanup completed silently
       }).catch(error => {
         console.warn('[HealthContext] Background cleanup failed:', error.message);
       });
@@ -106,9 +104,7 @@ export const HealthProvider = ({ children }) => {
           labService.cleanupOrphanedLabs(user.uid),
           vitalService.cleanupOrphanedVitals(user.uid)
         ]).then(([labCount, vitalCount]) => {
-          if (labCount > 0 || vitalCount > 0) {
-            console.log(`[HealthContext] Cleaned up ${labCount} orphaned labs, ${vitalCount} orphaned vitals`);
-          }
+          // Cleanup completed silently
         }).catch(error => {
           console.warn('[HealthContext] Background cleanup failed:', error.message);
         });

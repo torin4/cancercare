@@ -799,16 +799,13 @@ const ClinicalTrials = ({ onTrialSelected, resetKey, onOpenMobileChat }) => {
         {onOpenMobileChat && (
           <button
             onClick={() => {
-              console.log('[ClinicalTrials] Ask button clicked - searchResults:', searchResults?.length || 0);
               // Store search results as context (if available) instead of individual trial
               if (searchResults && searchResults.length > 0) {
-                console.log('[ClinicalTrials] Storing search results context');
                 // Store search results as context for ChatSidebar to use
                 sessionStorage.setItem('currentSearchResultsContext', JSON.stringify(searchResults));
                 // Clear individual trial context to use search results instead
                 sessionStorage.removeItem('currentTrialContext');
               } else {
-                console.log('[ClinicalTrials] No search results - storing no-results message');
                 // No search results - store instruction message for user
                 sessionStorage.setItem('trialsNoResultsMessage', JSON.stringify({
                   type: 'ai',
@@ -817,13 +814,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey, onOpenMobileChat }) => {
                 // Clear any existing context
                 sessionStorage.removeItem('currentSearchResultsContext');
                 sessionStorage.removeItem('currentTrialContext');
-                console.log('[ClinicalTrials] No-results message stored, sessionStorage now has:', {
-                  trialsNoResultsMessage: !!sessionStorage.getItem('trialsNoResultsMessage'),
-                  currentSearchResultsContext: !!sessionStorage.getItem('currentSearchResultsContext'),
-                  currentTrialContext: !!sessionStorage.getItem('currentTrialContext')
-                });
               }
-              console.log('[ClinicalTrials] Opening mobile chat overlay');
               onOpenMobileChat();
             }}
             className="lg:hidden text-medical-neutral-600 hover:text-medical-neutral-900 min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70 flex items-center justify-center transition-colors"

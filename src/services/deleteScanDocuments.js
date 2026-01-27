@@ -38,9 +38,7 @@ export async function deleteAllScanDocuments(userId = null, onProgress = null) {
     }
 
     // Query all documents with category "Scan"
-    console.log(`[Delete Scan] Querying documents with category "Scan" for user ${userId}...`);
     const scanDocuments = await documentService.getDocumentsByCategory(userId, 'Scan');
-    console.log(`[Delete Scan] Found ${scanDocuments.length} document(s) with category "Scan":`, scanDocuments.map(d => ({ id: d.id, fileName: d.fileName || d.name, category: d.category })));
 
     if (onProgress) {
       onProgress(0, scanDocuments.length, `Found ${scanDocuments.length} Scan document(s) to delete`);
@@ -58,8 +56,6 @@ export async function deleteAllScanDocuments(userId = null, onProgress = null) {
 
     // FAST DELETE: Delete all documents in parallel (no logging, no cleanup)
     // This is much faster than using deleteDocument which does logging
-    console.log(`[Delete Scan] Starting fast parallel deletion of ${scanDocuments.length} documents...`);
-    
     let successCount = 0;
     let failureCount = 0;
     const errors = [];
@@ -128,7 +124,6 @@ export async function deleteAllScanDocuments(userId = null, onProgress = null) {
       errors: errors
     };
     
-    console.log(`[Delete Scan] ✅ Deletion complete!`, result);
     return result;
   } catch (error) {
     console.error('Error deleting Scan documents:', error);

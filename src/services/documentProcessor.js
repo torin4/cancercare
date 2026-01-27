@@ -7,6 +7,7 @@ import { classifyDocument } from '../processors/document/classifyDocument';
 import { normalizeLabName } from '../utils/normalizationUtils';
 import { extractDicomMetadata, isDicomFile } from './dicomService';
 import { isZipFile, extractDicomFilesFromZip } from './zipService';
+import logger from '../utils/logger';
 
 // Check if API key is available
 const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
@@ -43,8 +44,6 @@ export async function processDocument(file, userId, patientProfile = null, docum
       hasType: !!file.type
     };
     
-    console.log('processDocument called with:', fileInfo);
-    
     // Check if file is a ZIP archive containing DICOM files (check this FIRST, before any other processing)
     // Do this check multiple ways to be absolutely sure
     const fileIsZip = isZipFile(file);
@@ -52,30 +51,20 @@ export async function processDocument(file, userId, patientProfile = null, docum
     const isZipByExtension = fileNameLower.endsWith('.zip');
     const isZipByMimeType = fileInfo.fileType === 'application/zip' || fileInfo.fileType === 'application/x-zip-compressed';
     
-    console.log('ZIP detection results:', {
-      isZipFile: fileIsZip,
-      isZipByExtension,
-      isZipByMimeType,
-      fileName: fileInfo.fileName,
-      fileType: fileInfo.fileType
-    });
-    
     // Check if input is ArrayBuffer (for ZIP files that were pre-read)
     const isArrayBuffer = file instanceof ArrayBuffer || 
                          (file && typeof file.byteLength === 'number' && !(file instanceof File));
     
     if (fileIsZip || isZipByExtension || isZipByMimeType || isArrayBuffer) {
-      console.log('ZIP file/ArrayBuffer confirmed, extracting DICOM files...');
       try {
         if (onProgress) {
           onProgress(null, 'Detected ZIP archive, extracting DICOM files...');
         }
         // processZipFile now accepts both File and ArrayBuffer
         const zipResult = await processZipFile(file, userId, patientProfile, documentDate, documentNote, onProgress);
-        console.log('ZIP processing result:', zipResult);
         return zipResult;
       } catch (error) {
-        console.error('ZIP processing error:', error);
+        logger.error('ZIP processing error:', error);
         // Wrap ZIP processing errors with more context
         throw new Error(`Failed to process ZIP archive: ${error.message || 'Unknown error'}`);
       }
@@ -101,7 +90,7 @@ export async function processDocument(file, userId, patientProfile = null, docum
       (mimeTypeCheck === 'application/octet-stream' && lowerNameCheck.endsWith('.zip'));
     
     if (isZipByAnyMeans) {
-      console.error('CRITICAL: ZIP file detected in safety check but was not caught earlier!', {
+      logger.error('CRITICAL: ZIP file detected in safety check but was not caught earlier!', {
         fileName: fileInfo.fileName,
         fileType: fileInfo.fileType,
         fileSize: fileInfo.fileSize,
@@ -118,12 +107,6 @@ export async function processDocument(file, userId, patientProfile = null, docum
     if (file.size > maxSizeForBase64) {
       throw new Error(`File is too large (${(file.size / 1024 / 1024).toFixed(1)}MB) to process with AI. Maximum size is ${maxSizeForBase64 / 1024 / 1024}MB. Please split the file or use a different format.`);
     }
-    
-    console.log('Converting file to base64 for AI processing:', {
-      fileName: file.name,
-      fileType: file.type,
-      fileSize: file.size
-    });
     
     // Convert file to base64 for Gemini API
     const base64Data = await fileToBase64(file);
@@ -236,8 +219,6 @@ async function processZipFile(zipFileOrBuffer, userId, patientProfile = null, do
 
     // Handle on-demand extraction for large ZIPs
     if (extractionResult.extractOnDemand) {
-      console.log(`[ZIP Processor] Large ZIP detected - using on-demand extraction for ${totalFiles} files`);
-
       return {
         success: true,
         documentType: 'Scan',
@@ -272,7 +253,7 @@ async function processZipFile(zipFileOrBuffer, userId, patientProfile = null, do
       };
     }
   } catch (error) {
-    console.error('Error processing ZIP file:', error);
+    logger.error('Error processing ZIP file:', error);
     // Provide more helpful error messages
     if (error.message && (error.message.includes('too large') || error.message.includes('memory'))) {
       throw error; // Already a good error message
@@ -324,11 +305,6 @@ async function processDicomFile(file, userId, patientProfile = null, documentDat
     // DICOM metadata is the authoritative source for dates
     const extractedDate = metadata.studyDateFormatted || metadata.seriesDate || null;
     
-    // Log warning if user provided date but we're using DICOM date
-    if (documentDate && (metadata.studyDate || metadata.seriesDate)) {
-      console.log('[DICOM] Using study/series date from metadata, ignoring user-provided date');
-    }
-
     // Build extracted data structure compatible with existing system
     const extractedData = {
       documentType: 'Scan',
@@ -1011,15 +987,6 @@ GENERAL RULES:
   // But we skip the classification step when documentType is provided
   let finalPrompt = prompt;
   
-  // Log document info for debugging
-  console.log('Sending document to AI:', {
-    mimeType,
-    base64Length: base64Data?.length || 0,
-    promptLength: finalPrompt.length,
-    hasBase64Data: !!base64Data && base64Data.length > 0,
-    documentType: documentType || 'unknown (classifying)'
-  });
-  
   // Validate base64Data before proceeding
   if (!base64Data || typeof base64Data !== 'string' || base64Data.length === 0) {
     throw new Error('Failed to convert file to base64. The file may be too large or corrupted. For ZIP files containing DICOM files, the system should extract them first.');
@@ -1049,13 +1016,10 @@ GENERAL RULES:
   
   const text = response.text();
 
-  // Log raw AI response for debugging
-  console.log('Raw AI response (first 1000 chars):', text.substring(0, 1000));
-
   // Parse JSON response
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    console.error('No JSON found in AI response. Full text:', text);
+    logger.error('No JSON found in AI response. Full text:', text);
     throw new Error('Failed to parse AI response - no JSON found');
   }
 
@@ -1063,22 +1027,11 @@ GENERAL RULES:
   try {
     parsed = JSON.parse(jsonMatch[0]);
   } catch (parseError) {
-    console.error('Failed to parse AI response as JSON:', parseError);
-    console.error('Raw response text:', text.substring(0, 2000));
-    console.error('JSON match:', jsonMatch[0].substring(0, 500));
+    logger.error('Failed to parse AI response as JSON:', parseError);
+    logger.error('Raw response text:', text.substring(0, 2000));
+    logger.error('JSON match:', jsonMatch[0].substring(0, 500));
     throw new Error(`Failed to parse AI response: ${parseError.message}`);
   }
-
-  // Log extracted data for debugging
-  console.log('AI extracted data:', {
-    documentType: parsed.documentType,
-    labsCount: parsed.data?.labs?.length || 0,
-    vitalsCount: parsed.data?.vitals?.length || 0,
-    hasGenomic: !!parsed.data?.genomic,
-    medicationsCount: parsed.data?.medications?.length || 0,
-    rawLabs: parsed.data?.labs,
-    rawVitals: parsed.data?.vitals
-  });
   
   // If no data extracted, log the full parsed response
   if ((!parsed.data?.labs || parsed.data.labs.length === 0) && 
@@ -1212,14 +1165,6 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
     genomic: null
   };
 
-  console.log('saveExtractedData called with:', {
-    hasData: !!extractedData?.data,
-    labsCount: extractedData?.data?.labs?.length || 0,
-    vitalsCount: extractedData?.data?.vitals?.length || 0,
-    hasGenomic: !!extractedData?.data?.genomic,
-    onlyExistingMetrics
-  });
-
   try {
       // If onlyExistingMetrics is enabled, get existing labs and vitals to filter against
       // OPTIMIZATION: Parallelize these queries since they're independent
@@ -1259,7 +1204,6 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
 
     // Save Lab Results
     if (extractedData.data?.labs && Array.isArray(extractedData.data.labs) && extractedData.data.labs.length > 0) {
-      console.log(`Processing ${extractedData.data.labs.length} lab values...`);
       if (onProgress) {
         onProgress(null, `Saving ${extractedData.data.labs.length} lab values...`);
       }
@@ -1273,7 +1217,6 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         if (onlyExistingMetrics) {
           const labTypeKey = (lab.labType || 'other').toLowerCase();
           if (!existingLabTypes.has(labTypeKey)) {
-            console.log(`Skipping lab ${lab.label || lab.labType}: not in existing metrics (onlyExistingMetrics=true)`);
             continue;
           }
         }
@@ -1281,7 +1224,6 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         // Validate that lab has a meaningful value (not empty, "-", "N/A", etc.)
         const value = lab.value;
         if (value === null || value === undefined) {
-          console.log(`Skipping lab ${lab.label || lab.labType}: value is null/undefined`);
           continue;
         }
         
@@ -1291,7 +1233,6 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         // Check for empty/invalid value indicators
         const emptyIndicators = ['-', '—', 'n/a', 'na', 'n.a.', '未測定', '測定なし', '', 'null', 'undefined'];
         if (emptyIndicators.includes(valueStr.toLowerCase())) {
-          console.log(`Skipping lab ${lab.label || lab.labType}: value is empty indicator (${valueStr})`);
           continue;
         }
         
@@ -1302,7 +1243,6 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         if (lab.labType && knownNumericLabs.includes(lab.labType.toLowerCase())) {
           const numValue = parseFloat(valueStr);
           if (isNaN(numValue)) {
-            console.log(`Skipping lab ${lab.label || lab.labType}: value is not a valid number (${valueStr})`);
             continue;
           }
         }
@@ -1423,7 +1363,6 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
 
     // Save Vitals
     if (extractedData.data?.vitals && Array.isArray(extractedData.data.vitals) && extractedData.data.vitals.length > 0) {
-      console.log(`Processing ${extractedData.data.vitals.length} vital values...`);
       if (onProgress) {
         onProgress(null, `Saving ${extractedData.data.vitals.length} vital value${extractedData.data.vitals.length !== 1 ? 's' : ''}...`);
       }
@@ -1738,20 +1677,11 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
     const duration = Date.now() - startTime;
     const totalValues = savedData.labs.length + savedData.vitals.length;
 
-    // Log final summary
-    console.log('saveExtractedData completed:', {
-      labsSaved: savedData.labs.length,
-      vitalsSaved: savedData.vitals.length,
-      medicationsSaved: savedData.medications.length,
-      hasGenomic: !!savedData.genomic,
-      duration: `${(duration / 1000).toFixed(2)}s`
-    });
-
     return savedData;
   } catch (error) {
     const duration = Date.now() - startTime;
-    console.error('Error in saveExtractedData:', error);
-    console.error('Error stack:', error.stack);
+    logger.error('Error in saveExtractedData:', error);
+    logger.error('Error stack:', error.stack);
     throw error;
   }
 }

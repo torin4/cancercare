@@ -365,8 +365,6 @@ export const labService = {
       return docNormalizedType === normalizedLabType;
     });
     
-    console.log(`deleteLabValue: Found ${matchingLabs.length} lab document(s) with normalized type ${normalizedLabType} (original: ${labType}), searching for value ${valueId}`);
-    
     const deletedFromLabs = [];
     
     // Delete the value from ALL lab documents with the same normalized type
@@ -376,10 +374,7 @@ export const labService = {
       const testValueRef = doc(db, COLLECTIONS.LABS, testLabId, 'values', valueId);
       const testValueDoc = await getDoc(testValueRef);
       
-      console.log(`deleteLabValue: Checking lab ${testLabId} (type: ${testLabData.labType}, label: ${testLabData.label}), value exists: ${testValueDoc.exists()}`);
-      
       if (testValueDoc.exists()) {
-        console.log(`deleteLabValue: Found value ${valueId} in lab ${testLabId}, deleting...`);
         await deleteDoc(testValueRef);
         deletedFromLabs.push(testLabId);
         
@@ -391,30 +386,23 @@ export const labService = {
             currentValue: null,
             updatedAt: serverTimestamp()
           });
-          console.log(`deleteLabValue: Cleared currentValue for lab ${testLabId} (no values left)`);
         } else {
           const mostRecentValue = testRemainingValues.docs[0].data();
           await updateDoc(testLabRef, {
             currentValue: mostRecentValue?.value ?? null,
             updatedAt: serverTimestamp()
           });
-          console.log(`deleteLabValue: Updated currentValue for lab ${testLabId} to ${mostRecentValue?.value}`);
         }
       } else {
         // Value not found in this lab - let's check what values actually exist
         const allValuesInLab = await getDocs(query(collection(db, COLLECTIONS.LABS, testLabId, 'values')));
         const existingValueIds = allValuesInLab.docs.map(d => d.id);
-        console.log(`deleteLabValue: Lab ${testLabId} has ${allValuesInLab.size} values with IDs:`, existingValueIds);
-        console.log(`deleteLabValue: Looking for value ID: ${valueId}, but found:`, existingValueIds);
         
         // If the value ID doesn't match but there's only one value, it's likely the one we want
         // This handles cases where the UI has a stale/transformed ID
         if (allValuesInLab.size === 1 && !existingValueIds.includes(valueId)) {
           const actualValueId = existingValueIds[0];
           const actualValueDoc = allValuesInLab.docs[0];
-          const actualValueData = actualValueDoc.data();
-          console.log(`deleteLabValue: Found single value with different ID ${actualValueId}, value: ${actualValueData.value}, date: ${actualValueData.date}`);
-          console.log(`deleteLabValue: Deleting value ${actualValueId} instead of ${valueId} (ID mismatch)`);
           
           // Delete the actual value
           await deleteDoc(actualValueDoc.ref);
@@ -426,13 +414,11 @@ export const labService = {
             currentValue: null,
             updatedAt: serverTimestamp()
           });
-          console.log(`deleteLabValue: Cleared currentValue for lab ${testLabId} (deleted only value)`);
         }
       }
     }
     
     if (deletedFromLabs.length > 0) {
-      console.log(`deleteLabValue: Successfully deleted value ${valueId} from ${deletedFromLabs.length} lab document(s): ${deletedFromLabs.join(', ')}`);
       return;
     }
     
@@ -447,12 +433,10 @@ export const labService = {
           updatedAt: serverTimestamp()
         });
       }
-      console.log(`deleteLabValue: Cleared currentValue for fallback value ${valueId} from all ${matchingLabs.length} lab document(s)`);
       return;
     }
     
     // Value not found anywhere - may have already been deleted
-    console.log(`deleteLabValue: Value ${valueId} not found in any lab document with type ${labType}, may have already been deleted`);
     return;
   },
 

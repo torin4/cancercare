@@ -210,7 +210,6 @@ export default function Cornerstone3DViewer({
       registerZipImageLoader();
 
       cornerstoneInitialized = true;
-      console.log('[Cornerstone3D] Initialized (Stack mode - no volume loader)');
     } catch (err) {
       console.error('[Cornerstone3D] Initialization error:', err);
       throw new Error(`Failed to initialize Cornerstone3D: ${err.message}`);
@@ -238,14 +237,11 @@ export default function Cornerstone3DViewer({
 
     // For ZIP files: Create lazy zipentry: imageIds (NO extraction!)
     if (isMultiSeries && currentFiles.length > 0 && currentFiles[0]?.source === 'zip') {
-      console.log(`[Cornerstone3D] Creating ${currentFiles.length} lazy imageIds for series ${seriesIdx}`);
-
       for (let i = 0; i < currentFiles.length; i++) {
         imageIds.push(generateZipImageId(seriesIdx, i));
       }
     } else {
       // For non-ZIP sources: Still need to create blob URLs
-      console.log(`[Cornerstone3D] Creating ${currentFiles.length} imageIds from non-ZIP source`);
 
       for (let i = 0; i < currentFiles.length; i++) {
         const doc = currentFiles[i];
@@ -280,7 +276,6 @@ export default function Cornerstone3DViewer({
     }
 
     imageIdsRef.current = imageIds;
-    console.log(`[Cornerstone3D] Generated ${imageIds.length} imageIds for stack`);
     return imageIds;
   }, [userId, isMultiSeries]);
 
@@ -356,7 +351,6 @@ export default function Cornerstone3DViewer({
       const maxCache = cache.getMaxCacheSize();
       if (cacheInfo > maxCache * 0.6) {
         // Cache is 60% full, stop prefetching to prevent memory bloat
-        console.log('[Cornerstone3D] Cache 60% full, stopping prefetch');
         break;
       }
 
@@ -368,7 +362,6 @@ export default function Cornerstone3DViewer({
       } catch (err) {
         // Ignore prefetch errors (including cache errors)
         if (err.message?.includes('CACHE_SIZE_EXCEEDED')) {
-          console.log('[Cornerstone3D] Cache full, stopping prefetch');
           break;
         }
       }
@@ -842,7 +835,6 @@ export default function Cornerstone3DViewer({
         // Force cache purge to reclaim memory
         try {
           cache.purgeCache();
-          console.log('[Cornerstone3D] Cache purged on cleanup');
         } catch (e) {
           console.warn('[Cornerstone3D] Failed to purge cache:', e);
         }
@@ -1007,8 +999,6 @@ export default function Cornerstone3DViewer({
         }
       }
 
-      console.log('[DicomViewer] Capturing slices:', slicesToCapture.map(i => i + 1));
-
       const capturedSlices = [];
       const originalIndex = currentIndex;
 
@@ -1038,8 +1028,6 @@ export default function Cornerstone3DViewer({
       if (currentIndex !== originalIndex) {
         await navigateToIndex(originalIndex);
       }
-
-      console.log(`[DicomViewer] Captured ${capturedSlices.length} slices successfully`);
 
       return capturedSlices;
     } catch (error) {

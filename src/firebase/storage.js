@@ -9,12 +9,13 @@ import {
 import { storage, auth } from './config';
 import { documentService } from './services';
 import { parseLocalDate, getTodayLocalDate } from '../utils/helpers';
-import { 
-  validateFile, 
-  sanitizeFilename, 
-  logDocumentAccess, 
-  checkUploadRateLimit 
+import {
+  validateFile,
+  sanitizeFilename,
+  logDocumentAccess,
+  checkUploadRateLimit
 } from '../services/documentSecurityService';
+import logger from '../utils/logger';
 
 /**
  * Upload a file to Firebase Storage and save metadata to Firestore
@@ -33,7 +34,7 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
     }
     
     if (currentUser.uid !== userId) {
-      console.error('Authentication mismatch:', {
+      logger.error('[Storage] Authentication mismatch:', {
         currentUserUid: currentUser.uid,
         providedUserId: userId
       });
@@ -101,10 +102,9 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
     const storagePath = `documents/${userId}/${dateBasedFileName}`;
     const storageRef = ref(storage, storagePath);
 
-    // Log upload attempt for debugging
-    console.log('Uploading file to Storage:', {
+    // Log upload attempt for debugging (dev only)
+    logger.log('[Storage] Uploading file:', {
       storagePath,
-      userId,
       fileName: dateBasedFileName,
       fileSize: file.size,
       fileType: file.type
@@ -132,21 +132,18 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
     let snapshot;
     try {
       snapshot = await uploadBytes(storageRef, file, uploadMetadata);
-      console.log('File uploaded successfully to Storage:', {
+      logger.log('[Storage] File uploaded successfully:', {
         storagePath,
         contentType,
         fileSize: file.size
       });
     } catch (uploadError) {
-      console.error('Upload error:', {
+      logger.error('[Storage] Upload error:', {
         storagePath,
-        userId,
-        currentUserUid: currentUser.uid,
         contentType,
         fileExtension,
         error: uploadError.message,
-        code: uploadError.code,
-        fullError: uploadError
+        code: uploadError.code
       });
       
       // Provide more helpful error messages
@@ -163,7 +160,6 @@ export const uploadDocument = async (file, userId, metadata = {}) => {
     let fileUrl;
     try {
       fileUrl = await getDownloadURL(snapshot.ref);
-      console.log('Download URL obtained successfully');
     } catch (urlError) {
       console.error('getDownloadURL error:', {
         storagePath,
@@ -331,15 +327,6 @@ export const getFileUrl = async (storagePath, userId = null, documentId = null) 
     
     const storageRef = ref(storage, storagePath);
     
-    // Log for debugging permission issues
-    console.log('getFileUrl called:', {
-      storagePath,
-      userId,
-      currentUserUid: currentUser.uid,
-      documentId,
-      pathMatches: storagePath.startsWith('documents/')
-    });
-    
     const downloadUrl = await getDownloadURL(storageRef);
     
     // SECURITY: Log document access for audit trail
@@ -395,16 +382,6 @@ export const downloadFileAsBlob = async (storagePath, existingUrl = null, userId
   // Get storage reference
   const storageRef = ref(storage, storagePath);
 
-  // Log for debugging permission issues
-  console.log('downloadFileAsBlob called:', {
-    storagePath,
-    userId,
-    currentUserUid: currentUser.uid,
-    documentId,
-    hasExistingUrl: !!existingUrl,
-    pathMatches: storagePath.startsWith('documents/')
-  });
-
   // SECURITY: Log document download for audit trail
   if (userId && documentId) {
     try {
@@ -430,14 +407,7 @@ export const downloadFileAsBlob = async (storagePath, existingUrl = null, userId
   if (useDirectDownload && !isDicomFile) {
     // For non-DICOM files, try getBytes() first (might work in some cases)
     try {
-      console.log('Attempting Firebase SDK getBytes (uses Firebase auth)...', {
-        storagePath,
-        userId,
-        currentUserUid: currentUser.uid
-      });
-      
       const bytes = await getBytes(storageRef);
-      console.log('Successfully downloaded file using Firebase SDK getBytes, size:', bytes.length);
       return new Blob([bytes]);
     } catch (sdkError) {
       console.warn('Firebase SDK getBytes failed, will try proxy as fallback:', {
@@ -461,7 +431,6 @@ export const downloadFileAsBlob = async (storagePath, existingUrl = null, userId
     }
   } else if (useDirectDownload && isDicomFile) {
     // For DICOM files, skip getBytes() entirely (will always hit CORS) and go straight to proxy
-    console.log('DICOM file detected - skipping getBytes() (CORS issue) and using proxy directly');
     getBytesFailed = true;
     getBytesError = new Error('DICOM files require proxy due to CORS restrictions');
   }
@@ -547,7 +516,6 @@ export const downloadFileAsBlob = async (storagePath, existingUrl = null, userId
     // But only for non-DICOM files (DICOM files will always fail with CORS)
     if (!isDicomFile) {
       try {
-        console.log('Proxy failed, attempting Firebase SDK getBytes as fallback...');
         const bytes = await getBytes(storageRef);
         return new Blob([bytes]);
       } catch (sdkError) {

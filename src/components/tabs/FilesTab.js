@@ -23,6 +23,7 @@ import NotebookTimeline from '../NotebookTimeline';
 import AddJournalNoteModal from '../modals/AddJournalNoteModal';
 import EditJournalNoteModal from '../modals/EditJournalNoteModal';
 import DocumentMetadataModal from '../modals/DocumentMetadataModal';
+import logger from '../../utils/logger';
 // DicomViewerModal removed - using full-screen DicomViewerPage instead
 
 export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomViewer }) {
@@ -61,7 +62,8 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
   const [showDocumentMetadata, setShowDocumentMetadata] = useState(null);
   // DICOM viewer now handled by parent (full-screen page)
   const [hoveredTooltip, setHoveredTooltip] = useState(null); // Track which tooltip is showing
-  const [debugLogs, setDebugLogs] = useState([]); // Visual debug logs for mobile
+  // Debug logs removed - no longer showing debug panel
+  // const [debugLogs, setDebugLogs] = useState([]); // Visual debug logs for mobile
   const [documentDateRanges, setDocumentDateRanges] = useState({}); // Cache date ranges for documents
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false); // Loading state for documents
   const [openMenuId, setOpenMenuId] = useState(null); // Track which file's menu is open (for mobile)
@@ -96,12 +98,13 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
   const [documentSearchQuery, setDocumentSearchQuery] = useState('');
   const [notebookSearchQuery, setNotebookSearchQuery] = useState('');
 
-  // Debug log helper function
+  // Debug log helper function - disabled (no longer showing debug panel)
   const addDebugLog = useCallback((message, type = 'log') => {
-    setDebugLogs(prev => {
-      const newLog = { message, type, timestamp: new Date().toLocaleTimeString() };
-      return [...prev.slice(-9), newLog]; // Keep last 10 logs
-    });
+    // Debug logging disabled - no longer showing debug panel
+    // setDebugLogs(prev => {
+    //   const newLog = { message, type, timestamp: new Date().toLocaleTimeString() };
+    //   return [...prev.slice(-9), newLog]; // Keep last 10 logs
+    // });
   }, []);
 
   // Helper function to get date range for a document
@@ -648,16 +651,14 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
       if (isZip) {
         try {
           setUploadProgress(`${fileProgressPrefix}Reading ZIP file...`);
-          console.log('[FilesTab] Pre-reading ZIP file as ArrayBuffer...');
           fileArrayBuffer = await file.arrayBuffer();
-          console.log('[FilesTab] Successfully read ZIP file, ArrayBuffer size:', fileArrayBuffer.byteLength);
           
           if (!fileArrayBuffer || fileArrayBuffer.byteLength === 0) {
             throw new Error('ZIP file appears to be empty or could not be read');
           }
         } catch (readErr) {
-          console.error('[FilesTab] Error pre-reading ZIP file:', readErr);
-          console.error('[FilesTab] Error details:', {
+          logger.error('[FilesTab] Error pre-reading ZIP file:', readErr);
+          logger.error('[FilesTab] Error details:', {
             name: readErr.name,
             message: readErr.message,
             fileSize: file.size,
@@ -708,15 +709,13 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
         // Show choice modal: View Now (instant) or Save to Library (upload to Firebase)
         // CRITICAL: Ensure fileArrayBuffer is set before creating the modal
         if (!fileArrayBuffer) {
-          console.error('[FilesTab] ERROR: fileArrayBuffer is null when creating modal!');
+          logger.error('[FilesTab] ERROR: fileArrayBuffer is null when creating modal!');
           throw new Error('Failed to prepare ZIP file for viewing. The file may have been read already.');
         }
         
         // Capture values in closure to ensure they're available when callback is called
         const capturedArrayBuffer = fileArrayBuffer;
         const capturedFile = file;
-        
-        console.log('[FilesTab] Creating ZIP choice modal with ArrayBuffer size:', capturedArrayBuffer.byteLength);
         
         setZipChoiceModal({
           file: capturedFile,
@@ -731,21 +730,14 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
               // Use the pre-read ArrayBuffer directly (more reliable than creating a new File)
               // prepareZipForViewing now accepts ArrayBuffer directly
               if (!capturedArrayBuffer) {
-                console.error('[FilesTab] ERROR: capturedArrayBuffer is null or undefined!');
+                logger.error('[FilesTab] ERROR: capturedArrayBuffer is null or undefined!');
                 throw new Error('ZIP file data is not available. The file may have been read already. Please try uploading again.');
               }
               
               if (!(capturedArrayBuffer instanceof ArrayBuffer)) {
-                console.error('[FilesTab] ERROR: capturedArrayBuffer is not an ArrayBuffer!', typeof capturedArrayBuffer, capturedArrayBuffer);
+                logger.error('[FilesTab] ERROR: capturedArrayBuffer is not an ArrayBuffer!', typeof capturedArrayBuffer, capturedArrayBuffer);
                 throw new Error('ZIP file data is in an invalid format. Please try uploading again.');
               }
-              
-              console.log('[FilesTab] Using ArrayBuffer for viewing, size:', capturedArrayBuffer.byteLength, 'bytes');
-              console.log('[FilesTab] ArrayBuffer type check:', {
-                isArrayBuffer: capturedArrayBuffer instanceof ArrayBuffer,
-                constructor: capturedArrayBuffer.constructor?.name,
-                byteLength: capturedArrayBuffer.byteLength
-              });
               
               // Ensure we're passing the ArrayBuffer, not the File
               const zipViewerResult = await prepareZipForViewing(
@@ -781,7 +773,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
               setIsUploading(false);
               showSuccess(`ZIP loaded for viewing (${totalFiles} files)`);
             } catch (error) {
-              console.error('Error preparing ZIP for viewing:', error);
+              logger.error('Error preparing ZIP for viewing:', error);
               showError(`Failed to load ZIP for viewing: ${error.message || 'Unknown error'}`);
               setIsUploading(false);
             }
@@ -884,7 +876,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
 
                 return { success: true, fileName: uploadedFileName };
               } catch (error) {
-                console.error(`Error processing DICOM file ${fileIndex + 1} from ZIP:`, error);
+                logger.error(`Error processing DICOM file ${fileIndex + 1} from ZIP:`, error);
                 return {
                   success: false,
                   fileName: `File ${displayIndex}`,
@@ -948,10 +940,6 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
           try {
             await reloadHealthData();
             const updatedDocs = await documentService.getDocuments(user.uid);
-            console.log('Reloaded documents after ZIP processing:', {
-              count: updatedDocs.length,
-              documents: updatedDocs.map(d => ({ id: d.id, fileName: d.fileName || d.name, documentType: d.documentType || d.type }))
-            });
 
             if (updatedDocs.length === 0) {
               console.warn('WARNING: No documents found after ZIP processing. Files may not have been saved correctly.');
@@ -961,7 +949,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
             setDocuments(updatedDocs);
             setHasUploadedDocument(updatedDocs.length > 0);
           } catch (reloadError) {
-            console.error('Error reloading documents after ZIP processing:', reloadError);
+            logger.error('Error reloading documents after ZIP processing:', reloadError);
             showError('Files were processed but there was an error loading them. Please refresh the page.');
           }
 
@@ -1235,32 +1223,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
       </div>
       <div className={combineClasses(Layouts.container, Layouts.section)}>
 
-        {/* Visual Debug Panel - Only show if there are logs */}
-      {debugLogs.length > 0 && (
-        <div className="fixed bottom-4 right-4 bg-black/90 text-white p-3 rounded-lg text-xs max-w-xs z-[9999] max-h-64 overflow-y-auto shadow-2xl border border-white/20">
-          <div className="flex items-center justify-between mb-2">
-            <span className="font-bold text-sm">Debug Logs</span>
-            <button 
-              onClick={() => setDebugLogs([])}
-              className="text-white/70 hover:text-white p-1"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="space-y-1 font-mono">
-            {debugLogs.map((log, idx) => (
-              <div key={idx} className={`text-xs break-words ${
-                log.type === 'error' ? DesignTokens.components.alert.text.error.replace('600', '400') : 
-                log.type === 'success' ? DesignTokens.components.status.normal.text.replace('600', '400') : 
-                log.type === 'warning' ? DesignTokens.components.alert.text.warning.replace('700', '400') : 
-                'text-white/90'
-              }`}>
-                <span className="text-white/50 text-[10px]">{log.timestamp}</span> {log.message}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+        {/* Debug panel removed - no longer showing debug logs */}
 
       {/* Tab Navigation with Ask About Button */}
       <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.responsive.md, Layouts.section, 'overflow-x-auto')}>
@@ -1709,7 +1672,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
                                             await deleteDocument(doc.id, doc.storagePath, user.uid);
                                             return { success: true, fileName: doc.fileName };
                                           } catch (fileError) {
-                                            console.error(`Error deleting file ${doc.fileName}:`, fileError);
+                                            logger.error(`Error deleting file ${doc.fileName}:`, fileError);
                                             return { success: false, fileName: doc.fileName, error: fileError };
                                           }
                                         });
@@ -2786,7 +2749,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
               setUploadProgress('');
               showSuccess(`Successfully saved ${files.length} scan file${files.length !== 1 ? 's' : ''} to library`);
             } catch (error) {
-              console.error('Error saving scan files to library:', error);
+              logger.error('Error saving scan files to library:', error);
               setIsUploading(false);
               setUploadProgress('');
               showError(`Failed to save files: ${error.message}`);

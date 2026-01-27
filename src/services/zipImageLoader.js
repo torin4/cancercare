@@ -44,7 +44,6 @@ function ensureMetadataProviderRegistered() {
   }, 999); // High priority
 
   metadataProviderRegistered = true;
-  console.log('[zipImageLoader] Registered single metadata provider for all zipentry: imageIds');
 }
 
 /**
@@ -207,7 +206,6 @@ export function registerZipImageLoader() {
     // Ensure single metadata provider is registered
     ensureMetadataProviderRegistered();
 
-    console.log('[zipImageLoader] Registered zipentry: image loader');
     return true;
   } catch (error) {
     console.error('[zipImageLoader] Failed to register loader:', error);
@@ -223,7 +221,6 @@ export function unregisterZipImageLoader() {
     // Clear all caches
     zipStructureCache.clear();
     metadataCache.clear();
-    console.log('[zipImageLoader] Cleared ZIP structure and metadata caches');
   } catch (error) {
     console.error('[zipImageLoader] Error during cleanup:', error);
   }

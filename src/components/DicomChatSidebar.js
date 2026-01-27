@@ -102,36 +102,18 @@ export default function DicomChatSidebar({
 
       let capturedImages = null; // Can be single image object or array of images
 
-      console.log('[DicomChat] Processing message:', userMessage);
-      console.log('[DicomChat] Needs image:', needsImage);
-      console.log('[DicomChat] Needs multi-slice:', needsMultiSlice);
-      console.log('[DicomChat] Requires image capture:', requiresImageCapture);
-      console.log('[DicomChat] Has onCaptureMultipleSlices:', !!onCaptureMultipleSlices);
-      console.log('[DicomChat] Has onCaptureImage:', !!onCaptureImage);
-
       // Prioritize multi-slice capture if requested
       if (requiresImageCapture && needsMultiSlice && onCaptureMultipleSlices) {
-        console.log('[DicomChat] Attempting multi-slice capture...');
         capturedImages = await onCaptureMultipleSlices();
         if (capturedImages && Array.isArray(capturedImages)) {
-          console.log('[DicomChat] Multi-slice capture successful:', {
-            sliceCount: capturedImages.length,
-            slices: capturedImages.map(s => s.sliceIndex)
-          });
         } else {
           console.warn('[DicomChat] Multi-slice capture requested but failed, falling back to single slice');
           // Fallback to single slice
           capturedImages = onCaptureImage ? onCaptureImage() : null;
         }
       } else if (requiresImageCapture && onCaptureImage) {
-        console.log('[DicomChat] Attempting single image capture...');
         capturedImages = onCaptureImage();
         if (capturedImages) {
-          console.log('[DicomChat] Image captured successfully:', {
-            width: capturedImages.width,
-            height: capturedImages.height,
-            sliceIndex: capturedImages.sliceIndex
-          });
         } else {
           console.warn('[DicomChat] Image capture requested but failed');
         }
@@ -149,15 +131,6 @@ export default function DicomChatSidebar({
         images: isMultiSlice ? capturedImages : null // Multiple images (new multi-slice feature)
       };
 
-      console.log('[DicomChat] DICOM context built:', {
-        hasMetadata: !!metadata,
-        hasImage: isMultiSlice ? false : !!capturedImages,
-        hasMultipleSlices: isMultiSlice,
-        sliceCount: isMultiSlice ? capturedImages.length : 1,
-        sliceIndex: currentIndex + 1,
-        totalSlices: totalFiles
-      });
-
       // Build conversation history
       const conversationHistory = messages.map(msg => ({
         role: msg.role,
@@ -165,7 +138,6 @@ export default function DicomChatSidebar({
       }));
 
       // Send to chat processor with DICOM context
-      console.log('[DicomChat] Calling processChatMessage...');
       const result = await processChatMessage(
         userMessage,
         user?.uid,
@@ -177,10 +149,6 @@ export default function DicomChatSidebar({
         null, // abortSignal
         dicomContext // DICOM context (with optional image)
       );
-
-      console.log('[DicomChat] Received response:', result);
-      console.log('[DicomChat] Response content:', result.response);
-      console.log('[DicomChat] Response type:', typeof result.response);
 
       // Add AI response to chat
       setMessages(prev => [...prev, {

@@ -33,14 +33,12 @@ export async function extractDicomMetadata(file) {
     // Get this first without Japanese encoding check (to avoid circular dependency)
     const specificCharacterSetRaw = dataSet.string('x00080005') || '';
     const specificCharacterSet = specificCharacterSetRaw.trim() || '';
-    console.log('[DICOM] Specific Character Set detected:', specificCharacterSet);
 
     const hasJapaneseEncoding = specificCharacterSet.includes('ISO 2022 IR 87') ||
                                 specificCharacterSet.includes('ISO_IR 87') ||
                                 specificCharacterSet.includes('ISO\\2022\\IR 87') ||
                                 specificCharacterSet.includes('ISO_2022_IR_87');
 
-    console.log('[DICOM] Has Japanese encoding:', hasJapaneseEncoding);
 
     // Extract standard DICOM tags (pass hasJapaneseEncoding and characterSet for proper decoding)
     const metadata = {
@@ -79,9 +77,7 @@ export async function extractDicomMetadata(file) {
       // Institution and Equipment
       institutionName: (() => {
         const rawValue = dataSet.string('x00080080');
-        console.log('[DICOM] Institution name RAW:', rawValue);
         const decoded = getTagValue(dataSet, 'x00080080', hasJapaneseEncoding, specificCharacterSet);
-        console.log('[DICOM] Institution name DECODED:', decoded);
         return decoded || null;
       })(),
       manufacturer: getTagValue(dataSet, 'x00080070', hasJapaneseEncoding, specificCharacterSet) || null,
@@ -152,9 +148,7 @@ function decodeDicomText(dataSet, tag, characterSet, vr = 'LO') {
         normalizedCharSet = 'ISO 2022 IR 87';
       }
 
-      console.log(`Decoding tag ${tag} with character set: "${normalizedCharSet}", raw bytes length: ${rawBytes.length}`);
       const decoded = convertBytes(normalizedCharSet, rawBytes, { vr });
-      console.log(`Decoded result for tag ${tag}: "${decoded}"`);
       return decoded && decoded.trim() ? decoded.trim() : null;
     } catch (decodeError) {
       console.warn(`Failed to decode with dicom-character-set for tag ${tag}, characterSet="${characterSet}":`, decodeError);
@@ -200,7 +194,6 @@ function getTagValue(dataSet, tag, hasJapaneseEncoding = false, specificCharacte
             // Use dicom-character-set library to properly decode from raw bytes
             const decoded = decodeDicomText(dataSet, tag, specificCharacterSet, element.vr || 'LO');
             if (decoded && decoded.trim().length > 0) {
-              console.log(`Successfully decoded Japanese text for tag ${tag}: "${value}" -> "${decoded}"`);
               value = decoded;
             }
           } catch (decodeError) {

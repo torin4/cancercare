@@ -9,6 +9,7 @@ import { detectAllPatterns } from '../utils/patternRecognition';
 import { generateCacheKey, getCachedInsights, setCachedInsights, clearContextCache } from '../utils/insightCache';
 import { translatePattern, generateHeadline, generateExplanation, suggestAction } from '../utils/insightLanguage';
 import { validateAndEnhanceInsights } from '../utils/clinicalInsightValidator';
+import logger from '../utils/logger';
 // Import prompts
 import { buildMainPrompt } from '../prompts/chat/mainPrompt';
 import { getTaskDescription } from '../prompts/chat/taskDescriptions';
@@ -844,7 +845,7 @@ async function buildHealthContextSection(healthContext, userId, patientProfile =
           .slice(0, 3);
       }
     } catch (error) {
-      console.error('Error generating insights:', error);
+      logger.error('Error generating insights:', error);
       // Continue without insights if pattern detection fails
       structuredInsights = [];
     }
@@ -1054,16 +1055,6 @@ function buildChatPrompt({
   dicomContextSection = null
 }) {
   const complexity = responseComplexity || patientProfile?.responseComplexity || 'standard';
-  
-  // Debug logging
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[chatProcessor] Response complexity:', {
-      explicit: responseComplexity,
-      fromProfile: patientProfile?.responseComplexity,
-      final: complexity,
-      profileId: patientProfile?.id || 'no-id'
-    });
-  }
   
   // Get task description using extracted function
   const taskDescription = getTaskDescription(message, trialContextSection, healthContextSection, notebookContextSection);
@@ -1296,8 +1287,6 @@ export async function processChatMessage(message, userId, conversationHistory = 
 
       // Handle simple image attachment (from chat upload)
       if (imageAttachment?.base64) {
-        console.log(`[chatProcessor] Processing simple image attachment: ${imageAttachment.fileName || 'image'}`);
-
         const base64Image = imageAttachment.base64.includes('base64,')
           ? imageAttachment.base64.split('base64,')[1]
           : imageAttachment.base64;
@@ -1317,8 +1306,6 @@ export async function processChatMessage(message, userId, conversationHistory = 
       }
       // Handle multi-slice images (array)
       else if (dicomContext?.images && Array.isArray(dicomContext.images)) {
-        console.log(`[chatProcessor] Processing ${dicomContext.images.length} slices for multi-slice analysis`);
-
         // Add each slice image to the content
         dicomContext.images.forEach((slice, index) => {
           const imageData = slice.imageData;
@@ -1365,13 +1352,11 @@ export async function processChatMessage(message, userId, conversationHistory = 
       }
     } else {
       // Text-only request
-      console.log('[chatProcessor] Making API call with prompt length:', prompt.length);
       try {
         result = await model.generateContent(prompt);
-        console.log('[chatProcessor] API call successful');
       } catch (apiError) {
-        console.error('[chatProcessor] API call failed:', apiError);
-        console.error('[chatProcessor] API error details:', {
+        logger.error('[chatProcessor] API call failed:', apiError);
+        logger.error('[chatProcessor] API error details:', {
           name: apiError.name,
           message: apiError.message,
           stack: apiError.stack,
@@ -1392,9 +1377,8 @@ export async function processChatMessage(message, userId, conversationHistory = 
     try {
       response = await result.response;
       text = response.text();
-      console.log('[chatProcessor] Response received, length:', text.length);
     } catch (responseError) {
-      console.error('[chatProcessor] Error reading response:', responseError);
+      logger.error('[chatProcessor] Error reading response:', responseError);
       throw new Error(`Failed to read API response: ${responseError.message}`);
     }
     
@@ -1410,19 +1394,16 @@ export async function processChatMessage(message, userId, conversationHistory = 
       jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         // No JSON found, just return conversational response
-        console.log('[chatProcessor] No JSON found in response, returning text as-is');
         return {
           response: text,
           extractedData: null
         };
       }
 
-      console.log('[chatProcessor] Parsing JSON response...');
       parsed = JSON.parse(jsonMatch[0]);
-      console.log('[chatProcessor] JSON parsed successfully');
     } catch (parseError) {
-      console.error('[chatProcessor] JSON parse error:', parseError);
-      console.error('[chatProcessor] Response text (first 500 chars):', text.substring(0, 500));
+      logger.error('[chatProcessor] JSON parse error:', parseError);
+      logger.error('[chatProcessor] Response text (first 500 chars):', text.substring(0, 500));
       // If JSON parsing fails, try to return the text as conversational response
       return {
         response: text || 'I received a response but had trouble parsing it. Please try rephrasing your question.',
@@ -1536,7 +1517,7 @@ async function findLabValueToUpdate(labType, date, userId) {
     
     return null;
   } catch (error) {
-    console.error('Error finding lab value to update:', error);
+    logger.error('Error finding lab value to update:', error);
     return null;
   }
 }
@@ -1609,7 +1590,7 @@ async function findVitalValueToUpdate(vitalType, date, userId) {
     
     return null;
   } catch (error) {
-    console.error('Error finding vital value to update:', error);
+    logger.error('Error finding vital value to update:', error);
     return null;
   }
 }
@@ -1634,7 +1615,6 @@ async function removeDuplicateLabValues(labType, userId) {
     });
     
     if (matchingLabs.length === 0) {
-      console.log(`No labs found for type ${labType}`);
       return 0;
     }
     
@@ -1688,11 +1668,10 @@ async function removeDuplicateLabValues(labType, userId) {
           // Keep the first one (oldest), delete the rest
           for (let i = 1; i < sortedGroup.length; i++) {
             try {
-              console.log(`Deleting duplicate: ${labType} value ${sortedGroup[i].value} on ${key.split('_')[0]} (keeping first occurrence)`);
               await labService.deleteLabValue(sortedGroup[i].labId, sortedGroup[i].id);
               totalDeleted++;
             } catch (error) {
-              console.error(`Error deleting duplicate lab value ${sortedGroup[i].id}:`, error);
+              logger.error(`Error deleting duplicate lab value ${sortedGroup[i].id}:`, error);
             }
           }
         }
@@ -1719,10 +1698,9 @@ async function removeDuplicateLabValues(labType, userId) {
       }
     }
     
-    console.log(`Duplicate removal: Checked ${totalChecked} values, deleted ${totalDeleted} duplicates for ${labType}`);
     return totalDeleted;
   } catch (error) {
-    console.error('Error removing duplicate lab values:', error);
+    logger.error('Error removing duplicate lab values:', error);
     throw error;
   }
 }
@@ -1775,7 +1753,7 @@ async function deleteLabValues(labType, date, value, userId) {
             await labService.deleteLabValue(lab.id, val.id);
             deletedCount++;
           } catch (error) {
-            console.error(`Error deleting lab value ${val.id}:`, error);
+            logger.error(`Error deleting lab value ${val.id}:`, error);
           }
         }
       }
@@ -1797,7 +1775,7 @@ async function deleteLabValues(labType, date, value, userId) {
     
     return deletedCount;
   } catch (error) {
-    console.error('Error deleting lab values:', error);
+    logger.error('Error deleting lab values:', error);
     throw error;
   }
 }

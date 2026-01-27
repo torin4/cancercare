@@ -68,7 +68,6 @@ export async function extractDicomFilesFromZip(zipFileOrBuffer, onProgress = nul
       arrayBuffer = zipFileOrBuffer;
       fileSizeMB = arrayBuffer.byteLength / (1024 * 1024);
       fileName = 'archive.zip';
-      console.log(`[ZIP Service] Using provided ArrayBuffer (${fileSizeMB.toFixed(1)}MB)`);
     } else if (zipFileOrBuffer instanceof File) {
       // It's a File object - read it
       fileName = zipFileOrBuffer.name || 'archive.zip';
@@ -76,7 +75,6 @@ export async function extractDicomFilesFromZip(zipFileOrBuffer, onProgress = nul
       
       // Only log for large files
       if (fileSizeMB > 100) {
-        console.log(`[ZIP Service] Processing ZIP: ${fileName} (${fileSizeMB.toFixed(1)}MB)`);
       }
       
       // Warn for very large files
@@ -236,7 +234,6 @@ export async function extractDicomFilesFromZip(zipFileOrBuffer, onProgress = nul
     
     // Only log if significant number of files
     if (dicomFileEntries.length > 0) {
-      console.log(`[ZIP Service] Found ${dicomFileEntries.length} DICOM file${dicomFileEntries.length !== 1 ? 's' : ''}`);
     }
 
     /** @type {{ patients: Array }|null} */
@@ -289,7 +286,6 @@ export async function extractDicomFilesFromZip(zipFileOrBuffer, onProgress = nul
           // Only log if significant number of matches
           const matchedCount = dicomFileEntries.filter((e) => e.dicomDirMeta).length;
           if (matchedCount > 10) {
-            console.log(`[ZIP Service] DICOMDIR parsed: ${matchedCount}/${flat.length} files matched`);
           }
         } else {
           console.warn('[ZIP Service] DICOMDIR parse failed, using fallback order:', parseResult.error);

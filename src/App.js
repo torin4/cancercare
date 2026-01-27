@@ -11,6 +11,7 @@ import DocumentUploadOnboarding from './components/modals/DocumentUploadOnboardi
 import DicomImportFlow from './components/modals/DicomImportFlow';
 import Onboarding from './components/Onboarding';
 import Navigation from './components/Navigation';
+import ErrorBoundary from './components/ErrorBoundary';
 import AddSymptomModal from './components/modals/AddSymptomModal';
 import AddMedicationModal from './components/modals/AddMedicationModal';
 import EditMedicalTeamModal from './components/modals/EditMedicalTeamModal';
@@ -907,15 +908,19 @@ export default function CancerCareApp() {
         )}
 
         {activeTab === 'chat' && (
-          <ChatTab onTabChange={setActiveTab} />
+          <ErrorBoundary title="Chat Error" message="The chat feature encountered an error. Please try again.">
+            <ChatTab onTabChange={setActiveTab} />
+          </ErrorBoundary>
         )}
 
         {activeTab === 'health' && (
-          <HealthTab 
-            onTabChange={setActiveTab} 
-            initialSection={pendingHealthSection}
-            onOpenMobileChat={() => setShowMobileChatOverlay(true)}
-          />
+          <ErrorBoundary title="Health Data Error" message="There was an error loading your health data. Please try again.">
+            <HealthTab
+              onTabChange={setActiveTab}
+              initialSection={pendingHealthSection}
+              onOpenMobileChat={() => setShowMobileChatOverlay(true)}
+            />
+          </ErrorBoundary>
         )}
 
         {activeTab === 'trials' && (
@@ -933,11 +938,13 @@ export default function CancerCareApp() {
         )}
 
         {activeTab === 'files' && (
-          <FilesTab 
-            onTabChange={setActiveTab}
-            onOpenMobileChat={() => setShowMobileChatOverlay(true)}
-            onOpenDicomViewer={setDicomViewerDocuments}
-          />
+          <ErrorBoundary title="Files Error" message="There was an error loading your files. Please try again.">
+            <FilesTab
+              onTabChange={setActiveTab}
+              onOpenMobileChat={() => setShowMobileChatOverlay(true)}
+              onOpenDicomViewer={setDicomViewerDocuments}
+            />
+          </ErrorBoundary>
         )}
 
         {activeTab === 'profile' && (
@@ -946,14 +953,17 @@ export default function CancerCareApp() {
 
         {/* Full-Screen DICOM Viewer */}
         {dicomViewerDocuments && (
-          <>
+          <ErrorBoundary
+            title="DICOM Viewer Error"
+            message="The medical image viewer encountered an error. Please try reopening the image."
+          >
             {/* Cornerstone3D viewer - better memory management for large CT scans */}
             <Cornerstone3DViewer
               documents={dicomViewerDocuments}
               userId={user?.uid}
               onClose={() => setDicomViewerDocuments(null)}
             />
-          </>
+          </ErrorBoundary>
         )}
 
         {/* DeletionConfirmationModal moved to ProfileTab component */}
