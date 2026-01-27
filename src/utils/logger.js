@@ -42,15 +42,18 @@ const logger = {
     // Send to Sentry if available and in production
     if (!isDev) {
       try {
-        // Dynamic import to avoid build errors if Sentry not installed
-        const sentryUtils = require('./sentry');
-        if (sentryUtils && sentryUtils.captureException) {
-          // If first arg is an Error object, capture as exception
-          if (args[0] instanceof Error) {
-            sentryUtils.captureException(args[0], { context: args.slice(1) });
-          } else {
-            // Otherwise capture as message
-            sentryUtils.captureMessage(args.join(' '), 'error');
+        // Use dynamic import to avoid build errors if Sentry not installed
+        // Only import at runtime, not during build
+        if (typeof window !== 'undefined') {
+          const sentryUtils = require('./sentry');
+          if (sentryUtils && sentryUtils.captureException) {
+            // If first arg is an Error object, capture as exception
+            if (args[0] instanceof Error) {
+              sentryUtils.captureException(args[0], { context: args.slice(1) });
+            } else {
+              // Otherwise capture as message
+              sentryUtils.captureMessage(args.join(' '), 'error');
+            }
           }
         }
       } catch (e) {

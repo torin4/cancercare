@@ -6,32 +6,57 @@
  * 2. Get your DSN from: https://sentry.io
  * 3. Add REACT_APP_SENTRY_DSN to your .env file
  * 4. This file will automatically initialize Sentry in production
+ * 
+ * Note: This module works without Sentry installed - it gracefully degrades.
+ * The require() calls are wrapped to prevent webpack from trying to resolve
+ * the module during build time if it's not installed.
  */
 
 let Sentry = null;
+let sentryChecked = false;
 
-// Try to load Sentry (will be null if not installed)
-// Use dynamic import to avoid build errors if package isn't installed
-try {
-  // Check if module exists before requiring
-  if (typeof require !== 'undefined') {
+// Lazy-load Sentry only at runtime to avoid build-time resolution
+// This function is only called at runtime, not during webpack bundling
+function getSentry() {
+  // Return cached value if already checked
+  if (sentryChecked) {
+    return Sentry;
+  }
+  
+  sentryChecked = true;
+  
+  // Only try to load Sentry at runtime (in browser), not during build
+  if (typeof window !== 'undefined') {
+    // We're in the browser (runtime) - safe to try loading
     try {
-      Sentry = require('@sentry/react');
+      // Use eval to prevent webpack from statically analyzing this require
+      // This allows the build to succeed even if @sentry/react isn't installed
+      const requireSentry = new Function('return typeof require !== "undefined" ? require("@sentry/react") : null');
+      Sentry = requireSentry();
     } catch (e) {
-      // Sentry not installed - that's okay, we'll work without it
+      // Module not found or other error - that's okay, we'll work without it
       Sentry = null;
     }
+  } else {
+    // Build time - don't try to load
+    Sentry = null;
   }
-} catch (e) {
-  // Sentry not available - that's okay
-  Sentry = null;
+  
+  return Sentry;
 }
 
 /**
  * Initialize Sentry if available and configured
  */
 export function initSentry() {
-  if (!Sentry) {
+  // Only initialize at runtime, not during build
+  if (typeof window === 'undefined') {
+    return;
+  }
+  
+  const SentryModule = getSentry();
+  
+  if (!SentryModule) {
     // Sentry not installed - skip initialization
     return;
   }
@@ -45,7 +70,7 @@ export function initSentry() {
 
   // Only initialize in production
   if (process.env.NODE_ENV === 'production') {
-    Sentry.init({
+    SentryModule.init({
       dsn: dsn,
       environment: 'production',
       tracesSampleRate: 0.1, // 10% of transactions for performance monitoring
@@ -72,12 +97,19 @@ export function initSentry() {
  * Capture an exception to Sentry
  */
 export function captureException(error, context = {}) {
-  if (!Sentry) {
+  // Only capture at runtime
+  if (typeof window === 'undefined') {
+    return;
+  }
+  
+  const SentryModule = getSentry();
+  
+  if (!SentryModule) {
     return;
   }
 
   if (process.env.NODE_ENV === 'production') {
-    Sentry.captureException(error, {
+    SentryModule.captureException(error, {
       extra: context,
     });
   }
@@ -87,13 +119,20 @@ export function captureException(error, context = {}) {
  * Capture a message to Sentry
  */
 export function captureMessage(message, level = 'info') {
-  if (!Sentry) {
+  // Only capture at runtime
+  if (typeof window === 'undefined') {
+    return;
+  }
+  
+  const SentryModule = getSentry();
+  
+  if (!SentryModule) {
     return;
   }
 
   if (process.env.NODE_ENV === 'production') {
-    Sentry.captureMessage(message, level);
+    SentryModule.captureMessage(message, level);
   }
 }
 
-export default Sentry;
+export default getSentry;
