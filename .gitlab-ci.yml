@@ -7,6 +7,8 @@ stages:
 pages:
   stage: pages
   image: alpine:latest
+  # Optimize for minimal compute minutes usage
+  timeout: 5m
   script:
     - echo "Starting GitLab Pages deployment..."
     - mkdir -p public
