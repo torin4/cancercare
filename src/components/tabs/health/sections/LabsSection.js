@@ -770,7 +770,7 @@ function LabsSection({
                                 return (
                                   <div
                                     key={i}
-                                    className="absolute group"
+                                    className="absolute group lab-chart-point"
                                     style={{
                                       left: `${x}%`,
                                       bottom: `${y}%`,
@@ -781,18 +781,31 @@ function LabsSection({
                                     onMouseLeave={() => setHoveredDataPoint(null)}
                                   >
                                     <div 
-                                      className="absolute inset-0 w-12 h-12 sm:w-10 sm:h-10 -m-6 sm:-m-5 cursor-pointer touch-manipulation"
+                                      className="absolute inset-0 w-12 h-12 sm:w-10 sm:h-10 -m-6 sm:-m-5 cursor-pointer touch-manipulation lab-chart-point-click-area"
                                       style={{ zIndex: 20 }}
                                       onClick={(e) => {
+                                        console.log('[Labs] Click handler called:', {
+                                          pointKey,
+                                          isSelected,
+                                          currentSelectedDataPoint: selectedDataPoint,
+                                          eventTarget: e.target.className
+                                        });
                                         e.stopPropagation();
                                         e.preventDefault();
+                                        e.nativeEvent.stopImmediatePropagation(); // Prevent other handlers from running
+                                        console.log('[Labs] After stopPropagation, isSelected:', isSelected);
                                         if (isSelected) {
+                                          console.log('[Labs] Closing tooltip - setting to null');
                                           setSelectedDataPoint(null);
                                         } else {
+                                          console.log('[Labs] Opening tooltip - setting to:', pointKey);
                                           setSelectedDataPoint(pointKey);
                                         }
                                       }}
-                                      onTouchStart={(e) => e.stopPropagation()}
+                                      onTouchStart={(e) => {
+                                        e.stopPropagation();
+                                        e.nativeEvent.stopImmediatePropagation();
+                                      }}
                                     />
 
                                     <div

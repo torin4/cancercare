@@ -30,8 +30,13 @@ export default function HealthTab({ onTabChange, initialSection = null, onOpenMo
   useEffect(() => {
     if (selectedDataPoint) {
       const handleClickOutside = (e) => {
-        // Don't close if clicking on a button or tooltip
-        if (!e.target.closest('.tooltip-container') && !e.target.closest('button')) {
+        // Don't close if clicking on a button, tooltip, chart point, or chart click area
+        if (!e.target.closest('.tooltip-container') && 
+            !e.target.closest('button') && 
+            !e.target.closest('.vital-chart-point') &&
+            !e.target.closest('.lab-chart-point') &&
+            !e.target.closest('.vital-chart-point-click-area') &&
+            !e.target.closest('.lab-chart-point-click-area')) {
           setSelectedDataPoint(null);
         }
       };

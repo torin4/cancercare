@@ -729,6 +729,19 @@ async function buildHealthContextSection(healthContext, userId, patientProfile =
     // Continue without medications/notes if loading fails
   }
 
+  // Format medications data - show active medications with details
+  const activeMedications = medications.filter(med => med.active && (med.status || 'active') !== 'stopped');
+  const medicationsCount = activeMedications.length;
+  const medicationsSummary = activeMedications.length > 0
+    ? activeMedications.map(med => {
+        const scheduleText = med.schedule && med.schedule !== med.frequency && med.schedule.includes(':')
+          ? ` (Schedule: ${med.schedule})`
+          : '';
+        const statusText = med.status === 'paused' ? ' [PAUSED]' : '';
+        return `${med.name}: ${med.dosage}, ${med.frequency}${scheduleText}${statusText}`;
+      }).join('\n')
+    : 'No active medications';
+
   // Note: Insights are now only generated when patterns are specifically requested
   // Build DICOM scans context section
   let dicomContextSection = '';
@@ -854,7 +867,7 @@ async function buildHealthContextSection(healthContext, userId, patientProfile =
   const contextString = `
 
 ═══════════════════════════════════════════════════════════════════════════════
-HEALTH CONTEXT: The user is asking about their health data (labs, vitals, symptoms)
+HEALTH CONTEXT: The user is asking about their health data (labs, vitals, symptoms, medications)
 ═══════════════════════════════════════════════════════════════════════════════
 
 LAB VALUES (${labsCount} tracked):
@@ -864,6 +877,9 @@ VITAL SIGNS (${vitalsCount} tracked):
 ${vitalsSummary}
 
 SYMPTOMS (${symptomsCount} total, recent: ${recentSymptoms})
+
+MEDICATIONS (${medicationsCount} active):
+${medicationsSummary}
 ${dicomContextSection}
 ${getHealthContextInstructions()}
 

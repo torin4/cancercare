@@ -89,6 +89,7 @@ function VitalsSection({
     }
   }, [patientProfile]);
 
+
   // Toggle favorite metric
   const toggleFavorite = async (metricKey, type) => {
     if (!user || !user.uid) return;
@@ -748,8 +749,18 @@ function VitalsSection({
       const dataLength = Math.max(currentVital.data.length - 1, 1); // Prevent division by zero
       const topPoints = currentVital.data.map((d, i) => {
       const val = (selectedVital === 'bp' || selectedVital === 'bloodpressure') ? (d.systolic || d.value) : d.value;
-      return `${(i / dataLength) * 400},${160 - ((parseFloat(val) - yMin) / yRange) * 160}`;
-      }).join(' ');
+      const numVal = parseFloat(val);
+      // Only include valid numeric values
+      if (isNaN(numVal) || !isFinite(numVal)) {
+        return null;
+      }
+      const y = 160 - ((numVal - yMin) / yRange) * 160;
+      // Ensure y is a valid number
+      if (isNaN(y) || !isFinite(y)) {
+        return null;
+      }
+      return `${(i / dataLength) * 400},${y}`;
+      }).filter(Boolean).join(' ');
       return `${topPoints} 400,160 0,160`;
       })()}
       fill={`url(#gradient-vital-${selectedVital})`}
@@ -761,8 +772,18 @@ function VitalsSection({
       const dataLength = Math.max(currentVital.data.length - 1, 1); // Prevent division by zero
       return currentVital.data.map((d, i) => {
       const val = (selectedVital === 'bp' || selectedVital === 'bloodpressure') ? (d.systolic || d.value) : d.value;
-      return `${(i / dataLength) * 400},${160 - ((parseFloat(val) - yMin) / yRange) * 160}`;
-      }).join(' ');
+      const numVal = parseFloat(val);
+      // Only include valid numeric values
+      if (isNaN(numVal) || !isFinite(numVal)) {
+        return null;
+      }
+      const y = 160 - ((numVal - yMin) / yRange) * 160;
+      // Ensure y is a valid number
+      if (isNaN(y) || !isFinite(y)) {
+        return null;
+      }
+      return `${(i / dataLength) * 400},${y}`;
+      }).filter(Boolean).join(' ');
       })()}
       fill="none"
       stroke="#3b82f6"
@@ -851,40 +872,43 @@ function VitalsSection({
       return (
       <div
       key={i}
-      className="absolute group"
+      className="absolute group vital-chart-point"
       style={{
       left: `${x}%`,
       bottom: `${y}%`,
       transform: 'translate(-50%, 50%)',
-      zIndex: isVitalSelected ? 20 : (isVitalHovered ? 25 : 10)
+      zIndex: isVitalSelected ? 30 : (isVitalHovered ? 25 : 10)
       }}
       onMouseEnter={() => setHoveredDataPoint(vitalPointKey)}
       onMouseLeave={() => setHoveredDataPoint(null)}
       >
       {/* Touch/Click area - larger on mobile */}
-      <div 
-      className="absolute inset-0 w-12 h-12 sm:w-10 sm:h-10 -m-6 sm:-m-5 cursor-pointer touch-manipulation"
+      <div
+      className="absolute inset-0 w-12 h-12 sm:w-10 sm:h-10 -m-6 sm:-m-5 cursor-pointer touch-manipulation vital-chart-point-click-area"
       style={{ zIndex: 20 }}
       onClick={(e) => {
       e.stopPropagation();
       e.preventDefault();
-      // Toggle tooltip on click/tap
-      const pointKey = `${selectedVital}-${d.id}`;
-      if (selectedDataPoint === pointKey) {
-      setSelectedDataPoint(null);
-      } else {
-      setSelectedDataPoint(pointKey);
-      }
+      e.nativeEvent.stopImmediatePropagation();
+      // Use functional update to ensure we're working with latest state
+      // This prevents race conditions with double-click/touch events
+      setSelectedDataPoint(prev => {
+        if (prev === vitalPointKey) {
+          return null; // Toggle off if already selected
+        }
+        return vitalPointKey; // Select this point
+      });
       }}
-      onTouchStart={(e) => {
-      e.stopPropagation();
+      onTouchEnd={(e) => {
+      // Prevent click event from also firing on touch devices
+      e.preventDefault();
       }}
       />
 
       {/* Outer ring on hover or when selected */}
       <div
       className={`absolute inset-0 rounded-full transition-all ${
-      selectedDataPoint === `${selectedVital}-${d.id}` ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+      isVitalSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
       }`}
       style={{
       width: '20px',
@@ -898,7 +922,7 @@ function VitalsSection({
       {/* Data point dot */}
       <div
       className={`rounded-full transition-all relative z-10 ${
-      selectedDataPoint === `${selectedVital}-${d.id}` || isLatest ? 'scale-125' : 'group-hover:scale-125'
+      isVitalSelected || isLatest ? 'scale-125' : 'group-hover:scale-125'
       } ${isLatest ? 'w-3.5 h-3.5' : 'w-3 h-3'}`}
       style={{
       backgroundColor: dotColor,
@@ -912,7 +936,7 @@ function VitalsSection({
       {/* Tooltip with edit and delete buttons - show on hover or when selected */}
       <div 
       className={`absolute ${
-      selectedDataPoint === `${selectedVital}-${d.id}` ? 'opacity-100 pointer-events-auto' : 'opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto'
+      isVitalSelected ? 'opacity-100 pointer-events-auto' : 'opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto'
       } transition-opacity ${
       y > 70 ? 'bottom-full mb-4' : 'top-full mt-4'
       } ${
@@ -934,9 +958,7 @@ function VitalsSection({
       onClick={(e) => {
       e.stopPropagation();
       e.preventDefault();
-      // Close tooltip
       setSelectedDataPoint(null);
-
       const currentVitalDoc = allVitalsData[selectedVital];
       if (currentVitalDoc && currentVitalDoc.id) {
       // Pre-fill with existing value data
@@ -1014,10 +1036,6 @@ function VitalsSection({
       <button
       onClick={(e) => {
       e.stopPropagation();
-      e.preventDefault();
-      // Close tooltip
-      setSelectedDataPoint(null);
-
       // Capture values in closure
       const vitalValueId = d.id;
       const vitalKey = selectedVital;
@@ -1640,9 +1658,10 @@ function VitalsSection({
 
 // Memoize component to prevent unnecessary re-renders
 export default React.memo(VitalsSection, (prevProps, nextProps) => {
+  // selectedDataPoint and hoveredDataPoint are strings, compare directly (not .id)
   return (
-    prevProps.selectedDataPoint?.id === nextProps.selectedDataPoint?.id &&
-    prevProps.hoveredDataPoint?.id === nextProps.hoveredDataPoint?.id &&
+    prevProps.selectedDataPoint === nextProps.selectedDataPoint &&
+    prevProps.hoveredDataPoint === nextProps.hoveredDataPoint &&
     prevProps.onTabChange === nextProps.onTabChange &&
     prevProps.setSelectedDataPoint === nextProps.setSelectedDataPoint &&
     prevProps.setHoveredDataPoint === nextProps.setHoveredDataPoint
