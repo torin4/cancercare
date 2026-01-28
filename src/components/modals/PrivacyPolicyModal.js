@@ -52,7 +52,7 @@ export default function PrivacyPolicyModal({ show, onClose }) {
                 'text-xs mt-0.5',
                 DesignTokens.colors.neutral.text[500]
               )}>
-                Last Updated: January 2025
+                Last Updated: January 2026
               </p>
             </div>
           </div>

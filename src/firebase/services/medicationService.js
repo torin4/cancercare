@@ -68,10 +68,10 @@ export const medicationService = {
   async saveMedication(medicationData) {
     if (medicationData.id) {
       const docRef = doc(db, COLLECTIONS.MEDICATIONS, medicationData.id);
-      await updateDoc(docRef, {
-        ...medicationData,
-        updatedAt: serverTimestamp()
-      });
+      // Avoid storing `id` inside the document body
+      // eslint-disable-next-line no-unused-vars
+      const { id, ...data } = medicationData;
+      await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
       return medicationData.id;
     } else {
       const docRef = await addDoc(collection(db, COLLECTIONS.MEDICATIONS), {
@@ -81,6 +81,25 @@ export const medicationService = {
       });
       return docRef.id;
     }
+  },
+
+  // Pause/resume (toggle active)
+  async setMedicationActive(medId, active) {
+    const docRef = doc(db, COLLECTIONS.MEDICATIONS, medId);
+    // Backwards compatible: treat "active false" as paused, not stopped
+    await updateDoc(docRef, { active: !!active, status: !!active ? 'active' : 'paused', stoppedAt: null, updatedAt: serverTimestamp() });
+  },
+
+  // Stop medication (keep record for history)
+  async stopMedication(medId) {
+    const docRef = doc(db, COLLECTIONS.MEDICATIONS, medId);
+    await updateDoc(docRef, { active: false, status: 'stopped', stoppedAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  },
+
+  // Restart a stopped medication (keeps history but clears stoppedAt)
+  async restartMedication(medId) {
+    const docRef = doc(db, COLLECTIONS.MEDICATIONS, medId);
+    await updateDoc(docRef, { active: true, status: 'active', stoppedAt: null, updatedAt: serverTimestamp() });
   },
 
   // Delete medication

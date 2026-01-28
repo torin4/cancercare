@@ -7,6 +7,7 @@ export { labService } from './services/labService';
 export { vitalService } from './services/vitalService';
 export { medicationService } from './services/medicationService';
 export { medicationLogService } from './services/medicationLogService';
+export { medicationActivityService } from './services/medicationActivityService';
 export { symptomService } from './services/symptomService';
 export { documentService } from './services/documentService';
 export { messageService } from './services/messageService';

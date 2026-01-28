@@ -12,6 +12,7 @@ export const COLLECTIONS = {
   VITALS: 'vitals',
   MEDICATIONS: 'medications',
   MEDICATION_LOGS: 'medicationLogs',
+  MEDICATION_ACTIVITY: 'medicationActivity',
   DOCUMENTS: 'documents',
   MESSAGES: 'messages',
   SYMPTOMS: 'symptoms',

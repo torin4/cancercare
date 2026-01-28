@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, AlertCircle, Plus, Edit2 } from 'lucide-react';
 import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { useBanner } from '../../contexts/BannerContext';
-import { medicationService } from '../../firebase/services';
+import { medicationActivityService, medicationService, journalNoteService } from '../../firebase/services';
 import { getTodayLocalDate, formatDateString } from '../../utils/helpers';
 import DatePicker from '../DatePicker';
 
@@ -22,7 +22,8 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
   const [selectedTimes, setSelectedTimes] = useState({
     morning: false,
     afternoon: false,
-    evening: false
+    evening: false,
+    night: false
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -57,6 +58,7 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
         let morningChecked = false;
         let afternoonChecked = false;
         let eveningChecked = false;
+        let nightChecked = false;
         
         if (editingMedication.schedule && 
             editingMedication.schedule !== editingMedication.frequency &&
@@ -80,12 +82,18 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
               scheduleStr.match(/\b(?:5|6|7|8|9|10|11|12):\d+/i) && scheduleStr.includes('pm')) {
             eveningChecked = true;
           }
+
+          // Check for "night/bedtime" (commonly 10 PM / 22:00)
+          if (scheduleStr.includes('10:00 pm') || scheduleStr.includes('22:00')) {
+            nightChecked = true;
+          }
         }
         
         setSelectedTimes({
           morning: morningChecked,
           afternoon: afternoonChecked,
-          evening: eveningChecked
+          evening: eveningChecked,
+          night: nightChecked
         });
         
         // If schedule equals frequency, treat it as empty (no specific times entered)
@@ -123,7 +131,8 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
         setSelectedTimes({
           morning: false,
           afternoon: false,
-          evening: false
+          evening: false,
+          night: false
         });
       }
       setIsSaving(false);
@@ -226,8 +235,10 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
       // Build schedule from selected checkboxes
       const times = [];
       if (selectedTimes.morning) times.push('8:00 AM');
+      // For 4x daily support we use a more standard q6h-style daytime split
       if (selectedTimes.afternoon) times.push('2:00 PM');
       if (selectedTimes.evening) times.push('8:00 PM');
+      if (selectedTimes.night) times.push('10:00 PM');
       
       // Determine schedule: if times are selected, use them; otherwise use frequency as fallback
       const scheduleValue = times.length > 0 
@@ -250,9 +261,43 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
         color: colorMap[formData.purpose] || 'blue'
       };
 
-      await medicationService.saveMedication(medicationData);
+      const savedId = await medicationService.saveMedication(medicationData);
 
-      showSuccess(editingMedication ? 'Medication updated successfully!' : 'Medication added successfully!');
+      // Activity log (separate from adherence "taken" logs)
+      try {
+        await medicationActivityService.addActivity({
+          patientId: user.uid,
+          medId: editingMedication?.id || savedId,
+          action: editingMedication ? 'updated' : 'added',
+          medName: medicationData.name,
+          details: {
+            frequency: medicationData.frequency,
+            schedule: medicationData.schedule,
+            dosage: medicationData.dosage,
+            purpose: medicationData.purpose
+          }
+        });
+      } catch (e) {
+        // Non-blocking: activity log should not prevent saving meds
+      }
+
+      // Add journal note
+      try {
+        const scheduleText = medicationData.schedule && medicationData.schedule !== medicationData.frequency
+          ? ` Schedule: ${medicationData.schedule}.`
+          : '';
+        await journalNoteService.addJournalNote({
+          patientId: user.uid,
+          date: new Date(),
+          content: editingMedication
+            ? `Updated medication: ${medicationData.name} (${medicationData.dosage}, ${medicationData.frequency}).${scheduleText}`
+            : `Added medication: ${medicationData.name} (${medicationData.dosage}, ${medicationData.frequency}).${scheduleText}`
+        });
+      } catch (e) {
+        // Non-blocking
+      }
+
+      showSuccess(editingMedication ? 'Medication updated (activity logged).' : 'Medication added (activity logged).');
       onClose();
       
       // Notify parent to reload medications
@@ -428,6 +473,15 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
                     className={combineClasses('w-4 h-4', DesignTokens.borders.radius.sm, 'focus:ring-anchor-900', DesignTokens.colors.app.text[600], DesignTokens.colors.neutral.border[300])}
                   />
                   <span className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[700])}>Evening</span>
+                </label>
+                <label className={combineClasses('flex items-center cursor-pointer', DesignTokens.spacing.gap.sm)}>
+                  <input
+                    type="checkbox"
+                    checked={selectedTimes.night}
+                    onChange={(e) => setSelectedTimes({...selectedTimes, night: e.target.checked})}
+                    className={combineClasses('w-4 h-4', DesignTokens.borders.radius.sm, 'focus:ring-anchor-900', DesignTokens.colors.app.text[600], DesignTokens.colors.neutral.border[300])}
+                  />
+                  <span className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[700])}>Night</span>
                 </label>
               </div>
             </div>
