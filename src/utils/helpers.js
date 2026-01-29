@@ -44,6 +44,17 @@ export const getTodayLocalDate = () => {
   return `${year}-${month}-${day}`;
 };
 
+// Helper: current date and time in local timezone for datetime-local input (YYYY-MM-DDTHH:mm)
+export const getCurrentDateTimeLocal = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
 /**
  * Parse a date string in YYYY-MM-DD format as a local date (not UTC)
  * This prevents timezone issues where dates shift by one day

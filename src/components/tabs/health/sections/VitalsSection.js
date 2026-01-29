@@ -30,7 +30,7 @@ import {
 import AddVitalModal from '../../../modals/AddVitalModal';
 import AddVitalValueModal from '../../../modals/AddVitalValueModal';
 import DeletionConfirmationModal from '../../../modals/DeletionConfirmationModal';
-import { getTodayLocalDate, formatDateString } from '../../../../utils/helpers';
+import { getTodayLocalDate, formatDateString, getCurrentDateTimeLocal } from '../../../../utils/helpers';
 import { calculateYAxisBounds } from '../utils/chartUtils';
 
 function VitalsSection({ 
@@ -54,7 +54,7 @@ function VitalsSection({
     value: '', 
     systolic: '', 
     diastolic: '', 
-    dateTime: new Date().toISOString().slice(0, 16), 
+    dateTime: getCurrentDateTimeLocal(), 
     notes: '' 
   });
   const [isEditingVitalValue, setIsEditingVitalValue] = useState(false);
@@ -64,7 +64,7 @@ function VitalsSection({
     value: '', 
     systolic: '', 
     diastolic: '', 
-    dateTime: new Date().toISOString().slice(0, 16), 
+    dateTime: getCurrentDateTimeLocal(), 
     notes: '' 
   });
   const [isEditingVital, setIsEditingVital] = useState(false);
@@ -964,7 +964,7 @@ function VitalsSection({
       // Pre-fill with existing value data
       const valueData = currentVital.data.find(item => item.id === d.id);
       // Extract date from various possible formats, using local time to avoid timezone shift
-      let dateTimeValue = new Date().toISOString().slice(0, 16);
+      let dateTimeValue = getCurrentDateTimeLocal();
 
       // Get the date value (prioritize dateOriginal, then date)
       let dateValue = valueData?.dateOriginal || valueData?.date;
@@ -1490,7 +1490,7 @@ function VitalsSection({
       value: '', 
       systolic: '', 
       diastolic: '', 
-      dateTime: new Date().toISOString().slice(0, 16), 
+      dateTime: getCurrentDateTimeLocal(), 
       notes: '' 
       });
       setIsEditingVitalValue(false);
@@ -1623,7 +1623,7 @@ function VitalsSection({
           setSelectedVitalForValue(null);
           setIsEditingVitalValue(false);
           setEditingVitalValueId(null);
-          setNewVitalValue({ value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
+          setNewVitalValue({ value: '', systolic: '', diastolic: '', dateTime: getCurrentDateTimeLocal(), notes: '' });
         }}
         user={user}
         selectedVitalForValue={selectedVitalForValue}

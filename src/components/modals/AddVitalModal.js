@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, AlertCircle, Heart } from 'lucide-react';
 import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { vitalService } from '../../firebase/services';
 import { useBanner } from '../../contexts/BannerContext';
 import DateTimePicker from '../DateTimePicker';
 import DatePicker from '../DatePicker';
-import { getTodayLocalDate } from '../../utils/helpers';
+import { getTodayLocalDate, getCurrentDateTimeLocal } from '../../utils/helpers';
 
 export default function AddVitalModal({ 
   show, 
@@ -25,13 +25,22 @@ export default function AddVitalModal({
   const { showSuccess, showError } = useBanner();
   const [isAllDay, setIsAllDay] = useState(false);
   const [dateOnly, setDateOnly] = useState(getTodayLocalDate());
+
+  // When modal opens for a new entry, default date/time to current local time
+  useEffect(() => {
+    if (show && !isEditingVital) {
+      setNewVital(prev => ({ ...prev, dateTime: getCurrentDateTimeLocal() }));
+      setIsAllDay(false);
+      setDateOnly(getTodayLocalDate());
+    }
+  }, [show, isEditingVital]);
   
   if (!show) return null;
 
   const handleCancel = () => {
     setIsEditingVital(false);
     setEditingVitalValueId(null);
-    setNewVital({ vitalType: '', value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '', customLabel: '', customUnit: '', customNormalRange: '' });
+    setNewVital({ vitalType: '', value: '', systolic: '', diastolic: '', dateTime: getCurrentDateTimeLocal(), notes: '', customLabel: '', customUnit: '', customNormalRange: '' });
     setIsAllDay(false);
     setDateOnly(getTodayLocalDate());
     onClose();
@@ -246,7 +255,7 @@ export default function AddVitalModal({
 
       setIsEditingVital(false);
       setEditingVitalValueId(null);
-      setNewVital({ vitalType: '', value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '', customLabel: '', customUnit: '', customNormalRange: '' });
+      setNewVital({ vitalType: '', value: '', systolic: '', diastolic: '', dateTime: getCurrentDateTimeLocal(), notes: '', customLabel: '', customUnit: '', customNormalRange: '' });
       setIsAllDay(false);
       setDateOnly(getTodayLocalDate());
       showSuccess(isEditingVital ? 'Vital reading updated successfully!' : 'Vital reading added successfully!');

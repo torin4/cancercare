@@ -5,7 +5,7 @@ import { vitalService } from '../../firebase/services';
 import { useBanner } from '../../contexts/BannerContext';
 import DateTimePicker from '../DateTimePicker';
 import DatePicker from '../DatePicker';
-import { formatDateString, getTodayLocalDate } from '../../utils/helpers';
+import { formatDateString, getTodayLocalDate, getCurrentDateTimeLocal } from '../../utils/helpers';
 
 export default function AddVitalValueModal({ 
   show, 
@@ -35,7 +35,7 @@ export default function AddVitalValueModal({
         const valueToEdit = currentVital.data.find(v => v.id === editingVitalValueId);
         if (valueToEdit) {
           // Extract date from various possible formats, using local time to avoid timezone shift
-          let dateTimeValue = new Date().toISOString().slice(0, 16);
+          let dateTimeValue = getCurrentDateTimeLocal();
           
           // Get the date value (prioritize dateOriginal, then date)
           let dateValue = valueToEdit.dateOriginal || valueToEdit.date;
@@ -144,8 +144,8 @@ export default function AddVitalValueModal({
         }
       }
     } else if (show && !isEditingVitalValue) {
-      // Reset form for new entry
-      setNewVitalValue({ value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
+      // Reset form for new entry - default time to current local time
+      setNewVitalValue({ value: '', systolic: '', diastolic: '', dateTime: getCurrentDateTimeLocal(), notes: '' });
       setIsAllDay(false);
       setDateOnly(getTodayLocalDate());
     }
@@ -163,7 +163,7 @@ export default function AddVitalValueModal({
     setSelectedVitalForValue(null);
     setIsEditingVitalValue(false);
     setEditingVitalValueId(null);
-    setNewVitalValue({ value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
+    setNewVitalValue({ value: '', systolic: '', diastolic: '', dateTime: getCurrentDateTimeLocal(), notes: '' });
     setIsAllDay(false);
     setDateOnly(getTodayLocalDate());
     onClose();
@@ -260,7 +260,7 @@ export default function AddVitalValueModal({
 
       setIsEditingVitalValue(false);
       setEditingVitalValueId(null);
-      setNewVitalValue({ value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
+      setNewVitalValue({ value: '', systolic: '', diastolic: '', dateTime: getCurrentDateTimeLocal(), notes: '' });
       setIsAllDay(false);
       setDateOnly(getTodayLocalDate());
       setSelectedVitalForValue(null);
@@ -366,9 +366,9 @@ export default function AddVitalValueModal({
                 />
               ) : (
                 <DateTimePicker
-                  value={newVitalValue.dateTime || new Date().toISOString().slice(0, 16)}
+                  value={newVitalValue.dateTime || getCurrentDateTimeLocal()}
                   onChange={(e) => setNewVitalValue({ ...newVitalValue, dateTime: e.target.value })}
-                  max={new Date().toISOString().slice(0, 16)}
+                  max={getCurrentDateTimeLocal()}
                   placeholder="Select date and time"
                 />
               )}
