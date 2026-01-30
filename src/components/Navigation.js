@@ -200,13 +200,13 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
           <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={combineClasses('w-full flex items-center py-2.5', DesignTokens.transitions.all, 'group', isActive ? 'text-white bg-white/20 border-r-4 border-white' : 'text-white/80 hover:text-white hover:bg-white/10')}
+                className={combineClasses('w-full flex items-center py-3', DesignTokens.transitions.all, 'group', isActive ? 'text-white bg-white/20 border-r-4 border-white' : 'text-white/80 hover:text-white hover:bg-white/10')}
                 title={!isExpanded ? item.label : ''}
               >
                 <div className="flex-shrink-0 w-20 flex justify-center">
-                  <Icon className={DesignTokens.icons.button.size.full} />
+                  <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
                 </div>
-                <span className={combineClasses(DesignTokens.typography.body.sm, 'font-semibold', 'whitespace-nowrap', DesignTokens.transitions.slow, 'overflow-hidden', DesignTokens.spacing.gap.md, isExpanded ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0')}>
+                <span className={combineClasses('text-sm sm:text-[15px]', 'font-semibold', 'whitespace-nowrap', DesignTokens.transitions.slow, 'overflow-hidden', DesignTokens.spacing.gap.md, isExpanded ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0')}>
                   {item.label}
                 </span>
           </button>
@@ -218,7 +218,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
         <div>
           <button
             onClick={() => setActiveTab('profile')}
-            className={combineClasses('w-full flex items-center py-2.5', DesignTokens.borders.radius.sm, DesignTokens.transitions.all, 'group', activeTab === 'profile' ? 'text-white bg-white/20' : 'text-white/80 hover:text-white hover:bg-white/10')}
+            className={combineClasses('w-full flex items-center py-3', DesignTokens.borders.radius.sm, DesignTokens.transitions.all, 'group', activeTab === 'profile' ? 'text-white bg-white/20' : 'text-white/80 hover:text-white hover:bg-white/10')}
             title={!isExpanded ? 'Profile' : ''}
           >
             <div className="flex-shrink-0 w-20 flex justify-center">
@@ -226,13 +226,13 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
                 <img 
                   src={getProfileImageUrl()} 
                   alt="Profile" 
-                  className={combineClasses(DesignTokens.icons.button.size.full, DesignTokens.borders.radius.full, 'object-cover')}
+                  className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover"
                 />
               ) : (
-              <User className={DesignTokens.icons.button.size.full} />
+              <User className="w-5 h-5 sm:w-6 sm:h-6" />
               )}
             </div>
-            <span className={combineClasses(DesignTokens.typography.body.sm, 'font-semibold', 'whitespace-nowrap', DesignTokens.transitions.slow, 'overflow-hidden', DesignTokens.spacing.gap.md, isExpanded ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0')}>
+            <span className={combineClasses('text-sm sm:text-[15px]', 'font-semibold', 'whitespace-nowrap', DesignTokens.transitions.slow, 'overflow-hidden', DesignTokens.spacing.gap.md, isExpanded ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0')}>
               Profile
             </span>
           </button>
@@ -241,7 +241,8 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
 
       {/* Bottom Navigation - Mobile Only (hidden on chat) */}
       {activeTab !== 'chat' && (
-        <div className={combineClasses(DesignTokens.colors.app[50], 'border-t', DesignTokens.colors.app.border[200], DesignTokens.shadows.lg, DesignTokens.spacing.card.mobile, 'flex-shrink-0 fixed bottom-0 left-0 right-0 z-10 md:hidden')}>
+        <div className={combineClasses(DesignTokens.colors.app[50], 'border-t', DesignTokens.colors.app.border[200], DesignTokens.shadows.lg, 'flex-shrink-0 fixed bottom-0 left-0 right-0 z-10 md:hidden py-2 px-2')}
+          style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))' }}>
           <div className="flex justify-evenly items-center max-w-2xl mx-auto">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -250,12 +251,12 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
             <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-              className={combineClasses('flex flex-col items-center justify-center', DesignTokens.spacing.gap.xs, 'px-2.5 py-2.5', DesignTokens.transitions.all, 'min-h-[44px] flex-1 relative', isActive ? DesignTokens.colors.app.text[900] : combineClasses(DesignTokens.colors.app.text[600], 'hover:' + DesignTokens.colors.app.text[900]))}
+              className={combineClasses('flex flex-col items-center justify-center', DesignTokens.spacing.gap.xs, 'px-1.5 py-1.5', DesignTokens.transitions.all, 'min-h-[36px] flex-1 relative touch-manipulation', isActive ? DesignTokens.colors.app.text[900] : combineClasses(DesignTokens.colors.app.text[600], 'hover:' + DesignTokens.colors.app.text[900]))}
             >
-                  <div className={combineClasses('relative flex items-center justify-center', isActive ? combineClasses(DesignTokens.colors.app[200], DesignTokens.borders.radius.full, 'px-3 py-1.5') : '')}>
-                  <Icon className="w-5 h-5 sm:w-5 sm:h-5" />
+                  <div className={combineClasses('relative flex items-center justify-center', isActive ? combineClasses(DesignTokens.colors.app[200], DesignTokens.borders.radius.full, 'px-2 py-1') : '')}>
+                  <Icon className="w-4 h-4" />
                   </div>
-                  <span className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.typography.h3.weight)}>{item.label}</span>
+                  <span className="text-[11px] font-medium">{item.label}</span>
             </button>
               );
             })}

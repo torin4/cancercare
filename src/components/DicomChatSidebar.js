@@ -237,7 +237,7 @@ export default function DicomChatSidebar({
 
             <div
               className={combineClasses(
-                'max-w-[80%] rounded-lg px-4 py-2',
+                'max-w-[80%] rounded-lg px-4 py-2 min-w-0 overflow-hidden break-words',
                 msg.role === 'user'
                   ? 'bg-blue-600 text-white'
                   : msg.isError
@@ -247,13 +247,20 @@ export default function DicomChatSidebar({
             >
               {msg.role === 'assistant' ? (
                 <div className={combineClasses(
-                  DesignTokens.typography.body.base.sm,
-                  'prose prose-sm max-w-none'
+                  DesignTokens.typography.body.base,
+                  'prose prose-sm max-w-none break-words'
                 )}>
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  <ReactMarkdown
+                    components={{
+                      a: ({node, ...props}) => <a className="break-all underline" {...props} target="_blank" rel="noopener noreferrer" />,
+                      code: ({node, ...props}) => <code className="break-all" {...props} />,
+                    }}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
                 </div>
               ) : (
-                <p className={DesignTokens.typography.body.base.sm}>{msg.content}</p>
+                <p className={DesignTokens.typography.body.base}>{msg.content}</p>
               )}
             </div>
 

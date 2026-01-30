@@ -1437,7 +1437,7 @@ export default function ProfileTab({ onTabChange }) {
                     </span>
                   </div>
                   <p className="text-xs text-medical-neutral-500 mb-3">
-                    Adjust how detailed and technical the chatbot responses are
+                    Adjust response detail and insight depth: Simple = brief answers and basic insights, Advanced = comprehensive explanations and expert analysis
                   </p>
                   <input
                     type="range"
@@ -1499,64 +1499,6 @@ export default function ProfileTab({ onTabChange }) {
                     <span className="text-xs text-medical-neutral-500">Standard</span>
                     <span className="text-xs text-medical-neutral-500">Detailed</span>
                     <span className="text-xs text-medical-neutral-500">Advanced</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Insight Depth Setting */}
-              <div className={combineClasses(DesignTokens.components.card.nestedSubtleLarge, 'mt-4')}>
-                <div className="mb-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium text-medical-neutral-900">
-                      Insight Depth
-                    </p>
-                    <span className="text-xs text-medical-neutral-500">
-                      {patientProfile?.insightDepth === 'basic' ? 'Basic' : 
-                       patientProfile?.insightDepth === 'advanced' ? 'Advanced' : 
-                       patientProfile?.insightDepth === 'expert' ? 'Expert' : 
-                       'Standard'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-medical-neutral-500 mb-3">
-                    Control how detailed insights are (Basic: simple insights, Expert: full statistical analysis)
-                  </p>
-                  <input
-                    type="range"
-                    min="0"
-                    max="3"
-                    value={patientProfile?.insightDepth === 'basic' ? 0 : patientProfile?.insightDepth === 'advanced' ? 2 : patientProfile?.insightDepth === 'expert' ? 3 : 1}
-                    onChange={async (e) => {
-                      const value = parseInt(e.target.value);
-                      const insightDepth = value === 0 ? 'basic' : value === 1 ? 'standard' : value === 2 ? 'advanced' : 'expert';
-                      const previousDepth = patientProfile?.insightDepth || 'standard';
-                      
-                      setPatientProfile(prev => {
-                        if (!prev) return prev;
-                        return { ...prev, insightDepth };
-                      });
-                      
-                      try {
-                        const { patientService } = await import('../../firebase/services');
-                        await patientService.updatePatient(user.uid, { insightDepth });
-                        showSuccess('Insight depth updated');
-                      } catch (error) {
-                        setPatientProfile(prev => {
-                          if (!prev) return prev;
-                          return { ...prev, insightDepth: previousDepth };
-                        });
-                        showError('Failed to update insight depth setting');
-                      }
-                    }}
-                    className="w-full h-2 bg-medical-neutral-200 rounded-lg appearance-none cursor-pointer slider"
-                    style={{
-                      background: `linear-gradient(to right, ${DesignTokens.colors.app[500]} 0%, ${DesignTokens.colors.app[500]} ${((patientProfile?.insightDepth === 'basic' ? 0 : patientProfile?.insightDepth === 'advanced' ? 2 : patientProfile?.insightDepth === 'expert' ? 3 : 1) / 3) * 100}%, ${DesignTokens.colors.app[200]} ${((patientProfile?.insightDepth === 'basic' ? 0 : patientProfile?.insightDepth === 'advanced' ? 2 : patientProfile?.insightDepth === 'expert' ? 3 : 1) / 3) * 100}%, ${DesignTokens.colors.app[200]} 100%)`
-                    }}
-                  />
-                  <div className="flex justify-between mt-1">
-                    <span className="text-xs text-medical-neutral-500">Basic</span>
-                    <span className="text-xs text-medical-neutral-500">Standard</span>
-                    <span className="text-xs text-medical-neutral-500">Advanced</span>
-                    <span className="text-xs text-medical-neutral-500">Expert</span>
                   </div>
                 </div>
               </div>

@@ -402,8 +402,8 @@ export default function AddVitalValueModal({
               onClick={handleSave}
               disabled={
                 !selectedVitalForValue ||
-                (selectedVitalForValue.type === 'bp' && (!newVitalValue.systolic || !newVitalValue.diastolic)) ||
-                (selectedVitalForValue.type !== 'bp' && !newVitalValue.value) ||
+                (isBloodPressure() && (!newVitalValue.systolic || !newVitalValue.diastolic)) ||
+                (!isBloodPressure() && !newVitalValue.value) ||
                 (!isAllDay && !newVitalValue.dateTime) ||
                 (isAllDay && !dateOnly)
               }

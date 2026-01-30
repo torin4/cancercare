@@ -32,7 +32,8 @@ import AddVitalValueModal from '../../../modals/AddVitalValueModal';
 import EditVitalModal from '../../../modals/EditVitalModal';
 import DeletionConfirmationModal from '../../../modals/DeletionConfirmationModal';
 import { getTodayLocalDate, formatDateString, getCurrentDateTimeLocal } from '../../../../utils/helpers';
-import { calculateYAxisBounds } from '../utils/chartUtils';
+import { calculateYAxisBounds, calculateYAxisBoundsForBloodPressure, SCROLL_THRESHOLD } from '../utils/chartUtils';
+import HealthChart from '../components/HealthChart';
 
 function VitalsSection({ 
   onTabChange,
@@ -82,7 +83,7 @@ function VitalsSection({
   const [editingVital, setEditingVital] = useState(null);
   const [editingVitalKey, setEditingVitalKey] = useState(null);
   const [favoriteMetrics, setFavoriteMetrics] = useState({ labs: [], vitals: [] });
-  const [chartTimeRange, setChartTimeRange] = useState('30d'); // '7d' | '30d' | '90d' | 'all'
+  const [chartTimeRange, setChartTimeRange] = useState('90d'); // '7d' | '30d' | '90d' | 'all' - default 3 months
 
   const allVitalsData = vitalsData;
 
@@ -300,30 +301,37 @@ function VitalsSection({
       </div>
 
       {/* Chart time range filter */}
-      {Object.keys(allVitalsData).length > 0 && allVitalsData[selectedVital]?.data?.length > 0 && (
-        <div className="flex items-center gap-1 mb-3">
-          <span className={combineClasses("text-xs font-medium", DesignTokens.colors.neutral.text[600])}>Show:</span>
-          {[
-            { value: '7d', label: '7 days' },
-            { value: '30d', label: '1 month' },
-            { value: '90d', label: '3 months' },
-            { value: 'all', label: 'All' }
-          ].map(({ value, label }) => (
-            <button
-              key={value}
-              onClick={() => setChartTimeRange(value)}
-              className={combineClasses(
-                "px-2.5 py-1 text-xs rounded-md transition-colors min-h-[32px] touch-manipulation",
-                chartTimeRange === value
-                  ? 'bg-anchor-900 text-white'
-                  : combineClasses('border', DesignTokens.colors.neutral.border[300], 'hover:bg-medical-neutral-50', DesignTokens.colors.neutral.text[700])
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
+      {Object.keys(allVitalsData).length > 0 && allVitalsData[selectedVital]?.data?.length > 0 && (() => {
+        const vitalData = filterDataByTimeRange(allVitalsData[selectedVital]?.data || []);
+        const scrollable = chartTimeRange === 'all' && vitalData.length > SCROLL_THRESHOLD;
+        return (
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            <span className={combineClasses("text-xs font-medium", DesignTokens.colors.neutral.text[600])}>Show:</span>
+            {[
+              { value: '7d', label: '7 days' },
+              { value: '30d', label: '1 month' },
+              { value: '90d', label: '3 months' },
+              { value: 'all', label: 'All' }
+            ].map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => setChartTimeRange(value)}
+                className={combineClasses(
+                  "px-2.5 py-1 text-xs rounded-md transition-colors min-h-[32px] touch-manipulation",
+                  chartTimeRange === value
+                    ? 'bg-anchor-900 text-white'
+                    : combineClasses('border', DesignTokens.colors.neutral.border[300], 'hover:bg-medical-neutral-50', DesignTokens.colors.neutral.text[700])
+                )}
+              >
+                {label}
+              </button>
+            ))}
+            {scrollable && (
+              <span className={combineClasses("text-xs", DesignTokens.colors.neutral.text[500])}>← scroll →</span>
+            )}
+          </div>
+        );
+      })()}
 
       {(() => {
       const currentVital = allVitalsData[selectedVital] || {
@@ -357,6 +365,60 @@ function VitalsSection({
       </div>
       );
       }
+
+      const isScrollable = chartTimeRange === 'all' && chartData.length > SCROLL_THRESHOLD;
+
+      // Normal range for vitals (with age-based defaults)
+      const normalRangeForChart = currentVital.normalRange || (() => {
+        const age = patientProfile.age || (patientProfile.dateOfBirth ? Math.floor((new Date() - new Date(patientProfile.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000)) : null);
+        const normalizedKey = normalizeVitalName(selectedVital) || selectedVital.toLowerCase();
+        switch (normalizedKey) {
+          case 'blood_pressure': case 'bp': return age && age < 18 ? '<120/80' : '<140/90';
+          case 'heart_rate': case 'hr':
+            if (age) { if (age < 1) return '100-160'; if (age < 3) return '90-150'; if (age < 10) return '70-120'; if (age < 18) return '60-100'; }
+            return '60-100';
+          case 'temperature': case 'temp': return '97.5-99.5';
+          case 'weight': return patientProfile.height ? getWeightNormalRange(patientProfile.height, patientProfile.gender) : null;
+          case 'oxygen_saturation': case 'o2sat': case 'spo2': return '>95';
+          case 'respiratory_rate': case 'rr':
+            if (age) { if (age < 1) return '30-60'; if (age < 3) return '24-40'; if (age < 12) return '20-30'; }
+            return '12-20';
+          default: return null;
+        }
+      })();
+
+      const isBP = selectedVital === 'bp' || selectedVital === 'bloodpressure' || selectedVital === 'blood_pressure';
+      const bounds = isBP
+        ? calculateYAxisBoundsForBloodPressure(chartData, normalRangeForChart)
+        : calculateYAxisBounds(chartData.map(d => ({ value: d.value })), normalRangeForChart);
+
+      // Transform chartData for HealthChart (BP: value=systolic, diastolic; others: value only)
+      // For BP: parse "136/85" from value field when systolic/diastolic not stored separately (legacy data)
+      const vitalChartData = chartData.map((d, i) => {
+        let value = isBP ? parseFloat(d.systolic ?? d.value) : parseFloat(d.value);
+        let diastolic = isBP ? parseFloat(d.diastolic) : undefined;
+        if (isBP && (d.systolic == null || d.diastolic == null)) {
+          const valueStr = String(d.value ?? '').trim();
+          const parts = valueStr.split('/');
+          if (parts.length === 2) {
+            const sys = parseFloat(parts[0].trim());
+            const dia = parseFloat(parts[1].trim());
+            if (!isNaN(sys)) value = sys;
+            if (!isNaN(dia)) diastolic = dia;
+          }
+        }
+        const displayValue = isBP ? `${value}/${diastolic ?? '—'}` : d.value;
+        const vitalStatus = getVitalStatus(displayValue, normalRangeForChart, selectedVital);
+        return {
+          date: d.date,
+          value: isNaN(value) ? 0 : value,
+          diastolic: isBP && !isNaN(diastolic) ? diastolic : undefined,
+          id: d.id,
+          displayValue,
+          status: vitalStatus.color,
+          pointKey: `${selectedVital}-${d.id ?? i}`,
+        };
+      });
 
       return (
       <>
@@ -470,908 +532,99 @@ function VitalsSection({
       </p>
       </div>
 
-      {/* Chart - Responsive with Y-axis and hover tooltips */}
-      <div className="flex gap-2 sm:gap-3">
-      {/* Y-axis labels */}
-      <div className={combineClasses("flex flex-col justify-between text-xs font-medium py-2", DesignTokens.colors.neutral.text[600])} style={{ paddingBottom: '1.5rem' }}>
-      {(() => {
-      // Filter out non-numeric values and ensure we have valid numbers
-      const values = chartData
-      .map(d => {
-      if (selectedVital === 'bp' || selectedVital === 'bloodpressure') {
-      return parseFloat(d.systolic || d.value);
-      }
-      return parseFloat(d.value);
-      })
-      .filter(v => !isNaN(v) && isFinite(v));
-
-      if (values.length === 0) {
-      return <div className="text-right pr-2 w-10">--</div>;
-      }
-
-      let minVal = Math.min(...values);
-      let maxVal = Math.max(...values);
-
-      // Parse normal range if available (formats: "0-35", "24.0-34.0", "< 0.5", "> 60")
-      if (currentVital.normalRange) {
-      // Try standard range format "X-Y"
-      let rangeMatch = currentVital.normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
-      if (rangeMatch) {
-      const normMin = parseFloat(rangeMatch[1]);
-      const normMax = parseFloat(rangeMatch[2]);
-      if (!isNaN(normMin) && !isNaN(normMax)) {
-      minVal = Math.min(minVal, normMin);
-      maxVal = Math.max(maxVal, normMax);
-      }
-      } else {
-      // Try "< X" format
-      const lessThanMatch = currentVital.normalRange.match(/<\s*(\d+\.?\d*)/);
-      if (lessThanMatch) {
-      const threshold = parseFloat(lessThanMatch[1]);
-      if (!isNaN(threshold)) {
-      minVal = Math.min(minVal, 0);
-      maxVal = Math.max(maxVal, threshold);
-      }
-      } else {
-      // Try "> X" format
-      const greaterThanMatch = currentVital.normalRange.match(/>\s*(\d+\.?\d*)/);
-      if (greaterThanMatch) {
-      const threshold = parseFloat(greaterThanMatch[1]);
-      if (!isNaN(threshold)) {
-      minVal = Math.min(minVal, threshold);
-      }
-      }
-      }
-      }
-      }
-
-      const range = maxVal - minVal;
-      const padding = range * 0.2 || 10; // Fallback if range is 0
-      const yMin = Math.floor(minVal - padding);
-      const yMax = Math.ceil(maxVal + padding);
-      const step = (yMax - yMin) / 4;
-
-      return [4, 3, 2, 1, 0].map(i => (
-      <div key={i} className="text-right pr-2 w-10" style={{ lineHeight: '1' }}>
-      {(yMin + (step * i)).toFixed(maxVal > 100 ? 0 : 1)}
-      </div>
-      ));
-      })()}
-      </div>
-
-      {/* Chart area */}
-      <div className="flex-1">
-      <div className="relative h-40 mb-3">
-      {/* Horizontal grid lines */}
-      <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-      {[0, 1, 2, 3, 4].map(i => (
-      <div key={i} className={combineClasses("border-t", DesignTokens.colors.neutral.border[200])}></div>
-      ))}
-      </div>
-
-      {/* SVG Graph */}
-      {(() => {
-      // Filter out non-numeric values and ensure we have valid numbers
-      const values = chartData
-      .map(d => {
-      if (selectedVital === 'bp' || selectedVital === 'bloodpressure') {
-      return parseFloat(d.systolic || d.value);
-      }
-      return parseFloat(d.value);
-      })
-      .filter(v => !isNaN(v) && isFinite(v));
-
-      if (values.length === 0) {
-      return (
-      <div className={combineClasses("flex items-center justify-center h-full", DesignTokens.colors.neutral.text[300])}>
-      <p>No numeric data available for charting</p>
-      </div>
-      );
-      }
-
-      let minVal = Math.min(...values);
-      let maxVal = Math.max(...values);
-
-      // Get normal range (calculate if not set, especially for weight)
-      const normalRangeForChart = currentVital.normalRange || (() => {
-      const age = patientProfile.age || (patientProfile.dateOfBirth ? Math.floor((new Date() - new Date(patientProfile.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000)) : null);
-      // Normalize the vital key to handle both short and canonical keys
-      const normalizedKey = normalizeVitalName(selectedVital) || selectedVital.toLowerCase();
-
-      switch (normalizedKey) {
-      case 'blood_pressure':
-      case 'bp':
-      return age && age < 18 ? '<120/80' : '<140/90';
-      case 'heart_rate':
-      case 'hr':
-      if (age) {
-      if (age < 1) return '100-160';
-      if (age < 3) return '90-150';
-      if (age < 10) return '70-120';
-      if (age < 18) return '60-100';
-      }
-      return '60-100';
-      case 'temperature':
-      case 'temp':
-      return '97.5-99.5';
-      case 'weight':
-      // Calculate weight normal range based on BMI (18.5-24.9) using height
-      if (patientProfile.height) {
-      return getWeightNormalRange(patientProfile.height, patientProfile.gender);
-      }
-      return null;
-      case 'oxygen_saturation':
-      case 'o2sat':
-      case 'spo2':
-      return '>95';
-      case 'respiratory_rate':
-      case 'rr':
-      if (age) {
-      if (age < 1) return '30-60';
-      if (age < 3) return '24-40';
-      if (age < 12) return '20-30';
-      }
-      return '12-20';
-      default: return null;
-      }
-      })();
-
-      // Parse normal range if available
-      if (normalRangeForChart) {
-      // Special handling for blood pressure format "<140/90"
-      const bpMatch = normalRangeForChart.match(/<\s*(\d+)\/(\d+)/);
-      if (bpMatch && (selectedVital === 'bp' || selectedVital === 'blood_pressure')) {
-      // For BP, use the systolic threshold (first number)
-      const threshold = parseFloat(bpMatch[1]);
-      if (!isNaN(threshold)) {
-      minVal = Math.min(minVal, 0);
-      maxVal = Math.max(maxVal, threshold);
-      }
-      } else {
-      // Try standard range format "X-Y"
-      let rangeMatch = normalRangeForChart.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
-      if (rangeMatch) {
-      const normMin = parseFloat(rangeMatch[1]);
-      const normMax = parseFloat(rangeMatch[2]);
-      if (!isNaN(normMin) && !isNaN(normMax)) {
-      minVal = Math.min(minVal, normMin);
-      maxVal = Math.max(maxVal, normMax);
-      }
-      } else {
-      // Try "< X" format (single number, not BP)
-      const lessThanMatch = normalRangeForChart.match(/<\s*(\d+\.?\d*)/);
-      if (lessThanMatch) {
-      const threshold = parseFloat(lessThanMatch[1]);
-      if (!isNaN(threshold)) {
-      minVal = Math.min(minVal, 0);
-      maxVal = Math.max(maxVal, threshold);
-      }
-      } else {
-      // Try "> X" format
-      const greaterThanMatch = normalRangeForChart.match(/>\s*(\d+\.?\d*)/);
-      if (greaterThanMatch) {
-      const threshold = parseFloat(greaterThanMatch[1]);
-      if (!isNaN(threshold)) {
-      // For "> X" format, include threshold in Y-axis bounds if it's close to data
-      // Only adjust if threshold is within reasonable range of the data
-      if (threshold >= minVal * 0.8 && threshold <= maxVal * 1.2) {
-      minVal = Math.min(minVal, threshold * 0.95);
-      maxVal = Math.max(maxVal, threshold * 1.05);
-      }
-      }
-      }
-      }
-      }
-      }
-      }
-
-      const range = maxVal - minVal;
-      const padding = range * 0.2 || 10; // Fallback if range is 0
-      const yMin = Math.floor(minVal - padding);
-      const yMax = Math.ceil(maxVal + padding);
-      const yRange = yMax - yMin || 1; // Prevent division by zero
-
-      return (
-      <>
-      <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 400 160" preserveAspectRatio="none">
-      <defs>
-      <linearGradient id={`gradient-vital-${selectedVital}`} x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.2" />
-      <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.05" />
-      </linearGradient>
-      </defs>
-
-      {/* Normal range boundaries (if available) */}
-      {(() => {
-      // Use the normal range calculated earlier for Y-axis
-      const normalRange = normalRangeForChart;
-
-      if (!normalRange) return null;
-
-      return (() => {
-      // Special handling for blood pressure format "<140/90"
-      const bpMatch = normalRange.match(/<\s*(\d+)\/(\d+)/);
-      if (bpMatch && (selectedVital === 'bp' || selectedVital === 'blood_pressure')) {
-      // For BP, we show the systolic threshold (first number)
-      const threshold = parseFloat(bpMatch[1]);
-      if (!isNaN(threshold) && isFinite(threshold)) {
-      const thresholdY = 160 - ((threshold - yMin) / yRange) * 160;
-      return (
-      <>
-      {/* Shaded area below threshold */}
-      <rect
-      x="0"
-      y={thresholdY}
-      width="400"
-      height={160 - thresholdY}
-      fill="#3b82f6"
-      opacity="0.08"
+      {/* Chart - Recharts HealthChart */}
+      <HealthChart
+        data={vitalChartData}
+        unit={currentVital.unit}
+        normalRange={normalRangeForChart}
+        bounds={bounds}
+        isScrollable={isScrollable}
+        dataLength={vitalChartData.length}
+        pointKeyPrefix={selectedVital}
+        selectedDataPoint={selectedDataPoint}
+        onSelectPoint={setSelectedDataPoint}
+        onEditPoint={(dataPoint) => {
+          setSelectedDataPoint(null);
+          const currentVitalDoc = allVitalsData[selectedVital];
+          if (currentVitalDoc?.id) {
+            const valueData = (currentVital?.data || []).find(item => item.id === dataPoint.id);
+            let dateTimeValue = getCurrentDateTimeLocal();
+            let dateValue = valueData?.dateOriginal || valueData?.date;
+            if (dateValue) {
+              let dateObj = null;
+              if (dateValue?.toDate) {
+                const firestoreDate = dateValue.toDate();
+                dateObj = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate(), firestoreDate.getHours(), firestoreDate.getMinutes());
+              } else if (valueData?.timestamp) {
+                const dateFromTimestamp = new Date(valueData.timestamp);
+                dateObj = new Date(dateFromTimestamp.getFullYear(), dateFromTimestamp.getMonth(), dateFromTimestamp.getDate(), dateFromTimestamp.getHours(), dateFromTimestamp.getMinutes());
+              } else if (dateValue instanceof Date) {
+                dateObj = new Date(dateValue.getFullYear(), dateValue.getMonth(), dateValue.getDate(), dateValue.getHours(), dateValue.getMinutes());
+              } else if (typeof dateValue === 'string') {
+                const parsed = new Date(dateValue);
+                if (!isNaN(parsed.getTime())) dateObj = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), parsed.getHours(), parsed.getMinutes());
+              }
+              if (dateObj && !isNaN(dateObj.getTime())) {
+                const y = dateObj.getFullYear(), m = String(dateObj.getMonth() + 1).padStart(2, '0'), d = String(dateObj.getDate()).padStart(2, '0');
+                const h = String(dateObj.getHours()).padStart(2, '0'), min = String(dateObj.getMinutes()).padStart(2, '0');
+                dateTimeValue = `${y}-${m}-${d}T${h}:${min}`;
+              }
+            }
+            setSelectedVitalForValue({ id: currentVitalDoc.id, name: getVitalDisplayName(currentVitalDoc.name || selectedVital), unit: currentVitalDoc.unit, key: selectedVital, vitalType: selectedVital });
+            setNewVitalValue({ value: valueData?.value || '', systolic: valueData?.systolic || '', diastolic: valueData?.diastolic || '', dateTime: dateTimeValue, notes: valueData?.notes || '' });
+            setEditingVitalValueId(dataPoint.id);
+            setIsEditingVitalValue(true);
+            setShowAddVitalValue(true);
+          }
+        }}
+        onDeletePoint={(dataPoint) => {
+          const vitalValueId = dataPoint.id;
+          const vitalKey = selectedVital;
+          const vitalDoc = allVitalsData[selectedVital];
+          const vitalDocId = vitalDoc?.id;
+          const displayName = getVitalDisplayName(currentVital.name || selectedVital);
+          const valueDisplay = dataPoint.displayValue;
+          const vitalUnit = currentVital.unit;
+          const vitalDate = dataPoint.date;
+          if (!vitalDocId) { showError('Vital document ID not found. Please try again.'); return; }
+          setDeleteConfirm({
+            show: true,
+            title: `Delete ${displayName} Reading?`,
+            message: `This will permanently delete this ${displayName} reading (${valueDisplay} ${vitalUnit} on ${vitalDate}).`,
+            itemName: `${displayName} reading`,
+            confirmText: 'Yes, Delete',
+            onConfirm: async () => {
+              setIsDeletingVitalValue(true);
+              try {
+                const updatedVitalsData = { ...vitalsData };
+                if (updatedVitalsData[vitalKey]?.data) {
+                  const filteredData = updatedVitalsData[vitalKey].data.filter(item => item.id !== vitalValueId);
+                  const sortedData = [...filteredData].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                  updatedVitalsData[vitalKey] = { ...updatedVitalsData[vitalKey], data: filteredData, current: sortedData.length > 0 ? sortedData[0].value : '--' };
+                  setVitalsData(updatedVitalsData);
+                }
+                if (!user?.uid) throw new Error('User not authenticated');
+                await vitalService.deleteVitalValue(vitalDocId, vitalValueId);
+                try {
+                  const remainingValues = await vitalService.getVitalValues(vitalDocId);
+                  if (!remainingValues?.length) await vitalService.deleteVital(vitalDocId);
+                } catch (cleanupError) {}
+                await reloadHealthData();
+                showSuccess(`${displayName} reading deleted successfully`);
+                setDeleteConfirm(prev => ({ ...prev, show: false }));
+              } catch (error) {
+                reloadHealthData();
+                showError('Failed to delete vital reading. Please try again.');
+                setDeleteConfirm(prev => ({ ...prev, show: false }));
+              } finally {
+                setIsDeletingVitalValue(false);
+              }
+            }
+          });
+        }}
+        isBloodPressure={selectedVital === 'bp' || selectedVital === 'bloodpressure' || selectedVital === 'blood_pressure'}
+        chartId={selectedVital}
       />
-      {/* Threshold line */}
-      <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
-      </>
-      );
-      }
-      }
-
-      // Try standard range format "X-Y"
-      let rangeMatch = normalRange.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
-      if (rangeMatch) {
-      const normMin = parseFloat(rangeMatch[1]);
-      const normMax = parseFloat(rangeMatch[2]);
-      if (!isNaN(normMin) && !isNaN(normMax) && isFinite(normMin) && isFinite(normMax)) {
-      const normMinY = 160 - ((normMin - yMin) / yRange) * 160;
-      const normMaxY = 160 - ((normMax - yMin) / yRange) * 160;
-      return (
-      <>
-      {/* Normal range shaded area */}
-      <rect
-      x="0"
-      y={normMaxY}
-      width="400"
-      height={normMinY - normMaxY}
-      fill="#3b82f6"
-      opacity="0.08"
-      />
-      {/* Normal range boundary lines */}
-      <line x1="0" y1={normMinY} x2="400" y2={normMinY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
-      <line x1="0" y1={normMaxY} x2="400" y2={normMaxY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
-      </>
-      );
-      }
-      } else {
-      // Try "< X" format (single number, not BP)
-      const lessThanMatch = normalRange.match(/<\s*(\d+\.?\d*)/);
-      if (lessThanMatch) {
-      const threshold = parseFloat(lessThanMatch[1]);
-      if (!isNaN(threshold) && isFinite(threshold)) {
-      const thresholdY = 160 - ((threshold - yMin) / yRange) * 160;
-      return (
-      <>
-      {/* Shaded area below threshold */}
-      <rect
-      x="0"
-      y={thresholdY}
-      width="400"
-      height={160 - thresholdY}
-      fill="#3b82f6"
-      opacity="0.08"
-      />
-      {/* Threshold line */}
-      <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
-      </>
-      );
-      }
-      } else {
-      // Try "> X" format
-      const greaterThanMatch = normalRange.match(/>\s*(\d+\.?\d*)/);
-      if (greaterThanMatch) {
-      const threshold = parseFloat(greaterThanMatch[1]);
-      if (!isNaN(threshold) && isFinite(threshold)) {
-      const thresholdY = 160 - ((threshold - yMin) / yRange) * 160;
-      // Only show if threshold is within visible range
-      if (thresholdY >= 0 && thresholdY <= 160) {
-      return (
-      <>
-      {/* Shaded area above threshold */}
-      <rect
-      x="0"
-      y="0"
-      width="400"
-      height={thresholdY}
-      fill="#3b82f6"
-      opacity="0.08"
-      />
-      {/* Threshold line */}
-      <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
-      </>
-      );
-      }
-      }
-      }
-      }
-      }
-      return null;
-      })();
-      })()}
-
-      {/* Area under line */}
-      <polygon
-      points={(() => {
-      const dataLength = Math.max(chartData.length - 1, 1); // Prevent division by zero
-      const topPoints = chartData.map((d, i) => {
-      const val = (selectedVital === 'bp' || selectedVital === 'bloodpressure') ? (d.systolic || d.value) : d.value;
-      const numVal = parseFloat(val);
-      // Only include valid numeric values
-      if (isNaN(numVal) || !isFinite(numVal)) {
-        return null;
-      }
-      const y = 160 - ((numVal - yMin) / yRange) * 160;
-      // Ensure y is a valid number
-      if (isNaN(y) || !isFinite(y)) {
-        return null;
-      }
-      return `${(i / dataLength) * 400},${y}`;
-      }).filter(Boolean).join(' ');
-      return `${topPoints} 400,160 0,160`;
-      })()}
-      fill={`url(#gradient-vital-${selectedVital})`}
-      />
-
-      {/* Line */}
-      <polyline
-      points={(() => {
-      const dataLength = Math.max(chartData.length - 1, 1); // Prevent division by zero
-      return chartData.map((d, i) => {
-      const val = (selectedVital === 'bp' || selectedVital === 'bloodpressure') ? (d.systolic || d.value) : d.value;
-      const numVal = parseFloat(val);
-      // Only include valid numeric values
-      if (isNaN(numVal) || !isFinite(numVal)) {
-        return null;
-      }
-      const y = 160 - ((numVal - yMin) / yRange) * 160;
-      // Ensure y is a valid number
-      if (isNaN(y) || !isFinite(y)) {
-        return null;
-      }
-      return `${(i / dataLength) * 400},${y}`;
-      }).filter(Boolean).join(' ');
-      })()}
-      fill="none"
-      stroke="#3b82f6"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      shapeRendering="geometricPrecision"
-      vectorEffect="non-scaling-stroke"
-      />
-      </svg>
-
-      {/* Interactive data points with tooltips */}
-      {chartData.map((d, i) => {
-      const dataLength = Math.max(chartData.length - 1, 1); // Prevent division by zero
-      // Check if this is an "all day" entry (time is midnight or isAllDay flag is set)
-      const isAllDay = d.isAllDay || (d.time === '00:00' || d.time === '00:00:00') || false;
-      const val = (selectedVital === 'bp' || selectedVital === 'bloodpressure') ? (d.systolic || d.value) : d.value;
-      const displayValue = (selectedVital === 'bp' || selectedVital === 'bloodpressure') 
-      ? `${d.systolic || d.value}/${d.diastolic || ''}` 
-      : d.value;
-      const x = (i / dataLength) * 100;
-      const y = ((parseFloat(val) - yMin) / yRange) * 100;
-      const isLatest = i === chartData.length - 1;
-
-      // Get normal range for status calculation
-      const normalRange = currentVital.normalRange || (() => {
-      const age = patientProfile.age || (patientProfile.dateOfBirth ? Math.floor((new Date() - new Date(patientProfile.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000)) : null);
-      const normalizedKey = normalizeVitalName(selectedVital) || selectedVital.toLowerCase();
-
-      switch (normalizedKey) {
-      case 'blood_pressure':
-      case 'bp':
-      return age && age < 18 ? '<120/80' : '<140/90';
-      case 'heart_rate':
-      case 'hr':
-      if (age) {
-      if (age < 1) return '100-160';
-      if (age < 3) return '90-150';
-      if (age < 10) return '70-120';
-      if (age < 18) return '60-100';
-      }
-      return '60-100';
-      case 'temperature':
-      case 'temp':
-      return '97.5-99.5';
-      case 'weight':
-      // Calculate weight normal range based on BMI (18.5-24.9) using height
-      if (patientProfile.height) {
-      return getWeightNormalRange(patientProfile.height, patientProfile.gender);
-      }
-      return null;
-      case 'oxygen_saturation':
-      case 'o2sat':
-      case 'spo2':
-      return '>95';
-      case 'respiratory_rate':
-      case 'rr':
-      if (age) {
-      if (age < 1) return '30-60';
-      if (age < 3) return '24-40';
-      if (age < 12) return '20-30';
-      }
-      return '12-20';
-      default: return null;
-      }
-      })();
-
-      const vitalStatus = getVitalStatus(displayValue, normalRange, selectedVital);
-      const statusColors = {
-      green: '#10b981',
-      yellow: '#f59e0b',
-      red: '#ef4444',
-      gray: '#6b7280'
-      };
-      const dotColor = statusColors[vitalStatus.color] || statusColors.gray;
-      const statusBadgeColors = {
-      green: combineClasses(DesignTokens.components.status.normal.bg, DesignTokens.components.status.normal.text),
-      yellow: combineClasses(DesignTokens.components.status.low.bg, DesignTokens.components.status.low.text),
-      red: combineClasses(DesignTokens.components.status.high.bg, DesignTokens.components.status.high.text),
-      gray: combineClasses(DesignTokens.colors.neutral[100], DesignTokens.colors.neutral.text[700])
-      };
-
-      const isVitalSelected = selectedDataPoint === `${selectedVital}-${d.id}`;
-      const vitalPointKey = `${selectedVital}-${d.id}`;
-      const isVitalHovered = hoveredDataPoint === vitalPointKey;
-      return (
-      <div
-      key={i}
-      className="absolute group vital-chart-point"
-      style={{
-      left: `${x}%`,
-      bottom: `${y}%`,
-      transform: 'translate(-50%, 50%)',
-      zIndex: isVitalSelected ? 30 : (isVitalHovered ? 25 : 10)
-      }}
-      onMouseEnter={() => setHoveredDataPoint(vitalPointKey)}
-      onMouseLeave={() => setHoveredDataPoint(null)}
-      >
-      {/* Touch/Click area - larger on mobile */}
-      <div
-      className="absolute inset-0 w-12 h-12 sm:w-10 sm:h-10 -m-6 sm:-m-5 cursor-pointer touch-manipulation vital-chart-point-click-area"
-      style={{ zIndex: 20 }}
-      onClick={(e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      e.nativeEvent.stopImmediatePropagation();
-      // Use functional update to ensure we're working with latest state
-      // This prevents race conditions with double-click/touch events
-      setSelectedDataPoint(prev => {
-        if (prev === vitalPointKey) {
-          return null; // Toggle off if already selected
-        }
-        return vitalPointKey; // Select this point
-      });
-      }}
-      onTouchEnd={(e) => {
-      // Prevent click event from also firing on touch devices
-      e.preventDefault();
-      }}
-      />
-
-      {/* Outer ring on hover or when selected */}
-      <div
-      className={`absolute inset-0 rounded-full transition-all ${
-      isVitalSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-      }`}
-      style={{
-      width: '20px',
-      height: '20px',
-      margin: '-10px',
-      border: `2px solid ${dotColor}`,
-      backgroundColor: `${dotColor}20`
-      }}
-      />
-
-      {/* Data point dot */}
-      <div
-      className={`rounded-full transition-all relative z-10 ${
-      isVitalSelected || isLatest ? 'scale-125' : 'group-hover:scale-125'
-      } ${isLatest ? 'w-3.5 h-3.5' : 'w-3 h-3'}`}
-      style={{
-      backgroundColor: dotColor,
-      border: '2px solid white',
-      boxShadow: isLatest
-      ? '0 2px 8px rgba(0,0,0,0.25)'
-      : '0 1px 4px rgba(0,0,0,0.15)'
-      }}
-      />
-
-      {/* Tooltip with edit and delete buttons - show on hover or when selected */}
-      <div 
-      className={`absolute ${
-      isVitalSelected ? 'opacity-100 pointer-events-auto' : 'opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto'
-      } transition-opacity ${
-      y > 70 ? 'bottom-full mb-4' : 'top-full mt-4'
-      } ${
-      x < 10 ? 'left-0' : x > 90 ? 'right-0' : 'left-1/2 transform -translate-x-1/2'
-      }`}
-      style={{ zIndex: 30 }}
-      >
-      <div className={combineClasses("text-xs rounded-lg py-2 px-3 shadow-xl whitespace-nowrap tooltip-container", DesignTokens.colors.neutral[900], 'text-white')}>
-      <div className="flex items-center justify-between gap-3">
-      <div>
-      <div className="font-bold text-sm">
-      {displayValue} {currentVital.unit}
-      </div>
-      <div className={combineClasses("text-xs mt-0.5", DesignTokens.colors.neutral.text[300])}>{d.date}</div>
-      </div>
-      {d.id && (
-      <div className="flex items-center gap-2">
-      <button
-      onClick={(e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      setSelectedDataPoint(null);
-      const currentVitalDoc = allVitalsData[selectedVital];
-      if (currentVitalDoc && currentVitalDoc.id) {
-      // Pre-fill with existing value data
-      const valueData = currentVital.data.find(item => item.id === d.id);
-      // Extract date from various possible formats, using local time to avoid timezone shift
-      let dateTimeValue = getCurrentDateTimeLocal();
-
-      // Get the date value (prioritize dateOriginal, then date)
-      let dateValue = valueData?.dateOriginal || valueData?.date;
-
-      if (dateValue) {
-      let dateObj = null;
-
-      // Check for Firestore Timestamp (has toDate method)
-      if (dateValue && typeof dateValue.toDate === 'function') {
-      const firestoreDate = dateValue.toDate();
-      // Use local date components to avoid timezone shift
-      dateObj = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate(), firestoreDate.getHours(), firestoreDate.getMinutes());
-      }
-      // Check for timestamp (number)
-      else if (valueData?.timestamp) {
-      const dateFromTimestamp = new Date(valueData.timestamp);
-      dateObj = new Date(dateFromTimestamp.getFullYear(), dateFromTimestamp.getMonth(), dateFromTimestamp.getDate(), dateFromTimestamp.getHours(), dateFromTimestamp.getMinutes());
-      }
-      // Check for date as Date object
-      else if (dateValue instanceof Date) {
-      dateObj = new Date(dateValue.getFullYear(), dateValue.getMonth(), dateValue.getDate(), dateValue.getHours(), dateValue.getMinutes());
-      }
-      // Check for date as string
-      else if (typeof dateValue === 'string') {
-      const parsed = new Date(dateValue);
-      if (!isNaN(parsed.getTime())) {
-      dateObj = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), parsed.getHours(), parsed.getMinutes());
-      }
-      }
-
-      if (dateObj && !isNaN(dateObj.getTime())) {
-      const year = dateObj.getFullYear();
-      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-      const day = String(dateObj.getDate()).padStart(2, '0');
-      const hours = String(dateObj.getHours()).padStart(2, '0');
-      const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-      dateTimeValue = `${year}-${month}-${day}T${hours}:${minutes}`;
-      }
-      }
-      const displayName = getVitalDisplayName(currentVitalDoc.name || selectedVital);
-      setSelectedVitalForValue({ 
-      id: currentVitalDoc.id, 
-      name: displayName, 
-      unit: currentVitalDoc.unit, 
-      key: selectedVital,
-      vitalType: selectedVital
-      });
-      setNewVitalValue({ 
-      value: valueData?.value || '', 
-      systolic: valueData?.systolic || '', 
-      diastolic: valueData?.diastolic || '', 
-      dateTime: dateTimeValue, 
-      notes: valueData?.notes || '' 
-      });
-      setEditingVitalValueId(d.id); // Store the value ID being edited
-      setIsEditingVitalValue(true);
-      setShowAddVitalValue(true);
-      }
-      }}
-      onTouchStart={(e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      }}
-      className={combineClasses("transition-colors p-2.5 sm:p-2 rounded flex-shrink-0 min-h-[48px] min-w-[48px] sm:min-h-[44px] sm:min-w-[44px] flex items-center justify-center touch-manipulation", DesignTokens.colors.primary.text[500], DesignTokens.colors.primary.text[300], DesignTokens.colors.primary.text[200], combineClasses('hover:bg-opacity-20', DesignTokens.colors.primary[900]), combineClasses('active:bg-opacity-30', DesignTokens.colors.primary[900]))}
-      title="Edit this reading"
-      >
-      <Edit2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-      </button>
-      <button
-      onClick={(e) => {
-      e.stopPropagation();
-      // Capture values in closure
-      const vitalValueId = d.id;
-      const vitalKey = selectedVital;
-      const vitalDoc = allVitalsData[selectedVital];
-      const vitalDocId = vitalDoc?.id;
-      const displayName = getVitalDisplayName(currentVital.name || selectedVital);
-      const valueDisplay = selectedVital === 'bp' || selectedVital === 'bloodpressure' 
-      ? `${d.systolic || d.value}/${d.diastolic || ''}`
-      : d.value;
-      const vitalUnit = currentVital.unit;
-      const vitalDate = d.date;
-
-      if (!vitalDocId) {
-      showError('Vital document ID not found. Please try again.');
-      return;
-      }
-
-      setDeleteConfirm({
-      show: true,
-      title: `Delete ${displayName} Reading?`,
-      message: `This will permanently delete this ${displayName} reading (${valueDisplay} ${vitalUnit} on ${vitalDate}).`,
-      itemName: `${displayName} reading`,
-      confirmText: 'Yes, Delete',
-      onConfirm: async () => {
-      setIsDeletingVitalValue(true);
-      try {
-
-      // Optimistically update UI immediately
-      const updatedVitalsData = { ...vitalsData };
-      if (updatedVitalsData[vitalKey] && updatedVitalsData[vitalKey].data) {
-      const filteredData = updatedVitalsData[vitalKey].data.filter(item => item.id !== vitalValueId);
-      // Get most recent value (first item after sorting by timestamp)
-      const sortedData = [...filteredData].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-      updatedVitalsData[vitalKey] = {
-      ...updatedVitalsData[vitalKey],
-      data: filteredData,
-      current: sortedData.length > 0 ? sortedData[0].value : '--'
-      };
-      setVitalsData(updatedVitalsData);
-      }
-
-      // Delete from Firestore in background
-      // Verify user is authenticated before deletion
-      if (!user || !user.uid) {
-      throw new Error('User not authenticated');
-      }
-
-
-      await vitalService.deleteVitalValue(vitalDocId, vitalValueId);
-
-
-      // Check if vital is now orphaned (no values left) and clean it up
-      try {
-      const remainingValues = await vitalService.getVitalValues(vitalDocId);
-      if (!remainingValues || remainingValues.length === 0) {
-      await vitalService.deleteVital(vitalDocId);
-      }
-      } catch (cleanupError) {
-      }
-
-      // Reload health data to ensure UI matches database state
-      // deleteVitalValue now clears currentValue when last value is deleted, preventing reappearance
-      await reloadHealthData();
-
-      // Show success banner
-      showSuccess(`${displayName} reading deleted successfully`);
-      
-      // Close the modal after successful deletion
-      setDeleteConfirm({ ...deleteConfirm, show: false });
-      } catch (error) {
-      // Revert optimistic update on error
-      reloadHealthData();
-      showError('Failed to delete vital reading. Please try again.');
-      // Close the modal even on error
-      setDeleteConfirm({ ...deleteConfirm, show: false });
-      } finally {
-      setIsDeletingVitalValue(false);
-      }
-      }
-      });
-      }}
-      className={combineClasses("transition-colors p-2 rounded flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation active:opacity-70", DesignTokens.components.status.high.text, 'hover:text-red-300', 'hover:bg-red-900/20')}
-      title="Delete this reading"
-      >
-      <Trash2 className="w-3.5 h-3.5" />
-      </button>
-      </div>
-      )}
-      </div>
-      </div>
-      </div>
-      </div>
-      );
-      })}
-      </>
-      );
-      })()}
-      </div>
-
-      {/* X-axis labels - show unique month/year only, aligned with data points */}
-      <div className={combineClasses("relative border-t pt-2 text-xs", DesignTokens.colors.neutral.border[300], DesignTokens.colors.neutral.text[600])} style={{ height: '20px' }}>
-      {(() => {
-      if (!chartData || chartData.length === 0) {
-      return <span>No data</span>;
-      }
-
-      const seenMonthYears = new Set();
-      const monthLabels = [];
-      const monthYearData = []; // Store { label, index, position }
-      const dataLength = chartData.length;
-
-      chartData.forEach((d, i) => {
-      let dateObj = d.dateOriginal;
-      if (!dateObj && d.timestamp) {
-      dateObj = new Date(d.timestamp);
-      }
-      if (dateObj instanceof Date && !isNaN(dateObj.getTime())) {
-      const monthYear = dateObj.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-      if (!seenMonthYears.has(monthYear)) {
-      seenMonthYears.add(monthYear);
-      const leftPercent = (i / Math.max(dataLength - 1, 1)) * 100;
-      monthYearData.push({ label: monthYear, index: i, position: leftPercent });
-      // Calculate position based on data point index
-      monthLabels.push(
-      <span
-      key={i}
-      className="absolute hidden sm:inline whitespace-nowrap"
-      style={{ left: `${leftPercent}%`, transform: 'translateX(-50%)' }}
-      >
-      {monthYear}
-      </span>
-      );
-      }
-      }
-      });
-
-      // Progressive truncation based on screen size
-      // Mobile (< 640px): first, middle, last (max 3)
-      // Small tablet (640px-768px): first, third, two-thirds, last (max 4)
-      // Tablet (768px-1024px): first, quarter, middle, three-quarter, last (max 5)
-      // Large tablet (1024px-1280px): first, sixth, third, half, two-thirds, five-sixths, last (max 7)
-      // Desktop (>= 1280px): all labels
-      let mobileLabels = [];
-      let smallTabletLabels = [];
-      let tabletLabels = [];
-      let largeTabletLabels = [];
-
-      if (monthYearData.length > 0) {
-      // Mobile labels (first, middle, last) - 3 labels
-      if (monthYearData.length === 1) {
-      mobileLabels = [monthYearData[0]];
-      } else if (monthYearData.length === 2) {
-      mobileLabels = [monthYearData[0], monthYearData[1]];
-      } else {
-      const midIndex = Math.floor(monthYearData.length / 2);
-      mobileLabels = [
-      monthYearData[0],
-      monthYearData[midIndex],
-      monthYearData[monthYearData.length - 1]
-      ];
-      }
-
-      // Small tablet labels (first, third, two-thirds, last) - 4 labels
-      if (monthYearData.length <= 3) {
-      smallTabletLabels = monthYearData;
-      } else if (monthYearData.length === 4) {
-      smallTabletLabels = monthYearData;
-      } else {
-      const thirdIndex = Math.floor(monthYearData.length / 3);
-      const twoThirdsIndex = Math.floor(monthYearData.length * 2 / 3);
-      smallTabletLabels = [
-      monthYearData[0],
-      monthYearData[thirdIndex],
-      monthYearData[twoThirdsIndex],
-      monthYearData[monthYearData.length - 1]
-      ];
-      }
-
-      // Tablet labels (first, quarter, middle, three-quarter, last) - 5 labels
-      if (monthYearData.length <= 4) {
-      tabletLabels = monthYearData;
-      } else if (monthYearData.length <= 5) {
-      tabletLabels = monthYearData;
-      } else {
-      const quarterIndex = Math.floor(monthYearData.length / 4);
-      const midIndex = Math.floor(monthYearData.length / 2);
-      const threeQuarterIndex = Math.floor(monthYearData.length * 3 / 4);
-      tabletLabels = [
-      monthYearData[0],
-      monthYearData[quarterIndex],
-      monthYearData[midIndex],
-      monthYearData[threeQuarterIndex],
-      monthYearData[monthYearData.length - 1]
-      ];
-      }
-
-      // Large tablet labels (first, sixth, third, half, two-thirds, five-sixths, last) - 7 labels
-      if (monthYearData.length <= 5) {
-      largeTabletLabels = monthYearData;
-      } else if (monthYearData.length <= 7) {
-      largeTabletLabels = monthYearData;
-      } else {
-      const sixthIndex = Math.floor(monthYearData.length / 6);
-      const thirdIndex = Math.floor(monthYearData.length / 3);
-      const midIndex = Math.floor(monthYearData.length / 2);
-      const twoThirdsIndex = Math.floor(monthYearData.length * 2 / 3);
-      const fiveSixthsIndex = Math.floor(monthYearData.length * 5 / 6);
-      largeTabletLabels = [
-      monthYearData[0],
-      monthYearData[sixthIndex],
-      monthYearData[thirdIndex],
-      monthYearData[midIndex],
-      monthYearData[twoThirdsIndex],
-      monthYearData[fiveSixthsIndex],
-      monthYearData[monthYearData.length - 1]
-      ];
-      }
-      }
-
-      return (
-      <>
-      {/* Desktop (xl and up): Show all labels */}
-      {monthLabels.map((label, idx) => {
-      const originalStyle = label.props.style;
-      return (
-      <span
-      key={`desktop-${idx}`}
-      className="absolute hidden xl:inline whitespace-nowrap"
-      style={originalStyle}
-      >
-      {label.props.children}
-      </span>
-      );
-      })}
-      {/* Large tablet (lg to xl): Show 7 labels */}
-      {largeTabletLabels.map((item, idx) => (
-      <span
-      key={`large-tablet-${item.index}`}
-      className="absolute hidden lg:inline xl:hidden whitespace-nowrap"
-      style={{ left: `${item.position}%`, transform: 'translateX(-50%)' }}
-      >
-      {item.label}
-      </span>
-      ))}
-      {/* Tablet (md to lg): Show 5 labels */}
-      {tabletLabels.map((item, idx) => (
-      <span
-      key={`tablet-${item.index}`}
-      className="absolute hidden md:inline lg:hidden whitespace-nowrap"
-      style={{ left: `${item.position}%`, transform: 'translateX(-50%)' }}
-      >
-      {item.label}
-      </span>
-      ))}
-      {/* Small tablet (sm to md): Show 4 labels */}
-      {smallTabletLabels.map((item, idx) => (
-      <span
-      key={`small-tablet-${item.index}`}
-      className="absolute hidden sm:inline md:hidden whitespace-nowrap"
-      style={{ left: `${item.position}%`, transform: 'translateX(-50%)' }}
-      >
-      {item.label}
-      </span>
-      ))}
-      {/* Mobile (< sm): Show 3 labels */}
-      {mobileLabels.map((item, idx) => (
-      <span
-      key={`mobile-${item.index}`}
-      className="absolute sm:hidden whitespace-nowrap"
-      style={{ left: `${item.position}%`, transform: 'translateX(-50%)' }}
-      >
-      {item.label}
-      </span>
-      ))}
-      </>
-      );
-      })()}
-      </div>
-      </div>
-      </div>
-      </>
-      );
-      })()}
-      </div>
 
       {/* Add Vital Metric Button */}
       <div className="flex justify-end mb-2">
@@ -1665,6 +918,10 @@ function VitalsSection({
       );
       })}
       </div>
+      </div>
+      </>
+      );
+      })()}
       </div>
       </>
       )}

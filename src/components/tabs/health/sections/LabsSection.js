@@ -37,7 +37,8 @@ import EditLabModal from '../../../modals/EditLabModal';
 import DeletionConfirmationModal from '../../../modals/DeletionConfirmationModal';
 import LabTooltipModal from '../../../modals/LabTooltipModal';
 import { isLabEmpty, filterLabsBySearch } from '../utils/labFilters';
-import { calculateYAxisBounds, generateYAxisLabels, parseNormalRangeForChart, generateChartPoints } from '../utils/chartUtils';
+import { calculateYAxisBounds, SCROLL_THRESHOLD } from '../utils/chartUtils';
+import HealthChart from '../components/HealthChart';
 import { getTodayLocalDate, formatDateString } from '../../../../utils/helpers';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { getIrrelevantCategories, extractCancerTypeFromDiagnosis } from '../../../../utils/diseaseRelevantCategories';
@@ -154,8 +155,21 @@ function LabsSection({
   const [favoriteMetrics, setFavoriteMetrics] = useState({ labs: [], vitals: [] });
   const [hiddenLabs, setHiddenLabs] = useState([]);
   const [showHiddenLabs, setShowHiddenLabs] = useState(false);
+  const [chartTimeRange, setChartTimeRange] = useState('90d'); // '7d' | '30d' | '90d' | 'all' - default 3 months
 
   const allLabData = labsData;
+
+  // Filter lab data by selected time range
+  const filterDataByTimeRange = (data) => {
+    if (!data || data.length === 0 || chartTimeRange === 'all') return data || [];
+    const now = Date.now();
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const cutoff = now - (chartTimeRange === '7d' ? 7 : chartTimeRange === '30d' ? 30 : 90) * msPerDay;
+    return data.filter((d) => {
+      const ts = d.timestamp ?? (d.dateOriginal instanceof Date ? d.dateOriginal.getTime() : d.dateOriginal?.toDate?.()?.getTime?.());
+      return ts != null && ts >= cutoff;
+    });
+  };
 
   // Load favorites and hidden labs from patient profile
   useEffect(() => {
@@ -391,64 +405,41 @@ function LabsSection({
     return insights;
   }, [filteredCategorizedLabs]);
 
-  // Memoize chart calculations for current lab
-  const chartData = useMemo(() => {
-    if (!currentLab || !currentLab.isNumeric || !currentLab.data || currentLab.data.length === 0) {
-      return null;
-    }
+  // Filtered lab data by time range
+  const filteredLabData = useMemo(() => filterDataByTimeRange(currentLab?.data || []), [currentLab, chartTimeRange]);
 
-    const values = currentLab.data
-      .map(d => numericValueForChart(d.value))
-      .filter(v => typeof v === 'number' && !isNaN(v) && isFinite(v));
+  const isScrollable = chartTimeRange === 'all' && (filteredLabData?.length || 0) > SCROLL_THRESHOLD;
 
-    if (values.length === 0) {
-      return null;
+  // Memoize chart data and bounds for HealthChart
+  const labChartData = useMemo(() => {
+    if (!currentLab || !currentLab.isNumeric || !filteredLabData || filteredLabData.length === 0) {
+      return { data: [], bounds: null, normalRange: null };
     }
 
     const chartCanonicalKey = normalizeLabName(currentLab?.name || selectedLab);
-    const chartEffectiveRange = currentLab.normalRange || (chartCanonicalKey && labDefaultNormalRanges[chartCanonicalKey]);
-    const bounds = calculateYAxisBounds(currentLab.data, chartEffectiveRange);
-    const { yMin, yMax, yRange } = bounds;
-    const normalRange = parseNormalRangeForChart(chartEffectiveRange, yMin, yRange);
-    const dataLength = Math.max(currentLab.data.length - 1, 1);
-    const points = generateChartPoints(currentLab.data, yMin, yRange, 400);
+    const detailEffectiveRange = currentLab.normalRange || (chartCanonicalKey && labDefaultNormalRanges[chartCanonicalKey]);
+    const bounds = calculateYAxisBounds(filteredLabData, detailEffectiveRange);
 
-    return {
-      bounds,
-      normalRange,
-      points,
-      dataLength,
-      hasData: true
-    };
-  }, [currentLab, selectedLab]);
-
-  // Memoize X-axis labels calculation
-  const xAxisLabels = useMemo(() => {
-    if (!currentLab || !currentLab.data || currentLab.data.length === 0) {
-      return [];
-    }
-
-    const seenMonthYears = new Set();
-    const monthYearData = [];
-    const dataLength = currentLab.data.length;
-
-    currentLab.data.forEach((d, i) => {
-      let dateObj = d.dateOriginal;
-      if (!dateObj && d.timestamp) {
-        dateObj = new Date(d.timestamp);
-      }
-      if (dateObj instanceof Date && !isNaN(dateObj.getTime())) {
-        const monthYear = dateObj.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-        if (!seenMonthYears.has(monthYear)) {
-          seenMonthYears.add(monthYear);
-          const leftPercent = (i / Math.max(dataLength - 1, 1)) * 100;
-          monthYearData.push({ label: monthYear, index: i, position: leftPercent });
-        }
-      }
+    const data = filteredLabData.map((d, i) => {
+      const labStatus = getLabStatus(d.value, detailEffectiveRange);
+      const numVal = numericValueForChart(d.value);
+      const value = typeof numVal === 'number' && !isNaN(numVal) ? numVal : 0;
+      return {
+        date: d.date,
+        value,
+        id: d.id,
+        displayValue: d.value,
+        status: labStatus.color,
+        pointKey: `${selectedLab}-${d.id ?? i}`,
+      };
     });
 
-    return monthYearData;
-  }, [currentLab]);
+    return {
+      data,
+      bounds,
+      normalRange: detailEffectiveRange,
+    };
+  }, [currentLab, selectedLab, filteredLabData]);
 
   // Category order for display
   const categoryOrder = [
@@ -646,422 +637,123 @@ function LabsSection({
                     <p className={combineClasses('text-xs sm:text-sm', DesignTokens.colors.neutral.text[600])}>Normal range: {detailEffectiveRange || '--'} {currentLab.unit}</p>
                   </div>
 
-                  {/* Chart - Responsive with Y-axis and hover tooltips */}
-                  <div className="flex gap-2 sm:gap-3">
-                    {/* Y-axis labels */}
-                    <div className={combineClasses("flex flex-col justify-between text-xs font-medium py-2", DesignTokens.colors.neutral.text[600])} style={{ paddingBottom: '1.5rem' }}>
-                      {chartData ? (
-                        (() => {
-                          const { yMin, yMax } = chartData.bounds;
-                          const step = (yMax - yMin) / 4;
-                          return [4, 3, 2, 1, 0].map(i => (
-                            <div key={i} className="text-right pr-2 w-10" style={{ lineHeight: '1' }}>
-                              {(yMin + (step * i)).toFixed(yMax > 100 ? 0 : 1)}
-                            </div>
-                          ));
-                        })()
-                      ) : (
-                        <div className="text-right pr-2 w-10">--</div>
+                  {/* Chart time range filter */}
+                  {currentLab?.data?.length > 0 && (
+                    <div className="flex items-center gap-2 mb-3 flex-wrap">
+                      <span className={combineClasses("text-xs font-medium", DesignTokens.colors.neutral.text[600])}>Show:</span>
+                      {[
+                        { value: '7d', label: '7 days' },
+                        { value: '30d', label: '1 month' },
+                        { value: '90d', label: '3 months' },
+                        { value: 'all', label: 'All' }
+                      ].map(({ value, label }) => (
+                        <button
+                          key={value}
+                          onClick={() => setChartTimeRange(value)}
+                          className={combineClasses(
+                            "px-2.5 py-1 text-xs rounded-md transition-colors min-h-[32px] touch-manipulation",
+                            chartTimeRange === value
+                              ? 'bg-anchor-900 text-white'
+                              : combineClasses('border', DesignTokens.colors.neutral.border[300], 'hover:bg-medical-neutral-50', DesignTokens.colors.neutral.text[700])
+                          )}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                      {isScrollable && (
+                        <span className={combineClasses("text-xs", DesignTokens.colors.neutral.text[500])}>← scroll →</span>
                       )}
                     </div>
+                  )}
 
-                    {/* Chart area */}
-                    <div className="flex-1">
-                      <div className="relative h-40 mb-3">
-                        {/* Horizontal grid lines */}
-                        <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                          {[0, 1, 2, 3, 4].map(i => (
-                            <div key={i} className={combineClasses("border-t", DesignTokens.colors.neutral.border[200])}></div>
-                          ))}
-                        </div>
-
-                        {/* SVG Graph */}
-                        {chartData ? (
-                            <>
-                              <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 400 160" preserveAspectRatio="none">
-                                <defs>
-                                  <linearGradient id={`gradient-${selectedLab}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.2" />
-                                    <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.05" />
-                                  </linearGradient>
-                                </defs>
-
-                                {/* Normal range boundaries */}
-                                {chartData.normalRange && (() => {
-                                  const normalRange = chartData.normalRange;
-                                  if (!normalRange) return null;
-
-                                  if (normalRange.type === 'range') {
-                                    return (
-                                      <>
-                                        <rect
-                                          x="0"
-                                          y={normalRange.normMaxY}
-                                          width="400"
-                                          height={normalRange.normMinY - normalRange.normMaxY}
-                                          fill="#3b82f6"
-                                          opacity="0.08"
-                                        />
-                                        <line x1="0" y1={normalRange.normMinY} x2="400" y2={normalRange.normMinY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
-                                        <line x1="0" y1={normalRange.normMaxY} x2="400" y2={normalRange.normMaxY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
-                                      </>
-                                    );
-                                  } else if (normalRange.type === 'lessThan' || normalRange.type === 'greaterThan') {
-                                    const thresholdY = normalRange.thresholdY;
-                                    return (
-                                      <>
-                                        <rect
-                                          x="0"
-                                          y={normalRange.type === 'lessThan' ? thresholdY : 0}
-                                          width="400"
-                                          height={normalRange.type === 'lessThan' ? 160 - thresholdY : thresholdY}
-                                          fill="#3b82f6"
-                                          opacity="0.08"
-                                        />
-                                        <line x1="0" y1={thresholdY} x2="400" y2={thresholdY} stroke="#3b82f6" strokeWidth="1" strokeDasharray="4,4" opacity="0.4" />
-                                      </>
-                                    );
-                                  }
-                                  return null;
-                                })()}
-
-                                {/* Area under line */}
-                                <polygon
-                                  points={`${chartData.points} 400,160 0,160`}
-                                  fill={`url(#gradient-${selectedLab})`}
-                                />
-
-                                {/* Line */}
-                                <polyline
-                                  points={chartData.points}
-                                  fill="none"
-                                  stroke="#3b82f6"
-                                  strokeWidth="4"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  shapeRendering="geometricPrecision"
-                                  vectorEffect="non-scaling-stroke"
-                                />
-                              </svg>
-
-                              {/* Interactive data points with tooltips */}
-                              {currentLab.data.map((d, i) => {
-                                const dataLength = chartData.dataLength;
-                                const x = (i / dataLength) * 100;
-                                const val = numericValueForChart(d.value);
-                                const valForY = (typeof val === 'number' && !isNaN(val)) ? val : 0;
-                                const { yMin, yRange } = chartData.bounds;
-                                const y = ((valForY - yMin) / yRange) * 100;
-                                const isLatest = i === currentLab.data.length - 1;
-                                
-                                const labStatus = getLabStatus(d.value, detailEffectiveRange);
-                                const statusColors = {
-                                  green: '#10b981',
-                                  yellow: '#f59e0b',
-                                  red: '#ef4444',
-                                  gray: '#6b7280'
-                                };
-                                const dotColor = statusColors[labStatus.color] || statusColors.gray;
-
-                                const isSelected = selectedDataPoint === `${selectedLab}-${d.id}`;
-                                const pointKey = `${selectedLab}-${d.id}`;
-                                const isHovered = hoveredDataPoint === pointKey;
-                                
-                                return (
-                                  <div
-                                    key={i}
-                                    className="absolute group lab-chart-point"
-                                    style={{
-                                      left: `${x}%`,
-                                      bottom: `${y}%`,
-                                      transform: 'translate(-50%, 50%)',
-                                      zIndex: isSelected ? 30 : (isHovered ? 25 : 10)
-                                    }}
-                                    onMouseEnter={() => setHoveredDataPoint(pointKey)}
-                                    onMouseLeave={() => setHoveredDataPoint(null)}
-                                  >
-                                    <div 
-                                      className="absolute inset-0 w-12 h-12 sm:w-10 sm:h-10 -m-6 sm:-m-5 cursor-pointer touch-manipulation lab-chart-point-click-area"
-                                      style={{ zIndex: 20 }}
-                                      onClick={(e) => {
-                                        console.log('[Labs] Click handler called:', {
-                                          pointKey,
-                                          isSelected,
-                                          currentSelectedDataPoint: selectedDataPoint,
-                                          eventTarget: e.target.className
-                                        });
-                                        e.stopPropagation();
-                                        e.preventDefault();
-                                        e.nativeEvent.stopImmediatePropagation(); // Prevent other handlers from running
-                                        console.log('[Labs] After stopPropagation, isSelected:', isSelected);
-                                        if (isSelected) {
-                                          console.log('[Labs] Closing tooltip - setting to null');
-                                          setSelectedDataPoint(null);
-                                        } else {
-                                          console.log('[Labs] Opening tooltip - setting to:', pointKey);
-                                          setSelectedDataPoint(pointKey);
-                                        }
-                                      }}
-                                      onTouchStart={(e) => {
-                                        e.stopPropagation();
-                                        e.nativeEvent.stopImmediatePropagation();
-                                      }}
-                                    />
-
-                                    <div
-                                      className={`absolute inset-0 rounded-full transition-all ${
-                                        isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                                      }`}
-                                      style={{
-                                        width: '20px',
-                                        height: '20px',
-                                        margin: '-10px',
-                                        border: `2px solid ${dotColor}`,
-                                        backgroundColor: `${dotColor}20`
-                                      }}
-                                    />
-
-                                    <div
-                                      className={`rounded-full transition-all relative z-10 ${
-                                        isSelected || isLatest ? 'scale-125' : 'group-hover:scale-125'
-                                      } ${isLatest ? 'w-3.5 h-3.5' : 'w-3 h-3'}`}
-                                      style={{
-                                        backgroundColor: dotColor,
-                                        border: '2px solid white',
-                                        boxShadow: isLatest ? '0 2px 8px rgba(0,0,0,0.25)' : '0 1px 4px rgba(0,0,0,0.15)'
-                                      }}
-                                    />
-
-                                    {/* Tooltip with edit and delete buttons */}
-                                    <div 
-                                      className={`absolute ${
-                                        isSelected ? 'opacity-100 pointer-events-auto' : 'opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto'
-                                      } transition-opacity ${
-                                        y > 70 ? 'bottom-full mb-4' : 'top-full mt-4'
-                                      } ${
-                                        x < 10 ? 'left-0' : x > 90 ? 'right-0' : 'left-1/2 transform -translate-x-1/2'
-                                      }`}
-                                      style={{ zIndex: 30 }}
-                                    >
-                                      <div className={combineClasses("text-xs rounded-lg py-2 px-3 shadow-xl whitespace-nowrap tooltip-container", DesignTokens.colors.neutral[900], 'text-white')}>
-                                        <div className="flex items-center justify-between gap-3">
-                                          <div>
-                                            <div className="font-bold text-sm">{d.value} {currentLab.unit}</div>
-                                            <div className={combineClasses("text-xs mt-0.5", DesignTokens.colors.neutral.text[300])}>{d.date}</div>
-                                          </div>
-                                          {d.id && (
-                                            <div className="flex items-center gap-2">
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  e.preventDefault();
-                                                  setSelectedDataPoint(null);
-                                                  const currentLabDoc = allLabData[selectedLab];
-                                                  if (currentLabDoc && currentLabDoc.id) {
-                                                    setSelectedLabForValue({ id: currentLabDoc.id, name: getLabDisplayName(currentLabDoc.name || selectedLab), unit: currentLabDoc.unit, key: selectedLab });
-                                                    const valueData = currentLab.data.find(item => item.id === d.id);
-                                                    let dateValue = getTodayLocalDate();
-                                                    if (valueData?.dateOriginal) {
-                                                      dateValue = formatDateString(valueData.dateOriginal) || getTodayLocalDate();
-                                                    } else if (valueData?.timestamp) {
-                                                      dateValue = formatDateString(new Date(valueData.timestamp)) || getTodayLocalDate();
-                                                    } else if (valueData?.date) {
-                                                      dateValue = formatDateString(valueData.date) || getTodayLocalDate();
-                                                    }
-                                                    setNewLabValue({ 
-                                                      value: valueData?.value || '', 
-                                                      date: dateValue, 
-                                                      notes: valueData?.notes || '' 
-                                                    });
-                                                    setEditingLabValueId(d.id);
-                                                    setIsEditingLabValue(true);
-                                                    setShowAddLabValue(true);
-                                                  }
-                                                }}
-                                                onTouchStart={(e) => { e.stopPropagation(); e.preventDefault(); }}
-                                                className={combineClasses("transition-colors p-2.5 sm:p-2 rounded min-h-[48px] min-w-[48px] sm:min-h-[44px] sm:min-w-[44px] flex items-center justify-center touch-manipulation", DesignTokens.colors.primary.text[500], combineClasses('hover:bg-opacity-20', DesignTokens.colors.primary[900]), combineClasses('active:bg-opacity-30', DesignTokens.colors.primary[900]))}
-                                                title="Edit this reading"
-                                              >
-                                                <Edit2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                                              </button>
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  const labValueId = d.id;
-                                                  const labKey = selectedLab;
-                                                  const labDoc = allLabData[selectedLab];
-                                                  const labDocId = labDoc?.id;
-                                                  const labName = currentLab.name;
-                                                  const labUnit = currentLab.unit;
-                                                  const labValue = d.value;
-                                                  const labDate = d.date;
-                                                  
-                                                  if (!labDocId) {
-                                                    showError('Lab document ID not found. Please try again.');
-                                                    return;
-                                                  }
-                                                  
-                                                  setDeleteConfirm({
-                                                    show: true,
-                                                    title: `Delete ${labName} Reading?`,
-                                                    message: `This will permanently delete this ${labName} reading (${labValue} ${labUnit} on ${labDate}).`,
-                                                    itemName: `${labName} reading`,
-                                                    confirmText: 'Yes, Delete',
-                                                    onConfirm: async () => {
-                                                      setIsDeletingLabValue(true);
-                                                      try {
-                                                        const updatedLabsData = { ...labsData };
-                                                        if (updatedLabsData[labKey] && updatedLabsData[labKey].data) {
-                                                          const filteredData = updatedLabsData[labKey].data.filter(item => item.id !== labValueId);
-                                                          const sortedData = [...filteredData].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-                                                          updatedLabsData[labKey] = {
-                                                            ...updatedLabsData[labKey],
-                                                            data: filteredData,
-                                                            current: sortedData.length > 0 ? sortedData[0].value : '--'
-                                                          };
-                                                          setLabsData(updatedLabsData);
-                                                        }
-                                                        
-                                                        if (!user || !user.uid) {
-                                                          throw new Error('User not authenticated');
-                                                        }
-                                                        
-                                                        await labService.deleteLabValue(labDocId, labValueId);
-                                                        
-                                                        try {
-                                                          const remainingValues = await labService.getLabValues(labDocId);
-                                                          if (!remainingValues || remainingValues.length === 0) {
-                                                            await labService.deleteLab(labDocId);
-                                                          }
-                                                        } catch (cleanupError) {
-                                                          // Ignore cleanup errors
-                                                        }
-                                                        
-                                                        await reloadHealthData();
-                                                        showSuccess(`${labName} reading deleted successfully`);
-                                                        
-                                                        // Close the modal after successful deletion
-                                                        setDeleteConfirm({ ...deleteConfirm, show: false });
-                                                      } catch (error) {
-                                                        reloadHealthData();
-                                                        showError(`Failed to delete lab reading: ${error.message}`);
-                                                        // Close the modal even on error
-                                                        setDeleteConfirm({ ...deleteConfirm, show: false });
-                                                      } finally {
-                                                        setIsDeletingLabValue(false);
-                                                      }
-                                                    }
-                                                  });
-                                                }}
-                                                onTouchStart={(e) => { e.stopPropagation(); e.preventDefault(); }}
-                                                className={combineClasses("transition-colors p-2.5 sm:p-2 rounded min-h-[48px] min-w-[48px] sm:min-h-[44px] sm:min-w-[44px] flex items-center justify-center touch-manipulation", DesignTokens.components.status.high.text, 'hover:text-red-300', 'active:text-red-200', 'hover:bg-red-900/20', 'active:bg-red-900/30')}
-                                                title="Delete this reading"
-                                              >
-                                                <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                                              </button>
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </>
-                          ) : (
-                            <div className={combineClasses("flex items-center justify-center h-full", DesignTokens.colors.neutral.text[300])}>
-                              <p>No numeric data available for charting</p>
-                            </div>
-                          )}
-                      </div>
-
-                      {/* X-axis labels - show unique month/year only */}
-                      <div className={combineClasses("relative border-t pt-2 text-xs", DesignTokens.colors.neutral.border[300], DesignTokens.colors.neutral.text[600])} style={{ height: '20px' }}>
-                        {(() => {
-                          if (!xAxisLabels || xAxisLabels.length === 0) {
-                            return <span>No data</span>;
+                  {/* Chart - Recharts HealthChart */}
+                  {labChartData.bounds && labChartData.data.length > 0 ? (
+                    <HealthChart
+                      data={labChartData.data}
+                      unit={currentLab.unit}
+                      normalRange={labChartData.normalRange}
+                      bounds={labChartData.bounds}
+                      isScrollable={isScrollable}
+                      dataLength={labChartData.data.length}
+                      pointKeyPrefix={selectedLab}
+                      selectedDataPoint={selectedDataPoint}
+                      onSelectPoint={setSelectedDataPoint}
+                      onEditPoint={(dataPoint) => {
+                        setSelectedDataPoint(null);
+                        const currentLabDoc = allLabData[selectedLab];
+                        if (currentLabDoc?.id) {
+                          const valueData = (currentLab?.data || []).find(item => item.id === dataPoint.id);
+                          let dateValue = getTodayLocalDate();
+                          if (valueData?.dateOriginal) {
+                            dateValue = formatDateString(valueData.dateOriginal) || getTodayLocalDate();
+                          } else if (valueData?.timestamp) {
+                            dateValue = formatDateString(new Date(valueData.timestamp)) || getTodayLocalDate();
+                          } else if (valueData?.date) {
+                            dateValue = formatDateString(valueData.date) || getTodayLocalDate();
                           }
-
-                          const monthYearData = xAxisLabels;
-
-                          // Progressive truncation based on screen size
-                          const getLabels = (count) => {
-                            if (monthYearData.length <= count) return monthYearData;
-                            const indices = [];
-                            if (count >= 7) {
-                              indices.push(0, Math.floor(monthYearData.length / 6), Math.floor(monthYearData.length / 3), 
-                                         Math.floor(monthYearData.length / 2), Math.floor(monthYearData.length * 2 / 3),
-                                         Math.floor(monthYearData.length * 5 / 6), monthYearData.length - 1);
-                            } else if (count >= 5) {
-                              indices.push(0, Math.floor(monthYearData.length / 4), Math.floor(monthYearData.length / 2),
-                                         Math.floor(monthYearData.length * 3 / 4), monthYearData.length - 1);
-                            } else if (count >= 4) {
-                              indices.push(0, Math.floor(monthYearData.length / 3), Math.floor(monthYearData.length * 2 / 3), monthYearData.length - 1);
-                            } else {
-                              const midIndex = Math.floor(monthYearData.length / 2);
-                              indices.push(0, midIndex, monthYearData.length - 1);
+                          setSelectedLabForValue({ id: currentLabDoc.id, name: getLabDisplayName(currentLabDoc.name || selectedLab), unit: currentLabDoc.unit, key: selectedLab });
+                          setNewLabValue({ value: valueData?.value || '', date: dateValue, notes: valueData?.notes || '' });
+                          setEditingLabValueId(dataPoint.id);
+                          setIsEditingLabValue(true);
+                          setShowAddLabValue(true);
+                        }
+                      }}
+                      onDeletePoint={(dataPoint) => {
+                        const labValueId = dataPoint.id;
+                        const labKey = selectedLab;
+                        const labDoc = allLabData[selectedLab];
+                        const labDocId = labDoc?.id;
+                        const labName = currentLab.name;
+                        const labUnit = currentLab.unit;
+                        const labValue = dataPoint.displayValue;
+                        const labDate = dataPoint.date;
+                        if (!labDocId) {
+                          showError('Lab document ID not found. Please try again.');
+                          return;
+                        }
+                        setDeleteConfirm({
+                          show: true,
+                          title: `Delete ${labName} Reading?`,
+                          message: `This will permanently delete this ${labName} reading (${labValue} ${labUnit} on ${labDate}).`,
+                          itemName: `${labName} reading`,
+                          confirmText: 'Yes, Delete',
+                          onConfirm: async () => {
+                            setIsDeletingLabValue(true);
+                            try {
+                              const updatedLabsData = { ...labsData };
+                              if (updatedLabsData[labKey]?.data) {
+                                const filteredData = updatedLabsData[labKey].data.filter(item => item.id !== labValueId);
+                                const sortedData = [...filteredData].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                                updatedLabsData[labKey] = { ...updatedLabsData[labKey], data: filteredData, current: sortedData.length > 0 ? sortedData[0].value : '--' };
+                                setLabsData(updatedLabsData);
+                              }
+                              if (!user?.uid) throw new Error('User not authenticated');
+                              await labService.deleteLabValue(labDocId, labValueId);
+                              try {
+                                const remainingValues = await labService.getLabValues(labDocId);
+                                if (!remainingValues?.length) await labService.deleteLab(labDocId);
+                              } catch (cleanupError) {}
+                              await reloadHealthData();
+                              showSuccess(`${labName} reading deleted successfully`);
+                              setDeleteConfirm(prev => ({ ...prev, show: false }));
+                            } catch (error) {
+                              reloadHealthData();
+                              showError(`Failed to delete lab reading: ${error.message}`);
+                              setDeleteConfirm(prev => ({ ...prev, show: false }));
+                            } finally {
+                              setIsDeletingLabValue(false);
                             }
-                            return indices.map(idx => monthYearData[idx]).filter(Boolean);
-                          };
-
-                          return (
-                            <>
-                              {/* Desktop: Show all labels */}
-                              {monthYearData.map((item, idx) => (
-                                <span
-                                  key={`desktop-${item.index}`}
-                                  className="absolute hidden xl:inline whitespace-nowrap"
-                                  style={{ left: `${item.position}%`, transform: 'translateX(-50%)' }}
-                                >
-                                  {item.label}
-                                </span>
-                              ))}
-                              {/* Large tablet: Show 7 labels */}
-                              {getLabels(7).map((item) => (
-                                <span
-                                  key={`large-tablet-${item.index}`}
-                                  className="absolute hidden lg:inline xl:hidden whitespace-nowrap"
-                                  style={{ left: `${item.position}%`, transform: 'translateX(-50%)' }}
-                                >
-                                  {item.label}
-                                </span>
-                              ))}
-                              {/* Tablet: Show 5 labels */}
-                              {getLabels(5).map((item) => (
-                                <span
-                                  key={`tablet-${item.index}`}
-                                  className="absolute hidden md:inline lg:hidden whitespace-nowrap"
-                                  style={{ left: `${item.position}%`, transform: 'translateX(-50%)' }}
-                                >
-                                  {item.label}
-                                </span>
-                              ))}
-                              {/* Small tablet: Show 4 labels */}
-                              {getLabels(4).map((item) => (
-                                <span
-                                  key={`small-tablet-${item.index}`}
-                                  className="absolute hidden sm:inline md:hidden whitespace-nowrap"
-                                  style={{ left: `${item.position}%`, transform: 'translateX(-50%)' }}
-                                >
-                                  {item.label}
-                                </span>
-                              ))}
-                              {/* Mobile: Show 3 labels */}
-                              {getLabels(3).map((item) => (
-                                <span
-                                  key={`mobile-${item.index}`}
-                                  className="absolute sm:hidden whitespace-nowrap"
-                                  style={{ left: `${item.position}%`, transform: 'translateX(-50%)' }}
-                                >
-                                  {item.label}
-                                </span>
-                              ))}
-                            </>
-                          );
-                        })()}
-                      </div>
+                          }
+                        });
+                      }}
+                      isBloodPressure={false}
+                      chartId={selectedLab}
+                    />
+                  ) : (
+                    <div className={combineClasses("flex items-center justify-center h-40", DesignTokens.colors.neutral.text[300])}>
+                      <p>No numeric data available for charting</p>
                     </div>
-                  </div>
+                  )}
                 </>
                 ); })()}
                 </>

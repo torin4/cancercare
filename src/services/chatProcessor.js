@@ -11,7 +11,7 @@ import { translatePattern, generateHeadline, generateExplanation, suggestAction 
 import { validateAndEnhanceInsights } from '../utils/clinicalInsightValidator';
 import logger from '../utils/logger';
 // Import prompts
-import { buildMainPrompt } from '../prompts/chat/mainPrompt';
+import { buildMainPrompt, complexityToInsightDepth } from '../prompts/chat/mainPrompt';
 import { getTaskDescription } from '../prompts/chat/taskDescriptions';
 import { getHealthContextInstructions } from '../prompts/context/healthContext';
 import { getTrialContextInstructions } from '../prompts/context/trialContext';
@@ -466,7 +466,8 @@ ${trialUrl ? `\n   - For trial information: Include the trial study link: [View 
 async function buildHealthContextSection(healthContext, userId, patientProfile = null, shouldGenerateInsights = false) {
   if (!healthContext) return { contextString: '', insights: [] };
   
-  const insightDepth = patientProfile?.insightDepth || 'standard';
+  const complexity = patientProfile?.responseComplexity || 'standard';
+  const insightDepth = complexityToInsightDepth(complexity);
   
   // Helper function to format date as YYYY-MM-DD (avoids timezone issues)
   const formatDateString = (date) => {
@@ -1075,10 +1076,7 @@ function buildChatPrompt({
   // Get task description using extracted function
   const taskDescription = getTaskDescription(message, trialContextSection, healthContextSection, notebookContextSection);
   
-  // Get insight depth from patient profile
-  const insightDepth = patientProfile?.insightDepth || 'standard';
-  
-  // Build main prompt using extracted function
+  // Build main prompt (insight depth is derived from complexity)
   return buildMainPrompt({
     message,
     userRoleContext,
@@ -1090,8 +1088,7 @@ function buildChatPrompt({
     dicomContextSection,
     conversationHistory,
     patientProfile,
-    responseComplexity: complexity,
-    insightDepth: insightDepth
+    responseComplexity: complexity
   });
 }
 
@@ -1420,9 +1417,13 @@ export async function processChatMessage(message, userId, conversationHistory = 
     } catch (parseError) {
       logger.error('[chatProcessor] JSON parse error:', parseError);
       logger.error('[chatProcessor] Response text (first 500 chars):', text.substring(0, 500));
-      // If JSON parsing fails, try to return the text as conversational response
+      // If JSON parsing fails, try to extract conversationalResponse from raw text (avoid showing raw JSON)
+      const convMatch = text.match(/"conversationalResponse"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+      const fallbackResponse = convMatch
+        ? convMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"')
+        : (text || 'I received a response but had trouble parsing it. Please try rephrasing your question.');
       return {
-        response: text || 'I received a response but had trouble parsing it. Please try rephrasing your question.',
+        response: fallbackResponse,
         extractedData: null
       };
     }
@@ -1452,8 +1453,17 @@ export async function processChatMessage(message, userId, conversationHistory = 
       }];
     }
 
+    // Ensure we never return raw JSON - use conversationalResponse or extract from text
+    let responseText = parsed.conversationalResponse ?? parsed.response;
+    if (responseText == null || responseText === '') {
+      const convMatch = text.match(/"conversationalResponse"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+      responseText = convMatch
+        ? convMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"')
+        : 'I received a response but had trouble parsing it. Please try rephrasing your question.';
+    }
+
     return {
-      response: parsed.conversationalResponse,
+      response: responseText,
       extractedData: parsed.extractedData,
       insight: parsed.insight || null, // Legacy support
       insights: insights // New structured insights array for UI

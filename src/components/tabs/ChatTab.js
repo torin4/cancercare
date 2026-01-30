@@ -1310,7 +1310,7 @@ export default function ChatTab({ onTabChange }) {
                   </div>
                 )}
                 <div className={combineClasses(
-                  'max-w-[82%] sm:max-w-[70%]',
+                  'max-w-[82%] sm:max-w-[70%] min-w-0 overflow-hidden break-words',
                   msg.type === 'user'
                     ? DesignTokens.components.chat.userBubble
                     : msg.isAnalysis
@@ -1329,7 +1329,7 @@ export default function ChatTab({ onTabChange }) {
                     <p className="text-sm sm:text-base whitespace-pre-wrap">{msg.text}</p>
                   </div>
                 ) : (
-                  <div className="text-sm sm:text-base prose prose-sm max-w-none">
+                  <div className="text-sm sm:text-base prose prose-sm max-w-none break-words">
                      {/* Check if this is an upload summary and add action buttons */}
                      {msg.text.includes('**Document uploaded successfully!**') && (() => {
                        // Check if this is a genomic upload
@@ -1459,18 +1459,18 @@ export default function ChatTab({ onTabChange }) {
                      })()}
                     <ReactMarkdown
                       components={{
-                        p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
-                        ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 space-y-1" {...props} />,
-                        ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2 space-y-1" {...props} />,
-                        li: ({node, ...props}) => <li className="ml-2" {...props} />,
+                        p: ({node, ...props}) => <p className="mb-2 last:mb-0 break-words" {...props} />,
+                        ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 space-y-1 break-words" {...props} />,
+                        ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2 space-y-1 break-words" {...props} />,
+                        li: ({node, ...props}) => <li className="ml-2 break-words" {...props} />,
                         strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
                         em: ({node, ...props}) => <em className="italic" {...props} />,
-                        code: ({node, ...props}) => <code className="bg-medical-neutral-100 px-1.5 py-0.5 rounded text-xs font-mono" {...props} />,
-                        h1: ({node, ...props}) => <h1 className="text-lg font-bold mb-2 mt-3 first:mt-0" {...props} />,
-                        h2: ({node, ...props}) => <h2 className="text-base font-bold mb-2 mt-3 first:mt-0" {...props} />,
-                        h3: ({node, ...props}) => <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0" {...props} />,
-                        blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-medical-neutral-300 pl-3 italic my-2" {...props} />,
-                        a: ({node, ...props}) => <a className="text-gray-800 underline hover:text-gray-900" {...props} />,
+                        code: ({node, ...props}) => <code className="bg-medical-neutral-100 px-1.5 py-0.5 rounded text-xs font-mono break-all" {...props} />,
+                        h1: ({node, ...props}) => <h1 className="text-lg font-bold mb-2 mt-3 first:mt-0 break-words" {...props} />,
+                        h2: ({node, ...props}) => <h2 className="text-base font-bold mb-2 mt-3 first:mt-0 break-words" {...props} />,
+                        h3: ({node, ...props}) => <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0 break-words" {...props} />,
+                        blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-medical-neutral-300 pl-3 italic my-2 break-words" {...props} />,
+                        a: ({node, ...props}) => <a className="text-gray-800 underline hover:text-gray-900 break-all" {...props} target="_blank" rel="noopener noreferrer" />,
                       }}
                     >
                       {removeQuestionsFromText(msg.text)}
@@ -1784,7 +1784,7 @@ export default function ChatTab({ onTabChange }) {
                                                                                       patientProfile?.responseComplexity === 'detailed' ? 3 :
                                                                                       patientProfile?.responseComplexity === 'advanced' ? 4 : 2) / 4) * 100}%, #e5e7eb 100%)`
                         }}
-                        title="Adjust response complexity: Simple = plain language, Detailed = comprehensive explanations"
+                        title="Adjust response detail: Simple = brief answers and basic insights, Advanced = comprehensive explanations and expert analysis"
                       />
                       {/* Step markers */}
                       <div className="absolute top-0 left-0 right-0 h-2 flex items-center justify-between pointer-events-none z-0">
@@ -1798,89 +1798,6 @@ export default function ChatTab({ onTabChange }) {
                     <span className={`text-xs whitespace-nowrap ${
                       patientProfile?.responseComplexity === 'advanced' ? 'font-semibold text-purple-700' : 'text-medical-neutral-500'
                     }`}>Advanced</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Insight Depth Slider */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-medical-neutral-700">
-                    Insight Depth
-                  </label>
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
-                    patientProfile?.insightDepth === 'basic' ? 'bg-gray-100 text-gray-700' :
-                    patientProfile?.insightDepth === 'advanced' ? 'bg-orange-100 text-orange-700' :
-                    patientProfile?.insightDepth === 'expert' ? 'bg-red-100 text-red-700' :
-                    'bg-anchor-100 text-anchor-700'
-                  }`}>
-                    {patientProfile?.insightDepth === 'basic' ? 'Basic' : 
-                     patientProfile?.insightDepth === 'advanced' ? 'Advanced' : 
-                     patientProfile?.insightDepth === 'expert' ? 'Expert' : 
-                     'Standard'}
-                  </span>
-                </div>
-                <div className="relative">
-                  <div className="flex items-center gap-3">
-                    <span className={`text-xs whitespace-nowrap ${
-                      patientProfile?.insightDepth === 'basic' ? 'font-semibold text-gray-700' : 'text-medical-neutral-500'
-                    }`}>Basic</span>
-                    <div className="flex-1 relative">
-                      <input
-                        type="range"
-                        min="0"
-                        max="3"
-                        step="1"
-                        value={patientProfile?.insightDepth === 'basic' ? 0 : 
-                               patientProfile?.insightDepth === 'advanced' ? 2 : 
-                               patientProfile?.insightDepth === 'expert' ? 3 : 1}
-                        onChange={async (e) => {
-                          const value = parseInt(e.target.value);
-                          const insightDepth = value === 0 ? 'basic' : value === 1 ? 'standard' : value === 2 ? 'advanced' : 'expert';
-                          const previousDepth = patientProfile?.insightDepth || 'standard';
-                          
-                          // Update local state first
-                          let updatedProfileState = null;
-                          setPatientProfile(prev => {
-                            if (!prev) {
-                              updatedProfileState = { insightDepth };
-                              return updatedProfileState;
-                            }
-                            updatedProfileState = { ...prev, insightDepth };
-                            return updatedProfileState;
-                          });
-                          
-                          try {
-                            const { patientService } = await import('../../firebase/services');
-                            const profileToSave = updatedProfileState || (patientProfile ? { ...patientProfile, insightDepth } : { insightDepth });
-                            await patientService.savePatient(user.uid, profileToSave);
-                            // Refresh to ensure sync
-                            await refreshPatient();
-                          } catch (error) {
-                            console.error('[ChatTab] Error saving insight depth:', error);
-                            setPatientProfile(prev => {
-                              if (!prev) return prev;
-                              return { ...prev, insightDepth: previousDepth };
-                            });
-                          }
-                        }}
-                        className="w-full h-2 bg-medical-neutral-200 rounded-lg appearance-none cursor-pointer relative z-10"
-                        style={{
-                          background: `linear-gradient(to right, #6366f1 0%, #6366f1 ${((patientProfile?.insightDepth === 'basic' ? 0 : patientProfile?.insightDepth === 'advanced' ? 2 : patientProfile?.insightDepth === 'expert' ? 3 : 1) / 3) * 100}%, #e5e7eb ${((patientProfile?.insightDepth === 'basic' ? 0 : patientProfile?.insightDepth === 'advanced' ? 2 : patientProfile?.insightDepth === 'expert' ? 3 : 1) / 3) * 100}%, #e5e7eb 100%)`
-                        }}
-                        title="Adjust insight depth: Basic = simple insights, Expert = full statistical analysis"
-                      />
-                      {/* Step markers */}
-                      <div className="absolute top-0 left-0 right-0 h-2 flex items-center justify-between pointer-events-none z-0">
-                        <div className="w-1 h-1 rounded-full bg-white"></div>
-                        <div className="w-1 h-1 rounded-full bg-white"></div>
-                        <div className="w-1 h-1 rounded-full bg-white"></div>
-                        <div className="w-1 h-1 rounded-full bg-white"></div>
-                      </div>
-                    </div>
-                    <span className={`text-xs whitespace-nowrap ${
-                      patientProfile?.insightDepth === 'expert' ? 'font-semibold text-red-700' : 'text-medical-neutral-500'
-                    }`}>Expert</span>
                   </div>
                 </div>
               </div>

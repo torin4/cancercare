@@ -127,7 +127,7 @@ We will share your information with third parties only when you explicitly autho
 - Opt-Out: Disconnect third-party integrations at any time
 
 5.3 AI Chat Controls
-- Response Complexity: Adjust the complexity level of AI responses
+- Response Complexity: Adjust response detail and insight depth (Simple = brief answers and basic insights, Advanced = comprehensive explanations and expert analysis)
 - Chat History: View, search, or delete chat history
 - Data Extraction: Control whether health data is extracted from conversations
 

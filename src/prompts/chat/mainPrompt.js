@@ -3,6 +3,12 @@
  * This is the core prompt that gets sent to the AI model
  */
 
+/** Maps response complexity to insight depth (single slider controls both) */
+export function complexityToInsightDepth(complexity) {
+  const map = { simple: 'basic', basic: 'basic', standard: 'standard', detailed: 'advanced', advanced: 'expert' };
+  return map[complexity] || 'standard';
+}
+
 export function buildMainPrompt({
   message,
   userRoleContext,
@@ -14,11 +20,10 @@ export function buildMainPrompt({
   dicomContextSection,
   conversationHistory,
   patientProfile,
-  responseComplexity,
-  insightDepth = null
+  responseComplexity
 }) {
   const complexity = responseComplexity || patientProfile?.responseComplexity || 'standard';
-  const depth = insightDepth || patientProfile?.insightDepth || 'standard';
+  const depth = complexityToInsightDepth(complexity);
 
   // If DICOM context is provided, use DICOM-specific prompt structure
   if (dicomContextSection) {
@@ -47,6 +52,8 @@ export function buildMainPrompt({
 - "Current" or "now" refers to ${currentYear}, not past years
 
 **CRITICAL - BE SPECIFIC AND DETAILED**: When answering questions, provide specific, detailed information. DO NOT be vague or generic. Use your extensive knowledge base to provide comprehensive answers. For drug-related questions, provide detailed mechanisms, side effects, clinical data, and correlations with observed health patterns. Avoid repetitive, generic statements.
+
+**CRITICAL - ANSWER THE QUESTION ASKED**: ALWAYS answer the user's actual question directly. If they ask about medications and blood pressure, answer about medications and blood pressure. If they ask about drug side effects, answer about drug side effects. Do NOT answer a different question (e.g., about lab trends or trial outcomes) when the user asked something else. The response complexity setting only affects style and length - it does NOT change which question you answer.
 
 ${userRoleContext}
 
@@ -201,7 +208,7 @@ ${getInsightDepthInstructions(insightDepth)}
   * Include 3-5 questions that cover: what to ask about the condition, treatment options, next steps, and concerns
   * The questions will be extracted from your response and shown as interactive cards, so keep your conversational text brief and focused on context
 - If trial context is provided${complexity === 'simple' ? ', use SIMPLE MODE - explain trials in very basic terms with no medical jargon' : ', provide information about drugs, phases, eligibility, and trial design'}
-- ALWAYS include authoritative links when discussing:
+${complexity === 'simple' || complexity === 'basic' ? `- **SIMPLE/BASIC MODE - BREVITY OVERRIDES ALL**: In ${complexity.toUpperCase()} mode, your conversationalResponse MUST be 1-3 sentences MAX. IGNORE any instructions about providing comprehensive/detailed information. Answer ONLY the question asked. No bullet lists, no multi-paragraph explanations, no links. Example for "do any drugs cause high blood pressure?": "Yes - Prednisone and Olanzapine can raise blood pressure. Talk to your care team about this."` : `- ALWAYS include authoritative links when discussing:
   * Drugs: FDA labels (https://www.accessdata.fda.gov/scripts/cder/daf/), prescribing information, medical literature
   * Trials: ClinicalTrials.gov study link (provided in trial context)
   * Medical information: PubMed, medical databases, official health organization sites
@@ -215,9 +222,9 @@ ${getInsightDepthInstructions(insightDepth)}
   - Typical dosing and administration schedules
 - **USE YOUR KNOWLEDGE BASE FREELY**: You have extensive knowledge of medications, their mechanisms, side effects, and clinical data. Use this knowledge to provide detailed, specific answers. Do not hold back information - provide comprehensive drug information when asked.
 - You can discuss drugs beyond the information provided - use your knowledge and provide links to authoritative sources (FDA, medical literature, prescribing information)
-- You can discuss ANY health-related topic: treatments, medications, side effects, symptoms, test results, disease progression, prognosis, diet, exercise, lifestyle, support resources, clinical trials, research, or any other health-related questions - as long as it's related to the patient's health or condition
 - **AVOID REPETITIVE RESPONSES**: Each response should provide NEW information, different insights, or a different perspective. Do not repeat the same generic statements. If you've already mentioned something, build on it or provide additional detail rather than repeating. Vary your language and approach.
-- **BE SPECIFIC ABOUT DRUG-HEALTH CORRELATIONS**: When health data shows concerning patterns and the patient is on a medication/trial drug, explicitly state whether these patterns could be related to the drug. Reference specific known side effects that match the observed patterns. For example: "The low red blood cell counts you're seeing are consistent with known side effects of [drug name], which can cause anemia in X% of patients."
+- **BE SPECIFIC ABOUT DRUG-HEALTH CORRELATIONS**: When health data shows concerning patterns and the patient is on a medication/trial drug, explicitly state whether these patterns could be related to the drug. Reference specific known side effects that match the observed patterns. For example: "The low red blood cell counts you're seeing are consistent with known side effects of [drug name], which can cause anemia in X% of patients."`}
+- You can discuss ANY health-related topic: treatments, medications, side effects, symptoms, test results, disease progression, prognosis, diet, exercise, lifestyle, support resources, clinical trials, research, or any other health-related questions - as long as it's related to the patient's health or condition
 - If no medical data is mentioned, just respond conversationally and helpfully to any health-related questions (or about the trial if trial context is provided)
 - If the user asks about analyzing or explaining their health data but there is NO data available or INSUFFICIENT data (e.g., only 1-2 data points when trends require more), acknowledge this clearly in your response and suggest how they can add more data. Be helpful and guide them on what data would be useful.
 - If the user is sharing a personal note, thought, reflection, or journal entry (not structured medical data like labs, vitals, symptoms, or medications), extract it as a journalNote. Examples:
@@ -234,6 +241,7 @@ ${getInsightDepthInstructions(insightDepth)}
 function getResponseStyle(complexity) {
   if (complexity === 'simple') {
     return `- RESPONSE STYLE - SIMPLE MODE (CRITICAL - MUST FOLLOW):
+  * CRITICAL: ALWAYS answer the user's ACTUAL question. If they ask "do any drugs cause high blood pressure?", answer about medications and blood pressure - NOT about unrelated topics like lab trends or trials. Complexity only affects HOW you explain, not WHAT you answer.
   * Use ONLY everyday, simple words - no medical jargon at all
   * Keep responses VERY SHORT - maximum 1-2 sentences (preferably 1 sentence)
   * DO NOT mention specific numbers, values, or test results - only provide insights and interpretations

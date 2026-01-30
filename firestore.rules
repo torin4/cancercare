@@ -1,5 +1,5 @@
 rules_version = '2';
-service cloud.firestore {
+service cloud.irestore {
   match /databases/{database}/documents {
 
     // Helper function to check if user owns the resource
