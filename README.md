@@ -11,6 +11,7 @@ An intelligent health tracking application for cancer patients, powered by Googl
 - **Symptom Calendar**: Visual symptom tracking over time
 - **Document Upload**: Auto-extract values from lab reports and clinical notes
 - **Clinical Trials**: Personalized trial matching based on genomic profile
+- **Data Backup**: Download or backup to Google Drive (Profile tab)
 
 ## Prerequisites
 
@@ -118,6 +119,13 @@ Upload lab reports, clinic notes, or imaging results:
 - AI automatically extracts all values
 - Logs to appropriate tracking sections
 - Provides intelligent analysis
+
+### Data Backup
+
+Profile tab → **Backup Your Data**:
+- **Download backup**: Saves a JSON file with all your health data (labs, vitals, medications, symptoms, journal notes, documents metadata). No setup required.
+- **Include document files**: Optional checkbox — when checked, creates a ZIP with `backup.json` plus a `documents/` folder containing your PDFs, images, and scans.
+- **Backup to Google Drive**: Uploads directly to your Drive. Requires `REACT_APP_GOOGLE_CLIENT_ID` and `REACT_APP_GOOGLE_API_KEY` in `.env` (see [Google Drive API setup](https://developers.google.com/drive/api/quickstart/js)).
 
 ## Tech Stack
 

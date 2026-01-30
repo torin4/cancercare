@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Activity, Calendar, FileIcon, ChevronDown, ChevronUp, Eye, Plus, Trash2, Edit2 } from 'lucide-react';
 import { formatDateString } from '../utils/helpers';
+import { formatJournalContentForDisplay } from '../utils/dayOneImportUtils';
 import { DesignTokens, combineClasses } from '../design/designTokens';
 
 /**
@@ -120,7 +121,7 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
                           onClick={() => hasContent && toggleEntry(entry.dateKey)}
                         >
                           <p className="text-sm text-medical-neutral-600 mt-2 line-clamp-2">
-                            {entry.notes[0].content}
+                            {formatJournalContentForDisplay(entry.notes[0].content)}
                           </p>
                         </div>
                       )}
@@ -165,7 +166,7 @@ export default function NotebookTimeline({ entries, onEntryClick, onAddNote, onD
                                         : combineClasses('bg-medical-accent-50', 'border-medical-accent-100')
                                     )}
                                   >
-                                    <p className="text-sm text-medical-neutral-800">{note.content}</p>
+                                    <p className="text-sm text-medical-neutral-800 whitespace-pre-wrap">{formatJournalContentForDisplay(note.content)}</p>
                                   <div className="flex items-center justify-between mt-1">
                                     <p className="text-xs text-medical-neutral-500">
                                       From: {note.sourceName}

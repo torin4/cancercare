@@ -29,6 +29,7 @@ import {
 } from '../../../../utils/normalizationUtils';
 import AddVitalModal from '../../../modals/AddVitalModal';
 import AddVitalValueModal from '../../../modals/AddVitalValueModal';
+import EditVitalModal from '../../../modals/EditVitalModal';
 import DeletionConfirmationModal from '../../../modals/DeletionConfirmationModal';
 import { getTodayLocalDate, formatDateString, getCurrentDateTimeLocal } from '../../../../utils/helpers';
 import { calculateYAxisBounds } from '../utils/chartUtils';
@@ -78,9 +79,24 @@ function VitalsSection({
   });
   const [isDeletingVitalValue, setIsDeletingVitalValue] = useState(false);
   const [openDeleteMenu, setOpenDeleteMenu] = useState(null);
+  const [editingVital, setEditingVital] = useState(null);
+  const [editingVitalKey, setEditingVitalKey] = useState(null);
   const [favoriteMetrics, setFavoriteMetrics] = useState({ labs: [], vitals: [] });
+  const [chartTimeRange, setChartTimeRange] = useState('30d'); // '7d' | '30d' | '90d' | 'all'
 
   const allVitalsData = vitalsData;
+
+  // Filter vital data by selected time range
+  const filterDataByTimeRange = (data) => {
+    if (!data || data.length === 0 || chartTimeRange === 'all') return data || [];
+    const now = Date.now();
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const cutoff = now - (chartTimeRange === '7d' ? 7 : chartTimeRange === '30d' ? 30 : 90) * msPerDay;
+    return data.filter((d) => {
+      const ts = d.timestamp ?? (d.dateOriginal instanceof Date ? d.dateOriginal.getTime() : d.dateOriginal?.toDate?.()?.getTime?.());
+      return ts != null && ts >= cutoff;
+    });
+  };
 
   // Load favorites from patient profile
   useEffect(() => {
@@ -283,6 +299,32 @@ function VitalsSection({
       </div>
       </div>
 
+      {/* Chart time range filter */}
+      {Object.keys(allVitalsData).length > 0 && allVitalsData[selectedVital]?.data?.length > 0 && (
+        <div className="flex items-center gap-1 mb-3">
+          <span className={combineClasses("text-xs font-medium", DesignTokens.colors.neutral.text[600])}>Show:</span>
+          {[
+            { value: '7d', label: '7 days' },
+            { value: '30d', label: '1 month' },
+            { value: '90d', label: '3 months' },
+            { value: 'all', label: 'All' }
+          ].map(({ value, label }) => (
+            <button
+              key={value}
+              onClick={() => setChartTimeRange(value)}
+              className={combineClasses(
+                "px-2.5 py-1 text-xs rounded-md transition-colors min-h-[32px] touch-manipulation",
+                chartTimeRange === value
+                  ? 'bg-anchor-900 text-white'
+                  : combineClasses('border', DesignTokens.colors.neutral.border[300], 'hover:bg-medical-neutral-50', DesignTokens.colors.neutral.text[700])
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {(() => {
       const currentVital = allVitalsData[selectedVital] || {
       name: 'No Data',
@@ -291,6 +333,8 @@ function VitalsSection({
       status: 'normal',
       data: []
       };
+
+      const chartData = filterDataByTimeRange(currentVital?.data || []);
 
       if (!currentVital || !currentVital.data || currentVital.data.length === 0) {
       return (
@@ -302,6 +346,14 @@ function VitalsSection({
       >
       Go to Chat to Add Data
       </button>
+      </div>
+      );
+      }
+
+      if (chartData.length === 0) {
+      return (
+      <div className={combineClasses("text-center py-8", DesignTokens.colors.neutral.text[500])}>
+      <p>No data in selected time range. Try &quot;All&quot; or a longer range.</p>
       </div>
       );
       }
@@ -424,7 +476,7 @@ function VitalsSection({
       <div className={combineClasses("flex flex-col justify-between text-xs font-medium py-2", DesignTokens.colors.neutral.text[600])} style={{ paddingBottom: '1.5rem' }}>
       {(() => {
       // Filter out non-numeric values and ensure we have valid numbers
-      const values = currentVital.data
+      const values = chartData
       .map(d => {
       if (selectedVital === 'bp' || selectedVital === 'bloodpressure') {
       return parseFloat(d.systolic || d.value);
@@ -500,7 +552,7 @@ function VitalsSection({
       {/* SVG Graph */}
       {(() => {
       // Filter out non-numeric values and ensure we have valid numbers
-      const values = currentVital.data
+      const values = chartData
       .map(d => {
       if (selectedVital === 'bp' || selectedVital === 'bloodpressure') {
       return parseFloat(d.systolic || d.value);
@@ -746,8 +798,8 @@ function VitalsSection({
       {/* Area under line */}
       <polygon
       points={(() => {
-      const dataLength = Math.max(currentVital.data.length - 1, 1); // Prevent division by zero
-      const topPoints = currentVital.data.map((d, i) => {
+      const dataLength = Math.max(chartData.length - 1, 1); // Prevent division by zero
+      const topPoints = chartData.map((d, i) => {
       const val = (selectedVital === 'bp' || selectedVital === 'bloodpressure') ? (d.systolic || d.value) : d.value;
       const numVal = parseFloat(val);
       // Only include valid numeric values
@@ -769,8 +821,8 @@ function VitalsSection({
       {/* Line */}
       <polyline
       points={(() => {
-      const dataLength = Math.max(currentVital.data.length - 1, 1); // Prevent division by zero
-      return currentVital.data.map((d, i) => {
+      const dataLength = Math.max(chartData.length - 1, 1); // Prevent division by zero
+      return chartData.map((d, i) => {
       const val = (selectedVital === 'bp' || selectedVital === 'bloodpressure') ? (d.systolic || d.value) : d.value;
       const numVal = parseFloat(val);
       // Only include valid numeric values
@@ -796,8 +848,8 @@ function VitalsSection({
       </svg>
 
       {/* Interactive data points with tooltips */}
-      {currentVital.data.map((d, i) => {
-      const dataLength = Math.max(currentVital.data.length - 1, 1); // Prevent division by zero
+      {chartData.map((d, i) => {
+      const dataLength = Math.max(chartData.length - 1, 1); // Prevent division by zero
       // Check if this is an "all day" entry (time is midnight or isAllDay flag is set)
       const isAllDay = d.isAllDay || (d.time === '00:00' || d.time === '00:00:00') || false;
       const val = (selectedVital === 'bp' || selectedVital === 'bloodpressure') ? (d.systolic || d.value) : d.value;
@@ -806,7 +858,7 @@ function VitalsSection({
       : d.value;
       const x = (i / dataLength) * 100;
       const y = ((parseFloat(val) - yMin) / yRange) * 100;
-      const isLatest = i === currentVital.data.length - 1;
+      const isLatest = i === chartData.length - 1;
 
       // Get normal range for status calculation
       const normalRange = currentVital.normalRange || (() => {
@@ -1138,16 +1190,16 @@ function VitalsSection({
       {/* X-axis labels - show unique month/year only, aligned with data points */}
       <div className={combineClasses("relative border-t pt-2 text-xs", DesignTokens.colors.neutral.border[300], DesignTokens.colors.neutral.text[600])} style={{ height: '20px' }}>
       {(() => {
-      if (!currentVital.data || currentVital.data.length === 0) {
+      if (!chartData || chartData.length === 0) {
       return <span>No data</span>;
       }
 
       const seenMonthYears = new Set();
       const monthLabels = [];
       const monthYearData = []; // Store { label, index, position }
-      const dataLength = currentVital.data.length;
+      const dataLength = chartData.length;
 
-      currentVital.data.forEach((d, i) => {
+      chartData.forEach((d, i) => {
       let dateObj = d.dateOriginal;
       if (!dateObj && d.timestamp) {
       dateObj = new Date(d.timestamp);
@@ -1479,29 +1531,44 @@ function VitalsSection({
       const vitalDoc = allVitalsData[key];
       if (vitalDoc) {
       const displayName = getVitalDisplayName(vitalDoc.name || key);
-      setSelectedVitalForValue({ 
-      id: vitalDoc.id, 
-      name: displayName, 
-      unit: vitalDoc.unit, 
+      setSelectedVitalForValue({
+      id: vitalDoc.id,
+      name: displayName,
+      unit: vitalDoc.unit,
       key: key,
       vitalType: key
       });
-      setNewVitalValue({ 
-      value: '', 
-      systolic: '', 
-      diastolic: '', 
-      dateTime: getCurrentDateTimeLocal(), 
-      notes: '' 
+      setNewVitalValue({
+      value: '',
+      systolic: '',
+      diastolic: '',
+      dateTime: getCurrentDateTimeLocal(),
+      notes: ''
       });
       setIsEditingVitalValue(false);
       setEditingVitalValueId(null);
       setShowAddVitalValue(true);
       }
       }}
-      className={combineClasses("w-full text-left px-4 py-2 text-sm flex items-center gap-2 hover:bg-medical-neutral-100", DesignTokens.colors.neutral.text[700])}
+      className={combineClasses("w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 min-h-[44px] touch-manipulation active:opacity-70", DesignTokens.colors.neutral.text[700], "hover:bg-medical-neutral-100")}
       >
       <Plus className="w-4 h-4" />
       Add Value
+      </button>
+      <button
+      onClick={(e) => {
+      e.stopPropagation();
+      setOpenDeleteMenu(null);
+      const vitalDoc = allVitalsData[key];
+      if (vitalDoc) {
+      setEditingVital(vitalDoc);
+      setEditingVitalKey(key);
+      }
+      }}
+      className={combineClasses("w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 min-h-[44px] touch-manipulation active:opacity-70", DesignTokens.colors.neutral.text[700], "hover:bg-medical-neutral-100")}
+      >
+      <Edit2 className="w-4 h-4" />
+      Edit Metric
       </button>
       <button
       onClick={(e) => {
@@ -1614,6 +1681,24 @@ function VitalsSection({
         allVitalsData={allVitalsData}
         reloadHealthData={reloadHealthData}
         getWeightNormalRange={getWeightNormalRange}
+      />
+
+      <EditVitalModal
+        show={!!editingVital}
+        onClose={() => {
+          setEditingVital(null);
+          setEditingVitalKey(null);
+        }}
+        vital={editingVital}
+        vitalKey={editingVitalKey}
+        user={user}
+        onSave={async () => {
+          if (reloadHealthData) await reloadHealthData();
+        }}
+        onDeleteValue={async (vitalId, valueId) => {
+          await vitalService.deleteVitalValue(vitalId, valueId);
+          if (reloadHealthData) await reloadHealthData();
+        }}
       />
 
       <AddVitalValueModal

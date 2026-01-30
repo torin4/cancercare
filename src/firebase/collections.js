@@ -199,6 +199,7 @@ export const SymptomSchema = {
   type: 'string', // e.g., 'Fatigue', 'Pain', 'Nausea'
   severity: 'string', // 'Mild', 'Moderate', 'Severe'
   notes: 'string',
+  documentId: 'string', // Optional - links to source document (e.g. Day One import)
   createdAt: 'timestamp'
 };
 
@@ -295,6 +296,7 @@ export const JournalNoteSchema = {
   patientId: 'string',
   date: 'timestamp',
   content: 'string',
+  documentId: 'string', // Optional - links to source document (e.g. Day One import)
   createdAt: 'timestamp',
   updatedAt: 'timestamp'
 };

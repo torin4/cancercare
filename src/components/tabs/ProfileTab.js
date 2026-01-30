@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { Camera, User, Calendar, MapPin, TrendingUp, Activity, Edit2, Dna, Upload, AlertCircle, Users, Phone, Plus, Settings, Link2, Loader2, Unlink, LogOut, Trash2, Sliders, Shield, HeartHandshake, Copy, MoreVertical } from 'lucide-react';
+import { Camera, User, Calendar, MapPin, TrendingUp, Activity, Edit2, Dna, Upload, AlertCircle, Users, Phone, Plus, Settings, Link2, Loader2, Unlink, LogOut, Trash2, Sliders, Shield, HeartHandshake, Copy, MoreVertical, HardDrive, Download, Cloud } from 'lucide-react';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { signOut, linkWithPopup, unlink, GoogleAuthProvider, deleteUser, EmailAuthProvider, linkWithCredential, reauthenticateWithCredential, reauthenticateWithPopup, updatePassword } from 'firebase/auth';
 import { auth } from '../../firebase/config';
@@ -9,6 +9,8 @@ import { usePatientContext } from '../../contexts/PatientContext';
 import { useHealthContext } from '../../contexts/HealthContext';
 import { useBanner } from '../../contexts/BannerContext';
 import { emergencyContactService, accountService, documentService } from '../../firebase/services';
+import { exportUserBackup, downloadBackup, createBackupZip } from '../../services/backupExportService';
+import { uploadBackupToDrive, isGoogleDriveConfigured } from '../../services/googleDriveBackupService';
 import { deleteUserDirectory } from '../../firebase/storage';
 import { formatLabel, formatSignificance, significanceExplanation } from '../../utils/formatters';
 import { parseMutation } from '../../utils/helpers';
@@ -111,6 +113,8 @@ export default function ProfileTab({ onTabChange }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [includeDocuments, setIncludeDocuments] = useState(false);
   
   // Document onboarding state
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
@@ -1689,6 +1693,104 @@ export default function ProfileTab({ onTabChange }) {
                       </button>
                     </div>
                   </div>
+                )}
+              </div>
+            </div>
+
+            {/* Backup Section */}
+            <div className="pt-4 border-t border-medical-neutral-200">
+              <h3 className="text-sm font-semibold text-medical-neutral-900 mb-2 flex items-center gap-2">
+                <HardDrive className="w-4 h-4 text-medical-primary-600" />
+                Backup Your Data
+              </h3>
+              <p className="text-xs text-medical-neutral-600 mb-3">
+                Save a copy of your health data (labs, vitals, medications, symptoms, journal notes, documents metadata) to keep it safe.
+              </p>
+              <label className="flex items-center gap-2 mb-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includeDocuments}
+                  onChange={(e) => setIncludeDocuments(e.target.checked)}
+                  className="rounded"
+                />
+                <span className="text-sm text-medical-neutral-700">Include document files (PDFs, images, scans) — creates a ZIP file</span>
+              </label>
+              {includeDocuments && (
+                <p className="text-xs text-medical-neutral-500 mb-3 -mt-1">
+                  Local dev: run <code className="bg-medical-neutral-100 px-1 rounded">npm run start:all</code> so documents can be downloaded.
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={async () => {
+                    if (!user) return;
+                    setIsBackingUp(true);
+                    try {
+                      const result = await downloadBackup(user.uid, { includeDocuments });
+                      if (includeDocuments && result.documentsSkipped > 0) {
+                        showSuccess(`Backup downloaded. ${result.documentsIncluded} documents included. ${result.documentsSkipped} could not be included — run \`npm run start:all\` for local dev.`);
+                      } else if (includeDocuments) {
+                        showSuccess(`Backup downloaded. ${result.documentsIncluded} documents included. Save it somewhere safe.`);
+                      } else {
+                        showSuccess('Backup downloaded. Save the file somewhere safe.');
+                      }
+                    } catch (err) {
+                      showError(err.message || 'Failed to download backup.');
+                    } finally {
+                      setIsBackingUp(false);
+                    }
+                  }}
+                  disabled={isBackingUp}
+                  className={combineClasses('flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-white border rounded-lg text-sm font-medium transition touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed', DesignTokens.colors.app.border[200], DesignTokens.colors.app.text[800], 'hover:bg-medical-neutral-50', 'active:bg-medical-neutral-100')}
+                >
+                  {isBackingUp ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  Download backup
+                </button>
+                {isGoogleDriveConfigured() && (
+                  <button
+                    onClick={async () => {
+                      if (!user) return;
+                      setIsBackingUp(true);
+                      try {
+                        let backupOrZip;
+                        let zipResult = null;
+                        if (includeDocuments) {
+                          zipResult = await createBackupZip(user.uid);
+                          backupOrZip = zipResult.zip;
+                        } else {
+                          backupOrZip = await exportUserBackup(user.uid);
+                        }
+                        const result = await uploadBackupToDrive(backupOrZip);
+                        if (zipResult && zipResult.documentsSkipped > 0) {
+                          showSuccess(`Backup saved to Google Drive. ${zipResult.documentsIncluded} documents included. ${zipResult.documentsSkipped} could not be included — run \`npm run start:all\` for local dev.`);
+                        } else if (zipResult) {
+                          showSuccess(`Backup saved to Google Drive. ${zipResult.documentsIncluded} documents included.`);
+                        } else {
+                          showSuccess('Backup saved to Google Drive.');
+                        }
+                        if (result.webViewLink) {
+                          window.open(result.webViewLink, '_blank');
+                        }
+                      } catch (err) {
+                        showError(err.message || 'Failed to backup to Google Drive.');
+                      } finally {
+                        setIsBackingUp(false);
+                      }
+                    }}
+                    disabled={isBackingUp}
+                    className={combineClasses('flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-white border rounded-lg text-sm font-medium transition touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed', DesignTokens.colors.app.border[200], DesignTokens.colors.app.text[800], 'hover:bg-blue-50 hover:border-blue-200', 'active:bg-blue-100')}
+                  >
+                    {isBackingUp ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Cloud className="w-4 h-4" />
+                    )}
+                    Backup to Google Drive
+                  </button>
                 )}
               </div>
             </div>

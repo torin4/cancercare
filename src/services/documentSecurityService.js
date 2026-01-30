@@ -23,6 +23,7 @@ const ALLOWED_MIME_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'text/plain',
   'text/csv',
+  'application/json',
   'application/dicom',
   'application/x-dicom',
   'application/zip',
@@ -42,6 +43,7 @@ const ALLOWED_EXTENSIONS = [
   '.docx', '.DOCX',
   '.txt', '.TXT',
   '.csv', '.CSV',
+  '.json', '.JSON',
   '.dcm', '.DCM',
   '.dicom', '.DICOM',
   '.zip', '.ZIP'

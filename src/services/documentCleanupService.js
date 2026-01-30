@@ -1,4 +1,4 @@
-import { labService, vitalService, medicationService, symptomService } from '../firebase/services';
+import { labService, vitalService, medicationService, symptomService, journalNoteService } from '../firebase/services';
 
 /**
  * Comprehensive document data cleanup service
@@ -21,6 +21,7 @@ export async function cleanupDocumentData(documentId, userId, aggressiveCleanup 
     vitalValuesDeleted: 0,
     medicationsDeleted: 0,
     symptomsDeleted: 0,
+    journalNotesDeleted: 0,
     orphanedLabsDeleted: 0,
     orphanedVitalsDeleted: 0,
     legacyLabValuesDeleted: 0,
@@ -52,7 +53,11 @@ export async function cleanupDocumentData(documentId, userId, aggressiveCleanup 
     const symptomResults = await cleanupSymptomsByDocument(documentId, userId);
     results.symptomsDeleted = symptomResults.symptomsDeleted;
 
-    // Step 5: Run full orphaned cleanup to catch anything missed
+    // Step 5: Delete all journal notes with this documentId (e.g. Day One imports)
+    const journalNoteResults = await cleanupJournalNotesByDocument(documentId, userId);
+    results.journalNotesDeleted = journalNoteResults.journalNotesDeleted;
+
+    // Step 6: Run full orphaned cleanup to catch anything missed
     const additionalOrphans = await runFullOrphanedCleanup(userId);
     results.orphanedLabsDeleted += additionalOrphans.labs;
     results.orphanedVitalsDeleted += additionalOrphans.vitals;
@@ -356,6 +361,36 @@ async function cleanupSymptomsByDocument(documentId, userId) {
 }
 
 /**
+ * Clean up all journal notes associated with a document (e.g. Day One imports)
+ * @param {string} documentId - The document ID
+ * @param {string} userId - User ID
+ * @returns {Object} Cleanup results
+ */
+async function cleanupJournalNotesByDocument(documentId, userId) {
+  const results = {
+    journalNotesDeleted: 0
+  };
+
+  try {
+    const allJournalNotes = await journalNoteService.getJournalNotes(userId);
+    const notesToDelete = allJournalNotes.filter(note => note.documentId === documentId);
+
+    for (const note of notesToDelete) {
+      try {
+        await journalNoteService.deleteJournalNote(note.id);
+        results.journalNotesDeleted++;
+      } catch (error) {
+        // Continue with other deletions
+      }
+    }
+
+    return results;
+  } catch (error) {
+    throw error;
+  }
+}
+
+/**
  * Run full orphaned cleanup to catch any missed orphans
  * @param {string} userId - User ID
  * @returns {Object} Number of orphaned items deleted
@@ -394,6 +429,7 @@ export async function verifyCleanupComplete(documentId, userId) {
     vitalValuesRemaining: 0,
     medicationsRemaining: 0,
     symptomsRemaining: 0,
+    journalNotesRemaining: 0,
     isComplete: true
   };
 
@@ -422,11 +458,16 @@ export async function verifyCleanupComplete(documentId, userId) {
     const allSymptoms = await symptomService.getSymptoms(userId);
     results.symptomsRemaining = allSymptoms.filter(symptom => symptom.documentId === documentId).length;
 
+    // Check journal notes
+    const allJournalNotes = await journalNoteService.getJournalNotes(userId);
+    results.journalNotesRemaining = allJournalNotes.filter(note => note.documentId === documentId).length;
+
     results.isComplete = (
       results.labValuesRemaining === 0 &&
       results.vitalValuesRemaining === 0 &&
       results.medicationsRemaining === 0 &&
-      results.symptomsRemaining === 0
+      results.symptomsRemaining === 0 &&
+      results.journalNotesRemaining === 0
     );
 
     if (!results.isComplete) {

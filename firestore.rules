@@ -79,6 +79,14 @@ service cloud.firestore {
                        resource.data.patientId == request.auth.uid;
     }
 
+    // Medication Activity - audit trail for medication actions (add/update/pause/delete)
+    match /medicationActivity/{activityId} {
+      allow read: if request.auth != null &&
+                     resource.data.patientId == request.auth.uid;
+      allow create: if request.auth != null && hasValidPatientId();
+      allow update, delete: if false;
+    }
+
     // Documents - users can only access their own documents
     // Enhanced security: protect sensitive fields and validate metadata
     match /documents/{docId} {
