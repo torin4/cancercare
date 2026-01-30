@@ -8,6 +8,7 @@ import { useHealthContext } from '../../contexts/HealthContext';
 import { useBanner } from '../../contexts/BannerContext';
 import { getSavedTrials } from '../../services/clinicalTrials/clinicalTrialsService';
 import { parseMutation, getTodayLocalDate, formatDateString } from '../../utils/helpers';
+import { formatJournalContentForDisplay } from '../../utils/dayOneImportUtils';
 import { formatLabel } from '../../utils/formatters';
 import { documentService } from '../../firebase/services';
 import { getNotebookEntries } from '../../services/notebookService';
@@ -543,7 +544,7 @@ setIsUploading(false);
                     const vital = vitalsData[key];
                     return vital && ((vital.data && vital.data.length > 0) || vital.current);
                   })
-                  .filter(key => ['weight', 'bp', 'bloodpressure', 'temperature', 'temp', 'heartrate', 'hr', 'pulse'].includes(key.toLowerCase()))
+                  .filter(key => ['weight', 'bp', 'bloodpressure', 'blood_pressure', 'temperature', 'temp', 'heartrate', 'hr', 'heart_rate', 'pulse', 'oxygen_saturation', 'o2sat'].includes(key.toLowerCase()))
                   .slice(0, 2)
                   .map(key => ({ type: 'vital', key, data: vitalsData[key] }));
                 
@@ -943,7 +944,7 @@ setIsUploading(false);
                           </div>
                           {entry.notes.length > 0 && (
                             <p className={combineClasses(DesignTokens.typography.body.xs, DesignTokens.colors.app.text[600], 'line-clamp-2')}>
-                              {entry.notes[0].content}
+                              {formatJournalContentForDisplay(entry.notes[0].content)}
                             </p>
                           )}
                         </div>

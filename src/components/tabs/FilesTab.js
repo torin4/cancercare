@@ -15,6 +15,7 @@ import { getNotebookEntries } from '../../services/notebookService';
 import { prepareZipForViewing } from '../../services/zipViewerService';
 import DocumentUploadOnboarding from '../modals/DocumentUploadOnboarding';
 import DicomImportFlow from '../modals/DicomImportFlow';
+import DayOneImportModal from '../modals/DayOneImportModal';
 import EditDocumentNoteModal from '../modals/EditDocumentNoteModal';
 import UploadProgressOverlay from '../UploadProgressOverlay';
 import DeletionConfirmationModal from '../modals/DeletionConfirmationModal';
@@ -71,6 +72,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
   const [highlightedDocumentId, setHighlightedDocumentId] = useState(null); // Track which document to highlight
   const [zipChoiceModal, setZipChoiceModal] = useState(null); // { file, processingResult, onViewNow, onSaveToLibrary }
   const [showDicomImportFlow, setShowDicomImportFlow] = useState(false); // DICOM import flow modal
+  const [showDayOneImportModal, setShowDayOneImportModal] = useState(false); // Day One JSON import
 
   // Tab state for Documents vs Notes view
   const [activeSubTab, setActiveSubTab] = useState('notes'); // 'documents' or 'notes'
@@ -483,6 +485,10 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
 
   const handleImportDicom = () => {
     setShowDicomImportFlow(true);
+  };
+
+  const handleImportDayOne = () => {
+    setShowDayOneImportModal(true);
   };
 
   const simulateDocumentUpload = (docType) => {
@@ -2301,22 +2307,38 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
               </div>
               Medical Notebook
             </div>
-            <button
-              onClick={() => {
-                setAddNoteDate(null);
-                setShowAddJournalNote(true);
-              }}
-              className={combineClasses(
-                'flex items-center',
-                DesignTokens.spacing.gap.sm,
-                DesignTokens.colors.app.text[600],
-                'hover:' + DesignTokens.colors.app.text[700],
-                DesignTokens.transitions.default
-              )}
-            >
-              <Plus className={DesignTokens.icons.standard.size.full} />
-              <span className={combineClasses(DesignTokens.typography.body.sm, 'font-medium')}>Add Entry</span>
-            </button>
+            <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm)}>
+              <button
+                onClick={handleImportDayOne}
+                className={combineClasses(
+                  'flex items-center',
+                  DesignTokens.spacing.gap.sm,
+                  DesignTokens.colors.app.text[600],
+                  'hover:' + DesignTokens.colors.app.text[700],
+                  DesignTokens.transitions.default
+                )}
+                title="Import vitals, symptoms, and notes from Day One journal export"
+              >
+                <FileText className={DesignTokens.icons.standard.size.full} />
+                <span className={combineClasses(DesignTokens.typography.body.sm, 'font-medium')}>Import Day One</span>
+              </button>
+              <button
+                onClick={() => {
+                  setAddNoteDate(null);
+                  setShowAddJournalNote(true);
+                }}
+                className={combineClasses(
+                  'flex items-center',
+                  DesignTokens.spacing.gap.sm,
+                  DesignTokens.colors.app.text[600],
+                  'hover:' + DesignTokens.colors.app.text[700],
+                  DesignTokens.transitions.default
+                )}
+              >
+                <Plus className={DesignTokens.icons.standard.size.full} />
+                <span className={combineClasses(DesignTokens.typography.body.sm, 'font-medium')}>Add Entry</span>
+              </button>
+            </div>
           </div>
         )}
         {notebookEntries.length === 0 && !isLoadingNotebook && (
@@ -2333,6 +2355,20 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
               </div>
               Medical Journal
             </div>
+            <button
+              onClick={handleImportDayOne}
+              className={combineClasses(
+                'flex items-center',
+                DesignTokens.spacing.gap.sm,
+                DesignTokens.colors.app.text[600],
+                'hover:' + DesignTokens.colors.app.text[700],
+                DesignTokens.transitions.default
+              )}
+              title="Import vitals, symptoms, and notes from Day One journal export"
+            >
+              <FileText className={DesignTokens.icons.standard.size.full} />
+              <span className={combineClasses(DesignTokens.typography.body.sm, 'font-medium')}>Import Day One</span>
+            </button>
           </div>
         )}
 
@@ -2714,6 +2750,26 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
           </div>
         </div>
       )}
+      {/* Day One Import Modal */}
+      {showDayOneImportModal && (
+        <DayOneImportModal
+          show={showDayOneImportModal}
+          onClose={() => setShowDayOneImportModal(false)}
+          user={user}
+          onImportComplete={async () => {
+            if (reloadHealthData) await reloadHealthData();
+            await reloadNotebookEntries();
+          }}
+          onDocumentsChange={async () => {
+            if (user?.uid) {
+              const updatedDocs = await documentService.getDocuments(user.uid);
+              setDocuments(updatedDocs);
+              setHasUploadedDocument(updatedDocs.length > 0);
+            }
+          }}
+        />
+      )}
+
       {/* DICOM Import Flow Modal */}
       {showDicomImportFlow && (
         <DicomImportFlow

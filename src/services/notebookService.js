@@ -98,8 +98,9 @@ export async function getNotebookEntries(patientId, options = {}) {
       const date = parseDate(doc.date);
       const dateKey = formatDateKey(date);
 
-      // Filter out invalid future dates (beyond end of 2025)
-      const maxValidDate = new Date(2025, 11, 31, 23, 59, 59);
+      // Filter out invalid future dates (beyond 2 years from now)
+      const maxValidDate = new Date();
+      maxValidDate.setFullYear(maxValidDate.getFullYear() + 2);
       if (date > maxValidDate) {
         return;
       }
@@ -143,8 +144,9 @@ export async function getNotebookEntries(patientId, options = {}) {
       const date = parseDate(symptom.date);
       const dateKey = formatDateKey(date);
 
-      // Filter out invalid future dates
-      const maxValidDate = new Date(2025, 11, 31, 23, 59, 59);
+      // Filter out invalid future dates (beyond 2 years from now)
+      const maxValidDate = new Date();
+      maxValidDate.setFullYear(maxValidDate.getFullYear() + 2);
       if (date > maxValidDate) {
         return;
       }
@@ -159,10 +161,11 @@ export async function getNotebookEntries(patientId, options = {}) {
         };
       }
 
-      // Add symptom
+      // Add symptom (use type or name - Day One imports use name)
+      const symptomLabel = symptom.type || symptom.name || 'Symptom';
       entriesByDate[dateKey].symptoms.push({
         id: symptom.id,
-        type: symptom.type,
+        type: symptomLabel,
         severity: symptom.severity,
         notes: symptom.notes || null,
         tags: symptom.tags || []
@@ -175,7 +178,7 @@ export async function getNotebookEntries(patientId, options = {}) {
           content: symptom.notes,
           source: 'symptom',
           sourceId: symptom.id,
-          sourceName: `${symptom.type} (${symptom.severity})`
+          sourceName: `${symptomLabel} (${symptom.severity || 'Moderate'})`
         });
       }
     });

@@ -20,7 +20,8 @@ import {
   where,
   orderBy,
   limit,
-  serverTimestamp
+  serverTimestamp,
+  Timestamp
 } from 'firebase/firestore';
 import { db } from '../config';
 import { COLLECTIONS } from '../collections';
@@ -101,13 +102,21 @@ export const vitalService = {
 
   // Add vital value
   async addVitalValue(vitalId, valueData) {
+    // Firestore rejects undefined - filter out undefined values
+    const cleanData = Object.fromEntries(
+      Object.entries(valueData || {}).filter(([, v]) => v !== undefined)
+    );
+    const dataToSave = {
+      ...cleanData,
+      vitalId,
+      createdAt: serverTimestamp()
+    };
+    if (cleanData.date instanceof Date) {
+      dataToSave.date = Timestamp.fromDate(cleanData.date);
+    }
     const docRef = await addDoc(
       collection(db, COLLECTIONS.VITALS, vitalId, 'values'),
-      {
-        ...valueData,
-        vitalId,
-        createdAt: serverTimestamp()
-      }
+      dataToSave
     );
     return docRef.id;
   },
