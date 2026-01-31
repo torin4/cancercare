@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, AlertCircle, Activity, Trash2 } from 'lucide-react';
+import { X, AlertCircle, Loader2, Trash2 } from 'lucide-react';
 import { DesignTokens, combineClasses } from '../../design/designTokens';
 
 export default function DeletionConfirmationModal({
@@ -63,8 +63,8 @@ export default function DeletionConfirmationModal({
           >
             {isDeleting ? (
               <>
-                <Activity className={combineClasses(DesignTokens.icons.standard.size.full, 'animate-spin')} />
-                Processing...
+                <Loader2 className={combineClasses(DesignTokens.icons.standard.size.full, 'animate-spin')} />
+                Deleting...
               </>
             ) : (
               <>

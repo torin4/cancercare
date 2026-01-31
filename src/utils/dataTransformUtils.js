@@ -369,42 +369,45 @@ export const transformVitalsData = async (vitals) => {
         // Round timestamps to day level (midnight) to handle timezone issues and ensure same-day values are treated as duplicates
         const sortedValues = values
           .map(v => {
-            // Convert Firestore Timestamp to local date (avoid timezone shift)
+            // Convert Firestore Timestamp - preserve FULL date-time for "most recent" sorting
             let date;
+            let fullTimestamp;
             if (v.date?.toDate) {
-              // Firestore Timestamp - convert to local date using date components
               const firestoreDate = v.date.toDate();
-              // Use local date components to avoid timezone shift
               date = new Date(firestoreDate.getFullYear(), firestoreDate.getMonth(), firestoreDate.getDate());
+              fullTimestamp = firestoreDate.getTime(); // Preserve time for same-day recency
             } else if (v.date) {
-              // Already a Date object or string - parse as local date
               if (v.date instanceof Date) {
                 date = new Date(v.date.getFullYear(), v.date.getMonth(), v.date.getDate());
+                fullTimestamp = v.date.getTime();
               } else {
-                // String date - parse as local
                 const dateStr = formatDateString(v.date);
                 if (dateStr) {
                   const parts = dateStr.split('-');
                   date = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                  fullTimestamp = date.getTime();
                 } else {
                   date = new Date();
+                  fullTimestamp = date.getTime();
                 }
               }
             } else {
               date = new Date();
+              fullTimestamp = date.getTime();
             }
             
-            const timestamp = date.getTime();
-            // Round to day level (midnight) for deduplication - this prevents same-day duplicates with different times
+            const timestamp = fullTimestamp; // Use full datetime for correct "most recent" ordering
             const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+            const createdAtMs = v.createdAt?.toDate ? v.createdAt.toDate().getTime() : (v.createdAt instanceof Date ? v.createdAt.getTime() : timestamp);
             return {
               id: v.id,
               value: v.value,
               systolic: v.systolic,
               diastolic: v.diastolic,
               date: date,
-              timestamp: timestamp, // Keep original timestamp for sorting
-              dayTimestamp: dayStart, // Use day-level timestamp for deduplication
+              timestamp: timestamp,
+              createdAtMs, // Tiebreaker when same date (e.g. date-only from document extraction)
+              dayTimestamp: dayStart,
               notes: v.notes || ''
             };
           })
@@ -435,11 +438,12 @@ export const transformVitalsData = async (vitals) => {
           const newEntry = {
             id: v.id,
             date: v.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            dateOriginal: v.date, // Store original Date object for editing
+            dateOriginal: v.date,
             value: v.value,
             systolic: v.systolic,
             diastolic: v.diastolic,
             timestamp: v.timestamp,
+            createdAtMs: v.createdAtMs,
             notes: v.notes || ''
           };
           
@@ -464,15 +468,6 @@ export const transformVitalsData = async (vitals) => {
         
         // Only log duplicates in development mode if there are many
         if (process.env.NODE_ENV === 'development' && skippedCount > 5) {
-        }
-
-        // Update current value to most recent
-        if (sortedValues.length > 0) {
-          const lastValue = sortedValues[sortedValues.length - 1];
-          grouped[canonicalKey].current = lastValue.value;
-          if (lastValue.systolic && lastValue.diastolic) {
-            grouped[canonicalKey].current = `${lastValue.systolic}/${lastValue.diastolic}`;
-          }
         }
       } else {
         // No values in subcollection - only use vital document data if currentValue exists
@@ -500,12 +495,13 @@ export const transformVitalsData = async (vitals) => {
           }
           
           grouped[canonicalKey].data.push({
-            id: vital.id, // Store vital document ID for deletion
+            id: vital.id,
             date: vitalDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            dateOriginal: vitalDate, // Store original Date object for editing
+            dateOriginal: vitalDate,
             value: vital.currentValue,
             timestamp: vitalDate.getTime(),
-            notes: '' // No notes for initial value
+            createdAtMs: vitalDate.getTime(),
+            notes: ''
           });
         } else {
         }
@@ -537,17 +533,37 @@ export const transformVitalsData = async (vitals) => {
         }
         
         grouped[canonicalKey].data.push({
-          id: vital.id, // Store vital document ID for deletion
+          id: vital.id,
           date: vitalDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          dateOriginal: vitalDate, // Store original Date object for editing
+          dateOriginal: vitalDate,
           value: vital.currentValue,
           timestamp: vitalDate.getTime(),
-          notes: '' // No notes for fallback value
+          createdAtMs: vitalDate.getTime(),
+          notes: ''
         });
       }
       // If currentValue is null/empty, don't add anything - all values were deleted
     }
   }
+
+  // Ensure each metric's current value reflects the latest from merged data
+  // Sort by timestamp (measurement date), then createdAt (tiebreaker for same-day values)
+  Object.keys(grouped).forEach(key => {
+    const data = grouped[key].data;
+    if (data && data.length > 0) {
+      const sorted = [...data].sort((a, b) => {
+        if (a.timestamp !== b.timestamp) return a.timestamp - b.timestamp;
+        return (a.createdAtMs || a.timestamp) - (b.createdAtMs || b.timestamp);
+      });
+      const mostRecent = sorted[sorted.length - 1];
+      grouped[key].current = mostRecent.value;
+      if (mostRecent.systolic != null && mostRecent.diastolic != null) {
+        grouped[key].current = `${mostRecent.systolic}/${mostRecent.diastolic}`;
+      } else if (typeof mostRecent.value === 'string' && mostRecent.value.includes('/')) {
+        grouped[key].current = mostRecent.value;
+      }
+    }
+  });
 
   return grouped;
 };

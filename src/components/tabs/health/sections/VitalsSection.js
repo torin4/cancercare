@@ -701,9 +701,7 @@ function VitalsSection({
       className={combineClasses(
       'relative cursor-pointer',
       DesignTokens.transitions.all,
-      selectedVital === key
-      ? combineClasses(DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[600] || 'border-medical-primary-500'), DesignTokens.colors.app[50])
-      : combineClasses(DesignTokens.components.card.nestedWithShadow, 'hover:border-medical-neutral-300', DesignTokens.shadows.hover)
+      combineClasses(DesignTokens.components.card.nestedWithShadow, 'hover:border-medical-neutral-300', DesignTokens.shadows.hover)
       )}
       onClick={() => setSelectedVital(key)}
       >

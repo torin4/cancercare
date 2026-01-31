@@ -41,6 +41,7 @@ function SymptomsSection({ onTabChange }) {
     customSymptomName: '',
     tags: []
   });
+  const [isDeletingSymptom, setIsDeletingSymptom] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({ 
     show: false, 
     title: '', 
@@ -337,10 +338,13 @@ function SymptomsSection({ onTabChange }) {
                                         itemName: 'symptom entry',
                                         confirmText: 'Yes, Delete',
                                         onConfirm: async () => {
+                                          setIsDeletingSymptom(true);
                                           try {
                                             await symptomService.deleteSymptom(symptom.id);
                                           } catch (error) {
                                             showError('Failed to delete symptom. Please try again.');
+                                          } finally {
+                                            setIsDeletingSymptom(false);
                                           }
                                         }
                                       });
@@ -437,8 +441,22 @@ function SymptomsSection({ onTabChange }) {
         message={deleteConfirm.message}
         itemName={deleteConfirm.itemName}
         confirmText={deleteConfirm.confirmText}
-        onConfirm={deleteConfirm.onConfirm}
-        onClose={() => setDeleteConfirm({ ...deleteConfirm, show: false })}
+        isDeleting={isDeletingSymptom}
+        onConfirm={async () => {
+          const onConfirmFn = deleteConfirm.onConfirm;
+          if (!onConfirmFn) return;
+          try {
+            await onConfirmFn();
+          } finally {
+            setIsDeletingSymptom(false);
+            setDeleteConfirm({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Delete Permanently' });
+          }
+        }}
+        onClose={() => {
+          if (!isDeletingSymptom) {
+            setDeleteConfirm({ ...deleteConfirm, show: false });
+          }
+        }}
       />
     </div>
   );

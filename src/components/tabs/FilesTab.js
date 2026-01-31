@@ -2543,11 +2543,14 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
           }
         }}
         onConfirm={async () => {
-          if (deleteConfirm.onConfirm) {
-            await deleteConfirm.onConfirm();
+          const onConfirmFn = deleteConfirm.onConfirm;
+          if (!onConfirmFn) return;
+          try {
+            await onConfirmFn();
+          } finally {
+            setIsDeleting(false);
+            setDeleteConfirm({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Delete Permanently' });
           }
-          // Close modal after deletion completes (isDeleting will be false in finally block)
-          setDeleteConfirm({ show: false, title: '', message: '', onConfirm: null, itemName: '', confirmText: 'Yes, Delete Permanently' });
         }}
         title={deleteConfirm.title}
         message={deleteConfirm.message}

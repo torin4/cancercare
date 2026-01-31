@@ -184,7 +184,7 @@ function HealthChart({
 
         <Tooltip
           content={<CustomTooltipContent unit={unit} isBloodPressure={isBloodPressure} />}
-          cursor={{ stroke: '#d1d5db', strokeWidth: 1 }}
+          cursor={false}
           allowEscapeViewBox={false}
           wrapperStyle={{ outline: 'none' }}
         />
@@ -324,12 +324,12 @@ function HealthChart({
         })}
       </div>
 
-      {/* Chart area with optional scroll */}
+      {/* Chart area with optional scroll - outline-none prevents blue focus border on graph */}
       <div
-        className={combineClasses('flex-1 min-w-0', isScrollable && 'overflow-x-auto overflow-y-hidden')}
+        className={combineClasses('flex-1 min-w-0 outline-none focus:outline-none', isScrollable && 'overflow-x-auto overflow-y-hidden')}
       >
         <div
-          className="h-40 mb-3"
+          className="h-40 mb-3 outline-none [&_svg]:outline-none [&_svg]:focus:outline-none"
           style={
             isScrollable
               ? { width: `calc(100% * ${Math.max(dataLength || 0, pointsPerViewport)} / ${pointsPerViewport})`, minWidth: '100%' }

@@ -793,10 +793,6 @@ function LabsSection({
                       DesignTokens.transitions.all,
                       metricSelectionMode && isHidden
                         ? combineClasses(DesignTokens.components.card.nestedWithShadow, 'opacity-50 border-2 border-dashed border-medical-neutral-300')
-                        : metricSelectionMode && selectedMetrics.has(key)
-                        ? combineClasses(DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[600] || 'border-medical-primary-500'), DesignTokens.colors.app[50])
-                        : selectedLab === key && !metricSelectionMode
-                        ? combineClasses(DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[600] || 'border-medical-primary-500'), DesignTokens.colors.app[50])
                         : combineClasses(DesignTokens.components.card.nestedWithShadow, 'hover:border-medical-neutral-300', DesignTokens.shadows.hover)
                     )}
                     onClick={() => {
@@ -1080,8 +1076,6 @@ function LabsSection({
                         DesignTokens.transitions.all,
                         metricSelectionMode && isHidden
                           ? combineClasses(DesignTokens.components.card.nestedWithShadow, 'opacity-50 border-2 border-dashed border-medical-neutral-300')
-                          : metricSelectionMode && selectedMetrics.has(key)
-                          ? combineClasses(DesignTokens.components.card.withColoredBorder(DesignTokens.colors.primary.border[600] || 'border-medical-primary-500'), DesignTokens.colors.app[50])
                           : combineClasses(DesignTokens.components.card.nestedWithShadow, 'hover:border-medical-neutral-300', DesignTokens.shadows.hover)
                       )}
                     onClick={() => {
