@@ -45,6 +45,8 @@ export default function DashboardTab({ onTabChange }) {
   const [showAddLabValueModal, setShowAddLabValueModal] = useState(false);
   const [selectedVitalForValue, setSelectedVitalForValue] = useState(null);
   const [selectedLabForValue, setSelectedLabForValue] = useState(null);
+  const [availableVitalsForModal, setAvailableVitalsForModal] = useState([]);
+  const [availableLabsForModal, setAvailableLabsForModal] = useState([]);
   const [newVitalValue, setNewVitalValue] = useState({ value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
   const [newLabValue, setNewLabValue] = useState({ value: '', date: getTodayLocalDate(), notes: '' });
   const [isEditingVitalValue, setIsEditingVitalValue] = useState(false);
@@ -685,11 +687,12 @@ setIsUploading(false);
                           onClick={() => {
                   const availableVitals = Object.keys(vitalsData || {}).filter(key => {
                     const vital = vitalsData[key];
-                    return vital && (vital.data?.length > 0 || vital.current);
+                    return vital && vital.id && (vital.data?.length > 0 || vital.current);
                   }).map(key => ({
-                    id: key,
+                    id: vitalsData[key].id,
+                    key,
                     name: getVitalDisplayName(key),
-                    type: key === 'bp' ? 'bp' : 'single',
+                    vitalType: key === 'bp' ? 'bp' : 'single',
                     unit: vitalsData[key]?.unit || '',
                     normalRange: vitalsData[key]?.normalRange || ''
                   }));
@@ -697,6 +700,7 @@ setIsUploading(false);
                     showError('No vitals available. Please add a vital first.');
                     return;
                   }
+                  setAvailableVitalsForModal(availableVitals);
                   setSelectedVitalForValue(availableVitals[0]);
                   setShowAddVitalValueModal(true);
                           }}
@@ -713,9 +717,10 @@ setIsUploading(false);
                 onClick={() => {
                   const availableLabs = Object.keys(labsData || {}).filter(key => {
                     const lab = labsData[key];
-                    return lab && (lab.data?.length > 0 || lab.current);
+                    return lab && lab.id && (lab.data?.length > 0 || lab.current);
                   }).map(key => ({
-                    id: key,
+                    id: labsData[key].id,
+                    key,
                     name: getLabDisplayName(key),
                     unit: labsData[key]?.unit || '',
                     normalRange: labsData[key]?.normalRange || ''
@@ -724,6 +729,7 @@ setIsUploading(false);
                     showError('No labs available. Please add a lab first.');
                     return;
                   }
+                  setAvailableLabsForModal(availableLabs);
                   setSelectedLabForValue(availableLabs[0]);
                   setShowAddLabValueModal(true);
                 }}
@@ -1219,6 +1225,7 @@ setIsUploading(false);
           onClose={() => {
             setShowAddVitalValueModal(false);
             setSelectedVitalForValue(null);
+            setAvailableVitalsForModal([]);
             setIsEditingVitalValue(false);
             setEditingVitalValueId(null);
             setNewVitalValue({ value: '', systolic: '', diastolic: '', dateTime: new Date().toISOString().slice(0, 16), notes: '' });
@@ -1234,6 +1241,7 @@ setIsUploading(false);
           setSelectedVitalForValue={setSelectedVitalForValue}
           reloadHealthData={reloadHealthData}
           vitalsData={vitalsData}
+          availableVitals={availableVitalsForModal}
         />
       )}
 
@@ -1244,6 +1252,7 @@ setIsUploading(false);
           onClose={() => {
             setShowAddLabValueModal(false);
             setSelectedLabForValue(null);
+            setAvailableLabsForModal([]);
             setIsEditingLabValue(false);
             setEditingLabValueId(null);
             setNewLabValue({ value: '', date: getTodayLocalDate(), notes: '' });
@@ -1259,6 +1268,7 @@ setIsUploading(false);
           setEditingLabValueId={setEditingLabValueId}
           reloadHealthData={reloadHealthData}
           setSelectedLab={null}
+          availableLabs={availableLabsForModal}
         />
       )}
 

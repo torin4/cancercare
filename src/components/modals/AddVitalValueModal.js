@@ -20,7 +20,8 @@ export default function AddVitalValueModal({
   setEditingVitalValueId,
   setSelectedVitalForValue,
   reloadHealthData,
-  vitalsData
+  vitalsData,
+  availableVitals = null
 }) {
   const { showSuccess, showError } = useBanner();
   const [isAllDay, setIsAllDay] = useState(false);
@@ -287,6 +288,30 @@ export default function AddVitalValueModal({
 
         <div className={combineClasses('flex-1 overflow-y-auto', DesignTokens.components.modal.body)}>
           <div className={combineClasses('space-y-4', DesignTokens.spacing.gap.lg)}>
+            {availableVitals && availableVitals.length > 1 && (
+              <div>
+                <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-2', DesignTokens.colors.neutral.text[700])}>
+                  Metric <span className={combineClasses(DesignTokens.components.alert.text.error)}>*</span>
+                </label>
+                <select
+                  value={selectedVitalForValue?.key ?? selectedVitalForValue?.id ?? ''}
+                  onChange={(e) => {
+                    const chosen = availableVitals.find(v => (v.key ?? v.id) === e.target.value);
+                    if (chosen) {
+                      setSelectedVitalForValue(chosen);
+                      setNewVitalValue({ value: '', systolic: '', diastolic: '', dateTime: getCurrentDateTimeLocal(), notes: '' });
+                    }
+                  }}
+                  className={combineClasses(DesignTokens.components.select.base, 'min-h-[44px] w-full', DesignTokens.colors.neutral.border[300])}
+                >
+                  {availableVitals.map((v) => (
+                    <option key={v.key ?? v.id} value={v.key ?? v.id}>
+                      {v.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             {isBloodPressure() ? (
               <div>
                 <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-2', DesignTokens.colors.neutral.text[700])}>

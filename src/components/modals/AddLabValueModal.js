@@ -19,7 +19,8 @@ export default function AddLabValueModal({
   editingLabValueId,
   setEditingLabValueId,
   reloadHealthData,
-  setSelectedLab
+  setSelectedLab,
+  availableLabs = null
 }) {
   const { showSuccess, showError } = useBanner();
   useEffect(() => {
@@ -124,6 +125,30 @@ export default function AddLabValueModal({
 
         <div className={combineClasses('flex-1 overflow-y-auto', DesignTokens.components.modal.body)}>
           <div className={combineClasses('space-y-4', DesignTokens.spacing.gap.lg)}>
+            {availableLabs && availableLabs.length > 1 && (
+              <div>
+                <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-2', DesignTokens.colors.neutral.text[700])}>
+                  Lab <span className={combineClasses(DesignTokens.components.alert.text.error)}>*</span>
+                </label>
+                <select
+                  value={selectedLabForValue?.key ?? selectedLabForValue?.id ?? ''}
+                  onChange={(e) => {
+                    const chosen = availableLabs.find(l => (l.key ?? l.id) === e.target.value);
+                    if (chosen) {
+                      setSelectedLabForValue(chosen);
+                      setNewLabValue({ value: '', date: getTodayLocalDate(), notes: '' });
+                    }
+                  }}
+                  className={combineClasses(DesignTokens.components.select.base, 'min-h-[44px] w-full', DesignTokens.colors.neutral.border[300])}
+                >
+                  {availableLabs.map((l) => (
+                    <option key={l.key ?? l.id} value={l.key ?? l.id}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-2', DesignTokens.colors.neutral.text[700])}>
                 Value <span className={combineClasses(DesignTokens.components.alert.text.error)}>*</span>
