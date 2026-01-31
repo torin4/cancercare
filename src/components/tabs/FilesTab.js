@@ -1267,7 +1267,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
         <div className={combineClasses(DesignTokens.components.card.container)}>
         <>
         {documents.length > 0 && (
-          <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.section.mobile)}>
+          <div className={combineClasses('flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0', DesignTokens.spacing.section.mobile)}>
             <div className={combineClasses(
               'flex items-center',
               DesignTokens.spacing.gap.sm,
@@ -1289,32 +1289,28 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
               </span>
             )}
           </div>
-            <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm)}>
-              <button
-                onClick={handleImportDicom}
-                className={combineClasses(
-                  'flex items-center',
-                  DesignTokens.spacing.gap.sm,
-                  'text-blue-600',
-                  'hover:text-blue-700',
-                  DesignTokens.transitions.default
-                )}
-              >
-                <FileImage className={DesignTokens.icons.standard.size.full} />
-                <span className={combineClasses(DesignTokens.typography.body.sm, 'font-medium')}>View scans</span>
-              </button>
+            <div className={combineClasses('flex flex-row justify-start gap-2')}>
               <button
                 onClick={() => openDocumentOnboarding('general')}
                 className={combineClasses(
-                  'flex items-center',
-                  DesignTokens.spacing.gap.sm,
-                  DesignTokens.colors.app.text[600],
-                  'hover:' + DesignTokens.colors.app.text[700],
-                  DesignTokens.transitions.default
+                  'flex items-center gap-1.5 min-h-[44px] py-2 px-3 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200',
+                  DesignTokens.components.button.outline.primary,
+                  'hover:bg-medical-secondary-50 hover:border-medical-secondary-400 hover:text-medical-secondary-700'
                 )}
               >
-                <Plus className={DesignTokens.icons.standard.size.full} />
-                <span className={combineClasses(DesignTokens.typography.body.sm, 'font-medium')}>Add File</span>
+                <Upload className="w-4 h-4 flex-shrink-0" />
+                <span>Add File</span>
+              </button>
+              <button
+                onClick={handleImportDicom}
+                className={combineClasses(
+                  'flex items-center gap-1.5 min-h-[44px] py-2 px-3 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200',
+                  DesignTokens.components.button.outline.primary,
+                  'hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700'
+                )}
+              >
+                <FileImage className="w-4 h-4 flex-shrink-0" />
+                <span>View scans</span>
               </button>
             </div>
           </div>
@@ -2294,7 +2290,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
           DesignTokens.components.card.container
         )}>
         {notebookEntries.length > 0 && (
-          <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.section.mobile)}>
+          <div className={combineClasses('flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0', DesignTokens.spacing.section.mobile)}>
             <div className={combineClasses(
               'flex items-center',
               DesignTokens.spacing.gap.sm,
@@ -2307,42 +2303,38 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
               </div>
               Medical Notebook
             </div>
-            <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm)}>
-              <button
-                onClick={handleImportDayOne}
-                className={combineClasses(
-                  'flex items-center',
-                  DesignTokens.spacing.gap.sm,
-                  DesignTokens.colors.app.text[600],
-                  'hover:' + DesignTokens.colors.app.text[700],
-                  DesignTokens.transitions.default
-                )}
-                title="Import vitals, symptoms, and notes from Day One journal export"
-              >
-                <FileText className={DesignTokens.icons.standard.size.full} />
-                <span className={combineClasses(DesignTokens.typography.body.sm, 'font-medium')}>Import Day One</span>
-              </button>
+            <div className={combineClasses('flex flex-row justify-start gap-2')}>
               <button
                 onClick={() => {
                   setAddNoteDate(null);
                   setShowAddJournalNote(true);
                 }}
                 className={combineClasses(
-                  'flex items-center',
-                  DesignTokens.spacing.gap.sm,
-                  DesignTokens.colors.app.text[600],
-                  'hover:' + DesignTokens.colors.app.text[700],
-                  DesignTokens.transitions.default
+                  'flex items-center gap-1.5 min-h-[44px] py-2 px-3 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200',
+                  DesignTokens.components.button.outline.primary,
+                  'hover:bg-medical-secondary-50 hover:border-medical-secondary-400 hover:text-medical-secondary-700'
                 )}
               >
-                <Plus className={DesignTokens.icons.standard.size.full} />
-                <span className={combineClasses(DesignTokens.typography.body.sm, 'font-medium')}>Add Entry</span>
+                <Plus className="w-4 h-4 flex-shrink-0" />
+                <span>Add Entry</span>
+              </button>
+              <button
+                onClick={handleImportDayOne}
+                className={combineClasses(
+                  'flex items-center gap-1.5 min-h-[44px] py-2 px-3 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200',
+                  DesignTokens.components.button.outline.primary,
+                  'hover:bg-medical-secondary-50 hover:border-medical-secondary-400 hover:text-medical-secondary-700'
+                )}
+                title="Import vitals, symptoms, and notes from Day One journal export"
+              >
+                <FileText className="w-4 h-4 flex-shrink-0" />
+                <span>Import Day One</span>
               </button>
             </div>
           </div>
         )}
         {notebookEntries.length === 0 && !isLoadingNotebook && (
-          <div className={combineClasses('flex items-center justify-between', DesignTokens.spacing.section.mobile)}>
+          <div className={combineClasses('flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0', DesignTokens.spacing.section.mobile)}>
             <div className={combineClasses(
               'flex items-center',
               DesignTokens.spacing.gap.sm,
@@ -2355,20 +2347,34 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
               </div>
               Medical Journal
             </div>
-            <button
-              onClick={handleImportDayOne}
-              className={combineClasses(
-                'flex items-center',
-                DesignTokens.spacing.gap.sm,
-                DesignTokens.colors.app.text[600],
-                'hover:' + DesignTokens.colors.app.text[700],
-                DesignTokens.transitions.default
-              )}
-              title="Import vitals, symptoms, and notes from Day One journal export"
-            >
-              <FileText className={DesignTokens.icons.standard.size.full} />
-              <span className={combineClasses(DesignTokens.typography.body.sm, 'font-medium')}>Import Day One</span>
-            </button>
+            <div className={combineClasses('flex flex-row justify-start gap-2')}>
+              <button
+                onClick={() => {
+                  setAddNoteDate(null);
+                  setShowAddJournalNote(true);
+                }}
+                className={combineClasses(
+                  'flex items-center gap-1.5 min-h-[44px] py-2 px-3 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200',
+                  DesignTokens.components.button.outline.primary,
+                  'hover:bg-medical-secondary-50 hover:border-medical-secondary-400 hover:text-medical-secondary-700'
+                )}
+              >
+                <Plus className="w-4 h-4 flex-shrink-0" />
+                <span>Add Entry</span>
+              </button>
+              <button
+                onClick={handleImportDayOne}
+                className={combineClasses(
+                  'flex items-center gap-1.5 min-h-[44px] py-2 px-3 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200',
+                  DesignTokens.components.button.outline.primary,
+                  'hover:bg-medical-secondary-50 hover:border-medical-secondary-400 hover:text-medical-secondary-700'
+                )}
+                title="Import vitals, symptoms, and notes from Day One journal export"
+              >
+                <FileText className="w-4 h-4 flex-shrink-0" />
+                <span>Import Day One</span>
+              </button>
+            </div>
           </div>
         )}
 

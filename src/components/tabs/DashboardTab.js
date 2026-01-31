@@ -681,10 +681,10 @@ setIsUploading(false);
               </p>
             )}
 
-            {/* Quick Actions */}
-            <div className={combineClasses('flex flex-wrap gap-2 pt-3 border-t', DesignTokens.colors.app.border[200])}>
-                        <button
-                          onClick={() => {
+            {/* Quick Actions - responsive: icon-first grid on mobile, inline row on desktop */}
+            <div className={combineClasses('pt-3 border-t', DesignTokens.colors.app.border[200], 'grid grid-cols-3 sm:flex sm:flex-wrap gap-3 sm:gap-2')}>
+              <button
+                onClick={() => {
                   const availableVitals = Object.keys(vitalsData || {}).filter(key => {
                     const vital = vitalsData[key];
                     return vital && vital.id && (vital.data?.length > 0 || vital.current);
@@ -703,16 +703,16 @@ setIsUploading(false);
                   setAvailableVitalsForModal(availableVitals);
                   setSelectedVitalForValue(availableVitals[0]);
                   setShowAddVitalValueModal(true);
-                          }}
-                          className={combineClasses(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium',
+                }}
+                className={combineClasses(
+                  'flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 min-h-[44px] sm:min-h-0 py-3 sm:py-2 sm:px-3 rounded-xl sm:rounded-lg text-xs sm:text-sm font-medium transition-all duration-200',
                   DesignTokens.components.button.outline.primary,
                   'hover:bg-medical-primary-50 hover:border-medical-primary-400 hover:text-medical-primary-700'
-                          )}
-                        >
-                <Heart className="w-3.5 h-3.5" />
+                )}
+              >
+                <Heart className="w-6 h-6 sm:w-4 sm:h-4 flex-shrink-0" />
                 <span>Add Vital</span>
-                        </button>
+              </button>
               <button
                 onClick={() => {
                   const availableLabs = Object.keys(labsData || {}).filter(key => {
@@ -734,23 +734,23 @@ setIsUploading(false);
                   setShowAddLabValueModal(true);
                 }}
                 className={combineClasses(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium',
+                  'flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 min-h-[44px] sm:min-h-0 py-3 sm:py-2 sm:px-3 rounded-xl sm:rounded-lg text-xs sm:text-sm font-medium transition-all duration-200',
                   DesignTokens.components.button.outline.primary,
                   'hover:bg-medical-primary-50 hover:border-medical-primary-400 hover:text-medical-primary-700'
                 )}
               >
-                <ClipboardList className="w-3.5 h-3.5" />
+                <ClipboardList className="w-6 h-6 sm:w-4 sm:h-4 flex-shrink-0" />
                 <span>Add Lab</span>
               </button>
               <button
                 onClick={() => setShowAddSymptomModal(true)}
                 className={combineClasses(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium',
+                  'flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 min-h-[44px] sm:min-h-0 py-3 sm:py-2 sm:px-3 rounded-xl sm:rounded-lg text-xs sm:text-sm font-medium transition-all duration-200',
                   DesignTokens.components.button.outline.primary,
                   'hover:bg-medical-primary-50 hover:border-medical-primary-400 hover:text-medical-primary-700'
                 )}
               >
-                <Activity className="w-3.5 h-3.5" />
+                <Activity className="w-6 h-6 sm:w-4 sm:h-4 flex-shrink-0" />
                 <span>Log Symptom</span>
               </button>
             </div>
@@ -820,20 +820,20 @@ setIsUploading(false);
               </p>
             )}
 
-            {/* Quick Actions */}
-            <div className={combineClasses('flex flex-wrap gap-2 pt-3 border-t', DesignTokens.colors.app.border[200])}>
-                  <button
+            {/* Quick Actions - responsive: icon-first grid on mobile, inline row on desktop */}
+            <div className={combineClasses('pt-3 border-t', DesignTokens.colors.app.border[200], 'grid grid-cols-1 sm:flex sm:flex-wrap gap-3 sm:gap-2')}>
+              <button
                 onClick={() => onTabChange('trials')}
-                    className={combineClasses(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium',
+                className={combineClasses(
+                  'flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 min-h-[44px] sm:min-h-0 py-3 sm:py-2 sm:px-3 rounded-xl sm:rounded-lg text-xs sm:text-sm font-medium transition-all duration-200',
                   DesignTokens.components.button.outline.primary,
                   'hover:bg-green-50 hover:border-care-600 hover:text-care-600'
-                    )}
-                  >
-                <Search className="w-3.5 h-3.5" />
+                )}
+              >
+                <Search className="w-6 h-6 sm:w-4 sm:h-4 flex-shrink-0" />
                 <span>Search Trials</span>
-                  </button>
-          </div>
+              </button>
+            </div>
         </div>
 
           {/* Files Tab Summary */}
@@ -966,9 +966,9 @@ setIsUploading(false);
               </div>
             )}
 
-            {/* Quick Actions */}
-            <div className={combineClasses('flex flex-wrap gap-2 pt-3 border-t', DesignTokens.colors.app.border[200])}>
-                <button
+            {/* Quick Actions - responsive: icon-first grid on mobile, inline row on desktop */}
+            <div className={combineClasses('pt-3 border-t', DesignTokens.colors.app.border[200], 'grid grid-cols-2 sm:flex sm:flex-wrap gap-3 sm:gap-2')}>
+              <button
                 onClick={() => {
                   if (!hasUploadedDocument) {
                     setDocumentOnboardingMethod('picker');
@@ -977,27 +977,27 @@ setIsUploading(false);
                     onTabChange('files');
                   }
                 }}
-                  className={combineClasses(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium',
+                className={combineClasses(
+                  'flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 min-h-[44px] sm:min-h-0 py-3 sm:py-2 sm:px-3 rounded-xl sm:rounded-lg text-xs sm:text-sm font-medium transition-all duration-200',
                   DesignTokens.components.button.outline.primary,
                   'hover:bg-medical-secondary-50 hover:border-medical-secondary-400 hover:text-medical-secondary-700'
                 )}
               >
-                <Upload className="w-3.5 h-3.5" />
+                <Upload className="w-6 h-6 sm:w-4 sm:h-4 flex-shrink-0" />
                 <span>Upload File</span>
               </button>
               <button
                 onClick={() => setShowAddJournalNoteModal(true)}
                 className={combineClasses(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium',
+                  'flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 min-h-[44px] sm:min-h-0 py-3 sm:py-2 sm:px-3 rounded-xl sm:rounded-lg text-xs sm:text-sm font-medium transition-all duration-200',
                   DesignTokens.components.button.outline.primary,
                   'hover:bg-medical-secondary-50 hover:border-medical-secondary-400 hover:text-medical-secondary-700'
-                  )}
-                >
-                <FileText className="w-3.5 h-3.5" />
+                )}
+              >
+                <FileText className="w-6 h-6 sm:w-4 sm:h-4 flex-shrink-0" />
                 <span>Add Note</span>
-                </button>
-              </div>
+              </button>
+            </div>
             </div>
 
         </div>
