@@ -31,27 +31,41 @@ const STATUS_COLORS = {
  * Custom dot - colors by status (normal/low/high)
  */
 function CustomDot(props) {
-  const { cx, cy, payload, isLatest, selectedDataPoint, pointKey, onSelect } = props;
+  const { cx, cy, payload, selectedDataPoint, pointKey, onSelect, chartWrapperRef } = props;
   const status = payload?.status || 'normal';
   const color = STATUS_COLORS[status] || STATUS_COLORS.gray;
   const isSelected = selectedDataPoint === pointKey;
 
+  const blurChartFocus = () => {
+    try {
+      const el = document.activeElement;
+      const inChart = el?.closest?.('svg') || el?.tagName === 'svg' || chartWrapperRef?.current?.contains?.(el);
+      if (el?.blur && inChart) el.blur();
+    } catch (_) {}
+  };
+
   return (
     <g
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        blurChartFocus();
+      }}
       onClick={(e) => {
         e.stopPropagation();
-        onSelect?.(pointKey);
+        e.preventDefault();
+        onSelect?.(isSelected ? null : pointKey);
+        blurChartFocus();
+        requestAnimationFrame(blurChartFocus);
       }}
       style={{ cursor: 'pointer' }}
     >
       <circle
         cx={cx}
         cy={cy}
-        r={isSelected || isLatest ? 7 : 5}
+        r={isSelected ? 7 : 5}
         fill={color}
         stroke="white"
         strokeWidth={2}
-        style={{ filter: isLatest ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' : undefined }}
       />
     </g>
   );
@@ -124,6 +138,7 @@ function HealthChart({
   chartId = 'health',
 }) {
   const [isMobile, setIsMobile] = React.useState(false);
+  const chartWrapperRef = React.useRef(null);
   React.useEffect(() => {
     const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
     const handler = () => setIsMobile(mq.matches);
@@ -141,7 +156,6 @@ function HealthChart({
     return (data || []).map((d, i) => ({
       ...d,
       pointKey: d.pointKey ?? `${pointKeyPrefix}-${d.id ?? i}`,
-      isLatest: i === (data?.length ?? 0) - 1,
     }));
   }, [data, pointKeyPrefix]);
 
@@ -155,7 +169,6 @@ function HealthChart({
       <AreaChart
         data={chartData}
         margin={{ top: 5, right: 5, left: 0, bottom: 0 }}
-        onClick={() => selectedDataPoint && onSelectPoint?.(null)}
       >
         <defs>
           <linearGradient id={`gradient-${chartId}`} x1="0" y1="0" x2="0" y2="1">
@@ -182,12 +195,14 @@ function HealthChart({
           width={0}
         />
 
-        <Tooltip
-          content={<CustomTooltipContent unit={unit} isBloodPressure={isBloodPressure} />}
-          cursor={false}
-          allowEscapeViewBox={false}
-          wrapperStyle={{ outline: 'none' }}
-        />
+        {!isMobile && (
+          <Tooltip
+            content={<CustomTooltipContent unit={unit} isBloodPressure={isBloodPressure} />}
+            cursor={false}
+            allowEscapeViewBox={false}
+            wrapperStyle={{ outline: 'none' }}
+          />
+        )}
 
         {/* Normal range - ReferenceArea and ReferenceLine */}
         {!isBloodPressure && normalRangeConfig?.area && (
@@ -225,21 +240,13 @@ function HealthChart({
               dot={(props) => (
                 <CustomDot
                   {...props}
-                  isLatest={props.payload?.isLatest}
                   selectedDataPoint={selectedDataPoint}
                   pointKey={props.payload?.pointKey}
                   onSelect={onSelectPoint}
+                  chartWrapperRef={chartWrapperRef}
                 />
               )}
-              activeDot={(props) => (
-                <CustomDot
-                  {...props}
-                  isLatest={props.payload?.isLatest}
-                  selectedDataPoint={selectedDataPoint}
-                  pointKey={props.payload?.pointKey}
-                  onSelect={onSelectPoint}
-                />
-              )}
+              activeDot={false}
               isAnimationActive={false}
               connectNulls
             />
@@ -252,21 +259,13 @@ function HealthChart({
               dot={(props) => (
                 <CustomDot
                   {...props}
-                  isLatest={props.payload?.isLatest}
                   selectedDataPoint={selectedDataPoint}
                   pointKey={props.payload?.pointKey}
                   onSelect={onSelectPoint}
+                  chartWrapperRef={chartWrapperRef}
                 />
               )}
-              activeDot={(props) => (
-                <CustomDot
-                  {...props}
-                  isLatest={props.payload?.isLatest}
-                  selectedDataPoint={selectedDataPoint}
-                  pointKey={props.payload?.pointKey}
-                  onSelect={onSelectPoint}
-                />
-              )}
+              activeDot={false}
               isAnimationActive={false}
               connectNulls
             />
@@ -282,21 +281,13 @@ function HealthChart({
             dot={(props) => (
               <CustomDot
                 {...props}
-                isLatest={props.payload?.isLatest}
                 selectedDataPoint={selectedDataPoint}
                 pointKey={props.payload?.pointKey}
                 onSelect={onSelectPoint}
+                chartWrapperRef={chartWrapperRef}
               />
             )}
-            activeDot={(props) => (
-              <CustomDot
-                {...props}
-                isLatest={props.payload?.isLatest}
-                selectedDataPoint={selectedDataPoint}
-                pointKey={props.payload?.pointKey}
-                onSelect={onSelectPoint}
-              />
-            )}
+            activeDot={false}
           />
         )}
       </AreaChart>
@@ -326,17 +317,23 @@ function HealthChart({
 
       {/* Chart area with optional scroll - outline-none prevents blue focus border on graph */}
       <div
-        className={combineClasses('flex-1 min-w-0 outline-none focus:outline-none', isScrollable && 'overflow-x-auto overflow-y-hidden')}
+        ref={chartWrapperRef}
+        className={combineClasses('flex-1 min-w-0 outline-none outline-0 ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 select-none', isScrollable && 'overflow-x-auto overflow-y-hidden')}
+        style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none', outline: 'none' }}
       >
         <div
-          className="h-40 mb-3 outline-none [&_svg]:outline-none [&_svg]:focus:outline-none"
-          style={
-            isScrollable
+          className="h-40 mb-3 outline-none select-none [&_*]:outline-none [&_*]:outline-0 [&_*]:ring-0 [&_*]:focus:outline-none [&_*]:focus:outline-0 [&_*]:focus:ring-0 [&_*]:focus-visible:outline-none [&_*]:focus-visible:ring-0 [&_.recharts-area-area]:pointer-events-none [&_.recharts-area-curve]:pointer-events-none [&_.recharts-line-curve]:pointer-events-none [&_.recharts-cartesian-grid-horizontal]:pointer-events-none [&_.recharts-cartesian-grid-vertical]:pointer-events-none [&_.recharts-reference-area-rect]:pointer-events-none"
+          style={{
+            WebkitUserSelect: 'none',
+            WebkitTouchCallout: 'none',
+            ...(isScrollable
               ? { width: `calc(100% * ${Math.max(dataLength || 0, pointsPerViewport)} / ${pointsPerViewport})`, minWidth: '100%' }
-              : { width: '100%' }
-          }
+              : { width: '100%' }),
+          }}
         >
-          {chartContent}
+          <div style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none', userSelect: 'none' }} className="select-none">
+            {chartContent}
+          </div>
         </div>
 
         {/* Persistent bar when a point is selected - stays visible so user can tap Edit/Delete */}
