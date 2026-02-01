@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square, HelpCircle, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react';
 
-const IRIS_ICON_SRC = '/icons/iris2.svg';
+const IRIS_ICON_SRC = '/icons/iris_logo.svg';
 import ReactMarkdown from 'react-markdown';
 import QuestionCards, { removeQuestionsFromText } from '../QuestionCards';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';

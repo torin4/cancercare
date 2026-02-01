@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { X, Loader2, AlertCircle, ChevronLeft, ChevronRight, Ruler, Crosshair, RotateCcw, SunMoon, MessageSquare } from 'lucide-react';
 
-const IRIS_ICON_SRC = '/icons/iris2.svg';
+const IRIS_ICON_SRC = '/icons/iris_logo.svg';
 import { downloadFileAsBlob } from '../firebase/storage';
 import { extractDicomMetadata } from '../services/dicomService';
 import { registerZipImageLoader, registerZipStructure, generateZipImageId, unregisterZipImageLoader } from '../services/zipImageLoader';

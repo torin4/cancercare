@@ -5,7 +5,7 @@ import logoPrimary from '../assets/logo_primary.svg';
 import logoSecondary from '../assets/logo_secondary.svg';
 import { useAuth } from '../contexts/AuthContext';
 
-const IRIS_ICON_SRC = '/icons/iris2.svg';
+const IRIS_ICON_SRC = '/icons/iris_logo.svg';
 
 export default function Navigation({ activeTab, setActiveTab, patientProfile, onSidebarHover }) {
   const { user } = useAuth();
@@ -247,7 +247,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
 
       {/* Bottom Navigation - Mobile Only (hidden on chat) */}
       {activeTab !== 'chat' && (
-        <div className={combineClasses(DesignTokens.colors.app[50], 'border-t', DesignTokens.colors.app.border[200], DesignTokens.shadows.lg, 'flex-shrink-0 fixed bottom-0 left-0 right-0 z-10 md:hidden py-2 px-2')}
+        <div className={combineClasses(DesignTokens.colors.app[50], 'border-t', DesignTokens.colors.app.border[200], DesignTokens.shadows.lg, 'flex-shrink-0 fixed bottom-0 left-0 right-0 z-10 md:hidden py-1.5 px-2')}
           style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))' }}>
           <div className="flex justify-evenly items-center max-w-2xl mx-auto">
             {navItems.map((item) => {
@@ -257,13 +257,13 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
             <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-              className={combineClasses('flex flex-col items-center justify-center', DesignTokens.spacing.gap.xs, 'px-1.5 py-1.5', DesignTokens.transitions.all, 'min-h-[36px] flex-1 relative touch-manipulation', isActive ? DesignTokens.colors.app.text[900] : combineClasses(DesignTokens.colors.app.text[600], 'hover:' + DesignTokens.colors.app.text[900]))}
+              className={combineClasses('flex flex-col items-center justify-center gap-0.5', 'px-1.5 py-1', DesignTokens.transitions.all, 'min-h-[36px] flex-1 relative touch-manipulation', isActive ? DesignTokens.colors.app.text[900] : combineClasses(DesignTokens.colors.app.text[600], 'hover:' + DesignTokens.colors.app.text[900]))}
             >
                   <div className={combineClasses('relative flex items-center justify-center', isActive ? combineClasses(DesignTokens.colors.app[200], DesignTokens.borders.radius.full, 'px-2 py-1') : '')}>
                   {item.iconSrc ? (
-                    <img src={item.iconSrc} alt="" className={combineClasses('w-4 h-4', isActive ? 'opacity-100' : 'opacity-80')} />
+                    <img src={item.iconSrc} alt="" className={combineClasses('w-5 h-5', isActive ? 'opacity-100' : 'opacity-60')} />
                   ) : (
-                    <Icon className="w-4 h-4" />
+                    <Icon className="w-5 h-5" />
                   )}
                   </div>
                   <span className="text-[11px] font-medium">{item.label}</span>

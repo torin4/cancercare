@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { CheckCircle, AlertTriangle, XCircle, Search as SearchIcon, MapPin, Globe, X, MessageSquare, Bookmark, FlaskConical, FileText, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 
-const IRIS_ICON_SRC = '/icons/iris2.svg';
+const IRIS_ICON_SRC = '/icons/iris_logo.svg';
 import ReactMarkdown from 'react-markdown';
 import { auth } from '../../firebase/config';
 import { patientService, genomicProfileService, clinicalTrialsService, trialLocationService } from '../../firebase/services';

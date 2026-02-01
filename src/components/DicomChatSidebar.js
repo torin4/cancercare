@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, X, Loader2, MessageSquare } from 'lucide-react';
 
-const IRIS_ICON_SRC = '/icons/iris2.svg';
+const IRIS_ICON_SRC = '/icons/iris_logo.svg';
 import ReactMarkdown from 'react-markdown';
 import { DesignTokens, combineClasses } from '../design/designTokens';
 import { useAuth } from '../contexts/AuthContext';
