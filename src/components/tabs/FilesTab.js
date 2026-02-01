@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical, Loader2, BookOpen, FileText, MessageSquare, Search, Bot, Trash2, Eye, FileImage } from 'lucide-react';
+import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical, Loader2, BookOpen, FileText, MessageSquare, Search, Trash2, Eye, FileImage } from 'lucide-react';
+
+const IRIS_ICON_SRC = '/icons/iris2.svg';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
@@ -1223,7 +1225,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
             className="lg:hidden text-medical-neutral-600 hover:text-medical-neutral-900 min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70 flex items-center justify-center transition-colors"
             title="Ask about documents"
           >
-            <Bot className="w-6 h-6" />
+            <img src={IRIS_ICON_SRC} alt="" className="w-6 h-6" />
           </button>
         )}
       </div>

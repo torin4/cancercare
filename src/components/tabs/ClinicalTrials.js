@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
-import { CheckCircle, AlertTriangle, XCircle, Search as SearchIcon, MapPin, Globe, X, MessageSquare, Bookmark, FlaskConical, FileText, ChevronDown, ChevronUp, Loader2, Bot } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, Search as SearchIcon, MapPin, Globe, X, MessageSquare, Bookmark, FlaskConical, FileText, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+
+const IRIS_ICON_SRC = '/icons/iris2.svg';
 import ReactMarkdown from 'react-markdown';
 import { auth } from '../../firebase/config';
 import { patientService, genomicProfileService, clinicalTrialsService, trialLocationService } from '../../firebase/services';
@@ -723,7 +725,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey, onOpenMobileChat }) => {
                 }}
                 className={combineClasses('border-2 border-medical-secondary-500 text-medical-secondary-600 rounded-lg hover:bg-medical-secondary-50 transition font-medium min-h-[44px] touch-manipulation active:opacity-70 flex items-center justify-center gap-2 lg:hidden', DesignTokens.spacing.button.mobile, 'flex-1', DesignTokens.typography.body.sm, 'font-medium', DesignTokens.spacing.gap.sm)}
               >
-                <Bot className={DesignTokens.icons.small.size.full} />
+                <img src={IRIS_ICON_SRC} alt="" className={DesignTokens.icons.small.size.full} />
                 <span className="hidden sm:inline">Ask About This Trial</span>
                 <span className="sm:hidden">Ask About</span>
               </button>
@@ -820,7 +822,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey, onOpenMobileChat }) => {
             className="lg:hidden text-medical-neutral-600 hover:text-medical-neutral-900 min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70 flex items-center justify-center transition-colors"
             title="Ask about trials"
           >
-            <Bot className="w-6 h-6" />
+            <img src={IRIS_ICON_SRC} alt="" className="w-6 h-6" />
           </button>
         )}
       </div>
@@ -1409,7 +1411,7 @@ const ClinicalTrials = ({ onTrialSelected, resetKey, onOpenMobileChat }) => {
                   }}
                   className={combineClasses('border-2 border-medical-secondary-500 text-medical-secondary-600 rounded-lg hover:bg-medical-secondary-50 transition font-medium min-h-[44px] touch-manipulation active:opacity-70 flex items-center justify-center gap-2 lg:hidden', DesignTokens.spacing.button.desktop, 'flex-1 font-semibold gap-1.5 sm:gap-2 text-sm sm:text-base', DesignTokens.transitions.all)}
                 >
-                  <Bot className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <img src={IRIS_ICON_SRC} alt="" className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span className="hidden sm:inline">Ask About This Trial</span>
                   <span className="sm:hidden">Ask About</span>
                 </button>

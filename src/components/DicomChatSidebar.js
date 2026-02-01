@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bot, Send, X, Loader2, MessageSquare } from 'lucide-react';
+import { Send, X, Loader2, MessageSquare } from 'lucide-react';
+
+const IRIS_ICON_SRC = '/icons/iris2.svg';
 import ReactMarkdown from 'react-markdown';
 import { DesignTokens, combineClasses } from '../design/designTokens';
 import { useAuth } from '../contexts/AuthContext';
@@ -183,7 +185,7 @@ export default function DicomChatSidebar({
       {/* Header */}
       <div className="flex-shrink-0 bg-gray-900 text-white px-4 py-3 flex items-center justify-between border-b border-gray-700">
         <div className="flex items-center gap-2">
-          <Bot className="w-5 h-5 text-blue-400" />
+          <img src={IRIS_ICON_SRC} alt="" className="w-5 h-5 brightness-0 invert" />
           <div>
             <h3 className="text-sm font-semibold">Scan Assistant</h3>
             <p className="text-xs text-gray-400">Ask about this scan</p>
@@ -230,7 +232,7 @@ export default function DicomChatSidebar({
             {msg.role === 'assistant' && (
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                  <Bot className="w-5 h-5 text-blue-600" />
+                  <img src={IRIS_ICON_SRC} alt="" className="w-5 h-5" />
                 </div>
               </div>
             )}
@@ -278,7 +280,7 @@ export default function DicomChatSidebar({
           <div className="flex gap-3 justify-start">
             <div className="flex-shrink-0">
               <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <Bot className="w-5 h-5 text-blue-600" />
+                <img src={IRIS_ICON_SRC} alt="" className="w-5 h-5" />
               </div>
             </div>
             <div className="bg-gray-100 rounded-lg px-4 py-2">

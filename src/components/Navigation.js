@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Activity, User, Home, MessageSquare, ClipboardList, FlaskConical, FileText, HeartHandshake, Bot } from 'lucide-react';
+import { Activity, User, Home, ClipboardList, FlaskConical, FileText, HeartHandshake } from 'lucide-react';
 import { DesignTokens, combineClasses } from '../design/designTokens';
 import logoPrimary from '../assets/logo_primary.svg';
 import logoSecondary from '../assets/logo_secondary.svg';
 import { useAuth } from '../contexts/AuthContext';
+
+const IRIS_ICON_SRC = '/icons/iris2.svg';
 
 export default function Navigation({ activeTab, setActiveTab, patientProfile, onSidebarHover }) {
   const { user } = useAuth();
@@ -47,7 +49,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
   
   const navItems = [
     { id: 'dashboard', label: 'Home', icon: Home },
-    { id: 'chat', label: 'Iris', icon: Bot },
+    { id: 'chat', label: 'Iris', icon: null, iconSrc: IRIS_ICON_SRC },
     { id: 'health', label: 'Health', icon: ClipboardList },
     { id: 'trials', label: 'Trials', icon: FlaskConical },
     { id: 'files', label: 'Docs', icon: FileText },
@@ -59,8 +61,8 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
       <div className={combineClasses(DesignTokens.colors.app[900], DesignTokens.shadows.md, DesignTokens.spacing.container.full, 'flex-shrink-0 md:hidden')}>
         <div className="flex items-center justify-between">
           <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.md)}>
-            <div className={combineClasses('w-10 h-10 sm:w-12 sm:h-12 bg-white/20', DesignTokens.borders.radius.full, 'flex items-center justify-center', DesignTokens.shadows.sm)}>
-              <img src={logoSecondary} alt="CancerCare" className="w-6 h-6 sm:w-8 sm:h-8" />
+            <div className={combineClasses('w-13 h-13 sm:w-16 sm:h-16 flex items-center justify-center')}>
+              <img src={`${process.env.PUBLIC_URL || ''}/icons/logo.svg`} alt="CancerCare" className="w-10 h-10 sm:w-12 sm:h-12" />
             </div>
             <div>
               {activeTab === 'profile' ? (
@@ -204,7 +206,11 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
                 title={!isExpanded ? item.label : ''}
               >
                 <div className="flex-shrink-0 w-20 flex justify-center">
-                  <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
+                  {item.iconSrc ? (
+                    <img src={item.iconSrc} alt="" className={combineClasses('w-5 h-5 sm:w-6 sm:h-6 brightness-0 invert', isActive ? 'opacity-100' : 'opacity-80')} />
+                  ) : (
+                    <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
+                  )}
                 </div>
                 <span className={combineClasses('text-sm sm:text-[15px]', 'font-semibold', 'whitespace-nowrap', DesignTokens.transitions.slow, 'overflow-hidden', DesignTokens.spacing.gap.md, isExpanded ? 'opacity-100 max-w-full' : 'opacity-0 max-w-0')}>
                   {item.label}
@@ -254,7 +260,11 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
               className={combineClasses('flex flex-col items-center justify-center', DesignTokens.spacing.gap.xs, 'px-1.5 py-1.5', DesignTokens.transitions.all, 'min-h-[36px] flex-1 relative touch-manipulation', isActive ? DesignTokens.colors.app.text[900] : combineClasses(DesignTokens.colors.app.text[600], 'hover:' + DesignTokens.colors.app.text[900]))}
             >
                   <div className={combineClasses('relative flex items-center justify-center', isActive ? combineClasses(DesignTokens.colors.app[200], DesignTokens.borders.radius.full, 'px-2 py-1') : '')}>
-                  <Icon className="w-4 h-4" />
+                  {item.iconSrc ? (
+                    <img src={item.iconSrc} alt="" className={combineClasses('w-4 h-4', isActive ? 'opacity-100' : 'opacity-80')} />
+                  ) : (
+                    <Icon className="w-4 h-4" />
+                  )}
                   </div>
                   <span className="text-[11px] font-medium">{item.label}</span>
             </button>

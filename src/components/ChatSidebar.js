@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
+import { Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
+
+const IRIS_ICON_SRC = '/icons/iris2.svg';
 import ExtractionSummary from './ExtractionSummary';
 import QuestionCards, { removeQuestionsFromText } from './QuestionCards';
 import InsightStack from './InsightStack';
@@ -877,7 +879,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
         title="Open chat sidebar"
       >
         <div className="relative">
-          <Bot className="w-7 h-7" />
+          <img src={IRIS_ICON_SRC} alt="" className="w-7 h-7 brightness-0 invert" />
           {messages.length > 0 && (
             <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-anchor-600 rounded-full border-2 border-anchor-900"></span>
           )}
@@ -922,7 +924,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'sm:gap-3', 'flex-1 min-w-0')}>
             <div className={combineClasses('bg-anchor-900 p-2 sm:p-2.5 rounded-lg flex-shrink-0')}>
-              <Bot className={combineClasses(DesignTokens.icons.header.size.full, 'text-white')} />
+              <img src={IRIS_ICON_SRC} alt="" className={combineClasses(DesignTokens.icons.header.size.full, 'brightness-0 invert')} />
             </div>
             <div className="min-w-0">
               <h2 className={combineClasses(DesignTokens.components.header.title, 'mb-0 text-base flex items-end gap-1.5')}>
@@ -1092,7 +1094,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
             return (
               <div className="flex items-center justify-center h-full text-medical-neutral-500">
                 <div className="text-center">
-                  <Bot className="w-12 h-12 mx-auto mb-3 text-medical-neutral-300" />
+                  <img src={IRIS_ICON_SRC} alt="" className="w-12 h-12 mx-auto mb-3 opacity-40" />
                   <p className="text-sm">Start a conversation to get help with your health data.</p>
                 </div>
               </div>
@@ -1108,7 +1110,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                 <div className={`flex items-start gap-2 ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {msg.type === 'ai' && (
                     <div className={combineClasses('flex-shrink-0 flex items-center justify-center', DesignTokens.components.chat.avatar)}>
-                      <Bot className="w-4 h-4 text-white" />
+                      <img src={IRIS_ICON_SRC} alt="" className="w-4 h-4 brightness-0 invert" />
                     </div>
                   )}
                   <div className={combineClasses(
@@ -1240,7 +1242,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
         {isBotProcessing && (
           <div className="flex items-start gap-2 justify-start">
             <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gradient-to-br from-gray-800 to-gray-600 flex items-center justify-center shadow-sm">
-              <Bot className="w-4 h-4 text-white" />
+              <img src={IRIS_ICON_SRC} alt="" className="w-4 h-4 brightness-0 invert" />
             </div>
             <div className="max-w-[85%] rounded-2xl px-3 py-2 bg-white border border-medical-neutral-200 text-medical-neutral-900">
               <div className="flex items-center gap-2 text-xs">

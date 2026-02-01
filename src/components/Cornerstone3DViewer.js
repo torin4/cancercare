@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { X, Loader2, AlertCircle, ChevronLeft, ChevronRight, Ruler, Crosshair, RotateCcw, SunMoon, MessageSquare, Bot } from 'lucide-react';
+import { X, Loader2, AlertCircle, ChevronLeft, ChevronRight, Ruler, Crosshair, RotateCcw, SunMoon, MessageSquare } from 'lucide-react';
+
+const IRIS_ICON_SRC = '/icons/iris2.svg';
 import { downloadFileAsBlob } from '../firebase/storage';
 import { extractDicomMetadata } from '../services/dicomService';
 import { registerZipImageLoader, registerZipStructure, generateZipImageId, unregisterZipImageLoader } from '../services/zipImageLoader';
@@ -1383,7 +1385,7 @@ export default function Cornerstone3DViewer({
         }`}
         title="Ask Iris (AI Chat Assistant)"
       >
-        <Bot className="w-7 h-7" />
+        <img src={IRIS_ICON_SRC} alt="" className="w-7 h-7 brightness-0 invert" />
       </button>
     </div>
   );

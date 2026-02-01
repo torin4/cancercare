@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { BarChart, Heart, Thermometer, Pill, ClipboardList, Bot } from 'lucide-react';
+import { BarChart, Heart, Thermometer, Pill, ClipboardList } from 'lucide-react';
+
+const IRIS_ICON_SRC = '/icons/iris2.svg';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
@@ -325,7 +327,7 @@ showSuccess(`Document uploaded and processed successfully!${dataPointText} All e
             className="lg:hidden text-medical-neutral-600 hover:text-medical-neutral-900 min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70 flex items-center justify-center transition-colors"
             title="Ask about health data"
           >
-            <Bot className="w-6 h-6" />
+            <img src={IRIS_ICON_SRC} alt="" className="w-6 h-6" />
           </button>
         )}
       </div>

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { Bot, Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square, HelpCircle, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react';
+import { Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square, HelpCircle, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react';
+
+const IRIS_ICON_SRC = '/icons/iris2.svg';
 import ReactMarkdown from 'react-markdown';
 import QuestionCards, { removeQuestionsFromText } from '../QuestionCards';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
@@ -1135,7 +1137,7 @@ export default function ChatTab({ onTabChange }) {
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <div className={combineClasses(DesignTokens.components.header.iconContainer, 'flex-shrink-0')}>
-                <Bot className={combineClasses(DesignTokens.icons.header.size.full, DesignTokens.components.header.icon)} />
+                <img src={IRIS_ICON_SRC} alt="" className={combineClasses(DesignTokens.icons.header.size.full)} />
               </div>
               <div className="min-w-0">
                 <h1 className={combineClasses(DesignTokens.components.header.title, 'mb-0 text-base flex items-end gap-1.5')}>
@@ -1306,7 +1308,7 @@ export default function ChatTab({ onTabChange }) {
               <div className={`flex items-start gap-2 sm:gap-3 ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {msg.type === 'ai' && (
                   <div className={combineClasses('flex-shrink-0 flex items-center justify-center', DesignTokens.components.chat.avatar)}>
-                    <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                    <img src={IRIS_ICON_SRC} alt="" className="w-4 h-4 sm:w-5 sm:h-5 brightness-0 invert" />
                   </div>
                 )}
                 <div className={combineClasses(
@@ -1565,7 +1567,7 @@ export default function ChatTab({ onTabChange }) {
           {isBotProcessing && (
             <div className="flex items-start gap-2 sm:gap-3 justify-start">
               <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-gray-800 to-gray-600 flex items-center justify-center shadow-sm">
-                <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                <img src={IRIS_ICON_SRC} alt="" className="w-4 h-4 sm:w-5 sm:h-5 brightness-0 invert" />
               </div>
               <div className="max-w-[82%] sm:max-w-[70%] rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 bg-white border border-medical-neutral-200 text-medical-neutral-900">
                 <div className="flex items-center gap-2 text-sm sm:text-base">
