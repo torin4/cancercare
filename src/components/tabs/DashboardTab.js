@@ -27,6 +27,62 @@ import DicomImportFlow from '../modals/DicomImportFlow';
 import UploadProgressOverlay from '../UploadProgressOverlay';
 import LabTooltipModal from '../modals/LabTooltipModal';
 
+/**
+ * Metric-specific trend thresholds for dashboard notifications.
+ * upPercent/downPercent: % change to trigger alert (used when useAbsolute is false)
+ * upAbsolute/downAbsolute: absolute change to trigger alert (used when useAbsolute is true)
+ */
+const TREND_THRESHOLDS = {
+  // Tumor markers - more sensitive to increases
+  labs: {
+    ca125: { upPercent: 5, downPercent: 15 },
+    ca199: { upPercent: 5, downPercent: 15 },
+    ca153: { upPercent: 5, downPercent: 15 },
+    ca2729: { upPercent: 5, downPercent: 15 },
+    cea: { upPercent: 5, downPercent: 15 },
+    psa: { upPercent: 5, downPercent: 15 },
+    afp: { upPercent: 5, downPercent: 15 },
+    he4: { upPercent: 5, downPercent: 15 },
+    scc_antigen: { upPercent: 5, downPercent: 15 },
+    cyfra211: { upPercent: 5, downPercent: 15 },
+    // Blood counts
+    hemoglobin: { upPercent: 10, downPercent: 10 },
+    hematocrit: { upPercent: 10, downPercent: 10 },
+    wbc: { upPercent: 25, downPercent: 25 },
+    platelets: { upPercent: 15, downPercent: 15 },
+    rbc: { upPercent: 10, downPercent: 10 },
+    // Kidney function
+    creatinine: { upPercent: 20, downPercent: 20 },
+    egfr: { upPercent: 15, downPercent: 15 },
+    bun: { upPercent: 25, downPercent: 25 },
+    // Liver function
+    alt: { upPercent: 25, downPercent: 25 },
+    ast: { upPercent: 25, downPercent: 25 },
+    bilirubin: { upPercent: 20, downPercent: 20 },
+    albumin: { upPercent: 15, downPercent: 15 },
+    ldh: { upPercent: 25, downPercent: 25 },
+    // Other
+    glucose: { upPercent: 20, downPercent: 20 },
+    crp: { upPercent: 50, downPercent: 25 },
+    default: { upPercent: 10, downPercent: 15 },
+  },
+  vitals: {
+    weight: { upPercent: 5, downPercent: 5 },
+    blood_pressure: { upPercent: 10, downPercent: 10 },
+    bp: { upPercent: 10, downPercent: 10 },
+    bloodpressure: { upPercent: 10, downPercent: 10 },
+    temperature: { useAbsolute: true, upAbsolute: 1, downAbsolute: 1 },
+    temp: { useAbsolute: true, upAbsolute: 1, downAbsolute: 1 },
+    oxygen_saturation: { useAbsolute: true, upAbsolute: 0, downAbsolute: 2 },
+    o2sat: { useAbsolute: true, upAbsolute: 0, downAbsolute: 2 },
+    heart_rate: { upPercent: 15, downPercent: 15 },
+    hr: { upPercent: 15, downPercent: 15 },
+    heartrate: { upPercent: 15, downPercent: 15 },
+    pulse: { upPercent: 15, downPercent: 15 },
+    default: { upPercent: 10, downPercent: 15 },
+  },
+};
+
 export default function DashboardTab({ onTabChange }) {
   const { user } = useAuth();
   const { hasUploadedDocument, patientProfile } = usePatientContext();
@@ -328,40 +384,150 @@ setIsUploading(false);
     return new Date(dateStr);
   };
 
-  // Calculate CA-125 trend dynamically
-  const ca125Data = labsData.ca125;
-  let ca125Alert = null;
+  // Calculate trend alerts for ALL key metrics (labs + vitals)
+  const trendAlerts = React.useMemo(() => {
+    const alerts = [];
+    const favoriteLabs = patientProfile?.favoriteMetrics?.labs || [];
+    const favoriteVitals = patientProfile?.favoriteMetrics?.vitals || [];
 
-  if (ca125Data && ca125Data.data && ca125Data.data.length >= 2) {
-    const dataPoints = ca125Data.data
-      .map(d => ({
-        date: d.timestamp ? new Date(d.timestamp) : (typeof d.date === 'string' ? parseDateString(d.date) : new Date(d.date)),
-        value: typeof d.value === 'number' ? d.value : parseFloat(d.value)
-      }))
-      .filter(d => !isNaN(d.value) && d.date instanceof Date && !isNaN(d.date.getTime()))
-      .sort((a, b) => a.date - b.date);
+    const getKeyMetricsToCheck = () => {
+      const metrics = [];
+      if (hasRealLabData) {
+        const labKeys = favoriteLabs.length > 0
+          ? favoriteLabs
+          : Object.keys(labsData || {})
+              .filter(key => {
+                const lab = labsData[key];
+                return lab && lab.data && lab.data.length >= 2;
+              })
+              .sort((a, b) => {
+                const criticalOrder = ['ca125', 'cea', 'wbc', 'hemoglobin', 'platelets', 'creatinine', 'egfr', 'alt', 'ast', 'albumin', 'ldh', 'ca199', 'psa', 'afp'];
+                const idxA = criticalOrder.indexOf(a.toLowerCase());
+                const idxB = criticalOrder.indexOf(b.toLowerCase());
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                return 0;
+              })
+              .slice(0, 8);
+        labKeys.forEach(key => {
+          const lab = labsData[key];
+          if (lab && lab.data && lab.data.length >= 2) {
+            metrics.push({ type: 'lab', key, data: lab, displayName: getLabDisplayName(key) });
+          }
+        });
+      }
+      if (hasRealVitalData) {
+        const vitalKeys = favoriteVitals.length > 0
+          ? favoriteVitals
+          : Object.keys(vitalsData || {}).filter(key => {
+              const vital = vitalsData[key];
+              return vital && vital.data && Array.isArray(vital.data) && vital.data.length >= 2;
+            });
+        vitalKeys.forEach(key => {
+          const vital = vitalsData[key];
+          if (vital && vital.data && vital.data.length >= 2) {
+            metrics.push({ type: 'vital', key, data: vital, displayName: getVitalDisplayName(key) });
+          }
+        });
+      }
+      return metrics;
+    };
 
-    if (dataPoints.length >= 2) {
+    const getThreshold = (type, key) => {
+      const category = TREND_THRESHOLDS[type];
+      const normalizedKey = type === 'lab' ? (normalizeLabName(key) || key)?.toLowerCase() : (key || '').toLowerCase().replace(/-/g, '');
+      return category?.[key] ?? category?.[normalizedKey] ?? category?.[key?.toLowerCase?.()] ?? category?.default ?? { upPercent: 10, downPercent: 15 };
+    };
+
+    const computeTrendForMetric = (metric) => {
+      const { type, key, data, displayName } = metric;
+      const rawData = data.data || [];
+      const threshold = getThreshold(type, key);
+
+      const getValue = (d) => {
+        if (type === 'vital' && (key === 'bp' || key === 'bloodpressure' || key === 'blood_pressure')) {
+          const sys = parseFloat(d.systolic ?? d.value);
+          return !isNaN(sys) ? sys : parseFloat(d.value);
+        }
+        const v = typeof d.value === 'number' ? d.value : parseFloat(d.value);
+        return isNaN(v) ? null : v;
+      };
+
+      const isBP = type === 'vital' && (key === 'bp' || key === 'bloodpressure' || key === 'blood_pressure');
+      const dataPoints = rawData
+        .map(d => ({
+          date: d.timestamp ? new Date(d.timestamp) : (typeof d.date === 'string' ? parseDateString(d.date) : new Date(d.date)),
+          value: getValue(d),
+          raw: d
+        }))
+        .filter(d => d.value != null && d.date instanceof Date && !isNaN(d.date.getTime()))
+        .sort((a, b) => a.date - b.date);
+
+      if (dataPoints.length < 2) return null;
+
       const latest = dataPoints[dataPoints.length - 1];
       const previous = dataPoints[dataPoints.length - 2];
       const change = latest.value - previous.value;
-      const percentChange = ((change / previous.value) * 100).toFixed(1);
+      const percentChange = previous.value !== 0 ? ((change / previous.value) * 100) : 0;
       const daysDiff = Math.round((latest.date - previous.date) / (1000 * 60 * 60 * 24));
+      const unit = data.unit || (isBP ? 'mmHg' : '');
 
-      // Show alert if significant increase (>10%) or decrease (>15%)
-      if (change > 0 && percentChange > 10) {
-        ca125Alert = {
+      const formatValue = (dp) => {
+        if (isBP && dp.raw?.diastolic != null) return `${dp.value}/${dp.raw.diastolic}`;
+        return String(dp.value);
+      };
+
+      const useAbsolute = threshold.useAbsolute;
+      const upThreshold = useAbsolute ? (threshold.upAbsolute ?? 0) : (threshold.upPercent ?? 10);
+      const downThreshold = useAbsolute ? (threshold.downAbsolute ?? 0) : (threshold.downPercent ?? 15);
+
+      let triggersUp = false;
+      let triggersDown = false;
+      let changeDescription = '';
+
+      if (useAbsolute) {
+        triggersUp = change > 0 && change >= upThreshold;
+        triggersDown = change < 0 && Math.abs(change) >= downThreshold;
+        changeDescription = triggersUp
+          ? `${change.toFixed(1)} ${unit || 'unit'} increase`
+          : triggersDown
+            ? `${Math.abs(change).toFixed(1)} ${unit || 'unit'} decrease`
+            : '';
+      } else {
+        triggersUp = change > 0 && percentChange >= upThreshold;
+        triggersDown = change < 0 && Math.abs(percentChange) >= downThreshold;
+        changeDescription = triggersUp
+          ? `${percentChange.toFixed(1)}% increase`
+          : triggersDown
+            ? `${Math.abs(percentChange).toFixed(1)}% decrease`
+            : '';
+      }
+
+      if (triggersUp) {
+        return {
           type: 'up',
-          message: `Rose from ${previous.value} → ${latest.value}${ca125Data.unit ? ` ${ca125Data.unit}` : ''} in ${daysDiff} day${daysDiff !== 1 ? 's' : ''} (${percentChange}% increase). Consider discussing with oncologist.`
-        };
-      } else if (change < 0 && Math.abs(percentChange) > 15) {
-        ca125Alert = {
-          type: 'down',
-          message: `Decreased from ${previous.value} → ${latest.value}${ca125Data.unit ? ` ${ca125Data.unit}` : ''} in ${daysDiff} day${daysDiff !== 1 ? 's' : ''} (${Math.abs(percentChange)}% decrease).`
+          metricName: displayName,
+          message: `Rose from ${formatValue(previous)} → ${formatValue(latest)}${unit ? ` ${unit}` : ''} in ${daysDiff} day${daysDiff !== 1 ? 's' : ''} (${changeDescription}). Consider discussing with your care team.`
         };
       }
-    }
-  }
+      if (triggersDown) {
+        return {
+          type: 'down',
+          metricName: displayName,
+          message: `Decreased from ${formatValue(previous)} → ${formatValue(latest)}${unit ? ` ${unit}` : ''} in ${daysDiff} day${daysDiff !== 1 ? 's' : ''} (${changeDescription}).`
+        };
+      }
+      return null;
+    };
+
+    getKeyMetricsToCheck().forEach(metric => {
+      const alert = computeTrendForMetric(metric);
+      if (alert) alerts.push(alert);
+    });
+
+    return alerts;
+  }, [labsData, vitalsData, patientProfile?.favoriteMetrics, hasRealLabData, hasRealVitalData]);
 
   return (
     <>
@@ -398,30 +564,33 @@ setIsUploading(false);
       </div>
       <div className={combineClasses(Layouts.container, 'flex flex-col', DesignTokens.spacing.gap.md)}>
 
-        {/* Dynamic CA-125 Alert */}
-        {ca125Alert && (
-          <div className={combineClasses(
-            DesignTokens.components.card.withColoredBorder(
-              ca125Alert.type === 'up' 
-                ? 'border-yellow-300' 
-                : DesignTokens.colors.accent.border[300]
-            ),
-            ca125Alert.type === 'up' 
-              ? 'bg-yellow-50' 
-              : DesignTokens.colors.accent[50],
-            DesignTokens.shadows.sm
-          )}>
+        {/* Trend Notifications - all key metrics (labs + vitals) */}
+        {trendAlerts.map((alert, idx) => (
+          <div
+            key={idx}
+            className={combineClasses(
+              DesignTokens.components.card.withColoredBorder(
+                alert.type === 'up'
+                  ? 'border-yellow-300'
+                  : DesignTokens.colors.accent.border[300]
+              ),
+              alert.type === 'up'
+                ? 'bg-yellow-50'
+                : DesignTokens.colors.accent[50],
+              DesignTokens.shadows.sm
+            )}
+          >
             <div className={combineClasses('flex items-start', DesignTokens.spacing.gap.md)}>
               <div className={combineClasses(
                 'flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center',
-                ca125Alert.type === 'up' 
-                  ? 'bg-yellow-100' 
+                alert.type === 'up'
+                  ? 'bg-yellow-100'
                   : DesignTokens.colors.accent[100]
               )}>
                 <AlertCircle className={combineClasses(
                   DesignTokens.icons.header.size.full,
-                  ca125Alert.type === 'up' 
-                    ? 'text-yellow-600' 
+                  alert.type === 'up'
+                    ? 'text-yellow-600'
                     : DesignTokens.colors.accent.text[600]
                 )} />
               </div>
@@ -430,24 +599,24 @@ setIsUploading(false);
                   DesignTokens.typography.h3.full,
                   DesignTokens.typography.h3.weight,
                   'mb-1',
-                  ca125Alert.type === 'up' 
-                    ? 'text-yellow-900' 
+                  alert.type === 'up'
+                    ? 'text-yellow-900'
                     : DesignTokens.colors.accent.text[900]
                 )}>
-                  CA-125 {ca125Alert.type === 'up' ? 'Trending Up' : 'Trending Down'}
+                  {alert.metricName} {alert.type === 'up' ? 'Trending Up' : 'Trending Down'}
                 </h3>
                 <p className={combineClasses(
                   DesignTokens.typography.body.sm,
-                  ca125Alert.type === 'up' 
-                    ? 'text-yellow-700' 
+                  alert.type === 'up'
+                    ? 'text-yellow-700'
                     : DesignTokens.colors.accent.text[700]
                 )}>
-                  {ca125Alert.message}
+                  {alert.message}
                 </p>
               </div>
             </div>
           </div>
-        )}
+        ))}
 
         {/* Tab Summaries Grid */}
         <div className={combineClasses('grid grid-cols-1 md:grid-cols-2', DesignTokens.spacing.gap.md)}>

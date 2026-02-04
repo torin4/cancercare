@@ -53,25 +53,54 @@ export const emergencyContactService = {
 
   // Save emergency contact
   async saveEmergencyContact(contactData) {
-    if (contactData.id) {
-      const docRef = doc(db, COLLECTIONS.EMERGENCY_CONTACTS, contactData.id);
-      await updateDoc(docRef, {
-        ...contactData,
-        updatedAt: serverTimestamp()
-      });
-      return contactData.id;
+    const LOG = '[emergencyContactService.saveEmergencyContact]';
+    console.log(LOG, 'input', { hasId: !!contactData?.id, keys: contactData ? Object.keys(contactData) : [] });
+
+    // Firestore rejects undefined values; strip them and omit document id from body
+    const { id, ...rest } = contactData;
+    const clean = Object.fromEntries(
+      Object.entries(rest).filter(([, v]) => v !== undefined)
+    );
+    console.log(LOG, 'clean payload (no undefined)', { clean, hasPatientId: 'patientId' in clean });
+
+    if (id) {
+      console.log(LOG, 'updateDoc', id);
+      const docRef = doc(db, COLLECTIONS.EMERGENCY_CONTACTS, id);
+      try {
+        await updateDoc(docRef, { ...clean, updatedAt: serverTimestamp() });
+        console.log(LOG, 'updateDoc ok', id);
+        return id;
+      } catch (err) {
+        console.error(LOG, 'updateDoc failed', { id, error: err, message: err?.message, code: err?.code });
+        throw err;
+      }
     } else {
-      const docRef = await addDoc(collection(db, COLLECTIONS.EMERGENCY_CONTACTS), {
-        ...contactData,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-      return docRef.id;
+      console.log(LOG, 'addDoc (new contact)');
+      try {
+        const docRef = await addDoc(collection(db, COLLECTIONS.EMERGENCY_CONTACTS), {
+          ...clean,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        console.log(LOG, 'addDoc ok', docRef.id);
+        return docRef.id;
+      } catch (err) {
+        console.error(LOG, 'addDoc failed', { error: err, message: err?.message, code: err?.code });
+        throw err;
+      }
     }
   },
 
   // Delete emergency contact
   async deleteEmergencyContact(contactId) {
-    await deleteDoc(doc(db, COLLECTIONS.EMERGENCY_CONTACTS, contactId));
+    const LOG = '[emergencyContactService.deleteEmergencyContact]';
+    console.log(LOG, 'delete', contactId);
+    try {
+      await deleteDoc(doc(db, COLLECTIONS.EMERGENCY_CONTACTS, contactId));
+      console.log(LOG, 'delete ok', contactId);
+    } catch (err) {
+      console.error(LOG, 'delete failed', { contactId, error: err, message: err?.message, code: err?.code });
+      throw err;
+    }
   }
 };

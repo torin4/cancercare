@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { X, AlertCircle, Check, User, Trash2, Plus } from 'lucide-react';
 import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { emergencyContactService } from '../../firebase/services';
@@ -14,53 +14,84 @@ export default function EditContactsModal({
   user 
 }) {
   const { showSuccess, showError } = useBanner();
+  // Snapshot of contact ids when modal opened — used to compute which contacts were removed
+  const initialContactIdsRef = useRef(null);
+
+  useEffect(() => {
+    if (show && Array.isArray(editContacts)) {
+      initialContactIdsRef.current = editContacts
+        .filter(c => c && c.id)
+        .map(c => c.id);
+    } else if (!show) {
+      initialContactIdsRef.current = null;
+    }
+  }, [show]); // Only capture snapshot when modal opens; do not overwrite when editContacts changes
+
   if (!show) return null;
 
   const handleSave = async () => {
+    const LOG = '[EditContactsModal]';
     try {
+      console.log(LOG, 'handleSave started', { editContactsCount: editContacts.length, userId: user?.uid });
+
       // Filter out empty contacts (must have at least name or phone)
-      const validContacts = editContacts.filter(c => 
+      const validContacts = editContacts.filter(c =>
         (c.name && c.name.trim()) || (c.phone && c.phone.trim())
       );
-      
+      console.log(LOG, 'validContacts', { count: validContacts.length, validContacts });
+
       if (validContacts.length === 0) {
         showError('Please add at least one contact with a name or phone number.');
         return;
       }
 
-      // Get existing contact IDs
-      const existingContactIds = new Set(emergencyContacts.map(c => c.id));
-      const newContactIds = new Set(validContacts.filter(c => c.id).map(c => c.id));
-      
-      // Delete contacts that were removed
-      const contactsToDelete = emergencyContacts.filter(c => 
-        c.id && !newContactIds.has(c.id)
-      );
-      for (const contactToDelete of contactsToDelete) {
-        await emergencyContactService.deleteEmergencyContact(contactToDelete.id);
+      const remainingIds = new Set(validContacts.filter(c => c.id).map(c => c.id));
+
+      // Delete contacts that were in the list when we opened but are no longer in validContacts
+      const idsToDelete = (initialContactIdsRef.current || []).filter(id => id && !remainingIds.has(id));
+      console.log(LOG, 'contactsToDelete', { count: idsToDelete.length, ids: idsToDelete });
+
+      for (const contactId of idsToDelete) {
+        if (!contactId) continue;
+        console.log(LOG, 'deleting contact', contactId);
+        await emergencyContactService.deleteEmergencyContact(contactId);
+        console.log(LOG, 'deleted contact', contactId);
       }
 
       // Save each valid contact via service
       const savedIds = [];
-      for (const c of validContacts) {
-        const toSave = {
-          ...c,
-          patientId: user.uid
-        };
-        const id = await emergencyContactService.saveEmergencyContact(toSave);
-        savedIds.push(id);
+      for (let i = 0; i < validContacts.length; i++) {
+        const c = validContacts[i];
+        const toSave = { ...c, patientId: user.uid };
+        console.log(LOG, `saveEmergencyContact ${i + 1}/${validContacts.length}`, { hasId: !!c.id, toSave });
+        try {
+          const id = await emergencyContactService.saveEmergencyContact(toSave);
+          savedIds.push(id);
+          console.log(LOG, `saved contact ${i + 1}`, { id });
+        } catch (saveErr) {
+          console.error(LOG, `saveEmergencyContact failed for contact ${i + 1}`, { contact: c, error: saveErr, message: saveErr?.message, code: saveErr?.code });
+          throw saveErr;
+        }
       }
-      
+
+      console.log(LOG, 'all contacts saved, reloading', { savedIds });
+
       // Reload contacts and filter out any empty ones
       const allContacts = await emergencyContactService.getEmergencyContacts(user.uid);
-      const filteredContacts = allContacts.filter(c => 
+      const filteredContacts = allContacts.filter(c =>
         (c.name && c.name.trim()) || (c.phone && c.phone.trim())
       );
       setEmergencyContacts(filteredContacts);
       showSuccess('Emergency contacts updated!');
       onClose();
+      console.log(LOG, 'handleSave completed successfully');
     } catch (err) {
-      showError('Failed to save emergency contacts.');
+      console.error(LOG, 'Save failed');
+      console.error(LOG, '  message:', err?.message);
+      console.error(LOG, '  code:', err?.code);
+      console.error(LOG, '  error:', err);
+      if (err?.stack) console.error(LOG, '  stack:', err.stack);
+      showError(err?.message || 'Failed to save emergency contacts.');
     }
   };
 
