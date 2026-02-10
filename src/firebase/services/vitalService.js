@@ -333,21 +333,27 @@ export const vitalService = {
     
     await deleteDoc(valueRef);
     
-    // Check if this was the last value - if so, clear currentValue to prevent it from reappearing
-    const remainingValues = await getDocs(query(collection(db, COLLECTIONS.VITALS, actualVitalId, 'values')));
-    
-    if (remainingValues.empty) {
-      // Clear currentValue so transform functions don't use it as a fallback
-      await updateDoc(actualVitalRef, {
-        currentValue: null,
-        updatedAt: serverTimestamp()
-      });
-      
-      // Verify it was cleared
-      const updatedVitalDoc = await getDoc(actualVitalRef);
-      const updatedVitalData = updatedVitalDoc.data();
-    } else {
+    // Recompute currentValue from the latest remaining value (or clear if none remain).
+    const latestRemaining = await getDocs(query(
+      collection(db, COLLECTIONS.VITALS, actualVitalId, 'values'),
+      orderBy('date', 'desc'),
+      limit(1)
+    ));
+
+    let nextCurrentValue = null;
+    if (!latestRemaining.empty) {
+      const latest = latestRemaining.docs[0].data() || {};
+      if (latest.systolic != null && latest.diastolic != null) {
+        nextCurrentValue = `${latest.systolic}/${latest.diastolic}`;
+      } else {
+        nextCurrentValue = latest.value ?? null;
+      }
     }
+
+    await updateDoc(actualVitalRef, {
+      currentValue: nextCurrentValue,
+      updatedAt: serverTimestamp()
+    });
   },
 
   // Delete all vitals of a specific type for a patient
@@ -411,8 +417,9 @@ export const vitalService = {
           orphanedVitals.push(vital);
         }
       } catch (error) {
-        // If we can't check values, assume it's orphaned and try to delete
-        orphanedVitals.push(vital);
+        // Be conservative: skip deletion when value lookup fails.
+        // Transient read errors must not be treated as orphaned data.
+        continue;
       }
     }
 

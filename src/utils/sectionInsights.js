@@ -287,7 +287,12 @@ function calculateTrendInsight(category, metrics) {
 
   for (const [key, lab] of metrics) {
     // Count trends
-    const trend = lab.trend || 'unknown';
+    const trendRaw = String(lab.trend || '').toLowerCase();
+    const trend = trendRaw === 'up'
+      ? 'increasing'
+      : trendRaw === 'down'
+        ? 'decreasing'
+        : (trendRaw || 'unknown');
     if (trends.hasOwnProperty(trend)) {
       trends[trend]++;
     } else {

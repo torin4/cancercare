@@ -43,20 +43,19 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Missing file URL parameter' });
     }
 
-    // SECURITY: Validate that URL is from Firebase Storage
-    // Firebase Storage URLs contain 'firebasestorage.googleapis.com' or 'storage.googleapis.com'
-    const isValidFirebaseUrl = fileUrl.includes('firebasestorage.googleapis.com') || 
-                                fileUrl.includes('storage.googleapis.com');
-    
-    if (!isValidFirebaseUrl) {
-      return res.status(403).json({ error: 'Invalid storage URL. Only Firebase Storage URLs are allowed.' });
-    }
-    
-    // SECURITY: Validate URL format to prevent SSRF attacks
+    // SECURITY: Validate URL format and host to prevent SSRF attacks
+    const allowedHosts = new Set([
+      'firebasestorage.googleapis.com',
+      'storage.googleapis.com'
+    ]);
+    let urlObj;
     try {
-      const urlObj = new URL(fileUrl);
-      if (!['https:'].includes(urlObj.protocol)) {
+      urlObj = new URL(fileUrl);
+      if (urlObj.protocol !== 'https:') {
         return res.status(403).json({ error: 'Only HTTPS URLs are allowed' });
+      }
+      if (!allowedHosts.has(urlObj.hostname)) {
+        return res.status(403).json({ error: 'Invalid storage URL host. Only Firebase Storage hosts are allowed.' });
       }
     } catch (urlError) {
       return res.status(400).json({ error: 'Invalid URL format' });
@@ -127,4 +126,3 @@ module.exports = async (req, res) => {
     res.status(502).json({ error: 'Storage proxy error', message: error.message });
   }
 };
-

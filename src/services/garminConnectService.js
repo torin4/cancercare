@@ -107,10 +107,8 @@ export async function isGarminConnected(userId) {
  * For production, use a library like 'oauth-1.0a' or implement full OAuth 1.0a spec
  */
 function generateOAuthSignature(method, url, params, secret) {
-  // This is a placeholder - implement full OAuth 1.0a signature generation
-  // For production, use: https://www.npmjs.com/package/oauth-1.0a
-  console.warn('[Garmin] OAuth signature generation needs full implementation');
-  return '';
+  // Placeholder intentionally disabled to avoid producing invalid signatures in production.
+  throw new Error('Garmin OAuth signature generation is not implemented.');
 }
 
 /**
@@ -123,31 +121,9 @@ export async function initiateGarminOAuth(userId, callbackUrl) {
   }
 
   try {
-    // Build OAuth 1.0a request
-    const method = 'POST';
-    const url = GARMIN_CONFIG.requestTokenUrl;
-    
-    // OAuth 1.0a parameters
-    const oauthParams = {
-      oauth_consumer_key: GARMIN_CONFIG.consumerKey,
-      oauth_signature_method: 'HMAC-SHA1',
-      oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
-      oauth_nonce: Math.random().toString(36).substring(7),
-      oauth_version: '1.0',
-      oauth_callback: callbackUrl,
-    };
-
-    // TODO: Generate OAuth signature using oauth-1.0a library
-    // For now, return authorization URL structure
-    // In production, you'll need to make the actual OAuth request
-    
-    const authUrl = `${GARMIN_CONFIG.authorizeUrl}?oauth_token=REQUEST_TOKEN`;
-    
-    return {
-      authUrl,
-      requestToken: 'REQUEST_TOKEN', // This will come from Garmin API response
-      requestTokenSecret: 'REQUEST_TOKEN_SECRET', // This will come from Garmin API response
-    };
+    void userId;
+    void callbackUrl;
+    throw new Error('Garmin OAuth request-token flow is not implemented yet.');
   } catch (error) {
     console.error('[Garmin] Error initiating OAuth:', error);
     throw error;
@@ -159,23 +135,11 @@ export async function initiateGarminOAuth(userId, callbackUrl) {
  * Called after user authorizes your app
  */
 export async function completeGarminOAuth(userId, requestToken, requestTokenSecret, verifier) {
-  try {
-    // Exchange request token + verifier for access token
-    // TODO: Implement OAuth 1.0a token exchange
-    
-    const tokens = {
-      accessToken: 'ACCESS_TOKEN',
-      accessTokenSecret: 'ACCESS_TOKEN_SECRET',
-      tokenType: 'Bearer',
-      expiresAt: null, // Garmin tokens may not expire
-    };
-
-    await saveGarminTokens(userId, tokens);
-    return tokens;
-  } catch (error) {
-    console.error('[Garmin] Error completing OAuth:', error);
-    throw error;
-  }
+  void userId;
+  void requestToken;
+  void requestTokenSecret;
+  void verifier;
+  throw new Error('Garmin OAuth token exchange is not implemented yet.');
 }
 
 /**
@@ -210,37 +174,9 @@ export async function fetchGarminHealthSummary(userId, startDate, endDate) {
   }
 
   try {
-    // Format dates for Garmin API (YYYY-MM-DD)
-    const startDateStr = startDate instanceof Date 
-      ? startDate.toISOString().split('T')[0] 
-      : startDate;
-    const endDateStr = endDate instanceof Date 
-      ? endDate.toISOString().split('T')[0] 
-      : endDate;
-
-    // API endpoint for daily health summary
-    const url = `${GARMIN_CONFIG.healthApiBaseUrl}/dailyHealthSnapshot?startDate=${startDateStr}&endDate=${endDateStr}`;
-    
-    // TODO: Make authenticated request using OAuth 1.0a
-    // For now, this is a placeholder structure
-    
-    const response = {
-      dailyHealthSummaries: [
-        {
-          calendarDate: startDateStr,
-          restingHeartRate: 65,
-          averageStressLevel: 25,
-          maxStressLevel: 50,
-          stressDuration: 3600000, // milliseconds
-          sleepDuration: 28800000, // milliseconds
-          pulseOx: 98,
-          respiration: 14,
-          bodyBattery: 75,
-        }
-      ]
-    };
-
-    return response;
+    void startDate;
+    void endDate;
+    throw new Error('Garmin Health API fetch is not implemented yet.');
   } catch (error) {
     console.error('[Garmin] Error fetching health summary:', error);
     throw error;

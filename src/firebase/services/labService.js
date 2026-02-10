@@ -380,14 +380,18 @@ export const labService = {
         
         // Update that lab's currentValue
         const testLabRef = doc(db, COLLECTIONS.LABS, testLabId);
-        const testRemainingValues = await getDocs(query(collection(db, COLLECTIONS.LABS, testLabId, 'values')));
-        if (testRemainingValues.empty) {
+        const latestRemainingValue = await getDocs(query(
+          collection(db, COLLECTIONS.LABS, testLabId, 'values'),
+          orderBy('date', 'desc'),
+          limit(1)
+        ));
+        if (latestRemainingValue.empty) {
           await updateDoc(testLabRef, {
             currentValue: null,
             updatedAt: serverTimestamp()
           });
         } else {
-          const mostRecentValue = testRemainingValues.docs[0].data();
+          const mostRecentValue = latestRemainingValue.docs[0].data();
           await updateDoc(testLabRef, {
             currentValue: mostRecentValue?.value ?? null,
             updatedAt: serverTimestamp()
@@ -501,8 +505,9 @@ export const labService = {
           orphanedLabs.push(lab);
         }
       } catch (error) {
-        // If we can't check values, assume it's orphaned and try to delete
-        orphanedLabs.push(lab);
+        // Be conservative: skip deletion when value lookup fails.
+        // Transient read errors must not be treated as orphaned data.
+        continue;
       }
     }
     

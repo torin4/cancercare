@@ -1,4 +1,3 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { labService, vitalService, medicationService, genomicProfileService, documentService } from '../firebase/services';
 import { parseLocalDate } from '../utils/helpers';
 import { cleanupDocumentData, verifyCleanupComplete } from './documentCleanupService';
@@ -8,13 +7,7 @@ import { normalizeLabName } from '../utils/normalizationUtils';
 import { extractDicomMetadata, isDicomFile } from './dicomService';
 import { isZipFile, extractDicomFilesFromZip } from './zipService';
 import logger from '../utils/logger';
-
-// Check if API key is available
-const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
-if (!apiKey) {
-}
-
-const genAI = new GoogleGenerativeAI(apiKey || '');
+import { generateGeminiText } from './geminiClientService';
 
 /**
  * Process an uploaded medical document
@@ -411,11 +404,7 @@ async function fileToBase64(file) {
  * @param {string|null} documentType - Optional document type (if provided, skips classification and uses type-specific prompt)
  */
 async function analyzeDocument(base64Data, mimeType, patientProfile = null, documentDate = null, onProgress = null, documentType = null, customInstructions = null) {
-  if (!apiKey) {
-    throw new Error('Gemini API key is not configured. Please set REACT_APP_GEMINI_API_KEY in Vercel environment variables and redeploy.');
-  }
-  
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  const modelName = 'gemini-2.5-flash';
 
   // Determine document type - use provided type or classify
   let docType = 'unknown';
@@ -992,7 +981,9 @@ GENERAL RULES:
     throw new Error('Failed to convert file to base64. The file may be too large or corrupted. For ZIP files containing DICOM files, the system should extract them first.');
   }
 
-  const result = await model.generateContent([
+  const text = await generateGeminiText({
+    model: modelName,
+    content: [
     {
       inlineData: {
         mimeType: mimeType,
@@ -1000,21 +991,18 @@ GENERAL RULES:
       }
     },
     { text: finalPrompt }
-  ]);
+    ]
+  });
 
   // Update progress: AI is processing
   if (onProgress) {
     onProgress(null, 'Extracting dates and metadata...');
   }
 
-  const response = await result.response;
-  
   // Update progress: Parsing AI response
   if (onProgress) {
     onProgress(null, 'Parsing extracted data...');
   }
-  
-  const text = response.text();
 
   // Parse JSON response
   const jsonMatch = text.match(/\{[\s\S]*\}/);

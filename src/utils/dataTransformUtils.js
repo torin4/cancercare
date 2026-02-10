@@ -1,8 +1,8 @@
 // Data transformation utilities for converting Firestore data to UI format
 
 import { labService, vitalService } from '../firebase/services';
-import { getCancerRelevanceScore } from './healthUtils';
-import { normalizeVitalName, getVitalDisplayName, normalizeLabName, shouldMergeLabNames } from './normalizationUtils';
+import { getCancerRelevanceScore, getLabStatus } from './healthUtils';
+import { normalizeVitalName, getVitalDisplayName, normalizeLabName, shouldMergeLabNames, labDefaultNormalRanges } from './normalizationUtils';
 import { formatDateString } from './helpers';
 
 // Transform Firestore labs data to UI format
@@ -321,6 +321,24 @@ export const transformLabsData = async (labs) => {
     if (allValues.length > 0) {
       grouped[labType].current = allValues[allValues.length - 1].value;
     }
+
+    // Derive status from current value + effective normal range to avoid stale persisted status.
+    const canonicalLabKey = normalizeLabName(grouped[labType].name || labType) || labType;
+    const effectiveRange = grouped[labType].normalRange || labDefaultNormalRanges[canonicalLabKey];
+    if (effectiveRange != null && effectiveRange !== '') {
+      const statusInfo = getLabStatus(grouped[labType].current, effectiveRange);
+      if (statusInfo.status === 'normal') {
+        grouped[labType].status = 'normal';
+      } else if (statusInfo.status.includes('high')) {
+        grouped[labType].status = 'high';
+      } else if (statusInfo.status.includes('low')) {
+        grouped[labType].status = 'low';
+      } else {
+        grouped[labType].status = 'unknown';
+      }
+    } else {
+      grouped[labType].status = 'unknown';
+    }
   }
 
   return grouped;
@@ -567,4 +585,3 @@ export const transformVitalsData = async (vitals) => {
 
   return grouped;
 };
-

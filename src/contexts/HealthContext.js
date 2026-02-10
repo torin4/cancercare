@@ -48,15 +48,9 @@ export const HealthProvider = ({ children }) => {
 
       setGenomicProfile(genomic || null);
       
-      // Run cleanup in background (non-blocking) - only log if orphans found
-      Promise.all([
-        labService.cleanupOrphanedLabs(user.uid),
-        vitalService.cleanupOrphanedVitals(user.uid)
-      ]).then(([labCount, vitalCount]) => {
-        // Cleanup completed silently
-      }).catch(error => {
-        console.warn('[HealthContext] Background cleanup failed:', error.message);
-      });
+      // NOTE: Automatic orphan cleanup is intentionally disabled here.
+      // A transient read failure could incorrectly classify valid data as orphaned.
+      // Cleanup should be triggered explicitly from controlled UI/service flows.
     } catch (error) {
       console.error('[HealthContext] Failed to reload health data:', error);
     } finally {
@@ -99,15 +93,9 @@ export const HealthProvider = ({ children }) => {
 
         setGenomicProfile(genomic || null);
         
-        // Run cleanup in background (non-blocking) - only log if orphans found
-        Promise.all([
-          labService.cleanupOrphanedLabs(user.uid),
-          vitalService.cleanupOrphanedVitals(user.uid)
-        ]).then(([labCount, vitalCount]) => {
-          // Cleanup completed silently
-        }).catch(error => {
-          console.warn('[HealthContext] Background cleanup failed:', error.message);
-        });
+        // NOTE: Automatic orphan cleanup is intentionally disabled here.
+        // A transient read failure could incorrectly classify valid data as orphaned.
+        // Cleanup should be triggered explicitly from controlled UI/service flows.
       } catch (error) {
         console.error('[HealthContext] Failed to load health data:', error);
       } finally {
@@ -137,4 +125,3 @@ export const HealthProvider = ({ children }) => {
     </HealthContext.Provider>
   );
 };
-

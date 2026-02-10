@@ -1,4 +1,3 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { labService, vitalService, medicationService, symptomService, journalNoteService, documentService } from '../firebase/services';
 import { getSavedTrials } from '../services/clinicalTrials/clinicalTrialsService';
 import { getNotebookEntries } from './notebookService';
@@ -27,6 +26,7 @@ import {
   buildInsufficientTrendDataResponse
 } from '../prompts/responses/noDataResponses';
 import { buildRecoveryInstructionsResponse } from '../prompts/responses/recoveryResponses';
+import { generateGeminiText } from './geminiClientService';
 
 // ============================================================================
 // BULK SCANNING FUNCTIONALITY
@@ -370,8 +370,6 @@ async function handleBulkScanRequest(message, userId, patientProfile) {
     };
   }
 }
-
-const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY || process.env.GEMINI_API_KEY);
 
 // ============================================================================
 // HELPER FUNCTIONS - Context Builders
@@ -1109,7 +1107,6 @@ export async function processChatMessage(message, userId, conversationHistory = 
     // Determine if we need vision model (if DICOM image data or simple image attachment is provided)
     const hasImage = dicomContext?.imageData?.imageData || (dicomContext?.images && dicomContext.images.length > 0) || imageAttachment?.base64;
     const modelName = 'gemini-3-flash-preview'; // Same model for text and image; request format differs by hasImage
-    const model = genAI.getGenerativeModel({ model: modelName });
 
     // Detect intent from message
     const { 
@@ -1292,7 +1289,7 @@ export async function processChatMessage(message, userId, conversationHistory = 
       throw new Error('Request aborted');
     }
 
-    let result;
+    let text;
 
     // If image data is provided, use multimodal request
     if (hasImage) {
@@ -1315,7 +1312,11 @@ export async function processChatMessage(message, userId, conversationHistory = 
           contentParts.push(`Attached image: ${imageAttachment.fileName}`);
         }
 
-        result = await model.generateContent(contentParts);
+        text = await generateGeminiText({
+          model: modelName,
+          content: contentParts,
+          abortSignal
+        });
       }
       // Handle multi-slice images (array)
       else if (dicomContext?.images && Array.isArray(dicomContext.images)) {
@@ -1341,7 +1342,11 @@ export async function processChatMessage(message, userId, conversationHistory = 
           }
         });
 
-        result = await model.generateContent(contentParts);
+        text = await generateGeminiText({
+          model: modelName,
+          content: contentParts,
+          abortSignal
+        });
       }
       // Handle single DICOM image (legacy support)
       else if (dicomContext?.imageData && dicomContext.imageData.imageData) {
@@ -1361,12 +1366,20 @@ export async function processChatMessage(message, userId, conversationHistory = 
         };
 
         // Multimodal request: [text prompt, image]
-        result = await model.generateContent([prompt, imagePart]);
+        text = await generateGeminiText({
+          model: modelName,
+          content: [prompt, imagePart],
+          abortSignal
+        });
       }
     } else {
       // Text-only request
       try {
-        result = await model.generateContent(prompt);
+        text = await generateGeminiText({
+          model: modelName,
+          content: prompt,
+          abortSignal
+        });
       } catch (apiError) {
         logger.error('[chatProcessor] API call failed:', apiError);
         logger.error('[chatProcessor] API error details:', {
@@ -1380,19 +1393,13 @@ export async function processChatMessage(message, userId, conversationHistory = 
       }
     }
 
-    // Check if aborted after API call but before reading response
+    // Check if aborted after API call
     if (abortSignal?.aborted) {
       throw new Error('Request aborted');
     }
 
-    let response;
-    let text;
-    try {
-      response = await result.response;
-      text = response.text();
-    } catch (responseError) {
-      logger.error('[chatProcessor] Error reading response:', responseError);
-      throw new Error(`Failed to read API response: ${responseError.message}`);
+    if (typeof text !== 'string' || text.length === 0) {
+      throw new Error('Failed to read API response: Empty response from model');
     }
     
     // Check if aborted after getting response
