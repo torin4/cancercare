@@ -1108,7 +1108,7 @@ export async function processChatMessage(message, userId, conversationHistory = 
   try {
     // Determine if we need vision model (if DICOM image data or simple image attachment is provided)
     const hasImage = dicomContext?.imageData?.imageData || (dicomContext?.images && dicomContext.images.length > 0) || imageAttachment?.base64;
-    const modelName = hasImage ? 'gemini-2.5-flash' : 'gemini-2.5-flash'; // Both use same model, but request format differs
+    const modelName = 'gemini-3-flash-preview'; // Same model for text and image; request format differs by hasImage
     const model = genAI.getGenerativeModel({ model: modelName });
 
     // Detect intent from message
