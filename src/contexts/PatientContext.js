@@ -44,8 +44,10 @@ export const PatientProvider = ({ children }) => {
           setPatientProfile(null);
         } else {
           setPatientProfile(patient);
-          // Check if profile is complete (has diagnosis)
-          if (!patient.diagnosis) {
+          // User chose "explore first" (profileComplete: false) — don't show onboarding again
+          if (patient.profileComplete === false) {
+            setNeedsOnboarding(false);
+          } else if (!patient.diagnosis) {
             setNeedsOnboarding(true);
           } else {
             setNeedsOnboarding(false);

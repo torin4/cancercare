@@ -340,6 +340,16 @@ export default function Onboarding({ onComplete }) {
                   </div>
                 </button>
               </div>
+
+              <div className="pt-4 border-t border-neutral-200">
+                <button
+                  type="button"
+                  onClick={() => onComplete({ exploreFirst: true })}
+                  className={combineClasses('text-sm font-medium underline', DesignTokens.colors.neutral.text[500], DesignTokens.colors.primary.text[600].replace('text-', 'hover:text-'))}
+                >
+                  Explore the app first — I'll add my information later
+                </button>
+              </div>
             </div>
           )}
 

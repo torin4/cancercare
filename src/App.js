@@ -589,6 +589,19 @@ export default function CancerCareApp() {
   // Handle onboarding completion
   const handleOnboardingComplete = async (formData) => {
     try {
+      if (formData.exploreFirst) {
+        // User chose to explore first — save minimal profile and close onboarding
+        await patientService.savePatient(user.uid, {
+          email: user.email,
+          displayName: user.displayName || user.email || 'Patient',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          profileComplete: false
+        });
+        setPatientProfile(prev => ({ ...prev, profileComplete: false }));
+        setNeedsOnboarding(false);
+        return;
+      }
 
       // Calculate age from date of birth
       const dob = new Date(formData.dateOfBirth);
