@@ -121,7 +121,26 @@ export const labSynonymMap = {
   'urea': ['urea'],
   'urineprotein': ['urineprotein', 'urine protein', 'protein urine'],
   'urinecreatinine': ['urinecreatinine', 'urine creatinine'],
-  
+  'urine_wbc': ['urinewbc', 'urinewbcvisual', 'urine wbc', 'urine wbc visual', 'urine white blood cells'],
+  'urine_rbc': ['urinerbc', 'urinerbcvisual', 'urine rbc', 'urine rbc visual', 'urine red blood cells'],
+  'urine_hyaline_casts': ['urinehyalinecasts', 'urinehyalinecastsvisual', 'urine hyaline casts', 'hyaline casts urine'],
+  'urine_renal_tubular_epithelial': ['urinerenaltubularepithelialcells', 'urinerenaltubularepithelialcellsvisual', 'urine renal tubular epithelial cells', 'rtecs urine'],
+  'urine_squamous_epithelial': ['urinesquamousepithelialcells', 'urinesquamousepithelialcellsvisual', 'urine squamous epithelial cells', 'squamous epithelial urine'],
+  'urine_bacteria': ['urinebacteria', 'urinebacteriavisual', 'urine bacteria'],
+  'urine_yeast': ['urineyeast', 'urineyeastvisual', 'urine yeast'],
+  'urine_crystals': ['urinecrystals', 'urinecrystalsvisual', 'urine crystals'],
+  'urine_mucus': ['urinemucus', 'urinemucusvisual', 'urine mucus'],
+  'urine_color': ['urinecolor', 'urine color'],
+  'urine_appearance': ['urineappearance', 'urine appearance'],
+  'urine_glucose': ['urineglucose', 'urine glucose'],
+  'urine_ketones': ['urineketones', 'urine ketones'],
+  'urine_bilirubin': ['urinebilirubin', 'urine bilirubin'],
+  'urine_blood': ['urineblood', 'urine blood', 'urine occult blood'],
+  'urine_nitrite': ['urinenitrite', 'urine nitrite'],
+  'urine_leukocyte_esterase': ['urineleukocyteesterase', 'urine leukocyte esterase'],
+  'urine_specific_gravity': ['urinespecificgravity', 'urine specific gravity', 'urine sg'],
+  'urine_ph': ['urineph', 'urine ph', 'urine ph value'],
+
   // Blood Counts
   'wbc': ['wbc'],
   'rbc': ['rbc', 'red blood cell count', 'red blood cells', 'red blood cell', 'redbloodcellcount', 'redbloodcells', 'redbloodcell', 'erythrocytes', 'erythrocyte count'],
@@ -260,6 +279,25 @@ export const labDisplayNames = {
   'urea': 'Urea',
   'urineprotein': 'Urine Protein',
   'urinecreatinine': 'Urine Creatinine',
+  'urine_wbc': 'Urine WBC',
+  'urine_rbc': 'Urine RBC',
+  'urine_hyaline_casts': 'Urine Hyaline Casts',
+  'urine_renal_tubular_epithelial': 'Urine Renal Tubular Epithelial Cells',
+  'urine_squamous_epithelial': 'Urine Squamous Epithelial Cells',
+  'urine_bacteria': 'Urine Bacteria',
+  'urine_yeast': 'Urine Yeast',
+  'urine_crystals': 'Urine Crystals',
+  'urine_mucus': 'Urine Mucus',
+  'urine_color': 'Urine Color',
+  'urine_appearance': 'Urine Appearance',
+  'urine_glucose': 'Urine Glucose',
+  'urine_ketones': 'Urine Ketones',
+  'urine_bilirubin': 'Urine Bilirubin',
+  'urine_blood': 'Urine Blood',
+  'urine_nitrite': 'Urine Nitrite',
+  'urine_leukocyte_esterase': 'Urine Leukocyte Esterase',
+  'urine_specific_gravity': 'Urine Specific Gravity',
+  'urine_ph': 'Urine pH',
   'wbc': 'WBC',
   'rbc': 'RBC',
   'hemoglobin': 'Hemoglobin',
@@ -440,10 +478,25 @@ export const getLabDisplayName = (labKeyOrName) => {
     return labDisplayNames[canonicalKey];
   }
   
-  // If no canonical key found, return title case of original
-    return str.split(/[\s\-_]/).map(word => 
+  // If no canonical key found, try to break up concatenated lowercase (e.g. urinehyalinecastsvisual)
+  const hasSeparators = /[\s\-_]/.test(str);
+  if (!hasSeparators && str.length > 4) {
+    const subwords = ['urine', 'blood', 'wbc', 'rbc', 'visual', 'casts', 'cells', 'epithelial', 'squamous', 'renal', 'tubular', 'hyaline', 'bacteria', 'yeast', 'crystals', 'mucus', 'protein', 'creatinine', 'glucose', 'ketones', 'bilirubin', 'nitrite', 'esterase', 'leukocyte', 'specific', 'gravity', 'appearance', 'hemoglobin', 'platelet', 'white', 'red'];
+    let spaced = str.toLowerCase();
+    subwords.forEach(w => {
+      const re = new RegExp(w, 'gi');
+      spaced = spaced.replace(re, ' ' + w + ' ');
+    });
+    spaced = spaced.replace(/\s+/g, ' ').trim();
+    if (spaced !== str) {
+      return spaced.split(' ').map(word =>
+        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+      ).join(' ');
+    }
+  }
+  return str.split(/[\s\-_]/).map(word =>
     word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-    ).join(' ');
+  ).join(' ');
   };
 
 // Lab value descriptions - using ONLY canonical keys
@@ -588,7 +641,7 @@ export const categorizeLabs = (labs) => {
   // Predefined lab types by category (including common abbreviations and variations)
   const diseaseMarkers = ['ca125', 'cea', 'afp', 'psa', 'he4', 'ca199', 'ca153', 'ca724', 'ca242', 'ca50', 'inhibinb', 'romaindex', 'ca-125', 'ca 19-9', 'ca 15-3'];
   const liverFunction = ['alt', 'ast', 'bilirubin', 'albumin', 'alkalinephosphatase', 'alp', 'ggt', 'ldh', 'pt', 'inr', 'aptt', 'alb', 'ast/alt', 'alp ifcc', 'pt活性値', 'pt activity', 'pt activity value'];
-  const kidneyFunction = ['creatinine', 'egfr', 'bun', 'urea', 'urineprotein', 'urinecreatinine', 'cre'];
+  const kidneyFunction = ['creatinine', 'egfr', 'bun', 'urea', 'urineprotein', 'urinecreatinine', 'cre', 'urinewbc', 'urinerbc', 'urinehyalinecasts', 'urinerenaltubularepithelial', 'urinesquamousepithelial', 'urinebacteria', 'urineyeast', 'urinecrystals', 'urinemucus', 'urinecolor', 'urineappearance', 'urineglucose', 'urineketones', 'urinebilirubin', 'urineblood', 'urinenitrite', 'urineleukocyteesterase', 'urinespecificgravity', 'urineph'];
   const bloodCounts = ['wbc', 'rbc', 'hemoglobin', 'hematocrit', 'platelets', 'anc', 'lymphocytes', 'neutrophils', 'monocytes', 'eosinophils', 'basophils', 'mcv', 'mch', 'mchc', 'rdw', 'rdw-cv', 'hgb', 'hct', 'plt', 'ba#', 'ba%', 'eo#', 'eo%', 'lymph#', 'lymph%', 'mono#', 'mono%', 'neutro#', 'neutro%'];
   const thyroidFunction = ['tsh', 't3', 't4', 'ft3', 'ft4', 'thyroglobulin', 'free t3', 'free t4'];
   const cardiacMarkers = ['troponin', 'bnp', 'ntprobnp', 'ckmb', 'myoglobin', 'nt-probnp', 'ck-mb'];
@@ -653,7 +706,13 @@ export const categorizeLabs = (labs) => {
     // Kidney Function
     'creatinine': 'kidney_function', 'egfr': 'kidney_function', 'bun': 'kidney_function',
     'urea': 'kidney_function', 'urineprotein': 'kidney_function', 'urinecreatinine': 'kidney_function',
-    
+    'urine_wbc': 'kidney_function', 'urine_rbc': 'kidney_function', 'urine_hyaline_casts': 'kidney_function',
+    'urine_renal_tubular_epithelial': 'kidney_function', 'urine_squamous_epithelial': 'kidney_function',
+    'urine_bacteria': 'kidney_function', 'urine_yeast': 'kidney_function', 'urine_crystals': 'kidney_function',
+    'urine_mucus': 'kidney_function', 'urine_color': 'kidney_function', 'urine_appearance': 'kidney_function',
+    'urine_glucose': 'kidney_function', 'urine_ketones': 'kidney_function', 'urine_bilirubin': 'kidney_function',
+    'urine_blood': 'kidney_function', 'urine_nitrite': 'kidney_function', 'urine_leukocyte_esterase': 'kidney_function',
+    'urine_specific_gravity': 'kidney_function', 'urine_ph': 'kidney_function',
     // Blood Counts
     'wbc': 'blood_counts', 'rbc': 'blood_counts', 'hemoglobin': 'blood_counts',
     'hematocrit': 'blood_counts', 'platelets': 'blood_counts', 'anc': 'blood_counts',
@@ -770,7 +829,9 @@ export const categorizeLabs = (labs) => {
     const scoreA = labA.relevanceScore || 0;
     const scoreB = labB.relevanceScore || 0;
     if (scoreB !== scoreA) return scoreB - scoreA;
-    return labA.name.localeCompare(labB.name);
+    const nameA = (labA.name || labA.labType || keyA || '').toString();
+    const nameB = (labB.name || labB.labType || keyB || '').toString();
+    return nameA.localeCompare(nameB);
     });
   });
 

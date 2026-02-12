@@ -894,8 +894,10 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
       style={
         isMobileOverlay
           ? {
-              bottom: 'calc(env(safe-area-inset-bottom, 0px) + 72px)',
-              height: 'calc(75vh - 72px)'
+              top: 'auto',
+              bottom: 0,
+              maxHeight: '90vh',
+              height: '90vh'
             }
           : { right: 0, left: 'auto' }
       }
@@ -978,15 +980,6 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {isMobileOverlay && onCloseOverlay && (
-            <button
-              onClick={onCloseOverlay}
-              className="text-medical-neutral-500 hover:text-medical-neutral-700 min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70 flex items-center justify-center"
-              title="Close"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
           {!collapsed && messages.length > 0 && (
             <>
               <button
@@ -1034,6 +1027,15 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                 <Trash2 className="w-5 h-5" />
               </button>
             </>
+          )}
+          {isMobileOverlay && onCloseOverlay && (
+            <button
+              onClick={onCloseOverlay}
+              className="text-medical-neutral-500 hover:text-medical-neutral-700 min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70 flex items-center justify-center"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
           )}
         </div>
       </div>
@@ -1450,7 +1452,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
 
       {/* Input Area */}
       {!collapsed && (
-      <div className={`px-3 pt-0 pb-0 bg-white ${isMobileOverlay ? 'border-t border-medical-neutral-200' : ''}`} style={{ paddingBottom: isMobileOverlay ? 'max(1rem, env(safe-area-inset-bottom, 1rem))' : '0.5rem' }}>
+      <div className={`px-3 pb-0 bg-white ${isMobileOverlay ? 'pt-4' : 'pt-0'}`} style={{ paddingBottom: isMobileOverlay ? 'max(1rem, env(safe-area-inset-bottom, 1rem))' : '0.5rem' }}>
         {/* Image attachment preview */}
         {pendingImageAttachment && (
           <div className="pb-2">
@@ -1509,8 +1511,9 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                     : "Ask a question..."
               }
               className={combineClasses(
-                'w-full rounded-full px-3 py-2 text-xs transition-all duration-200 min-h-[44px]',
-                'border border-medical-neutral-200',
+                'w-full rounded-full px-3 h-11 min-h-[44px] py-0 text-xs transition-all duration-200',
+                'border border-medical-neutral-200 text-center placeholder:text-center',
+                'leading-[2.75rem]',
                 inputText && 'pr-10',
                 'focus:outline-none focus:ring-2 focus:ring-anchor-900 focus:border-anchor-900'
               )}

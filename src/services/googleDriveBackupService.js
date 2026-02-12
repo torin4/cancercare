@@ -119,10 +119,34 @@ export async function uploadBackupToDrive(backupDataOrBlob, filename = null) {
     fileContent = JSON.stringify(backupDataOrBlob, null, 2);
   }
 
+  return uploadFileToDriveInternal(name, mimeType, fileContent, `CancerCare health data backup - ${new Date().toISOString()}`);
+}
+
+/**
+ * Upload a single file (e.g. PDF) to Google Drive. Uses same OAuth as backup.
+ * @param {Blob} blob - File blob (e.g. PDF from generateDoctorSummaryPdf)
+ * @param {string} filename - Filename (e.g. CancerCare-doctor-summary-2025-01-27.pdf)
+ * @param {string} [mimeType] - MIME type (default: application/pdf)
+ * @returns {Promise<{id: string, name: string, webViewLink: string}>}
+ */
+export async function uploadFileToDrive(blob, filename, mimeType = 'application/pdf') {
+  if (!CLIENT_ID || !API_KEY) {
+    throw new Error(
+      'Google Drive is not configured. Add REACT_APP_GOOGLE_CLIENT_ID and REACT_APP_GOOGLE_API_KEY to your .env file.'
+    );
+  }
+  await ensureGapiLoaded();
+  await ensureGisLoaded();
+  await requestAccessToken('consent');
+  const fileContent = await blob.arrayBuffer();
+  return uploadFileToDriveInternal(filename, mimeType, fileContent, `CancerCare export - ${filename}`);
+}
+
+async function uploadFileToDriveInternal(name, mimeType, fileContent, description) {
   const metadata = {
     name,
     mimeType,
-    description: `CancerCare health data backup - ${new Date().toISOString()}`
+    description
   };
 
   // Drive API multipart/related format: metadata first, then file content

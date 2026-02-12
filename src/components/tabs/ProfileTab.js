@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { Camera, User, Calendar, MapPin, TrendingUp, Activity, Edit2, Dna, Upload, AlertCircle, Users, Phone, Plus, Settings, Link2, Loader2, Unlink, LogOut, Trash2, Sliders, Shield, HeartHandshake, Copy, MoreVertical, HardDrive, Download, Cloud } from 'lucide-react';
+import { Camera, User, Calendar, MapPin, TrendingUp, Activity, Edit2, Dna, Upload, AlertCircle, Users, Phone, Plus, Settings, Link2, Loader2, Unlink, LogOut, Trash2, Sliders, Shield, HeartHandshake, Copy, MoreVertical, HardDrive, Download, Cloud, FileText } from 'lucide-react';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { signOut, linkWithPopup, unlink, GoogleAuthProvider, deleteUser, EmailAuthProvider, linkWithCredential, reauthenticateWithCredential, reauthenticateWithPopup, updatePassword } from 'firebase/auth';
 import { auth } from '../../firebase/config';
@@ -22,6 +22,7 @@ import EditMedicalTeamModal from '../modals/EditMedicalTeamModal';
 import UpdateStatusModal from '../modals/UpdateStatusModal';
 import DeletionConfirmationModal from '../modals/DeletionConfirmationModal';
 import DocumentUploadOnboarding from '../modals/DocumentUploadOnboarding';
+import ShareForDoctorModal from '../modals/ShareForDoctorModal';
 
 export default function ProfileTab({ onTabChange }) {
   // Use contexts for shared state
@@ -115,6 +116,7 @@ export default function ProfileTab({ onTabChange }) {
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [includeDocuments, setIncludeDocuments] = useState(false);
+  const [showShareForDoctorModal, setShowShareForDoctorModal] = useState(false);
   
   // Document onboarding state
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
@@ -1639,6 +1641,26 @@ export default function ProfileTab({ onTabChange }) {
               </div>
             </div>
 
+            {/* Share with your doctor */}
+            <div className="pt-4 border-t border-medical-neutral-200">
+              <h3 className="text-sm font-semibold text-medical-neutral-900 mb-2 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-medical-primary-600" />
+                Share with your doctor
+              </h3>
+              <p className="text-xs text-medical-neutral-600 mb-3">
+                Create a PDF summary of your health data to bring to appointments or send to your care team.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setShowShareForDoctorModal(true)}
+                  className={combineClasses('flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-white border rounded-lg text-sm font-medium transition touch-manipulation', DesignTokens.colors.app.border[200], DesignTokens.colors.app.text[800], 'hover:bg-medical-neutral-50', 'active:bg-medical-neutral-100')}
+                >
+                  <FileText className="w-4 h-4" />
+                  Create summary
+                </button>
+              </div>
+            </div>
+
             {/* Backup Section */}
             <div className="pt-4 border-t border-medical-neutral-200">
               <h3 className="text-sm font-semibold text-medical-neutral-900 mb-2 flex items-center gap-2">
@@ -1862,6 +1884,12 @@ export default function ProfileTab({ onTabChange }) {
         deletionType={deletionType}
         isDeleting={isDeleting}
         onConfirm={() => handleDeleteData(deletionType)}
+      />
+
+      <ShareForDoctorModal
+        show={showShareForDoctorModal}
+        onClose={() => setShowShareForDoctorModal(false)}
+        user={user}
       />
 
       {showDocumentOnboarding && (
