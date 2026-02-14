@@ -10,7 +10,8 @@ import { getSavedTrials } from '../../services/clinicalTrials/clinicalTrialsServ
 import { parseMutation, getTodayLocalDate, formatDateString } from '../../utils/helpers';
 import { formatJournalContentForDisplay } from '../../utils/dayOneImportUtils';
 import { formatLabel } from '../../utils/formatters';
-import { documentService } from '../../firebase/services';
+import { documentService, symptomService, medicationService, medicationLogService } from '../../firebase/services';
+import WellnessScoreCard from './dashboard/WellnessScoreCard';
 import { getNotebookEntries } from '../../services/notebookService';
 import { getLabDisplayName, labValueDescriptions, normalizeVitalName, getVitalDisplayName, vitalDescriptions, labKeyMap } from '../../utils/normalizationUtils';
 import { getLabStatus, getVitalStatus } from '../../utils/healthUtils';
@@ -85,6 +86,11 @@ export default function DashboardTab({ onTabChange }) {
     customSymptomName: '',
     tags: []
   });
+
+  // Wellness score data
+  const [wellnessSymptoms, setWellnessSymptoms] = useState(null);
+  const [wellnessMedications, setWellnessMedications] = useState(null);
+  const [wellnessMedLogs, setWellnessMedLogs] = useState(null);
 
   // Track if component is mounted to prevent setState after unmount
   const isMountedRef = useRef(true);
@@ -163,6 +169,28 @@ export default function DashboardTab({ onTabChange }) {
     };
     
     loadFilesSummary();
+  }, [user]);
+
+  // Load symptoms, medications, and medication logs for wellness score
+  useEffect(() => {
+    const loadWellnessData = async () => {
+      if (!user?.uid) return;
+      try {
+        const [symp, meds, logs] = await Promise.all([
+          symptomService.getSymptoms(user.uid),
+          medicationService.getMedications(user.uid),
+          medicationLogService.getMedicationLogs(user.uid),
+        ]);
+        if (isMountedRef.current) {
+          setWellnessSymptoms(symp);
+          setWellnessMedications(meds);
+          setWellnessMedLogs(logs);
+        }
+      } catch {
+        // Non-critical; card will show partial data
+      }
+    };
+    loadWellnessData();
   }, [user]);
 
   // Helper function to open document onboarding
@@ -378,6 +406,16 @@ setIsUploading(false);
         </div>
       </div>
       <div className={combineClasses(Layouts.container, 'flex flex-col', DesignTokens.spacing.gap.md)}>
+
+        {/* Wellness Score */}
+        <WellnessScoreCard
+          labsData={labsData}
+          vitalsData={vitalsData}
+          symptoms={wellnessSymptoms}
+          medications={wellnessMedications}
+          medicationLogs={wellnessMedLogs}
+          trendAlerts={trendAlerts}
+        />
 
         {/* Trend Notifications - telemetry-aware trend intelligence */}
         {trendAlerts.length === 0 && (
