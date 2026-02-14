@@ -525,38 +525,6 @@ setIsUploading(false);
           );
         })}
 
-        {/* Share with your doctor CTA */}
-        <div className={combineClasses(
-          DesignTokens.components.card.container,
-          DesignTokens.components.card.withColoredBorder(DesignTokens.colors.app.border[200])
-        )}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm)}>
-              <div className={combineClasses('bg-gray-100 rounded-lg p-2.5', DesignTokens.colors.app.text[600])}>
-                <FileText className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, DesignTokens.colors.app.text[900])}>
-                  Share with your doctor
-                </h3>
-                <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.app.text[600])}>
-                  Create a PDF summary for your next appointment
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => onTabChange('export')}
-              className={combineClasses(
-                'flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition',
-                'bg-gray-900 text-white hover:bg-gray-800'
-              )}
-            >
-              <FileText className="w-4 h-4" />
-              Open export page
-            </button>
-          </div>
-        </div>
-
         {/* Tab Summaries Grid */}
         <div className={combineClasses('grid grid-cols-1 md:grid-cols-2', DesignTokens.spacing.gap.md)}>
           
