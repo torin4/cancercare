@@ -1152,6 +1152,11 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
     medications: [],
     genomic: null
   };
+  const getNormalizedLabTypeKey = (input) => {
+    const rawValue = (input || '').toString().trim();
+    if (!rawValue) return 'other';
+    return normalizeLabName(rawValue) || rawValue.toLowerCase().replace(/[\s\-_\/\.]/g, '');
+  };
 
   try {
       // If onlyExistingMetrics is enabled, get existing labs and vitals to filter against
@@ -1166,7 +1171,9 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
           vitalService.getVitals(userId)
         ]);
         
-        existingLabTypes = new Set(existingLabs.map(lab => (lab.labType || 'other').toLowerCase()));
+        existingLabTypes = new Set(
+          existingLabs.map(lab => getNormalizedLabTypeKey(lab.labType || lab.label || 'other'))
+        );
         existingVitalTypes = new Set(existingVitals.map(vital => (vital.vitalType || 'other').toLowerCase()));
         
       }
@@ -1201,10 +1208,11 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
       const uniqueLabs = [];
       
       for (const lab of extractedData.data.labs) {
+        const normalizedLabType = getNormalizedLabTypeKey(lab.labType || lab.label || 'other');
+
         // If onlyExistingMetrics is enabled, skip labs that don't already exist
         if (onlyExistingMetrics) {
-          const labTypeKey = (lab.labType || 'other').toLowerCase();
-          if (!existingLabTypes.has(labTypeKey)) {
+          if (!existingLabTypes.has(normalizedLabType)) {
             continue;
           }
         }
@@ -1227,8 +1235,8 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         // For numeric labs, check if value is actually a number
         // Only validate numeric labs that we know should be numbers
         // Don't validate immunology tests (cd19, cd4, etc.) as strictly since they might be percentages or ratios
-        const knownNumericLabs = ['ca125', 'cea', 'wbc', 'hemoglobin', 'platelets', 'creatinine', 'alt', 'ast', 'albumin', 'ldh', 'bun', 'egfr', 'glucose', 'sodium', 'potassium', 'calcium'];
-        if (lab.labType && knownNumericLabs.includes(lab.labType.toLowerCase())) {
+        const knownNumericLabs = ['ca125', 'cea', 'wbc', 'rbc', 'hemoglobin', 'platelets', 'creatinine', 'alt', 'ast', 'albumin', 'ldh', 'bun', 'egfr', 'glucose', 'sodium', 'potassium', 'calcium'];
+        if (knownNumericLabs.includes(normalizedLabType)) {
           const numValue = parseFloat(valueStr);
           if (isNaN(numValue)) {
             continue;
@@ -1263,11 +1271,11 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         
         // Create deduplication key: labType + value + date (day level)
         const dateKey = labDate.toISOString().split('T')[0]; // YYYY-MM-DD
-        const dedupKey = `${(lab.labType || 'other').toLowerCase()}_${valueStr}_${dateKey}`;
+        const dedupKey = `${normalizedLabType}_${valueStr}_${dateKey}`;
         
         if (!seenLabs.has(dedupKey)) {
           seenLabs.set(dedupKey, lab);
-          uniqueLabs.push({ ...lab, _parsedDate: labDate }); // Store parsed date for later use
+          uniqueLabs.push({ ...lab, _parsedDate: labDate, _normalizedLabType: normalizedLabType }); // Store parsed date and normalized key for later use
         } else {
         }
       }
@@ -1280,8 +1288,7 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         // Date already parsed during deduplication, use it directly
 
         // Normalize labType for consistency (HGB -> hemoglobin, etc.)
-        const { normalizeLabName } = await import('../utils/normalizationUtils');
-        const normalizedLabType = normalizeLabName(lab.labType || 'other') || (lab.labType || 'other').toLowerCase();
+        const normalizedLabType = lab._normalizedLabType || getNormalizedLabTypeKey(lab.labType || lab.label || 'other');
         
         // Ensure all fields have defined values (Firestore doesn't accept undefined)
         const labData = {
@@ -1312,7 +1319,7 @@ async function saveExtractedData(extractedData, userId, documentDate = null, doc
         if (!existingLab) {
           const allLabs = await labService.getLabs(userId);
           for (const existing of allLabs) {
-            const existingNormalized = normalizeLabName(existing.labType) || (existing.labType || '').toLowerCase();
+            const existingNormalized = getNormalizedLabTypeKey(existing.labType || existing.label || '');
             if (existingNormalized === normalizedLabType) {
               existingLab = existing;
               break;

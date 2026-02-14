@@ -22,7 +22,6 @@ import EditMedicalTeamModal from '../modals/EditMedicalTeamModal';
 import UpdateStatusModal from '../modals/UpdateStatusModal';
 import DeletionConfirmationModal from '../modals/DeletionConfirmationModal';
 import DocumentUploadOnboarding from '../modals/DocumentUploadOnboarding';
-import ShareForDoctorModal from '../modals/ShareForDoctorModal';
 
 export default function ProfileTab({ onTabChange }) {
   // Use contexts for shared state
@@ -116,7 +115,6 @@ export default function ProfileTab({ onTabChange }) {
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [includeDocuments, setIncludeDocuments] = useState(false);
-  const [showShareForDoctorModal, setShowShareForDoctorModal] = useState(false);
   
   // Document onboarding state
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
@@ -1652,11 +1650,11 @@ export default function ProfileTab({ onTabChange }) {
               </p>
               <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={() => setShowShareForDoctorModal(true)}
+                  onClick={() => onTabChange('export')}
                   className={combineClasses('flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-white border rounded-lg text-sm font-medium transition touch-manipulation', DesignTokens.colors.app.border[200], DesignTokens.colors.app.text[800], 'hover:bg-medical-neutral-50', 'active:bg-medical-neutral-100')}
                 >
                   <FileText className="w-4 h-4" />
-                  Create summary
+                  Open export page
                 </button>
               </div>
             </div>
@@ -1884,12 +1882,6 @@ export default function ProfileTab({ onTabChange }) {
         deletionType={deletionType}
         isDeleting={isDeleting}
         onConfirm={() => handleDeleteData(deletionType)}
-      />
-
-      <ShareForDoctorModal
-        show={showShareForDoctorModal}
-        onClose={() => setShowShareForDoctorModal(false)}
-        user={user}
       />
 
       {showDocumentOnboarding && (

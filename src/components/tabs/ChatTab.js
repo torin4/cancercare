@@ -387,7 +387,13 @@ export default function ChatTab({ onTabChange }) {
               text: msg.text,
               isAnalysis: msg.isAnalysis || false,
               insight: msg.insight || null,
-              insights: msg.insights || null
+              insights: msg.insights || null,
+              extractionSummary: msg.extractionSummary || null,
+              source: msg.source || null,
+              requestId: msg.requestId || null,
+              requestedDateRange: msg.requestedDateRange || null,
+              toolCallCount: msg.toolCallCount || 0,
+              toolsUsed: msg.toolsUsed || []
             })));
           }
           setChatHistoryLoaded(true);
@@ -483,20 +489,23 @@ export default function ChatTab({ onTabChange }) {
                 patientProfile
               );
 
-              let responseText = result.response;
-              if (result.extractedData) {
-                const summary = generateChatExtractionSummary(result.extractedData);
-                if (summary) {
-                  responseText += summary;
-                }
-              }
+              const responseText = result.response;
+              const extractionSummary = result.extractedData
+                ? generateChatExtractionSummary(result.extractedData, result.savedData)
+                : null;
 
               const aiMsg = {
                 type: 'ai',
                 text: responseText,
                 isAnalysis: !!result.extractedData,
                 insight: result.insight || null,
-                insights: result.insights || null
+                insights: result.insights || null,
+                extractionSummary: extractionSummary || null,
+                source: result.source || null,
+                requestId: result.requestId || null,
+                requestedDateRange: result.requestedDateRange || null,
+                toolCallCount: result.toolCallCount || 0,
+                toolsUsed: result.toolsUsed || []
               };
               setMessages(prev => [...prev, aiMsg]);
 
@@ -508,7 +517,13 @@ export default function ChatTab({ onTabChange }) {
                 isAnalysis: !!result.extractedData,
                 extractedData: result.extractedData || null,
                 insight: result.insight || null,
-                insights: result.insights || null
+                insights: result.insights || null,
+                extractionSummary: extractionSummary || null,
+                source: result.source || null,
+                requestId: result.requestId || null,
+                requestedDateRange: result.requestedDateRange || null,
+                toolCallCount: result.toolCallCount || 0,
+                toolsUsed: result.toolsUsed || []
               });
 
               // Clear loading state
@@ -674,8 +689,12 @@ export default function ChatTab({ onTabChange }) {
       // Detect if question would benefit from health data - expanded patterns to catch more health-related questions
       // Include comparison/retrieval queries and edit queries like "compare", "last measurement", "previous", "update", "change", etc.
       const requiresHealthData = /(explain|analyze|what does|how is|why is|why are|why does|why do|trend|progress|mean|interpret|tell me about|what about|what are|what is|my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications|data|results|values|numbers|test|tests)|ca-125|hemoglobin|blood pressure|heart rate|temperature|weight|tired|fatigue|energy|feeling|feels|symptom|pain|nausea|dizzy|weak|weakness|anemia|blood|cbc|wbc|rbc|platelet|anxiety|depression|sleep|appetite|nauseous|compare|comparison|how does|how did|versus|vs|difference|change from|compared to|last (measurement|value|result|test|date|two|three|few)|previous|before that|one before|earlier|prior|historical|retrieve|show me|what (was|were)|the (last|previous|earlier)|and the (one|next)|plt|platelet|edit|update|change|correct|fix|modify|replace|set to)/i.test(userMessage);
+      const toolChatEnabled = (typeof window !== 'undefined' && window.__IRIS_TOOL_CHAT_ENABLED) ||
+        process.env.REACT_APP_IRIS_TOOL_CHAT_ENABLED === 'true';
+      const isLikelyWriteIntent = /(my (ca-125|hemoglobin|wbc|platelets|blood pressure|heart rate|temperature|temp|weight|bp|hr) (was|is)|\bi (had|have|started|am taking|took)\b|i'm (experiencing|taking)|my (symptom|symptoms)|started taking|taking [a-z]+ (mg|ml|units?)|log|add|record|edit|update|change|correct|fix|modify|replace|set to|delete|remove|scan\s+(?:the|all|my)?\s*(?:file|document|files|documents)|extract)/i.test(userMessage);
+      const skipHealthContextPreload = toolChatEnabled && !isLikelyWriteIntent && !imageToSend;
 
-      if (requiresHealthData && user) {
+      if (requiresHealthData && user && !skipHealthContextPreload) {
         try {
           const labs = await labService.getLabs(user.uid);
           const vitals = await vitalService.getVitals(user.uid);
@@ -712,7 +731,11 @@ export default function ChatTab({ onTabChange }) {
       // Auto-load notebook context if user asks about history/timeline but context isn't set
       // Detect if user is ADDING data (not asking about it) - these patterns indicate the user is providing new data
       const isAddingData = /(my (ca-125|hemoglobin|wbc|platelets|blood pressure|heart rate|temperature|temp|weight|bp|hr) (was|is)|i (had|have|started|am taking|took)|i'm (experiencing|taking)|my (symptom|symptoms)|started taking|taking [a-z]+ (mg|ml|units?)|log|add|record)/i.test(userMessage);
-      const requiresNotebookData = !currentNotebookContext && !isAddingData && /(history|timeline|journal|notebook|what happened|on (date|day|december|january|february|march|april|may|june|july|august|september|october|november)|tell me about (date|day|december|january|february|march|april|may|june|july|august|september|october|november)|my history|health journal|journal entries|notes|documents from|symptoms from)/i.test(userMessage);
+      const skipNotebookContextPreload = toolChatEnabled && !isAddingData && !imageToSend;
+      const requiresNotebookData = !skipNotebookContextPreload &&
+        !currentNotebookContext &&
+        !isAddingData &&
+        /(history|timeline|journal|notebook|what happened|on (date|day|december|january|february|march|april|may|june|july|august|september|october|november)|tell me about (date|day|december|january|february|march|april|may|june|july|august|september|october|november)|my history|health journal|journal entries|notes|documents from|symptoms from)/i.test(userMessage);
       
       let notebookContextToUse = currentNotebookContext;
       if (requiresNotebookData && user) {
@@ -807,7 +830,9 @@ export default function ChatTab({ onTabChange }) {
       let responseText = result.response;
 
       // Get extraction summary (separate from response text)
-      const extractionSummary = result.extractedData ? generateChatExtractionSummary(result.extractedData) : null;
+      const extractionSummary = result.extractedData
+        ? generateChatExtractionSummary(result.extractedData, result.savedData)
+        : null;
 
       // Clear loading state
       setIsBotProcessing(false);
@@ -819,7 +844,12 @@ export default function ChatTab({ onTabChange }) {
         isAnalysis: !!result.extractedData,
         insight: result.insight || null,
         insights: result.insights || null, // New structured insights array
-        extractionSummary: extractionSummary || null
+        extractionSummary: extractionSummary || null,
+        source: result.source || null,
+        requestId: result.requestId || null,
+        requestedDateRange: result.requestedDateRange || null,
+        toolCallCount: result.toolCallCount || 0,
+        toolsUsed: result.toolsUsed || []
       };
       setMessages(prev => [...prev, aiMsg]);
 
@@ -838,7 +868,12 @@ export default function ChatTab({ onTabChange }) {
           extractedData: result.extractedData || null,
           insight: result.insight || null,
           insights: result.insights || null, // New structured insights array
-          extractionSummary: extractionSummary || null
+          extractionSummary: extractionSummary || null,
+          source: result.source || null,
+          requestId: result.requestId || null,
+          requestedDateRange: result.requestedDateRange || null,
+          toolCallCount: result.toolCallCount || 0,
+          toolsUsed: result.toolsUsed || []
         });
       }
 
@@ -1474,12 +1509,37 @@ export default function ChatTab({ onTabChange }) {
                         blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-medical-neutral-300 pl-3 italic my-2 break-words" {...props} />,
                         a: ({node, ...props}) => <a className="text-gray-800 underline hover:text-gray-900 break-all" {...props} target="_blank" rel="noopener noreferrer" />,
                       }}
-                    >
-                      {removeQuestionsFromText(msg.text)}
-                    </ReactMarkdown>
-                    <QuestionCards text={msg.text} />
-                  </div>
-                )}
+                        >
+                          {removeQuestionsFromText(msg.text)}
+                        </ReactMarkdown>
+                        <QuestionCards text={msg.text} />
+                        {msg.source === 'tool-backed' && (
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 border border-emerald-200">
+                              Live data fetch
+                            </span>
+                            {msg.requestedDateRange?.startDate && msg.requestedDateRange?.endDate && (
+                              <span className="inline-flex items-center rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-700 border border-sky-200">
+                                Window: {msg.requestedDateRange.startDate} to {msg.requestedDateRange.endDate}
+                              </span>
+                            )}
+                            {msg.toolCallCount > 0 && (
+                              <span className="inline-flex items-center rounded-full bg-medical-neutral-100 px-2 py-0.5 text-[10px] font-medium text-medical-neutral-700 border border-medical-neutral-200">
+                                {msg.toolCallCount} tool call{msg.toolCallCount !== 1 ? 's' : ''}
+                              </span>
+                            )}
+                            {Array.isArray(msg.toolsUsed) && msg.toolsUsed.slice(0, 3).map((tool, toolIdx) => (
+                              <span
+                                key={`${msg.requestId || 'tool'}-${tool}-${toolIdx}`}
+                                className="inline-flex items-center rounded-full bg-anchor-50 px-2 py-0.5 text-[10px] font-medium text-anchor-700 border border-anchor-200"
+                              >
+                                {tool.replace('get_', '')}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
               </div>
               {msg.type === 'user' && (
                 <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden shadow-sm">
@@ -1512,7 +1572,7 @@ export default function ChatTab({ onTabChange }) {
                 </div>
                 )}
               </div>
-              {msg.type === 'ai' && (msg.insights || msg.insight) && (() => {
+              {msg.type === 'ai' && Array.isArray(msg.insights) && msg.insights.length > 0 && (() => {
                 // Don't show insight card for doctor discussion queries
                 const isDoctorDiscussion = msg.text.toLowerCase().includes('questions should i ask') || 
                                          (msg.text.toLowerCase().includes('discuss') && msg.text.toLowerCase().includes('doctor')) ||
@@ -1520,16 +1580,7 @@ export default function ChatTab({ onTabChange }) {
                 
                 if (isDoctorDiscussion) return null;
                 
-                // Use new structured insights array if available, otherwise fall back to legacy single insight
-                const insights = msg.insights || (msg.insight ? [{
-                  type: 'general',
-                  priority: 3,
-                  headline: msg.insight,
-                  explanation: msg.insight,
-                  actionable: null,
-                  confidence: null,
-                  doctorQuestions: null
-                }] : []);
+                const insights = msg.insights;
                 
                 if (insights.length === 0) return null;
                 

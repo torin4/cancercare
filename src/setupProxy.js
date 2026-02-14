@@ -1,6 +1,7 @@
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 module.exports = function(app) {
+  const PROXY_TIMEOUT_MS = Number(process.env.PROXY_TIMEOUT_MS || 180000);
   // Proxy all /api/* requests to backend server on port 4000
   // IMPORTANT: http-proxy-middleware strips the matched path prefix by default
   // So app.use('/api', ...) will strip /api and forward /jrct/search
@@ -12,8 +13,8 @@ module.exports = function(app) {
       target: 'http://localhost:4000',
       changeOrigin: true,
       logLevel: 'debug',
-      timeout: 60000, // 60 seconds timeout for JRCT searches which can take 11-13 seconds
-      proxyTimeout: 60000, // Server timeout
+      timeout: PROXY_TIMEOUT_MS,
+      proxyTimeout: PROXY_TIMEOUT_MS,
       secure: false, // Allow self-signed certificates if any
       ws: false, // Disable websocket proxying
       // IMPORTANT: http-proxy-middleware strips the matched path prefix
@@ -63,4 +64,3 @@ module.exports = function(app) {
     })
   );
 };
-

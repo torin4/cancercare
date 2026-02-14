@@ -505,12 +505,15 @@ export default function EditDocumentNoteModal({
             </p>
           </div>
         </div>
-        <div className={combineClasses('flex-shrink-0 border-t p-4', DesignTokens.components.modal.footer)}>
-          <div className="flex flex-col sm:flex-row gap-3">
+        <div className={combineClasses('flex-shrink-0 border-t p-4 sm:p-5', DesignTokens.components.modal.footer)}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
             <button
               onClick={handleClose}
               disabled={isSaving || isDeleting}
-              className={combineClasses('flex-1 py-2.5 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed', DesignTokens.components.button.secondary)}
+              className={combineClasses(
+                'w-full min-h-[48px] px-4 py-2.5 rounded-lg text-sm sm:text-base font-medium transition disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 whitespace-nowrap',
+                DesignTokens.components.button.secondary
+              )}
             >
               Cancel
             </button>
@@ -518,7 +521,7 @@ export default function EditDocumentNoteModal({
               onClick={handleDelete}
               disabled={isSaving || isDeleting}
               className={combineClasses(
-                'flex-1 py-2.5 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2',
+                'w-full min-h-[48px] px-4 py-2.5 rounded-lg text-sm sm:text-base font-medium transition disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 whitespace-nowrap',
                 'bg-red-600 text-white hover:bg-red-700'
               )}
             >
@@ -529,7 +532,7 @@ export default function EditDocumentNoteModal({
                 </>
               ) : (
                 <>
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className={combineClasses(DesignTokens.icons.standard.size.full, 'flex-shrink-0')} />
                   Delete Document
                 </>
               )}
@@ -537,7 +540,11 @@ export default function EditDocumentNoteModal({
             <button
               onClick={handleSave}
               disabled={isSaving || isDeleting}
-              className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed')}
+              className={combineClasses(
+                DesignTokens.components.button.primary,
+                DesignTokens.spacing.button.full,
+                'w-full min-h-[48px] px-4 py-2.5 text-sm sm:text-base font-medium inline-flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed sm:col-span-2'
+              )}
             >
               {isSaving ? (
                 <>
@@ -546,7 +553,7 @@ export default function EditDocumentNoteModal({
                 </>
               ) : (
                 <>
-                  <Save className="w-4 h-4" />
+                  <Save className={combineClasses(DesignTokens.icons.standard.size.full, 'flex-shrink-0')} />
                   Save Changes
                 </>
               )}
@@ -557,4 +564,3 @@ export default function EditDocumentNoteModal({
     </div>
   );
 }
-

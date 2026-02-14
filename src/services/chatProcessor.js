@@ -26,7 +26,7 @@ import {
   buildInsufficientTrendDataResponse
 } from '../prompts/responses/noDataResponses';
 import { buildRecoveryInstructionsResponse } from '../prompts/responses/recoveryResponses';
-import { generateGeminiText } from './geminiClientService';
+import { generateGeminiText, callToolChat } from './geminiClientService';
 
 // ============================================================================
 // BULK SCANNING FUNCTIONALITY
@@ -555,80 +555,191 @@ async function buildHealthContextSection(healthContext, userId, patientProfile =
         }
       }
     });
-      } catch (error) {
+  } catch (error) {
     // Continue without document dates - will fall back to value dates
   }
 
-  // Format labs data - show ALL historical values with dates and notes
-  // PRIORITY: Use document date if value has documentId, otherwise use value date
-  const labsCount = healthContext.labs ? healthContext.labs.length : 0;
-  const labsSummary = labsCount > 0
-    ? healthContext.labs.map(lab => {
-        const values = lab.values && Array.isArray(lab.values) && lab.values.length > 0
-          ? lab.values
-          : [];
-        
-        if (values.length === 0) {
-          // No values, just show current if available
-          return `${lab.label || lab.labType}: ${lab.currentValue || 'N/A'} ${lab.unit || ''} (no historical data)`;
+  // Labs/Vitals are the source of truth. Prefer value-level dates first,
+  // then fall back to document dates only when value dates are missing.
+  const toMillis = (rawDate) => {
+    if (!rawDate) return 0;
+    if (rawDate?.toDate) {
+      const d = rawDate.toDate();
+      return isNaN(d.getTime()) ? 0 : d.getTime();
+    }
+    const d = rawDate instanceof Date ? rawDate : new Date(rawDate);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  };
+
+  const getValueIsoDate = (value) => {
+    return (
+      formatDateString(value?.date) ||
+      formatDateString(value?.updatedAt) ||
+      formatDateString(value?.createdAt) ||
+      null
+    );
+  };
+
+  // Format labs data grouped by metric (same conceptual grouping as Labs tab cards).
+  // This avoids counting duplicate lab documents as separate metrics in chat responses.
+  const { normalizeLabName, shouldMergeLabNames, getLabDisplayName } = await import('../utils/normalizationUtils');
+  const rawLabs = Array.isArray(healthContext.labs) ? healthContext.labs : [];
+  const groupedLabs = {};
+  const MAX_VALUES_PER_LAB_IN_CONTEXT = 25;
+
+  for (const lab of rawLabs) {
+    const normalizedLabType = normalizeLabName(lab.labType || lab.label || lab.name) ||
+      (lab.labType || lab.label || lab.name || 'unknown').toString().toLowerCase().replace(/[\s\-_/.]/g, '');
+
+    let mergedKey = normalizedLabType;
+    for (const existingKey of Object.keys(groupedLabs)) {
+      const existingLab = groupedLabs[existingKey];
+      const labTypeMatch = shouldMergeLabNames(lab.labType, existingKey) ||
+        shouldMergeLabNames(lab.label, existingKey) ||
+        shouldMergeLabNames(lab.name, existingKey);
+      const existingMatch = shouldMergeLabNames(existingLab.labType, normalizedLabType) ||
+        shouldMergeLabNames(existingLab.label, normalizedLabType) ||
+        shouldMergeLabNames(existingLab.name, normalizedLabType);
+
+      if (labTypeMatch || existingMatch) {
+        mergedKey = existingKey;
+        break;
+      }
+    }
+
+    if (!groupedLabs[mergedKey]) {
+      groupedLabs[mergedKey] = {
+        key: mergedKey,
+        labType: lab.labType || mergedKey,
+        label: lab.label || lab.name || lab.labType || mergedKey,
+        name: lab.name || lab.label || lab.labType || mergedKey,
+        unit: lab.unit || '',
+        normalRange: lab.normalRange || '',
+        status: lab.status || '',
+        currentValue: lab.currentValue,
+        values: []
+      };
+    }
+
+    const values = Array.isArray(lab.values) && lab.values.length > 0
+      ? lab.values
+      : Array.isArray(lab.data) && lab.data.length > 0
+        ? lab.data
+        : [];
+
+    if (values.length > 0) {
+      groupedLabs[mergedKey].values.push(...values);
+    } else if (lab.currentValue !== null && lab.currentValue !== undefined && lab.currentValue !== '') {
+      groupedLabs[mergedKey].values.push({
+        value: lab.currentValue,
+        date: lab.createdAt || lab.updatedAt || null,
+        notes: null,
+        documentId: null
+      });
+    }
+
+    if (!groupedLabs[mergedKey].normalRange && lab.normalRange) {
+      groupedLabs[mergedKey].normalRange = lab.normalRange;
+    }
+    if (!groupedLabs[mergedKey].status && lab.status) {
+      groupedLabs[mergedKey].status = lab.status;
+    }
+    if ((groupedLabs[mergedKey].currentValue === null || groupedLabs[mergedKey].currentValue === undefined || groupedLabs[mergedKey].currentValue === '') &&
+      lab.currentValue !== null && lab.currentValue !== undefined && lab.currentValue !== '') {
+      groupedLabs[mergedKey].currentValue = lab.currentValue;
+    }
+  }
+
+  const groupedLabEntries = Object.entries(groupedLabs)
+    .map(([key, lab]) => {
+      const dedupedValuesMap = new Map();
+      (Array.isArray(lab.values) ? lab.values : []).forEach((value) => {
+        const dateKey = getValueIsoDate(value) || 'unknown-date';
+        const dedupKey = `${dateKey}::${value?.value ?? ''}::${value?.notes ?? ''}::${value?.documentId ?? ''}`;
+        if (!dedupedValuesMap.has(dedupKey)) {
+          dedupedValuesMap.set(dedupKey, value);
         }
-        
-        // Format ALL values with dates and notes (sorted by date, newest first)
-        const sortedValues = [...values].sort((a, b) => {
-          const dateA = a.date?.toDate ? a.date.toDate().getTime() : (a.date ? new Date(a.date).getTime() : 0);
-          const dateB = b.date?.toDate ? b.date.toDate().getTime() : (b.date ? new Date(b.date).getTime() : 0);
-          return dateB - dateA; // Newest first
-        });
-        
-        const formattedValues = sortedValues.map((value) => {
-          const valueStr = `${value.value} ${lab.unit || ''}`;
-          
-          // Get date: prefer document date/range if value has documentId, otherwise use value date
-          let dateStr = null;
-          if (value?.documentId) {
-            // Check if document has a date range (multi-date document)
-            if (documentDateRangeMap[value.documentId]) {
-              const range = documentDateRangeMap[value.documentId];
-              dateStr = `${range.minDate} to ${range.maxDate}`;
-            } else if (documentDateMap[value.documentId]) {
-              // Use document date entered during upload
-              dateStr = documentDateMap[value.documentId];
-            } else if (value?.date) {
-              // Fall back to value date
-              dateStr = formatDateString(value.date);
-            }
-          } else if (value?.date) {
-            // Fall back to value date
-            dateStr = formatDateString(value.date);
+      });
+
+      const dedupedValues = Array.from(dedupedValuesMap.values()).sort((a, b) => {
+        const valueDateDiff = toMillis(b?.date) - toMillis(a?.date);
+        if (valueDateDiff !== 0) return valueDateDiff;
+        return toMillis(b?.updatedAt || b?.createdAt) - toMillis(a?.updatedAt || a?.createdAt);
+      });
+
+      return [key, { ...lab, values: dedupedValues }];
+    })
+    .sort((a, b) => {
+      const labelA = getLabDisplayName(a[1].label || a[1].labType || a[0]);
+      const labelB = getLabDisplayName(b[1].label || b[1].labType || b[0]);
+      return labelA.localeCompare(labelB);
+    });
+
+  const labsCount = groupedLabEntries.length;
+  const hiddenLabKeys = Array.isArray(patientProfile?.hiddenLabs) ? patientProfile.hiddenLabs : [];
+  const trackedLabKeys = new Set(groupedLabEntries.map(([key]) => key));
+  const hiddenLabsCount = hiddenLabKeys.filter((key) => trackedLabKeys.has(key)).length;
+  const visibleLabsCount = Math.max(labsCount - hiddenLabsCount, 0);
+
+  const labMetricNames = labsCount > 0
+    ? groupedLabEntries.map(([key, lab]) => getLabDisplayName(lab.label || lab.labType || key)).join(', ')
+    : 'No lab metrics available';
+
+  const labsSummary = labsCount > 0
+    ? groupedLabEntries.map(([key, lab]) => {
+      const values = Array.isArray(lab.values) ? lab.values : [];
+      const displayName = getLabDisplayName(lab.label || lab.labType || key);
+
+      if (values.length === 0) {
+        return `${displayName}: ${lab.currentValue || 'N/A'} ${lab.unit || ''} (no historical data)`;
+      }
+
+      const visibleValues = values.slice(0, MAX_VALUES_PER_LAB_IN_CONTEXT);
+      const formattedValues = visibleValues.map((value) => {
+        const valueStr = `${value.value} ${lab.unit || ''}`;
+
+        // Source of truth: use the value-level date first (including manual edits).
+        // Fallback to document date/range only when the value has no usable date.
+        let dateStr = getValueIsoDate(value);
+        if (!dateStr && value?.documentId) {
+          if (documentDateRangeMap[value.documentId]) {
+            const range = documentDateRangeMap[value.documentId];
+            dateStr = `${range.minDate} to ${range.maxDate}`;
+          } else if (documentDateMap[value.documentId]) {
+            dateStr = documentDateMap[value.documentId];
           }
-          
-          const dateDisplay = dateStr ? ` on ${dateStr}` : '';
-          
-          // Format note: extract just the context part if it's in "Extracted from document. Context: {note}" format
-          let noteStr = '';
-          if (value?.notes && value.notes !== 'Extracted from document') {
-            // If note contains "Context: ", extract just the context part for cleaner display
-            if (value.notes.includes('Context: ')) {
-              const contextPart = value.notes.split('Context: ')[1];
-              noteStr = ` (Note: ${contextPart})`;
-            } else {
-              noteStr = ` (Note: ${value.notes})`;
-            }
+        }
+
+        const dateDisplay = dateStr ? ` on ${dateStr}` : '';
+
+        // Format note: extract just the context part if it's in "Extracted from document. Context: {note}" format
+        let noteStr = '';
+        if (value?.notes && value.notes !== 'Extracted from document') {
+          if (value.notes.includes('Context: ')) {
+            const contextPart = value.notes.split('Context: ')[1];
+            noteStr = ` (Note: ${contextPart})`;
+          } else {
+            noteStr = ` (Note: ${value.notes})`;
           }
-          
-          return `${valueStr}${dateDisplay}${noteStr}`;
-        }).join('; ');
-        
-        // Include normal range and status if available
-        const normalRangeStr = lab.normalRange ? ` (Normal range: ${lab.normalRange})` : '';
-        const statusStr = lab.status ? ` [Status: ${lab.status}]` : '';
-        
-        return `${lab.label || lab.labType}: ${formattedValues}${normalRangeStr}${statusStr}`;
-      }).join('\n')
+        }
+
+        return `${valueStr}${dateDisplay}${noteStr}`;
+      }).join('; ');
+
+      const remainingCount = values.length - visibleValues.length;
+      const omittedSuffix = remainingCount > 0
+        ? `; ... (${remainingCount} older value${remainingCount !== 1 ? 's' : ''} omitted)`
+        : '';
+
+      const normalRangeStr = lab.normalRange ? ` (Normal range: ${lab.normalRange})` : '';
+      const statusStr = lab.status ? ` [Status: ${lab.status}]` : '';
+
+      return `${displayName}: ${formattedValues}${omittedSuffix}${normalRangeStr}${statusStr}`;
+    }).join('\n')
     : 'No lab data available';
 
   // Format vitals data - show ALL historical values with dates and notes
-  // PRIORITY: Use document date if value has documentId, otherwise use value date
+  // Source of truth is value-level data; document date is a fallback only.
   const vitalsCount = healthContext.vitals ? healthContext.vitals.length : 0;
   const vitalsSummary = vitalsCount > 0
     ? healthContext.vitals.map(vital => {
@@ -643,9 +754,9 @@ async function buildHealthContextSection(healthContext, userId, patientProfile =
         
         // Format ALL values with dates and notes (sorted by date, newest first)
         const sortedValues = [...values].sort((a, b) => {
-          const dateA = a.date?.toDate ? a.date.toDate().getTime() : (a.date ? new Date(a.date).getTime() : 0);
-          const dateB = b.date?.toDate ? b.date.toDate().getTime() : (b.date ? new Date(b.date).getTime() : 0);
-          return dateB - dateA; // Newest first
+          const valueDateDiff = toMillis(b?.date) - toMillis(a?.date);
+          if (valueDateDiff !== 0) return valueDateDiff;
+          return toMillis(b?.updatedAt || b?.createdAt) - toMillis(a?.updatedAt || a?.createdAt);
         });
         
         const formattedValues = sortedValues.map((value) => {
@@ -664,23 +775,15 @@ async function buildHealthContextSection(healthContext, userId, patientProfile =
           }
           valueStr += ` ${vital.unit || ''}`;
           
-          // Get date: prefer document date/range if value has documentId, otherwise use value date
-          let dateStr = null;
-          if (value?.documentId) {
-            // Check if document has a date range (multi-date document)
+          // Source of truth: use value-level date first, then document fallback.
+          let dateStr = getValueIsoDate(value);
+          if (!dateStr && value?.documentId) {
             if (documentDateRangeMap[value.documentId]) {
               const range = documentDateRangeMap[value.documentId];
               dateStr = `${range.minDate} to ${range.maxDate}`;
             } else if (documentDateMap[value.documentId]) {
-              // Use document date entered during upload
               dateStr = documentDateMap[value.documentId];
-            } else if (value?.date) {
-              // Fall back to value date
-              dateStr = formatDateString(value.date);
             }
-          } else if (value?.date) {
-            // Fall back to value date
-            dateStr = formatDateString(value.date);
           }
           
           const dateDisplay = dateStr ? ` on ${dateStr}` : '';
@@ -869,7 +972,10 @@ async function buildHealthContextSection(healthContext, userId, patientProfile =
 HEALTH CONTEXT: The user is asking about their health data (labs, vitals, symptoms, medications)
 ═══════════════════════════════════════════════════════════════════════════════
 
-LAB VALUES (${labsCount} tracked):
+LAB METRICS (${labsCount} total; ${visibleLabsCount} visible${hiddenLabsCount > 0 ? `; ${hiddenLabsCount} hidden` : ''}):
+${labMetricNames}
+
+LAB VALUES (grouped by metric):
 ${labsSummary}
 
 VITAL SIGNS (${vitalsCount} tracked):
@@ -1043,6 +1149,129 @@ function detectChatIntent(message, trialContext) {
   };
 }
 
+function toIsoDateOnly(value) {
+  if (!value) return null;
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 10);
+}
+
+function isInDateRange(value, startDate, endDate) {
+  if (!startDate && !endDate) return true;
+  const iso = toIsoDateOnly(value);
+  if (!iso) return false;
+  if (startDate && iso < startDate) return false;
+  if (endDate && iso > endDate) return false;
+  return true;
+}
+
+function inferRequestedDateRange(message) {
+  const text = String(message || '').toLowerCase();
+  if (!text) return null;
+
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const toIso = (d) => d.toISOString().slice(0, 10);
+
+  const explicitRangeMatch = text.match(
+    /\b(?:from|between)\s+(\d{4}-\d{2}-\d{2})\s+(?:to|through|until|and|-)\s+(\d{4}-\d{2}-\d{2})\b/
+  );
+  if (explicitRangeMatch) {
+    const a = explicitRangeMatch[1];
+    const b = explicitRangeMatch[2];
+    return a <= b ? { startDate: a, endDate: b } : { startDate: b, endDate: a };
+  }
+
+  const relativeMatch = text.match(/\b(?:last|past)\s+(\d{1,3})\s*(day|days|week|weeks|month|months|year|years)\b/);
+  if (relativeMatch) {
+    const amount = Math.max(1, Math.min(3650, Number(relativeMatch[1]) || 0));
+    const unit = relativeMatch[2];
+    const dayFactor = unit.startsWith('day') ? 1 : unit.startsWith('week') ? 7 : unit.startsWith('month') ? 30 : 365;
+    const start = new Date(today);
+    start.setUTCDate(start.getUTCDate() - ((amount * dayFactor) - 1));
+    return { startDate: toIso(start), endDate: toIso(today) };
+  }
+
+  if (/\btoday\b/.test(text)) {
+    return { startDate: toIso(today), endDate: toIso(today) };
+  }
+
+  if (/\byesterday\b/.test(text)) {
+    const y = new Date(today);
+    y.setUTCDate(y.getUTCDate() - 1);
+    return { startDate: toIso(y), endDate: toIso(y) };
+  }
+
+  if (/\bthis month\b/.test(text)) {
+    const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+    return { startDate: toIso(start), endDate: toIso(today) };
+  }
+
+  if (/\blast month\b/.test(text)) {
+    const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
+    const end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 0));
+    return { startDate: toIso(start), endDate: toIso(end) };
+  }
+
+  return null;
+}
+
+function filterHealthContextByDateRange(healthContext, dateRange) {
+  if (!healthContext || !dateRange) return healthContext;
+  const { startDate, endDate } = dateRange;
+
+  const filterValues = (values) => (values || []).filter((v) => isInDateRange(v?.date, startDate, endDate));
+
+  const labs = (healthContext.labs || [])
+    .map((lab) => {
+      const values = filterValues(lab.values || lab.data || []);
+      if ((lab.values || lab.data) && values.length === 0) return null;
+      return {
+        ...lab,
+        ...(lab.values ? { values } : {}),
+        ...(lab.data ? { data: values } : {})
+      };
+    })
+    .filter(Boolean);
+
+  const vitals = (healthContext.vitals || [])
+    .map((vital) => {
+      const values = filterValues(vital.values || vital.data || []);
+      if ((vital.values || vital.data) && values.length === 0) return null;
+      return {
+        ...vital,
+        ...(vital.values ? { values } : {}),
+        ...(vital.data ? { data: values } : {})
+      };
+    })
+    .filter(Boolean);
+
+  const symptoms = (healthContext.symptoms || []).filter((s) => isInDateRange(s?.date, startDate, endDate));
+
+  return { ...healthContext, labs, vitals, symptoms };
+}
+
+function sanitizeLegacyInsight(insight) {
+  if (typeof insight !== 'string') return null;
+  const normalized = insight.replace(/\s+/g, ' ').trim();
+  if (!normalized) return null;
+
+  const blockedPatterns = [
+    /\bphysiologically improbable\b/i,
+    /\btranscription error\b/i,
+    /\b(normocytic|microcytic|macrocytic)\s+anemia\b/i,
+    /\bsuggesting\b.+\b(anemia|diagnosis|disease|progression)\b/i
+  ];
+
+  if (blockedPatterns.some((pattern) => pattern.test(normalized))) {
+    return null;
+  }
+
+  // Legacy single-insight text should be brief and non-diagnostic.
+  if (normalized.length > 180) return null;
+  return normalized;
+}
+
 // ============================================================================
 // HELPER FUNCTIONS - Early Exit Responses
 // ============================================================================
@@ -1120,7 +1349,52 @@ export async function processChatMessage(message, userId, conversationHistory = 
       isBulkScanQuery,
       requiresPatternInsights
     } = detectChatIntent(message, trialContext);
-    
+    const requestedDateRange = inferRequestedDateRange(message);
+    let toolPathFailed = false;
+
+    // --- Tool-backed chat path (read/analysis queries only) ---
+    const toolChatEnabled = (typeof window !== 'undefined' && window.__IRIS_TOOL_CHAT_ENABLED) ||
+      process.env.REACT_APP_IRIS_TOOL_CHAT_ENABLED === 'true';
+
+    const isEligibleForToolPath = toolChatEnabled &&
+      !isAddingData &&
+      !isBulkScanQuery &&
+      !dicomContext &&
+      !imageAttachment &&
+      (requiresHealthData || requiresLabs || requiresVitals || requiresSymptoms || requiresTrendAnalysis || requiresPatternInsights);
+
+    if (isEligibleForToolPath) {
+      try {
+        const toolResult = await callToolChat({
+          message,
+          conversationHistory: conversationHistory.slice(-10).map(msg => ({
+            role: msg.type === 'ai' || msg.role === 'assistant' ? 'assistant' : 'user',
+            content: msg.content || msg.text || ''
+          })),
+          patientProfile,
+          trialContext,
+          notebookContext,
+          abortSignal
+        });
+
+        return {
+          response: toolResult.response,
+          extractedData: toolResult.extractedData || null,
+          savedData: null,
+          insight: toolResult.insight || null,
+          insights: toolResult.insights || null,
+          source: toolResult.source || 'tool-backed',
+          requestId: toolResult.requestId || null,
+          requestedDateRange: toolResult.requestedDateRange || null,
+          toolCallCount: toolResult.toolCallCount || 0,
+          toolsUsed: Array.isArray(toolResult.toolsUsed) ? toolResult.toolsUsed : []
+        };
+      } catch (toolError) {
+        logger.warn('[chatProcessor] Tool chat failed; falling back to legacy context path:', toolError.message);
+        toolPathFailed = true;
+      }
+    }
+
     // Check if this is a recovery query about deleted/lost data (NOT medical recovery questions)
     // Use word boundaries and require context words like "deleted", "values", "data", etc.
     // to avoid matching medical questions like "is kidney damage recoverable?"
@@ -1135,7 +1409,8 @@ export async function processChatMessage(message, userId, conversationHistory = 
       return {
         response: buildRecoveryInstructionsResponse(),
         extractedData: null,
-        insight: 'Recovery instructions provided - values can be restored by rescanning source documents'
+        insight: 'Recovery instructions provided - values can be restored by rescanning source documents',
+        source: 'legacy-context'
       };
     }
     
@@ -1151,14 +1426,58 @@ export async function processChatMessage(message, userId, conversationHistory = 
         if (!savedTrials || savedTrials.length === 0) {
       return {
             response: buildNoTrialDataResponse(),
-        extractedData: null
+        extractedData: null,
+        source: 'legacy-context'
       };
         }
       } catch (error) {
         // Continue with normal processing if there's an error
       }
     }
-    
+
+    // Fallback behavior: if tool path failed for a read query, lazy-load health context so Iris still answers.
+    if (
+      toolPathFailed &&
+      !healthContext &&
+      userId &&
+      !dicomContext &&
+      (requiresHealthData || requiresLabs || requiresVitals || requiresSymptoms || requiresTrendAnalysis || requiresPatternInsights)
+    ) {
+      try {
+        const [labs, vitals, symptoms] = await Promise.all([
+          labService.getLabs(userId),
+          vitalService.getVitals(userId),
+          symptomService.getSymptoms(userId)
+        ]);
+
+        const [labsWithValues, vitalsWithValues] = await Promise.all([
+          Promise.all((labs || []).map(async (lab) => {
+            if (!lab.id) return lab;
+            const values = await labService.getLabValues(lab.id);
+            return { ...lab, values: values || [] };
+          })),
+          Promise.all((vitals || []).map(async (vital) => {
+            if (!vital.id) return vital;
+            const values = await vitalService.getVitalValues(vital.id);
+            return { ...vital, values: values || [] };
+          }))
+        ]);
+
+        healthContext = {
+          labs: labsWithValues,
+          vitals: vitalsWithValues,
+          symptoms: symptoms || []
+        };
+      } catch (fallbackLoadError) {
+        logger.warn('[chatProcessor] Fallback health context load failed:', fallbackLoadError.message);
+      }
+    }
+
+    // Apply explicit/relative date window to legacy fallback context.
+    if (requestedDateRange && healthContext) {
+      healthContext = filterHealthContextByDateRange(healthContext, requestedDateRange);
+    }
+
     // Check if health data is available
     const hasLabs = healthContext?.labs && healthContext.labs.length > 0;
     const hasVitals = healthContext?.vitals && healthContext.vitals.length > 0;
@@ -1171,28 +1490,32 @@ export async function processChatMessage(message, userId, conversationHistory = 
     if (requiresHealthData && !hasHealthData && !dicomContext) {
       return {
         response: buildNoHealthDataResponse(),
-        extractedData: null
+        extractedData: null,
+        source: 'legacy-context'
       };
     }
     
     if (requiresLabs && !hasLabs && hasHealthData && !dicomContext) {
       return {
         response: buildNoLabDataResponse(),
-        extractedData: null
+        extractedData: null,
+        source: 'legacy-context'
       };
     }
 
     if (requiresVitals && !hasVitals && hasHealthData && !dicomContext) {
       return {
         response: buildNoVitalDataResponse(),
-        extractedData: null
+        extractedData: null,
+        source: 'legacy-context'
       };
     }
 
     if (requiresSymptoms && !hasSymptoms && hasHealthData && !dicomContext) {
       return {
         response: buildNoSymptomDataResponse(),
-        extractedData: null
+        extractedData: null,
+        source: 'legacy-context'
       };
     }
 
@@ -1227,7 +1550,8 @@ export async function processChatMessage(message, userId, conversationHistory = 
       if (!hasEnoughData) {
         return {
           response: buildInsufficientTrendDataResponse(),
-          extractedData: null
+          extractedData: null,
+          source: 'legacy-context'
         };
       }
     }
@@ -1416,7 +1740,8 @@ export async function processChatMessage(message, userId, conversationHistory = 
         // No JSON found, just return conversational response
         return {
           response: text,
-          extractedData: null
+          extractedData: null,
+          source: 'legacy-context'
         };
       }
 
@@ -1431,7 +1756,8 @@ export async function processChatMessage(message, userId, conversationHistory = 
         : (text || 'I received a response but had trouble parsing it. Please try rephrasing your question.');
       return {
         response: fallbackResponse,
-        extractedData: null
+        extractedData: null,
+        source: 'legacy-context'
       };
     }
 
@@ -1441,24 +1767,14 @@ export async function processChatMessage(message, userId, conversationHistory = 
                            message.toLowerCase().includes('what questions');
 
     // Save extracted data to Firestore (only if not a question query)
+    let savedData = null;
     if (parsed.extractedData && !isQuestionQuery) {
-      await saveExtractedData(parsed.extractedData, userId);
+      savedData = await saveExtractedData(parsed.extractedData, userId);
     }
 
-    // Structure insights for UI (convert legacy single insight to array format)
-    let insights = structuredInsights;
-    if (parsed.insight && structuredInsights.length === 0) {
-      // Legacy single insight - convert to structured format
-      insights = [{
-        type: 'general',
-        priority: 3,
-        headline: parsed.insight,
-        explanation: parsed.insight,
-        actionable: null,
-        confidence: null,
-        doctorQuestions: null
-      }];
-    }
+    // Structured insights are generated by deterministic pattern logic only.
+    const insights = Array.isArray(structuredInsights) ? structuredInsights : [];
+    const safeLegacyInsight = sanitizeLegacyInsight(parsed.insight);
 
     // Ensure we never return raw JSON - use conversationalResponse or extract from text
     let responseText = parsed.conversationalResponse ?? parsed.response;
@@ -1472,8 +1788,10 @@ export async function processChatMessage(message, userId, conversationHistory = 
     return {
       response: responseText,
       extractedData: parsed.extractedData,
-      insight: parsed.insight || null, // Legacy support
-      insights: insights // New structured insights array for UI
+      savedData,
+      insight: safeLegacyInsight, // Legacy field kept for compatibility only
+      insights, // Structured insights array for UI
+      source: 'legacy-context'
     };
 
   } catch (error) {
@@ -2122,23 +2440,60 @@ async function saveExtractedData(extractedData, userId) {
 /**
  * Generate summary of what was extracted
  */
-export function generateChatExtractionSummary(extractedData) {
-  if (!extractedData) return null;
+function classifySavedItemChange(item = {}) {
+  if (item.deleted === true) return 'deleted';
+  if (item.updated === true) return 'updated';
+
+  const action = typeof item.action === 'string' ? item.action.trim().toLowerCase() : '';
+  if (['delete', 'deleted', 'remove', 'removed'].includes(action)) return 'deleted';
+  if (['update', 'updated', 'adjust', 'adjusted', 'edit', 'edited', 'change', 'changed', 'modify', 'modified'].includes(action)) {
+    return 'updated';
+  }
+
+  return 'added';
+}
+
+export function generateChatExtractionSummary(extractedData, savedData = null) {
+  const sourceData = savedData || extractedData;
+  if (!sourceData) return null;
 
   const summary = {
-    journalNotes: extractedData.journalNotes || [],
-    labs: extractedData.labs || [],
-    vitals: extractedData.vitals || [],
-    symptoms: extractedData.symptoms || [],
-    medications: extractedData.medications || []
+    journalNotes: sourceData.journalNotes || [],
+    labs: sourceData.labs || [],
+    vitals: sourceData.vitals || [],
+    symptoms: sourceData.symptoms || [],
+    medications: sourceData.medications || []
   };
 
-  // Only return summary if there's data
-  const hasData = summary.journalNotes.length > 0 || 
-                  summary.labs.length > 0 || 
-                  summary.vitals.length > 0 || 
-                  summary.symptoms.length > 0 || 
+  const hasData = summary.journalNotes.length > 0 ||
+                  summary.labs.length > 0 ||
+                  summary.vitals.length > 0 ||
+                  summary.symptoms.length > 0 ||
                   summary.medications.length > 0;
 
-  return hasData ? summary : null;
+  if (!hasData) return null;
+
+  const byCategory = {};
+  const changeBreakdown = { total: 0, added: 0, updated: 0, deleted: 0 };
+  const categories = ['journalNotes', 'labs', 'vitals', 'symptoms', 'medications'];
+
+  categories.forEach((category) => {
+    const items = Array.isArray(summary[category]) ? summary[category] : [];
+    const counts = { total: items.length, added: 0, updated: 0, deleted: 0 };
+
+    items.forEach((item) => {
+      const change = classifySavedItemChange(item);
+      counts[change] += 1;
+      changeBreakdown[change] += 1;
+      changeBreakdown.total += 1;
+    });
+
+    byCategory[category] = counts;
+  });
+
+  return {
+    ...summary,
+    byCategory,
+    changeBreakdown
+  };
 }

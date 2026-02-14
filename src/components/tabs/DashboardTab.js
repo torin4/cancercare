@@ -12,10 +12,12 @@ import { formatJournalContentForDisplay } from '../../utils/dayOneImportUtils';
 import { formatLabel } from '../../utils/formatters';
 import { documentService } from '../../firebase/services';
 import { getNotebookEntries } from '../../services/notebookService';
-import { normalizeLabName, getLabDisplayName, labValueDescriptions, normalizeVitalName, getVitalDisplayName, vitalDescriptions, labKeyMap } from '../../utils/normalizationUtils';
+import { getLabDisplayName, labValueDescriptions, normalizeVitalName, getVitalDisplayName, vitalDescriptions, labKeyMap } from '../../utils/normalizationUtils';
 import { getLabStatus, getVitalStatus } from '../../utils/healthUtils';
 import { processDocument, generateChatSummary } from '../../services/documentProcessor';
 import { uploadDocument } from '../../firebase/storage';
+import { buildTrendIntelligence } from '../../services/trendIntelligenceService';
+import { trackTrendAlertsRendered } from '../../services/telemetryClientService';
 import AddSymptomModal from '../modals/AddSymptomModal';
 import AddLabModal from '../modals/AddLabModal';
 import AddVitalModal from '../modals/AddVitalModal';
@@ -26,63 +28,6 @@ import DocumentUploadOnboarding from '../modals/DocumentUploadOnboarding';
 import DicomImportFlow from '../modals/DicomImportFlow';
 import UploadProgressOverlay from '../UploadProgressOverlay';
 import LabTooltipModal from '../modals/LabTooltipModal';
-import ShareForDoctorModal from '../modals/ShareForDoctorModal';
-
-/**
- * Metric-specific trend thresholds for dashboard notifications.
- * upPercent/downPercent: % change to trigger alert (used when useAbsolute is false)
- * upAbsolute/downAbsolute: absolute change to trigger alert (used when useAbsolute is true)
- */
-const TREND_THRESHOLDS = {
-  // Tumor markers - more sensitive to increases
-  labs: {
-    ca125: { upPercent: 5, downPercent: 15 },
-    ca199: { upPercent: 5, downPercent: 15 },
-    ca153: { upPercent: 5, downPercent: 15 },
-    ca2729: { upPercent: 5, downPercent: 15 },
-    cea: { upPercent: 5, downPercent: 15 },
-    psa: { upPercent: 5, downPercent: 15 },
-    afp: { upPercent: 5, downPercent: 15 },
-    he4: { upPercent: 5, downPercent: 15 },
-    scc_antigen: { upPercent: 5, downPercent: 15 },
-    cyfra211: { upPercent: 5, downPercent: 15 },
-    // Blood counts
-    hemoglobin: { upPercent: 10, downPercent: 10 },
-    hematocrit: { upPercent: 10, downPercent: 10 },
-    wbc: { upPercent: 25, downPercent: 25 },
-    platelets: { upPercent: 15, downPercent: 15 },
-    rbc: { upPercent: 10, downPercent: 10 },
-    // Kidney function
-    creatinine: { upPercent: 20, downPercent: 20 },
-    egfr: { upPercent: 15, downPercent: 15 },
-    bun: { upPercent: 25, downPercent: 25 },
-    // Liver function
-    alt: { upPercent: 25, downPercent: 25 },
-    ast: { upPercent: 25, downPercent: 25 },
-    bilirubin: { upPercent: 20, downPercent: 20 },
-    albumin: { upPercent: 15, downPercent: 15 },
-    ldh: { upPercent: 25, downPercent: 25 },
-    // Other
-    glucose: { upPercent: 20, downPercent: 20 },
-    crp: { upPercent: 50, downPercent: 25 },
-    default: { upPercent: 10, downPercent: 15 },
-  },
-  vitals: {
-    weight: { upPercent: 5, downPercent: 5 },
-    blood_pressure: { upPercent: 10, downPercent: 10 },
-    bp: { upPercent: 10, downPercent: 10 },
-    bloodpressure: { upPercent: 10, downPercent: 10 },
-    temperature: { useAbsolute: true, upAbsolute: 1, downAbsolute: 1 },
-    temp: { useAbsolute: true, upAbsolute: 1, downAbsolute: 1 },
-    oxygen_saturation: { useAbsolute: true, upAbsolute: 0, downAbsolute: 2 },
-    o2sat: { useAbsolute: true, upAbsolute: 0, downAbsolute: 2 },
-    heart_rate: { upPercent: 15, downPercent: 15 },
-    hr: { upPercent: 15, downPercent: 15 },
-    heartrate: { upPercent: 15, downPercent: 15 },
-    pulse: { upPercent: 15, downPercent: 15 },
-    default: { upPercent: 10, downPercent: 15 },
-  },
-};
 
 export default function DashboardTab({ onTabChange }) {
   const { user } = useAuth();
@@ -127,7 +72,6 @@ export default function DashboardTab({ onTabChange }) {
   const [showDocumentOnboarding, setShowDocumentOnboarding] = useState(false);
   const [documentOnboardingMethod, setDocumentOnboardingMethod] = useState('picker');
   const [showDicomImportFlow, setShowDicomImportFlow] = useState(false);
-  const [showShareForDoctorModal, setShowShareForDoctorModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
   const [pendingDocumentDate, setPendingDocumentDate] = useState(null);
@@ -144,6 +88,7 @@ export default function DashboardTab({ onTabChange }) {
 
   // Track if component is mounted to prevent setState after unmount
   const isMountedRef = useRef(true);
+  const trendTelemetrySignatureRef = useRef('');
 
   // Load saved trials when component mounts
   useEffect(() => {
@@ -369,167 +314,35 @@ setIsUploading(false);
     }, 1000);
   };
 
-  // Helper function to parse date strings like "Oct 15"
-  const parseDateString = (dateStr) => {
-    if (!dateStr || typeof dateStr !== 'string') return new Date();
-    // Try to parse "Oct 15" format - assume current year
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const parts = dateStr.trim().split(' ');
-    if (parts.length === 2) {
-      const monthIndex = months.indexOf(parts[0]);
-      const day = parseInt(parts[1]);
-      if (monthIndex !== -1 && !isNaN(day)) {
-        const year = new Date().getFullYear();
-        return new Date(year, monthIndex, day);
-      }
-    }
-    return new Date(dateStr);
-  };
+  const trendIntelligence = React.useMemo(() => buildTrendIntelligence({
+    labsData,
+    vitalsData,
+    patientProfile,
+    hasRealLabData,
+    hasRealVitalData
+  }), [labsData, vitalsData, patientProfile, hasRealLabData, hasRealVitalData]);
+  const trendAlerts = trendIntelligence.alerts || [];
+  const trendWatchlist = trendIntelligence.watchlist || [];
+  const trendSummary = trendIntelligence.summary || {};
 
-  // Calculate trend alerts for ALL key metrics (labs + vitals)
-  const trendAlerts = React.useMemo(() => {
-    const alerts = [];
-    const favoriteLabs = patientProfile?.favoriteMetrics?.labs || [];
-    const favoriteVitals = patientProfile?.favoriteMetrics?.vitals || [];
+  useEffect(() => {
+    const alertSignature = (Array.isArray(trendAlerts) ? trendAlerts : [])
+      .map((alert) => `${alert.id}:${alert.severity}:${alert.latestDate || 'unknown'}`)
+      .join('|');
+    const watchlistSignature = (Array.isArray(trendWatchlist) ? trendWatchlist : [])
+      .map((item) => `${item.id}:${item.direction}:${item.latestDate || 'unknown'}`)
+      .join('|');
+    const signature = `${alertSignature}::${watchlistSignature}`;
+    if (trendTelemetrySignatureRef.current === signature) return;
+    trendTelemetrySignatureRef.current = signature;
 
-    const getKeyMetricsToCheck = () => {
-      const metrics = [];
-      if (hasRealLabData) {
-        const labKeys = favoriteLabs.length > 0
-          ? favoriteLabs
-          : Object.keys(labsData || {})
-              .filter(key => {
-                const lab = labsData[key];
-                return lab && lab.data && lab.data.length >= 2;
-              })
-              .sort((a, b) => {
-                const criticalOrder = ['ca125', 'cea', 'wbc', 'hemoglobin', 'platelets', 'creatinine', 'egfr', 'alt', 'ast', 'albumin', 'ldh', 'ca199', 'psa', 'afp'];
-                const idxA = criticalOrder.indexOf(a.toLowerCase());
-                const idxB = criticalOrder.indexOf(b.toLowerCase());
-                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                if (idxA !== -1) return -1;
-                if (idxB !== -1) return 1;
-                return 0;
-              })
-              .slice(0, 8);
-        labKeys.forEach(key => {
-          const lab = labsData[key];
-          if (lab && lab.data && lab.data.length >= 2) {
-            metrics.push({ type: 'lab', key, data: lab, displayName: getLabDisplayName(key) });
-          }
-        });
-      }
-      if (hasRealVitalData) {
-        const vitalKeys = favoriteVitals.length > 0
-          ? favoriteVitals
-          : Object.keys(vitalsData || {}).filter(key => {
-              const vital = vitalsData[key];
-              return vital && vital.data && Array.isArray(vital.data) && vital.data.length >= 2;
-            });
-        vitalKeys.forEach(key => {
-          const vital = vitalsData[key];
-          if (vital && vital.data && vital.data.length >= 2) {
-            metrics.push({ type: 'vital', key, data: vital, displayName: getVitalDisplayName(key) });
-          }
-        });
-      }
-      return metrics;
-    };
-
-    const getThreshold = (type, key) => {
-      const category = TREND_THRESHOLDS[type];
-      const normalizedKey = type === 'lab' ? (normalizeLabName(key) || key)?.toLowerCase() : (key || '').toLowerCase().replace(/-/g, '');
-      return category?.[key] ?? category?.[normalizedKey] ?? category?.[key?.toLowerCase?.()] ?? category?.default ?? { upPercent: 10, downPercent: 15 };
-    };
-
-    const computeTrendForMetric = (metric) => {
-      const { type, key, data, displayName } = metric;
-      const rawData = data.data || [];
-      const threshold = getThreshold(type, key);
-
-      const getValue = (d) => {
-        if (type === 'vital' && (key === 'bp' || key === 'bloodpressure' || key === 'blood_pressure')) {
-          const sys = parseFloat(d.systolic ?? d.value);
-          return !isNaN(sys) ? sys : parseFloat(d.value);
-        }
-        const v = typeof d.value === 'number' ? d.value : parseFloat(d.value);
-        return isNaN(v) ? null : v;
-      };
-
-      const isBP = type === 'vital' && (key === 'bp' || key === 'bloodpressure' || key === 'blood_pressure');
-      const dataPoints = rawData
-        .map(d => ({
-          date: d.timestamp ? new Date(d.timestamp) : (typeof d.date === 'string' ? parseDateString(d.date) : new Date(d.date)),
-          value: getValue(d),
-          raw: d
-        }))
-        .filter(d => d.value != null && d.date instanceof Date && !isNaN(d.date.getTime()))
-        .sort((a, b) => a.date - b.date);
-
-      if (dataPoints.length < 2) return null;
-
-      const latest = dataPoints[dataPoints.length - 1];
-      const previous = dataPoints[dataPoints.length - 2];
-      const change = latest.value - previous.value;
-      const percentChange = previous.value !== 0 ? ((change / previous.value) * 100) : 0;
-      const daysDiff = Math.round((latest.date - previous.date) / (1000 * 60 * 60 * 24));
-      const unit = data.unit || (isBP ? 'mmHg' : '');
-
-      const formatValue = (dp) => {
-        if (isBP && dp.raw?.diastolic != null) return `${dp.value}/${dp.raw.diastolic}`;
-        return String(dp.value);
-      };
-
-      const useAbsolute = threshold.useAbsolute;
-      const upThreshold = useAbsolute ? (threshold.upAbsolute ?? 0) : (threshold.upPercent ?? 10);
-      const downThreshold = useAbsolute ? (threshold.downAbsolute ?? 0) : (threshold.downPercent ?? 15);
-
-      let triggersUp = false;
-      let triggersDown = false;
-      let changeDescription = '';
-
-      if (useAbsolute) {
-        triggersUp = change > 0 && change >= upThreshold;
-        triggersDown = change < 0 && Math.abs(change) >= downThreshold;
-        changeDescription = triggersUp
-          ? `${change.toFixed(1)} ${unit || 'unit'} increase`
-          : triggersDown
-            ? `${Math.abs(change).toFixed(1)} ${unit || 'unit'} decrease`
-            : '';
-      } else {
-        triggersUp = change > 0 && percentChange >= upThreshold;
-        triggersDown = change < 0 && Math.abs(percentChange) >= downThreshold;
-        changeDescription = triggersUp
-          ? `${percentChange.toFixed(1)}% increase`
-          : triggersDown
-            ? `${Math.abs(percentChange).toFixed(1)}% decrease`
-            : '';
-      }
-
-      if (triggersUp) {
-        return {
-          type: 'up',
-          metricName: displayName,
-          message: `Rose from ${formatValue(previous)} → ${formatValue(latest)}${unit ? ` ${unit}` : ''} in ${daysDiff} day${daysDiff !== 1 ? 's' : ''} (${changeDescription}). Consider discussing with your care team.`
-        };
-      }
-      if (triggersDown) {
-        return {
-          type: 'down',
-          metricName: displayName,
-          message: `Decreased from ${formatValue(previous)} → ${formatValue(latest)}${unit ? ` ${unit}` : ''} in ${daysDiff} day${daysDiff !== 1 ? 's' : ''} (${changeDescription}).`
-        };
-      }
-      return null;
-    };
-
-    getKeyMetricsToCheck().forEach(metric => {
-      const alert = computeTrendForMetric(metric);
-      if (alert) alerts.push(alert);
+    trackTrendAlertsRendered(trendAlerts, {
+      route: 'dashboard',
+      has_favorites: ((patientProfile?.favoriteMetrics?.labs?.length || 0) + (patientProfile?.favoriteMetrics?.vitals?.length || 0)) > 0,
+      source: 'dashboard',
+      alert_count: trendSummary.totalAlerts || 0
     });
-
-    return alerts;
-  }, [labsData, vitalsData, patientProfile?.favoriteMetrics, hasRealLabData, hasRealVitalData]);
+  }, [trendAlerts, trendWatchlist, trendSummary.totalAlerts, patientProfile?.favoriteMetrics]);
 
   return (
     <>
@@ -566,59 +379,113 @@ setIsUploading(false);
       </div>
       <div className={combineClasses(Layouts.container, 'flex flex-col', DesignTokens.spacing.gap.md)}>
 
-        {/* Trend Notifications - all key metrics (labs + vitals) */}
-        {trendAlerts.map((alert, idx) => (
-          <div
-            key={idx}
-            className={combineClasses(
-              DesignTokens.components.card.withColoredBorder(
-                alert.type === 'up'
-                  ? 'border-yellow-300'
-                  : DesignTokens.colors.accent.border[300]
-              ),
-              alert.type === 'up'
-                ? 'bg-yellow-50'
-                : DesignTokens.colors.accent[50],
-              DesignTokens.shadows.sm
-            )}
-          >
+        {/* Trend Notifications - telemetry-aware trend intelligence */}
+        {trendAlerts.length === 0 && (
+          <div className={combineClasses(
+            DesignTokens.components.card.withColoredBorder(DesignTokens.colors.accent.border[300]),
+            DesignTokens.colors.accent[50],
+            DesignTokens.shadows.sm
+          )}>
             <div className={combineClasses('flex items-start', DesignTokens.spacing.gap.md)}>
               <div className={combineClasses(
                 'flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center',
-                alert.type === 'up'
-                  ? 'bg-yellow-100'
-                  : DesignTokens.colors.accent[100]
+                DesignTokens.colors.accent[100]
               )}>
-                <AlertCircle className={combineClasses(
-                  DesignTokens.icons.header.size.full,
-                  alert.type === 'up'
-                    ? 'text-yellow-600'
-                    : DesignTokens.colors.accent.text[600]
-                )} />
+                <Info className={combineClasses(DesignTokens.icons.header.size.full, DesignTokens.colors.accent.text[600])} />
               </div>
               <div className="flex-1">
-                <h3 className={combineClasses(
-                  DesignTokens.typography.h3.full,
-                  DesignTokens.typography.h3.weight,
-                  'mb-1',
-                  alert.type === 'up'
-                    ? 'text-yellow-900'
-                    : DesignTokens.colors.accent.text[900]
-                )}>
-                  {alert.metricName} {alert.type === 'up' ? 'Trending Up' : 'Trending Down'}
+                <h3 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, DesignTokens.colors.accent.text[900], 'mb-1')}>
+                  No Critical Trend Alerts Right Now
                 </h3>
-                <p className={combineClasses(
-                  DesignTokens.typography.body.sm,
-                  alert.type === 'up'
-                    ? 'text-yellow-700'
-                    : DesignTokens.colors.accent.text[700]
-                )}>
-                  {alert.message}
+                <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.accent.text[700])}>
+                  {trendSummary.trackedMetricCount > 0
+                    ? `Tracking ${trendSummary.trackedMetricCount} metric${trendSummary.trackedMetricCount === 1 ? '' : 's'}`
+                    : 'No lab/vital metrics are available yet'}
+                  {trendSummary.historyReadyCount > 0
+                    ? `, with ${trendSummary.historyReadyCount} metric${trendSummary.historyReadyCount === 1 ? '' : 's'} ready for trend analysis.`
+                    : trendSummary.trackedMetricCount > 0
+                      ? '. Add at least 2 dated values to a metric to enable trend analysis.'
+                      : '.'}
                 </p>
+                {trendSummary.historyReadyCount > 0 && (
+                  <p className={combineClasses('mt-1 text-xs', DesignTokens.colors.accent.text[700])}>
+                    No changes crossed your current alert thresholds.
+                  </p>
+                )}
+                {trendWatchlist.length > 0 && (
+                  <div className="mt-2 space-y-1.5">
+                    {trendWatchlist.map((item) => (
+                      <p key={item.id} className={combineClasses('text-xs', DesignTokens.colors.accent.text[700])}>
+                        • {item.message}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        ))}
+        )}
+
+        {trendAlerts.map((alert) => {
+          const isConcerning = alert.signalType === 'concerning';
+          const headerTextColor = isConcerning ? 'text-yellow-900' : DesignTokens.colors.accent.text[900];
+          const bodyTextColor = isConcerning ? 'text-yellow-700' : DesignTokens.colors.accent.text[700];
+          const cardBorder = isConcerning ? 'border-yellow-300' : DesignTokens.colors.accent.border[300];
+          const cardBg = isConcerning ? 'bg-yellow-50' : DesignTokens.colors.accent[50];
+          const iconBg = isConcerning ? 'bg-yellow-100' : DesignTokens.colors.accent[100];
+          const iconColor = isConcerning ? 'text-yellow-600' : DesignTokens.colors.accent.text[600];
+
+          return (
+            <div
+              key={alert.id}
+              className={combineClasses(
+                DesignTokens.components.card.withColoredBorder(cardBorder),
+                cardBg,
+                DesignTokens.shadows.sm
+              )}
+            >
+              <div className={combineClasses('flex items-start', DesignTokens.spacing.gap.md)}>
+                <div className={combineClasses(
+                  'flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center',
+                  iconBg
+                )}>
+                  <AlertCircle className={combineClasses(DesignTokens.icons.header.size.full, iconColor)} />
+                </div>
+                <div className="flex-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <h3 className={combineClasses(DesignTokens.typography.h3.full, DesignTokens.typography.h3.weight, headerTextColor)}>
+                      {alert.metricName} {alert.type === 'up' ? 'Trending Up' : 'Trending Down'}
+                    </h3>
+                    <span className={combineClasses(
+                      'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase',
+                      alert.severity === 'high'
+                        ? 'border-red-200 bg-red-50 text-red-700'
+                        : alert.severity === 'medium'
+                          ? 'border-orange-200 bg-orange-50 text-orange-700'
+                          : 'border-gray-200 bg-gray-50 text-gray-700'
+                    )}>
+                      {alert.severity} priority
+                    </span>
+                    <span className={combineClasses(
+                      'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium',
+                      'border-sky-200 bg-sky-50 text-sky-700'
+                    )}>
+                      AI confidence {Math.round((alert.confidence || 0) * 100)}%
+                    </span>
+                  </div>
+                  <p className={combineClasses(DesignTokens.typography.body.sm, bodyTextColor)}>
+                    {alert.message}
+                  </p>
+                  <p className={combineClasses('mt-1 text-xs', bodyTextColor)}>
+                    {alert.latestDate ? `Most recent change date: ${formatDateString(alert.latestDate)}` : 'Most recent change date: unknown'}.
+                    {' '}
+                    {alert.insight}
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
 
         {/* Share with your doctor CTA */}
         <div className={combineClasses(
@@ -640,14 +507,14 @@ setIsUploading(false);
               </div>
             </div>
             <button
-              onClick={() => setShowShareForDoctorModal(true)}
+              onClick={() => onTabChange('export')}
               className={combineClasses(
                 'flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition',
                 'bg-gray-900 text-white hover:bg-gray-800'
               )}
             >
               <FileText className="w-4 h-4" />
-              Create summary
+              Open export page
             </button>
           </div>
         </div>
@@ -1373,12 +1240,6 @@ setIsUploading(false);
       <UploadProgressOverlay
         show={isUploading}
         uploadProgress={uploadProgress}
-      />
-
-      <ShareForDoctorModal
-        show={showShareForDoctorModal}
-        onClose={() => setShowShareForDoctorModal(false)}
-        user={user}
       />
 
       {/* Add Lab Modal */}

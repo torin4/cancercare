@@ -105,20 +105,25 @@ export const labSynonymMap = {
   'alt': ['alt', 'gpt'],
   'ast': ['ast', 'got'],
   'ast_alt_ratio': ['astalt', 'ast/alt', 'ast alt ratio', 'ast_alt'],
+  'ag_ratio': ['agratio', 'a/g', 'a g ratio', 'a/g ratio', 'albumin/globulin ratio', 'albumin globulin ratio', 'ag比', 'a/g比'],
+  'albi_score': ['albiscore', 'albi score', 'albi'],
   'alp': ['alp', 'alkphos', 'alkalinephosphatase', 'alkaline phosphatase'],
   'alp_ifcc': ['alpifcc', 'alp ifcc', 'alp (ifcc)'],
   'bilirubin_total': ['tbil', 't-bil', 'totalbilirubin', 'total bilirubin', 'bilirubin'],
   'bilirubin_direct': ['direct bilirubin', 'conjugated bilirubin', 'dbil', 'd-bil'],
   'bilirubin_indirect': ['indirect bilirubin', 'unconjugated bilirubin', 'ibil', 'i-bil'],
   'albumin': ['alb', 'albumin'],
-  'ggt': ['ggt', 'γgt', 'gamma gt'],
+  'ggt': ['ggt', 'γgt', 'gamma gt', 'gamma gtp', 'gammagtp', 'ggtp', 'gamma-glutamyl transpeptidase'],
+  'ck': ['ck', 'cpk', 'creatine kinase', 'creatine phosphokinase'],
   'ldh': ['ldh', 'ld', 'ldifcc', 'ld ifcc'],
+  'amylase': ['amylase', 'amy'],
   
   // Kidney Function
   'creatinine': ['creatinine', 'cre'],
   'egfr': ['egfr', 'e gfr', 'e-gfr', 'estimated gfr', 'estimated glomerular filtration rate', 'gfr', 'glomerular filtration rate', 'egfr estimated', 'egfr-estimated', 'egfr (estimated)', 'egfr(estimated)'],
-  'bun': ['bun'],
+  'bun': ['bun', 'un', 'urea nitrogen'],
   'urea': ['urea'],
+  'uric_acid': ['uric acid', 'uricacid', 'ua'],
   'urineprotein': ['urineprotein', 'urine protein', 'protein urine'],
   'urinecreatinine': ['urinecreatinine', 'urine creatinine'],
   'urine_wbc': ['urinewbc', 'urinewbcvisual', 'urine wbc', 'urine wbc visual', 'urine white blood cells'],
@@ -133,37 +138,153 @@ export const labSynonymMap = {
   'urine_color': ['urinecolor', 'urine color'],
   'urine_appearance': ['urineappearance', 'urine appearance'],
   'urine_glucose': ['urineglucose', 'urine glucose'],
-  'urine_ketones': ['urineketones', 'urine ketones'],
+  'urine_ketones': ['urineketones', 'urine ketones', 'urineketone', 'urine ketone'],
   'urine_bilirubin': ['urinebilirubin', 'urine bilirubin'],
   'urine_blood': ['urineblood', 'urine blood', 'urine occult blood'],
   'urine_nitrite': ['urinenitrite', 'urine nitrite'],
   'urine_leukocyte_esterase': ['urineleukocyteesterase', 'urine leukocyte esterase'],
-  'urine_specific_gravity': ['urinespecificgravity', 'urine specific gravity', 'urine sg'],
-  'urine_ph': ['urineph', 'urine ph', 'urine ph value'],
+  'urine_specific_gravity': ['urinespecificgravity', 'urine specific gravity', 'specific gravity urine', 'specific gravity (urine)', 'urine sg'],
+  'urine_ph': ['urineph', 'urine ph', 'urine ph value', 'ph (urine)', 'ph urine'],
+  'urine_urobilinogen': ['urineurobilinogen', 'urine urobilinogen', 'urobilinogen urine', 'urobilinogen'],
 
   // Blood Counts
-  'wbc': ['wbc'],
-  'rbc': ['rbc', 'red blood cell count', 'red blood cells', 'red blood cell', 'redbloodcellcount', 'redbloodcells', 'redbloodcell', 'erythrocytes', 'erythrocyte count'],
+  'wbc': [
+    'wbc',
+    'wbc count',
+    'wbccount',
+    'white blood cell count',
+    'white blood cells',
+    'white blood cell',
+    'whitebloodcellcount',
+    'whitebloodcells',
+    'whitebloodcell',
+    'leukocytes',
+    'leukocyte count',
+    'leucocytes',
+    'leucocyte count'
+  ],
+  'rbc': ['rbc', 'rbc count', 'rbccount', 'red blood cell count', 'red blood cells', 'red blood cell', 'redbloodcellcount', 'redbloodcells', 'redbloodcell', 'erythrocytes', 'erythrocyte count'],
   'hemoglobin': ['hemoglobin', 'hgb'],
   'hematocrit': ['hematocrit', 'hct'],
   'platelets': ['platelets', 'plt'],
   'anc': ['anc'],
-  'neutrophils_abs': ['neutro#', 'neut#', 'neutrophilsabs', 'neutrophil abs'],
-  'neutrophils_pct': ['neutro%', 'neut%', 'neutrophil%'],
-  'lymphocytes_abs': ['lymph#', 'lym#', 'lymphocytesabs'],
-  'lymphocytes_pct': ['lymph%', 'lym%', 'lymphocytes%'],
-  'monocytes_abs': ['mono#', 'mon#'],
-  'monocytes_pct': ['mono%', 'mon%'],
-  'eosinophils_abs': ['eo#'],
-  'eosinophils_pct': ['eo%'],
-  'basophils_abs': ['ba#'],
-  'basophils_pct': ['ba%'],
+  'neutrophils_abs': [
+    'neutro#',
+    'neut#',
+    'neutrophilsabs',
+    'neutrophil abs',
+    'neutrophils abs',
+    'neutrophil absolute count',
+    'neutrophils absolute count',
+    'absolute neutrophil count'
+  ],
+  'neutrophils_pct': [
+    'neutro%',
+    'neut%',
+    'neutrophil%',
+    'neutrophils%',
+    'neutrophil percent',
+    'neutrophils percent',
+    'neutrophil percentage',
+    'neutrophils percentage',
+    'neutrophil pct',
+    'neutrophils pct',
+    'neutrophils (during chemotherapy)',
+    'neutrophils during chemotherapy',
+    'neutrophilsduringchemotherapy'
+  ],
+  'lymphocytes_abs': [
+    'lymph#',
+    'lym#',
+    'lymphocytesabs',
+    'lymphocyte abs',
+    'lymphocytes abs',
+    'lymphocyte absolute count',
+    'lymphocytes absolute count',
+    'absolute lymphocyte count'
+  ],
+  'lymphocytes_pct': [
+    'lymph%',
+    'lym%',
+    'lymphocyte%',
+    'lymphocytes%',
+    'lymphocyte percent',
+    'lymphocytes percent',
+    'lymphocyte percentage',
+    'lymphocytes percentage',
+    'lymphocyte pct',
+    'lymphocytes pct'
+  ],
+  'monocytes_abs': [
+    'mono#',
+    'mon#',
+    'monocytesabs',
+    'monocyte abs',
+    'monocytes abs',
+    'monocyte absolute count',
+    'monocytes absolute count',
+    'absolute monocyte count'
+  ],
+  'monocytes_pct': [
+    'mono%',
+    'mon%',
+    'monocyte%',
+    'monocytes%',
+    'monocyte percent',
+    'monocytes percent',
+    'monocyte percentage',
+    'monocytes percentage',
+    'monocyte pct',
+    'monocytes pct'
+  ],
+  'eosinophils_abs': [
+    'eo#',
+    'eosinophilsabs',
+    'eosinophil abs',
+    'eosinophils abs',
+    'eosinophil absolute count',
+    'eosinophils absolute count',
+    'absolute eosinophil count'
+  ],
+  'eosinophils_pct': [
+    'eo%',
+    'eosinophil%',
+    'eosinophils%',
+    'eosinophil percent',
+    'eosinophils percent',
+    'eosinophil percentage',
+    'eosinophils percentage',
+    'eosinophil pct',
+    'eosinophils pct'
+  ],
+  'basophils_abs': [
+    'ba#',
+    'basophilsabs',
+    'basophil abs',
+    'basophils abs',
+    'basophil absolute count',
+    'basophils absolute count',
+    'absolute basophil count'
+  ],
+  'basophils_pct': [
+    'ba%',
+    'basophil%',
+    'basophils%',
+    'basophil percent',
+    'basophils percent',
+    'basophil percentage',
+    'basophils percentage',
+    'basophil pct',
+    'basophils pct'
+  ],
   'mcv': ['mcv'],
   'mch': ['mch'],
   'mchc': ['mchc'],
-  'rdw': ['rdw'],
+  'rdw': ['rdw', 'red cell distribution width', 'red blood cell distribution width'],
   'rdw_cv': ['rdwcv', 'rdw-cv'],
   'mpv': ['mpv', 'mean platelet volume'],
+  'platelet_crit': ['plateletcrit', 'platelet crit', 'plateletcrit%', 'pct'],
+  'pdw_sd': ['pdwsd', 'pdw-sd', 'pdw sd', 'platelet distribution width sd'],
   'nrbc': ['nrbc', 'nucleated red blood cells', 'nucleated rbc'],
   'nrbc_pct': ['nrbc%', 'nrbc percentage', 'nrbc percent'],
   'reticulocyte_count': ['reticulocyte count', 'retic count', 'reticulocytes'],
@@ -196,7 +317,7 @@ export const labSynonymMap = {
   'bicarbonate': ['bicarbonate', 'hco3', 'bicarb'],
   'co2': ['co2'],
   'magnesium': ['magnesium', 'mg'],
-  'phosphorus': ['phosphorus', 'p', 'phos'],
+  'phosphorus': ['phosphorus', 'p', 'phos', 'p (phosphorus)', 'p(phosphorus)'],
   'calcium': ['calcium', 'ca'],
   'calcium_ionized': ['ionized calcium', 'ca2+', 'ca²⁺', 'ca++', 'ionized ca'],
   'phosphate': ['phosphate', 'phosphorus', 'p', 'phos', 'po4'],
@@ -208,6 +329,9 @@ export const labSynonymMap = {
   'ddimer': ['ddimer', 'd-dimer', 'dimer', 'd-ダイマー'],
   'fdp': ['fdp'],
   'fibrinogen': ['fibrinogen', 'fbg'],
+  'iron': ['fe', 'iron', 'serum iron'],
+  'fib4_index': ['fib4', 'fib 4', 'fib-4', 'fib 4 index', 'fib-4 index', 'fib4 index'],
+  'hcv_screening': ['hcv screening', 'hcvscreening', 'hcv antibody', 'anti hcv', 'hcv ab', 'hcv'],
   'antithrombin_iii': ['antithrombin iii', 'at-iii', 'at3', 'antithrombin'],
   'protein_c': ['protein c', 'proteinc'],
   'protein_s': ['protein s', 'proteins'],
@@ -220,7 +344,7 @@ export const labSynonymMap = {
   'igm': ['igm'],
   'vitamin_d': ['vitamin d', 'vitamind', '25(oh)d', '25ohd'],
   'beta2_microglobulin': ['beta2 microglobulin', 'beta-2 microglobulin', 'β2 microglobulin', 'b2m'],
-  'procalcitonin': ['procalcitonin', 'pct'],
+  'procalcitonin': ['procalcitonin', 'procalcitonin pct', 'pct procalcitonin'],
   'il6': ['il6', 'il-6', 'interleukin-6', 'interleukin 6']
   };
 
@@ -265,6 +389,8 @@ export const labDisplayNames = {
   'alt': 'ALT',
   'ast': 'AST',
   'ast_alt_ratio': 'AST/ALT Ratio',
+  'ag_ratio': 'A/G Ratio',
+  'albi_score': 'ALBI Score',
   'alp': 'ALP',
   'alp_ifcc': 'ALP (IFCC)',
   'bilirubin_total': 'Total Bilirubin',
@@ -272,11 +398,14 @@ export const labDisplayNames = {
   'bilirubin_indirect': 'Indirect Bilirubin',
   'albumin': 'Albumin',
   'ggt': 'GGT',
+  'ck': 'CK',
   'ldh': 'LDH',
+  'amylase': 'Amylase',
   'creatinine': 'Creatinine',
   'egfr': 'eGFR',
   'bun': 'BUN',
   'urea': 'Urea',
+  'uric_acid': 'Uric Acid',
   'urineprotein': 'Urine Protein',
   'urinecreatinine': 'Urine Creatinine',
   'urine_wbc': 'Urine WBC',
@@ -298,6 +427,7 @@ export const labDisplayNames = {
   'urine_leukocyte_esterase': 'Urine Leukocyte Esterase',
   'urine_specific_gravity': 'Urine Specific Gravity',
   'urine_ph': 'Urine pH',
+  'urine_urobilinogen': 'Urine Urobilinogen',
   'wbc': 'WBC',
   'rbc': 'RBC',
   'hemoglobin': 'Hemoglobin',
@@ -320,6 +450,8 @@ export const labDisplayNames = {
   'rdw': 'RDW',
   'rdw_cv': 'RDW-CV',
   'mpv': 'MPV',
+  'platelet_crit': 'Platelet Crit',
+  'pdw_sd': 'PDW-SD',
   'nrbc': 'NRBC',
   'nrbc_pct': 'NRBC Percentage',
   'reticulocyte_count': 'Reticulocyte Count',
@@ -354,6 +486,9 @@ export const labDisplayNames = {
   'ddimer': 'D-dimer',
   'fdp': 'FDP',
   'fibrinogen': 'Fibrinogen',
+  'iron': 'Iron (Fe)',
+  'fib4_index': 'FIB-4 Index',
+  'hcv_screening': 'HCV Screening',
   'antithrombin_iii': 'Antithrombin III',
   'protein_c': 'Protein C',
   'protein_s': 'Protein S',
@@ -390,8 +525,13 @@ export const normalizeLabName = (rawName) => {
   cleaned = cleaned.replace(/freet4/g, 'ft4');
   
   // Normalize red blood cell variations to rbc (before labKeyMap lookup)
-  if (cleaned.includes('redbloodcell') || cleaned.includes('erythrocyte') || cleaned === 'rbc') {
+  if (cleaned.includes('redbloodcell') || cleaned.includes('erythrocyte') || cleaned === 'rbc' || cleaned === 'rbccount') {
     cleaned = 'rbc';
+  }
+  
+  // Normalize white blood cell variations to wbc (before labKeyMap lookup)
+  if (cleaned.includes('whitebloodcell') || cleaned.includes('leukocyte') || cleaned.includes('leucocyte') || cleaned === 'wbc' || cleaned === 'wbccount') {
+    cleaned = 'wbc';
   }
   
   // Look up in synonym map
@@ -416,6 +556,18 @@ export const shouldMergeLabNames = (name1, name2) => {
   // If they normalize to the same thing, merge them
   if (normalized1 === normalized2) {
     return true;
+  }
+
+  // Do not merge urine cell counts with blood cell counts.
+  // These are clinically distinct metrics and should remain separate cards.
+  const nonMergePairs = new Set([
+    'urine_wbc::wbc',
+    'wbc::urine_wbc',
+    'urine_rbc::rbc',
+    'rbc::urine_rbc'
+  ]);
+  if (nonMergePairs.has(`${normalized1}::${normalized2}`)) {
+    return false;
   }
   
   // Check if one contains the other (for cases like "Color" and "Urine Color")
@@ -542,6 +694,8 @@ export const labValueDescriptions = {
   'rdw': 'Red cell distribution width. Measures variation in red blood cell size. Elevated in iron deficiency or other anemias.',
   'rdw_cv': 'Red cell distribution width - coefficient of variation. Measures variation in red blood cell size as a percentage. Elevated in iron deficiency or other anemias.',
   'mpv': 'Mean platelet volume. Average size of platelets in the blood. Changes can indicate altered bone marrow activity, platelet destruction, or effects of chemotherapy.',
+  'platelet_crit': 'Platelet crit (PCT). Percentage of blood volume occupied by platelets. Helps assess overall platelet mass and marrow recovery.',
+  'pdw_sd': 'Platelet distribution width (SD). Reflects variability in platelet size. Higher values can indicate platelet activation or recovery after chemotherapy.',
   'nrbc': 'Nucleated red blood cells. Immature red blood cells circulating in the bloodstream. Their presence suggests severe bone marrow stress, hypoxia, or marrow infiltration by cancer.',
   'nrbc_pct': 'NRBC percentage. Proportion of nucleated red blood cells relative to total white blood cells. Used to assess bone marrow response or failure during intensive cancer treatment.',
   'reticulocyte_count': 'Reticulocyte count. Number of immature red blood cells released from the bone marrow. Reflects marrow response to anemia, bleeding, or chemotherapy-induced suppression.',
@@ -551,12 +705,22 @@ export const labValueDescriptions = {
   'egfr': 'Estimated glomerular filtration rate. Measures kidney filtering capacity. Adjusted for age, gender, and race. Normal is typically ≥90 mL/min/1.73m². Values 60-89 indicate mild kidney dysfunction, <60 indicates chronic kidney disease.',
   'bun': 'Blood urea nitrogen. Waste product from protein breakdown. High levels may indicate kidney dysfunction.',
   'urea': 'Waste product from protein metabolism. Filtered by kidneys. High levels indicate kidney dysfunction or dehydration.',
+  'uric_acid': 'Uric acid. End product of purine metabolism. Elevated values may occur with kidney dysfunction, dehydration, tumor lysis, or gout risk.',
   'urineprotein': 'Protein in urine. Normally minimal. Elevated levels (proteinuria) indicate kidney damage or disease.',
   'urinecreatinine': 'Creatinine in urine. Used with blood creatinine to calculate kidney function and detect kidney disease.',
+  'urine_glucose': 'Urine glucose. Sugar in urine is usually absent; positive results may indicate hyperglycemia, diabetes, or renal tubular dysfunction.',
+  'urine_ketones': 'Urine ketones. Byproducts of fat metabolism; elevated levels may occur with fasting, poor oral intake, uncontrolled diabetes, or metabolic stress.',
+  'urine_bilirubin': 'Urine bilirubin. Conjugated bilirubin in urine may suggest liver dysfunction or biliary obstruction.',
+  'urine_blood': 'Urine blood. Presence of hemoglobin or red blood cells in urine can indicate urinary tract irritation, infection, stones, or bleeding.',
+  'urine_nitrite': 'Urine nitrite. Positive nitrite can indicate nitrate-reducing bacterial urinary tract infection.',
+  'urine_specific_gravity': 'Urine specific gravity. Reflects urine concentration and hydration status; abnormal values may indicate dehydration, overhydration, or kidney concentrating defects.',
+  'urine_ph': 'Urine pH. Measures urine acidity/alkalinity and can help assess metabolic conditions, diet effects, stone risk, and some infections.',
   // Liver Function
   'alt': 'Alanine aminotransferase. Liver enzyme. Elevated levels indicate liver damage, often from medications or disease.',
   'ast': 'Aspartate aminotransferase. Liver enzyme. Elevated levels indicate liver or muscle damage.',
   'ast_alt_ratio': 'Ratio of aspartate aminotransferase to alanine aminotransferase. Used to assess patterns of liver injury; abnormal values may suggest specific liver conditions such as alcoholic liver disease or advanced fibrosis.',
+  'ag_ratio': 'Albumin/globulin (A/G) ratio. Compares albumin to globulins in blood. Abnormal ratios may reflect liver dysfunction, chronic inflammation, or immune protein changes.',
+  'albi_score': 'ALBI score. Albumin-bilirubin–based index used to estimate liver functional reserve, often in oncology and hepatology care.',
   'alp': 'Alkaline phosphatase. Liver and bone enzyme. Elevated in liver disease or bone disorders.',
   'alp_ifcc': 'Alkaline phosphatase (IFCC method). Liver and bone enzyme. Abnormal levels may indicate bile duct obstruction, liver disease, or bone disorders.',
   'bilirubin_total': 'Total bilirubin. Breakdown product of red blood cells. High levels cause jaundice and indicate liver dysfunction.',
@@ -564,7 +728,9 @@ export const labValueDescriptions = {
   'bilirubin_indirect': 'Indirect bilirubin (unconjugated bilirubin). Bilirubin prior to liver conjugation. Elevation may indicate hemolysis, ineffective erythropoiesis, or impaired hepatic uptake.',
   'albumin': 'Main protein in blood. Low levels indicate malnutrition, liver disease, or kidney disease.',
   'ggt': 'Gamma-glutamyl transferase. Liver enzyme. Elevated levels indicate liver disease, bile duct obstruction, or alcohol use.',
+  'ck': 'Creatine kinase (CK/CPK). Enzyme from muscle tissue. Elevated levels can indicate muscle injury, inflammation, medication effects, or less commonly cardiac stress.',
   'ldh': 'Lactate dehydrogenase. Enzyme found in many tissues. Elevated in tissue damage, hemolysis, or cancer.',
+  'amylase': 'Amylase. Digestive enzyme mainly from pancreas and salivary glands. Elevated levels may suggest pancreatic or salivary inflammation.',
   // Thyroid Function
   'tsh': 'Thyroid-stimulating hormone. Regulates thyroid function. High levels indicate hypothyroidism, low levels indicate hyperthyroidism.',
   't3': 'Triiodothyronine. Active thyroid hormone. Regulates metabolism.',
@@ -589,6 +755,9 @@ export const labValueDescriptions = {
   'ddimer': 'D-dimer. Fragment from blood clots. Elevated in deep vein thrombosis, pulmonary embolism, and DIC.',
   'fdp': 'Fibrin degradation products. Fragments from blood clot breakdown. Elevated in conditions involving blood clotting such as DIC, deep vein thrombosis, or pulmonary embolism.',
   'fibrinogen': 'Blood clotting protein. Elevated in inflammation or infection. Low levels increase bleeding risk.',
+  'iron': 'Iron (Fe). Measures circulating iron available for red blood cell production. Low values suggest iron deficiency; high values can occur with overload or inflammation.',
+  'fib4_index': 'FIB-4 index. Non-invasive liver fibrosis risk score derived from age, AST, ALT, and platelets.',
+  'hcv_screening': 'HCV screening test. Evaluates for hepatitis C exposure/infection, which can affect liver health and treatment planning.',
   'antithrombin_iii': 'Antithrombin III. A natural anticoagulant protein that inhibits clot formation. Reduced levels increase thrombosis risk and are common in cancer and during chemotherapy.',
   'protein_c': 'Protein C. A vitamin K-dependent anticoagulant protein. Deficiency contributes to hypercoagulable states frequently seen in malignancy.',
   'protein_s': 'Protein S. A cofactor for Protein C that enhances anticoagulant activity. Low levels increase the risk of venous thromboembolism in cancer patients.',
@@ -603,6 +772,7 @@ export const labValueDescriptions = {
   'bicarbonate': 'Buffer that maintains blood pH. Low levels indicate acidosis. High levels indicate alkalosis.',
   'co2': 'Carbon dioxide. Reflects acid-base balance and respiratory function. Used to assess metabolic and respiratory status.',
   'phosphorus': 'Essential mineral for bone health, energy production, and cell function. Imbalances can affect multiple body systems.',
+  'urine_urobilinogen': 'Urine urobilinogen. Byproduct of bilirubin metabolism. Abnormal values can be associated with liver dysfunction or hemolysis.',
   // Other
   'glucose': 'Blood sugar. High levels indicate diabetes or prediabetes. Low levels (hypoglycemia) can be dangerous.',
   'hba1c': 'Hemoglobin A1c. Average blood sugar over 2-3 months. Used to diagnose and monitor diabetes.',
@@ -640,14 +810,14 @@ export const labDefaultNormalRanges = {
 export const categorizeLabs = (labs) => {
   // Predefined lab types by category (including common abbreviations and variations)
   const diseaseMarkers = ['ca125', 'cea', 'afp', 'psa', 'he4', 'ca199', 'ca153', 'ca724', 'ca242', 'ca50', 'inhibinb', 'romaindex', 'ca-125', 'ca 19-9', 'ca 15-3'];
-  const liverFunction = ['alt', 'ast', 'bilirubin', 'albumin', 'alkalinephosphatase', 'alp', 'ggt', 'ldh', 'pt', 'inr', 'aptt', 'alb', 'ast/alt', 'alp ifcc', 'pt活性値', 'pt activity', 'pt activity value'];
-  const kidneyFunction = ['creatinine', 'egfr', 'bun', 'urea', 'urineprotein', 'urinecreatinine', 'cre', 'urinewbc', 'urinerbc', 'urinehyalinecasts', 'urinerenaltubularepithelial', 'urinesquamousepithelial', 'urinebacteria', 'urineyeast', 'urinecrystals', 'urinemucus', 'urinecolor', 'urineappearance', 'urineglucose', 'urineketones', 'urinebilirubin', 'urineblood', 'urinenitrite', 'urineleukocyteesterase', 'urinespecificgravity', 'urineph'];
-  const bloodCounts = ['wbc', 'rbc', 'hemoglobin', 'hematocrit', 'platelets', 'anc', 'lymphocytes', 'neutrophils', 'monocytes', 'eosinophils', 'basophils', 'mcv', 'mch', 'mchc', 'rdw', 'rdw-cv', 'hgb', 'hct', 'plt', 'ba#', 'ba%', 'eo#', 'eo%', 'lymph#', 'lymph%', 'mono#', 'mono%', 'neutro#', 'neutro%'];
+  const liverFunction = ['alt', 'ast', 'bilirubin', 'albumin', 'alkalinephosphatase', 'alp', 'ggt', 'ldh', 'pt', 'inr', 'aptt', 'alb', 'ast/alt', 'alp ifcc', 'pt活性値', 'pt activity', 'pt activity value', 'ag ratio', 'ag比', 'albi score', 'ck', 'gamma gtp', 'amylase'];
+  const kidneyFunction = ['creatinine', 'egfr', 'bun', 'urea', 'uric acid', 'urineprotein', 'urinecreatinine', 'cre', 'urinewbc', 'urinerbc', 'urinehyalinecasts', 'urinerenaltubularepithelial', 'urinesquamousepithelial', 'urinebacteria', 'urineyeast', 'urinecrystals', 'urinemucus', 'urinecolor', 'urineappearance', 'urineglucose', 'urineketones', 'urinebilirubin', 'urineblood', 'urinenitrite', 'urineleukocyteesterase', 'urinespecificgravity', 'urineph', 'urineurobilinogen'];
+  const bloodCounts = ['wbc', 'rbc', 'hemoglobin', 'hematocrit', 'platelets', 'anc', 'lymphocytes', 'lymphocyte', 'neutrophils', 'neutrophil', 'monocytes', 'monocyte', 'eosinophils', 'eosinophil', 'basophils', 'basophil', 'mcv', 'mch', 'mchc', 'rdw', 'rdw-cv', 'red cell distribution width', 'hgb', 'hct', 'plt', 'ba#', 'ba%', 'eo#', 'eo%', 'lymph#', 'lymph%', 'mono#', 'mono%', 'neutro#', 'neutro%', 'absolute neutrophil count', 'absolute lymphocyte count', 'absolute monocyte count', 'absolute eosinophil count', 'absolute basophil count', 'platelet crit', 'platelet distribution width sd', 'pdw sd', 'pdw-sd'];
   const thyroidFunction = ['tsh', 't3', 't4', 'ft3', 'ft4', 'thyroglobulin', 'free t3', 'free t4'];
   const cardiacMarkers = ['troponin', 'bnp', 'ntprobnp', 'ckmb', 'myoglobin', 'nt-probnp', 'ck-mb'];
   const inflammation = ['crp', 'esr', 'ferritin', 'fibrinogen', 'フェリチン', 'fbg', 'ferritin (japanese)'];
   const electrolytes = ['sodium', 'potassium', 'chloride', 'bicarbonate', 'co2', 'magnesium', 'phosphorus', 'calcium', 'na', 'k', 'ci', 'ca', 'mg', 'p', 'phos'];
-  const coagulation = ['pt', 'inr', 'aptt', 'dimer', 'ddimer', 'fibrinogen', 'd-dimer', 'fbg'];
+  const coagulation = ['pt', 'inr', 'aptt', 'dimer', 'ddimer', 'fibrinogen', 'd-dimer', 'fbg', 'fe', 'iron', 'fib 4', 'fib-4', 'hcv screening'];
   const tumorMarkers = ['ca125', 'cea', 'afp', 'psa', 'ca199', 'ca153', 'ca724', 'ca242', 'ca50', 'he4', 'inhibinb', 'romaindex', 'ca2729', 'ca549', 'ca195'];
 
   const categories = {
@@ -699,20 +869,23 @@ export const categorizeLabs = (labs) => {
     
     // Liver Function
     'alt': 'liver_function', 'ast': 'liver_function', 'ast_alt_ratio': 'liver_function',
+    'ag_ratio': 'liver_function', 'albi_score': 'liver_function',
     'alp': 'liver_function', 'alp_ifcc': 'liver_function', 'bilirubin_total': 'liver_function',
     'bilirubin_direct': 'liver_function', 'bilirubin_indirect': 'liver_function',
-    'albumin': 'liver_function', 'ggt': 'liver_function', 'ldh': 'liver_function',
+    'albumin': 'liver_function', 'ggt': 'liver_function', 'ck': 'liver_function',
+    'ldh': 'liver_function', 'amylase': 'liver_function',
     
     // Kidney Function
     'creatinine': 'kidney_function', 'egfr': 'kidney_function', 'bun': 'kidney_function',
     'urea': 'kidney_function', 'urineprotein': 'kidney_function', 'urinecreatinine': 'kidney_function',
+    'uric_acid': 'kidney_function',
     'urine_wbc': 'kidney_function', 'urine_rbc': 'kidney_function', 'urine_hyaline_casts': 'kidney_function',
     'urine_renal_tubular_epithelial': 'kidney_function', 'urine_squamous_epithelial': 'kidney_function',
     'urine_bacteria': 'kidney_function', 'urine_yeast': 'kidney_function', 'urine_crystals': 'kidney_function',
     'urine_mucus': 'kidney_function', 'urine_color': 'kidney_function', 'urine_appearance': 'kidney_function',
     'urine_glucose': 'kidney_function', 'urine_ketones': 'kidney_function', 'urine_bilirubin': 'kidney_function',
     'urine_blood': 'kidney_function', 'urine_nitrite': 'kidney_function', 'urine_leukocyte_esterase': 'kidney_function',
-    'urine_specific_gravity': 'kidney_function', 'urine_ph': 'kidney_function',
+    'urine_specific_gravity': 'kidney_function', 'urine_ph': 'kidney_function', 'urine_urobilinogen': 'kidney_function',
     // Blood Counts
     'wbc': 'blood_counts', 'rbc': 'blood_counts', 'hemoglobin': 'blood_counts',
     'hematocrit': 'blood_counts', 'platelets': 'blood_counts', 'anc': 'blood_counts',
@@ -728,7 +901,8 @@ export const categorizeLabs = (labs) => {
     'basophil_count': 'blood_counts', 'basophil_percent': 'blood_counts',
     'mcv': 'blood_counts', 'mch': 'blood_counts', 'mchc': 'blood_counts',
     'rdw': 'blood_counts', 'rdw_cv': 'blood_counts',
-    'mpv': 'blood_counts', 'nrbc': 'blood_counts', 'nrbc_pct': 'blood_counts',
+    'mpv': 'blood_counts', 'platelet_crit': 'blood_counts', 'pdw_sd': 'blood_counts',
+    'nrbc': 'blood_counts', 'nrbc_pct': 'blood_counts',
     'reticulocyte_count': 'blood_counts', 'reticulocyte_pct': 'blood_counts',
     
     // Thyroid Function
@@ -752,6 +926,7 @@ export const categorizeLabs = (labs) => {
     // Coagulation (precedence: coagulation wins over liver_function for PT, INR, APTT, etc.)
     'pt': 'coagulation', 'inr': 'coagulation', 'aptt': 'coagulation',
     'ddimer': 'coagulation', 'fdp': 'coagulation', 'fibrinogen': 'coagulation',
+    'iron': 'coagulation', 'fib4_index': 'coagulation', 'hcv_screening': 'coagulation',
     'antithrombin_iii': 'coagulation', 'protein_c': 'coagulation', 'protein_s': 'coagulation',
     'prothrombin_time_activity': 'coagulation', 'pt_activity': 'coagulation',
     

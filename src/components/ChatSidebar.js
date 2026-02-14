@@ -523,7 +523,13 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
               text: msg.text,
               isAnalysis: msg.isAnalysis || false,
               insight: msg.insight || null,
-              insights: msg.insights || null
+              insights: msg.insights || null,
+              extractionSummary: msg.extractionSummary || null,
+              source: msg.source || null,
+              requestId: msg.requestId || null,
+              requestedDateRange: msg.requestedDateRange || null,
+              toolCallCount: msg.toolCallCount || 0,
+              toolsUsed: msg.toolsUsed || []
             })));
           }
           setChatHistoryLoaded(true);
@@ -609,8 +615,12 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
 
       // Detect if question would benefit from health data - expanded patterns to catch more health-related questions
       const requiresHealthData = /(explain|analyze|what does|how is|why is|why are|why does|why do|trend|progress|mean|interpret|tell me about|what about|what are|what is|look at|check|show|my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications|data|results|values|numbers|test|tests|marker|markers|metric|metrics|function)|her (lab|labs|vital|vitals|marker|markers|metric|metrics)|ca-125|hemoglobin|blood pressure|heart rate|temperature|weight|tired|fatigue|energy|feeling|feels|symptom|pain|nausea|dizzy|weak|weakness|anemia|blood|cbc|wbc|rbc|platelet|anxiety|depression|sleep|appetite|nauseous|bilirubin|albumin|alb|liver|kidney|renal|function|ast|alt|creatinine|egfr|bun|ldh|crp|glucose|a1c|cholesterol|triglyceride|hdl|ldl|sodium|potassium|calcium|magnesium|phosphorus|protein|globulin|inr|pt|ptt|esr|ferritin|iron|b12|folate|vitamin d|d3|tsh|t3|t4|psa|afp|cea|tumor marker)/i.test(userMessage);
+      const toolChatEnabled = (typeof window !== 'undefined' && window.__IRIS_TOOL_CHAT_ENABLED) ||
+        process.env.REACT_APP_IRIS_TOOL_CHAT_ENABLED === 'true';
+      const isLikelyWriteIntent = /(my (ca-125|hemoglobin|wbc|platelets|blood pressure|heart rate|temperature|temp|weight|bp|hr) (was|is)|\bi (had|have|started|am taking|took)\b|i'm (experiencing|taking)|my (symptom|symptoms)|started taking|taking [a-z]+ (mg|ml|units?)|log|add|record|edit|update|change|correct|fix|modify|replace|set to|delete|remove|scan\s+(?:the|all|my)?\s*(?:file|document|files|documents)|extract)/i.test(userMessage);
+      const skipHealthContextPreload = toolChatEnabled && !isLikelyWriteIntent && !imageToSend;
 
-      if (requiresHealthData && user) {
+      if (requiresHealthData && user && !skipHealthContextPreload) {
         try {
           const labs = await labService.getLabs(user.uid);
           const vitals = await vitalService.getVitals(user.uid);
@@ -644,7 +654,11 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
       }
 
       const isAddingData = /(my (ca-125|hemoglobin|wbc|platelets|blood pressure|heart rate|temperature|temp|weight|bp|hr) (was|is)|i (had|have|started|am taking|took)|i'm (experiencing|taking)|my (symptom|symptoms)|started taking|taking [a-z]+ (mg|ml|units?)|log|add|record)/i.test(userMessage);
-      const requiresNotebookData = !currentNotebookContext && !isAddingData && /(history|timeline|journal|notebook|what happened|on (date|day|december|january|february|march|april|may|june|july|august|september|october|november)|tell me about (date|day|december|january|february|march|april|may|june|july|august|september|october|november)|my history|health journal|journal entries|notes|documents from|symptoms from)/i.test(userMessage);
+      const skipNotebookContextPreload = toolChatEnabled && !isAddingData && !imageToSend;
+      const requiresNotebookData = !skipNotebookContextPreload &&
+        !currentNotebookContext &&
+        !isAddingData &&
+        /(history|timeline|journal|notebook|what happened|on (date|day|december|january|february|march|april|may|june|july|august|september|october|november)|tell me about (date|day|december|january|february|march|april|may|june|july|august|september|october|november)|my history|health journal|journal entries|notes|documents from|symptoms from)/i.test(userMessage);
       
       let notebookContextToUse = currentNotebookContext;
       if (requiresNotebookData && user) {
@@ -735,7 +749,9 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
       }
       
       // Get extraction summary (separate from response text)
-      const extractionSummary = result.extractedData ? generateChatExtractionSummary(result.extractedData) : null;
+      const extractionSummary = result.extractedData
+        ? generateChatExtractionSummary(result.extractedData, result.savedData)
+        : null;
 
       setIsBotProcessing(false);
       abortControllerRef.current = null;
@@ -746,7 +762,12 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
         isAnalysis: !!result.extractedData,
         insight: result.insight || null,
         insights: result.insights || null, // New structured insights array
-        extractionSummary: extractionSummary || null
+        extractionSummary: extractionSummary || null,
+        source: result.source || null,
+        requestId: result.requestId || null,
+        requestedDateRange: result.requestedDateRange || null,
+        toolCallCount: result.toolCallCount || 0,
+        toolsUsed: result.toolsUsed || []
       };
       setMessages(prev => [...prev, aiMsg]);
 
@@ -763,7 +784,12 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
           extractedData: result.extractedData || null,
           insight: result.insight || null,
           insights: result.insights || null, // New structured insights array
-          extractionSummary: extractionSummary || null
+          extractionSummary: extractionSummary || null,
+          source: result.source || null,
+          requestId: result.requestId || null,
+          requestedDateRange: result.requestedDateRange || null,
+          toolCallCount: result.toolCallCount || 0,
+          toolsUsed: result.toolsUsed || []
         });
       }
 
@@ -1155,6 +1181,31 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                           {removeQuestionsFromText(msg.text)}
                         </ReactMarkdown>
                         <QuestionCards text={msg.text} />
+                        {msg.source === 'tool-backed' && (
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 border border-emerald-200">
+                              Live data fetch
+                            </span>
+                            {msg.requestedDateRange?.startDate && msg.requestedDateRange?.endDate && (
+                              <span className="inline-flex items-center rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-700 border border-sky-200">
+                                Window: {msg.requestedDateRange.startDate} to {msg.requestedDateRange.endDate}
+                              </span>
+                            )}
+                            {msg.toolCallCount > 0 && (
+                              <span className="inline-flex items-center rounded-full bg-medical-neutral-100 px-2 py-0.5 text-[10px] font-medium text-medical-neutral-700 border border-medical-neutral-200">
+                                {msg.toolCallCount} tool call{msg.toolCallCount !== 1 ? 's' : ''}
+                              </span>
+                            )}
+                            {Array.isArray(msg.toolsUsed) && msg.toolsUsed.slice(0, 3).map((tool, toolIdx) => (
+                              <span
+                                key={`${msg.requestId || 'tool'}-${tool}-${toolIdx}`}
+                                className="inline-flex items-center rounded-full bg-anchor-50 px-2 py-0.5 text-[10px] font-medium text-anchor-700 border border-anchor-200"
+                              >
+                                {tool.replace('get_', '')}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                 </div>
@@ -1188,7 +1239,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                   </div>
                 )}
               </div>
-              {msg.type === 'ai' && (msg.insights || msg.insight) && (() => {
+              {msg.type === 'ai' && Array.isArray(msg.insights) && msg.insights.length > 0 && (() => {
                 // Don't show insight card for doctor discussion queries
                 const isDoctorDiscussion = msg.text.toLowerCase().includes('questions should i ask') || 
                                          (msg.text.toLowerCase().includes('discuss') && msg.text.toLowerCase().includes('doctor')) ||
@@ -1196,16 +1247,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                 
                 if (isDoctorDiscussion) return null;
                 
-                // Use new structured insights array if available, otherwise fall back to legacy single insight
-                const insights = msg.insights || (msg.insight ? [{
-                  type: 'general',
-                  priority: 3,
-                  headline: msg.insight,
-                  explanation: msg.insight,
-                  actionable: null,
-                  confidence: null,
-                  doctorQuestions: null
-                }] : []);
+                const insights = msg.insights;
                 
                 if (insights.length === 0) return null;
                 
@@ -1512,7 +1554,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
               }
               className={combineClasses(
                 'w-full rounded-full px-3 h-11 min-h-[44px] py-0 text-xs transition-all duration-200',
-                'border border-medical-neutral-200 text-center placeholder:text-center',
+                'border border-medical-neutral-200 text-left placeholder:text-left',
                 'leading-[2.75rem]',
                 inputText && 'pr-10',
                 'focus:outline-none focus:ring-2 focus:ring-anchor-900 focus:border-anchor-900'

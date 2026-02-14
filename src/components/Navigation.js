@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, User, Home, ClipboardList, FlaskConical, FileText, HeartHandshake } from 'lucide-react';
+import { Activity, User, Home, ClipboardList, FlaskConical, FileText, FileDown, HeartHandshake } from 'lucide-react';
 import { DesignTokens, combineClasses } from '../design/designTokens';
 import logoPrimary from '../assets/logo_primary.svg';
 import logoSecondary from '../assets/logo_secondary.svg';
@@ -52,6 +52,7 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
     { id: 'health', label: 'Health', icon: ClipboardList },
     { id: 'trials', label: 'Trials', icon: FlaskConical },
     { id: 'files', label: 'Docs', icon: FileText },
+    { id: 'export', label: 'Export', icon: FileDown },
   ];
 
   return (
@@ -275,4 +276,3 @@ export default function Navigation({ activeTab, setActiveTab, patientProfile, on
     </>
   );
 }
-

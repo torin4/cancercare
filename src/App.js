@@ -30,6 +30,7 @@ import UploadProgressOverlay from './components/UploadProgressOverlay';
 import ProfileTab from './components/tabs/ProfileTab';
 import FilesTab from './components/tabs/FilesTab';
 import DashboardTab from './components/tabs/DashboardTab';
+import ExportTab from './components/tabs/ExportTab';
 import HealthTab from './components/tabs/HealthTab';
 import ChatTab from './components/tabs/ChatTab';
 import ChatSidebar from './components/ChatSidebar';
@@ -957,6 +958,12 @@ export default function CancerCareApp() {
               onOpenMobileChat={() => setShowMobileChatOverlay(true)}
               onOpenDicomViewer={setDicomViewerDocuments}
             />
+          </ErrorBoundary>
+        )}
+
+        {activeTab === 'export' && (
+          <ErrorBoundary title="Export Error" message="There was an error loading the export page. Please try again.">
+            <ExportTab onTabChange={setActiveTab} />
           </ErrorBoundary>
         )}
 

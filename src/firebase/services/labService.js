@@ -110,7 +110,8 @@ export const labService = {
       {
         ...valueData,
         labId,
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       }
     );
     return docRef.id;
@@ -169,7 +170,9 @@ export const labService = {
       return docNormalizedType === normalizedLabType;
     });
     
-    const updateData = {};
+    const updateData = {
+      updatedAt: serverTimestamp()
+    };
     if (valueData.value !== undefined) updateData.value = valueData.value;
     if (valueData.date !== undefined) updateData.date = valueData.date;
     if (valueData.notes !== undefined) updateData.notes = valueData.notes || '';
@@ -210,7 +213,8 @@ export const labService = {
     await setDoc(docRef, {
       ...updateData,
       labId,
-      createdAt: serverTimestamp()
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     });
   },
   
@@ -218,7 +222,8 @@ export const labService = {
   async updateLabValueDocumentId(labId, valueId, documentId) {
     const docRef = doc(db, COLLECTIONS.LABS, labId, 'values', valueId);
     await updateDoc(docRef, {
-      documentId: documentId || null
+      documentId: documentId || null,
+      updatedAt: serverTimestamp()
     });
   },
 

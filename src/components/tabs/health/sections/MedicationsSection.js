@@ -125,6 +125,8 @@ function MedicationsSection({ onTabChange }) {
     return (dueLater || notTaken[0] || parsed[0])?.t || null;
   };
 
+  const hasTimedSchedule = (med) => typeof med?.schedule === 'string' && med.schedule.includes(':');
+
   // Mark medication as taken
   const markMedicationTaken = async (medId, scheduledTime) => {
     if (!user || !user.uid) {
@@ -420,9 +422,7 @@ function MedicationsSection({ onTabChange }) {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             
-            const medsWithSchedule = activeMeds.filter(med => 
-              med.schedule && med.schedule.includes(':')
-            );
+            const medsWithSchedule = activeMeds.filter((med) => hasTimedSchedule(med));
             
             let takenCount = 0;
             let totalDueToday = 0;
@@ -557,7 +557,7 @@ function MedicationsSection({ onTabChange }) {
             <h3 className={combineClasses("text-sm sm:text-base font-semibold mb-3", DesignTokens.colors.neutral.text[900])}>Today's Schedule</h3>
             <div className="space-y-2">
               {medications
-                .filter(med => med.active && (med.status || 'active') !== 'stopped' && med.schedule.includes(':'))
+                .filter((med) => med.active && (med.status || 'active') !== 'stopped' && hasTimedSchedule(med))
                 .flatMap(med =>
                   med.schedule.split(',').map(time => ({
                     ...med,
@@ -803,12 +803,12 @@ function MedicationsSection({ onTabChange }) {
                           {new Date(med.nextDose).toLocaleString('en-US', {
                             month: 'short',
                             day: 'numeric',
-                            hour: med.schedule.includes(':') ? 'numeric' : undefined,
-                            minute: med.schedule.includes(':') ? '2-digit' : undefined
+                            hour: hasTimedSchedule(med) ? 'numeric' : undefined,
+                            minute: hasTimedSchedule(med) ? '2-digit' : undefined
                           })}
                         </p>
                       </div>
-                      {med.schedule.includes(':') && (
+                      {hasTimedSchedule(med) && (
                         (() => {
                           const nextTime = getNextDueTimeForToday(med);
                           const taken = isMedicationTaken(med.id, nextTime);

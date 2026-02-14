@@ -1,29 +1,14 @@
-const axios = require('axios');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { setCors, getBearerToken, verifyFirebaseIdToken } = require('./lib/auth');
+const {
+  createServerTelemetryContext,
+  emitTelemetryEvent,
+  latencyBucket,
+  classifyError,
+  hashUserId
+} = require('./lib/telemetry');
 
 const DEFAULT_MODEL = 'gemini-3-flash-preview';
-
-function setCors(req, res) {
-  const allowedOrigins = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
-    : ['*'];
-  const origin = req.headers.origin;
-  const isAllowed = allowedOrigins.includes('*') || (origin && allowedOrigins.includes(origin));
-  const corsOrigin = isAllowed ? (origin || '*') : 'null';
-
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', corsOrigin);
-  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-}
-
-function getBearerToken(req) {
-  const authHeader = req.headers.authorization || '';
-  if (!authHeader.startsWith('Bearer ')) return null;
-  const token = authHeader.slice('Bearer '.length).trim();
-  return token || null;
-}
 
 function buildLegacyContext(message, conversationHistory) {
   return `You are CancerCare's AI health assistant. You're helping track Mary's health. Mary has Stage IIIC ovarian cancer and is undergoing treatment.
@@ -41,52 +26,66 @@ ${conversationHistory ? conversationHistory.map(msg => `${msg.role}: ${msg.conte
 User message: ${message}`;
 }
 
-async function verifyFirebaseIdToken(idToken) {
-  const firebaseApiKey = process.env.FIREBASE_API_KEY || process.env.REACT_APP_FIREBASE_API_KEY;
-  if (!firebaseApiKey) {
-    throw new Error('Firebase API key is not configured on server');
-  }
-
-  const response = await axios.post(
-    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${firebaseApiKey}`,
-    { idToken },
-    { timeout: 10000 }
-  );
-
-  const users = response?.data?.users;
-  if (!Array.isArray(users) || users.length === 0 || !users[0].localId) {
-    throw new Error('Invalid authentication token');
-  }
-
-  return users[0];
-}
-
 module.exports = async (req, res) => {
   setCors(req, res);
+  const telemetryContext = createServerTelemetryContext(req, { route: 'legacy-gemini' });
+  res.setHeader('traceparent', telemetryContext.traceparent);
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
   if (req.method !== 'POST') {
+    emitTelemetryEvent('chat_request_rejected', {
+      route: 'legacy-gemini',
+      status: 'error',
+      reason: 'method_not_allowed',
+      http_status: 405
+    }, telemetryContext);
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const idToken = getBearerToken(req);
   if (!idToken) {
+    emitTelemetryEvent('chat_request_rejected', {
+      route: 'legacy-gemini',
+      status: 'error',
+      reason: 'missing_token',
+      http_status: 401
+    }, telemetryContext);
     return res.status(401).json({ error: 'Missing bearer token' });
   }
 
+  let uidForHash = null;
   try {
-    await verifyFirebaseIdToken(idToken);
+    const user = await verifyFirebaseIdToken(idToken);
+    uidForHash = user?.localId || null;
   } catch (error) {
+    emitTelemetryEvent('chat_request_rejected', {
+      route: 'legacy-gemini',
+      status: 'error',
+      reason: 'invalid_token',
+      error_class: classifyError(error),
+      http_status: 401
+    }, telemetryContext);
     return res.status(401).json({ error: 'Unauthorized request' });
   }
+
+  const startedAt = Date.now();
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
     const modelName = body.model || DEFAULT_MODEL;
     let content = body.content;
+    const userHash = hashUserId(uidForHash);
+
+    emitTelemetryEvent('chat_message_sent', {
+      route: 'legacy-gemini',
+      status: 'started',
+      feature_flag: process.env.IRIS_TOOL_CHAT_ENABLED === 'true' ? 'enabled' : 'unknown',
+      source: 'api_gemini',
+      user_hash: userHash
+    }, telemetryContext);
 
     // Backward compatibility with legacy shape
     if (!content) {
@@ -106,9 +105,32 @@ module.exports = async (req, res) => {
     const result = await model.generateContent(content);
     const response = await result.response;
     const text = response.text();
+    const latencyMs = Date.now() - startedAt;
 
-    return res.status(200).json({ response: text });
+    emitTelemetryEvent('chat_response_received', {
+      route: 'legacy-gemini',
+      status: 'ok',
+      latency_ms: latencyMs,
+      latency_bucket: latencyBucket(latencyMs),
+      fallback_used: false,
+      user_hash: userHash
+    }, telemetryContext);
+
+    return res.status(200).json({
+      response: text,
+      traceId: telemetryContext.traceId,
+      requestId: telemetryContext.requestId
+    });
   } catch (error) {
+    const latencyMs = Date.now() - startedAt;
+    emitTelemetryEvent('chat_response_received', {
+      route: 'legacy-gemini',
+      status: 'error',
+      error_class: classifyError(error),
+      latency_ms: latencyMs,
+      latency_bucket: latencyBucket(latencyMs),
+      fallback_used: false
+    }, telemetryContext);
     return res.status(500).json({
       error: 'Failed to process message',
       details: error.message
