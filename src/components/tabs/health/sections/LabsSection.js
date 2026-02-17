@@ -1771,7 +1771,11 @@ function LabsSection({
                               const conditions = detectCategoryConditions(labsInCategory);
                               if (conditions.length === 0) return null;
                               return (
-                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                <div
+                                  className="flex flex-wrap gap-1 mt-1.5"
+                                  onClick={(e) => e.stopPropagation()}
+                                  role="presentation"
+                                >
                                   {conditions.map(c => <ConditionBadge key={c.name} condition={c} />)}
                                 </div>
                               );

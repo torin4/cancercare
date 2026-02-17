@@ -78,6 +78,49 @@ const VITAL_DETECTORS = {
   },
 };
 
+// ── Tooltip descriptions for condition badges ─────────────────────────────
+// Shown on hover in metric cards and category cards.
+
+const CONDITION_DESCRIPTIONS = {
+  // Labs
+  'Anemia': 'Low red blood cells or hemoglobin; can cause fatigue and shortness of breath.',
+  'Neutropenia': 'Low neutrophil count; increases risk of infection.',
+  'Thrombocytopenia': 'Low platelet count; may increase bleeding or bruising risk.',
+  'Leukopenia': 'Low white blood cell count; can weaken the immune response.',
+  'Lymphopenia': 'Low lymphocyte count; may affect immune function.',
+  'Elevated Liver Enzymes': 'ALT/AST above normal; may indicate liver stress or injury.',
+  'Jaundice Risk': 'Elevated bilirubin; can cause yellowing of skin or eyes.',
+  'Reduced Kidney Function': 'Low eGFR; indicates the kidneys may not be filtering waste as well.',
+  'Hypoalbuminemia': 'Low blood albumin; can affect fluid balance and nutrition.',
+  'Elevated Creatinine': 'May indicate reduced kidney function or dehydration.',
+  // Electrolytes
+  'Hyponatremia': 'Low sodium in blood; can affect brain and muscle function.',
+  'Hypernatremia': 'High sodium in blood; often related to fluid balance.',
+  'Hypokalemia': 'Low potassium; can affect heart rhythm and muscles.',
+  'Hyperkalemia': 'High potassium; may affect heart rhythm and needs monitoring.',
+  'Hypocalcemia': 'Low calcium; can affect bones, muscles, and nerves.',
+  'Hypercalcemia': 'High calcium; may affect heart, kidneys, and bones.',
+  'Hypomagnesemia': 'Low magnesium; can affect muscles and heart rhythm.',
+  'Hypermagnesemia': 'High magnesium; uncommon; may affect nerves and heart.',
+  'Hypophosphatemia': 'Low phosphorus; can affect energy and cell function.',
+  'Hyperphosphatemia': 'High phosphorus; often seen with kidney function changes.',
+  // Vitals
+  'Hypotension': 'Blood pressure below normal; may cause dizziness or fatigue.',
+  'Fever': 'Elevated body temperature; often a sign of infection or inflammation.',
+  'Hypoxia': 'Low blood oxygen; can cause shortness of breath or confusion.',
+  'Tachycardia': 'Heart rate above normal at rest; may need monitoring.',
+};
+
+/**
+ * Returns a short tooltip description for a condition name, or the name itself if unknown.
+ * @param {string} conditionName
+ * @returns {string}
+ */
+export function getConditionDescription(conditionName) {
+  if (!conditionName || typeof conditionName !== 'string') return '';
+  return CONDITION_DESCRIPTIONS[conditionName.trim()] || conditionName;
+}
+
 // ── Grade → Severity Mapping ─────────────────────────────────────────────
 
 function gradeSeverity(grade) {
