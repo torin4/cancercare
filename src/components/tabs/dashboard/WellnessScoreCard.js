@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Activity, ChevronRight, FlaskConical, HeartPulse, Thermometer, TrendingDown, Pill, Info } from 'lucide-react';
+import { Activity, ChevronRight, FlaskConical, HeartPulse, Thermometer, TrendingDown, Pill, Info, Clock } from 'lucide-react';
 import { DesignTokens, combineClasses } from '../../../design/designTokens';
 import { calculateWellnessScore } from '../../../utils/wellnessScore';
 
@@ -128,6 +128,13 @@ function PillarBar({ pillarKey, pillar, isTooltipOpen, onToggleTooltip }) {
           {hasData ? pct : '—'}
         </span>
       </div>
+      {/* Stale data indicator */}
+      {pillar.stale && (
+        <div className="flex items-center gap-1 mt-1 ml-6">
+          <Clock className="w-2.5 h-2.5 text-amber-500" />
+          <span className="text-[10px] text-amber-600">{pillar.stale}</span>
+        </div>
+      )}
       {/* Tooltip */}
       {isTooltipOpen && (
         <p className="mt-1.5 ml-6 text-[11px] leading-relaxed text-gray-500 bg-gray-50 rounded-md px-2.5 py-2">

@@ -101,7 +101,8 @@ export default function AddVitalModal({
         temp: 'Temperature',
         weight: 'Weight',
         o2sat: 'Oxygen Saturation',
-        rr: 'Respiratory Rate'
+        rr: 'Respiratory Rate',
+        sleep_score: 'Sleep Score'
       };
 
       const vitalUnits = {
@@ -110,7 +111,8 @@ export default function AddVitalModal({
         temp: '°F',
         weight: 'kg',
         o2sat: '%',
-        rr: '/min'
+        rr: '/min',
+        sleep_score: 'score'
       };
 
       // Calculate normal ranges based on patient demographics
@@ -161,7 +163,11 @@ export default function AddVitalModal({
               // Adults: 12-20
             }
             return '12-20';
-          
+
+          case 'sleep_score':
+            // Sleep quality score: 70-100 is considered good
+            return '70-100';
+
           default:
             return '';
         }
@@ -310,7 +316,8 @@ export default function AddVitalModal({
                   { value: 'temp', label: 'Temperature', keys: ['temp', 'temperature'] },
                   { value: 'weight', label: 'Weight', keys: ['weight'] },
                   { value: 'o2sat', label: 'Oxygen Saturation', keys: ['o2sat', 'oxygen_saturation', 'oxygenSaturation'] },
-                  { value: 'rr', label: 'Respiratory Rate', keys: ['rr', 'respiratory_rate', 'respiratoryRate'] }
+                  { value: 'rr', label: 'Respiratory Rate', keys: ['rr', 'respiratory_rate', 'respiratoryRate'] },
+                  { value: 'sleep_score', label: 'Sleep Score', keys: ['sleep_score', 'sleepscore', 'sleep'] }
                 ];
                 
                 return vitalOptions.map(option => {

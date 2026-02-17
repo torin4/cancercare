@@ -7,7 +7,8 @@ export const vitalSynonymMap = {
   'temperature': ['temp', 'temperature', 'body temperature', 'body temp', 'fever'],
   'weight': ['weight', 'body weight', 'bodyweight', 'mass'],
   'oxygen_saturation': ['o2sat', 'o2 saturation', 'spo2', 'oxygen saturation', 'o2', 'sat'],
-  'respiratory_rate': ['rr', 'respiratory rate', 'breathing rate', 'respiration', 'breathing']
+  'respiratory_rate': ['rr', 'respiratory rate', 'breathing rate', 'respiration', 'breathing'],
+  'sleep_score': ['sleep_score', 'sleepscore', 'sleep score', 'sleep', 'sleep quality', 'oura sleep', 'garmin sleep', 'apple sleep']
   };
 
 // Reverse map: create lookup from any variation to canonical key
@@ -25,7 +26,8 @@ export const vitalDisplayNames = {
   'temperature': 'Temperature',
   'weight': 'Weight',
   'oxygen_saturation': 'Oxygen Saturation',
-  'respiratory_rate': 'Respiratory Rate'
+  'respiratory_rate': 'Respiratory Rate',
+  'sleep_score': 'Sleep Score'
   };
 
 // Vital descriptions
@@ -35,7 +37,8 @@ export const vitalDescriptions = {
   'temperature': 'Body temperature indicates whether you have a fever or hypothermia. Normal body temperature is typically 97.5-99.5°F (36.4-37.5°C).',
   'weight': 'Body weight is an important vital sign that can indicate fluid retention, nutritional status, or response to treatment. Significant changes may require medical attention.',
   'oxygen_saturation': 'Oxygen saturation (SpO2) measures how much oxygen your blood is carrying. Normal levels are typically >95%. Low levels may indicate breathing problems or lung issues.',
-  'respiratory_rate': 'Respiratory rate measures how many breaths you take per minute. Normal rate is typically 12-20 breaths per minute for adults at rest.'
+  'respiratory_rate': 'Respiratory rate measures how many breaths you take per minute. Normal rate is typically 12-20 breaths per minute for adults at rest.',
+  'sleep_score': 'Daily sleep quality score (0-100) from wearables like Apple Health, Garmin Connect, or Oura Ring. Scores above 70 generally indicate good sleep quality. Adequate sleep supports immune function and recovery during cancer treatment.'
   };
 
 // Normalize vital name to canonical key

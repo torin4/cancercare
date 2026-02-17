@@ -266,13 +266,23 @@ export const getVitalStatus = (value, normalRange, vitalType = null) => {
             return { status: 'abnormal-high', color: 'red', label: 'High' };
           }
           // If one is in warning zone and other is normal, it's slightly high
-          if ((systolicWarning && !systolicHigh && diastolic <= normDiastolic) || 
+          if ((systolicWarning && !systolicHigh && diastolic <= normDiastolic) ||
               (diastolicWarning && !diastolicHigh && systolic <= normSystolic)) {
             return { status: 'warning-high', color: 'yellow', label: 'Slightly High' };
           }
           // Otherwise it's high
           return { status: 'abnormal-high', color: 'red', label: 'High' };
-        } else if (systolic <= normSystolic && diastolic <= normDiastolic) {
+        }
+
+        // Check for hypotension (common during chemo)
+        if (systolic < 90) {
+          return { status: 'abnormal-low', color: 'red', label: 'Low' };
+        }
+        if (systolic < 100) {
+          return { status: 'warning-low', color: 'yellow', label: 'Slightly Low' };
+        }
+
+        if (systolic <= normSystolic && diastolic <= normDiastolic) {
           return { status: 'normal', color: 'green', label: 'Normal' };
         }
       }

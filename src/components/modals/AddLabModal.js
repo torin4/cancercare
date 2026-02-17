@@ -143,7 +143,7 @@ export default function AddLabModal({
               <div className="flex-1">
                 <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, DesignTokens.components.alert.info.text)}>Custom Lab Tracking</p>
                 <p className={combineClasses(DesignTokens.typography.body.xs, 'mt-1', DesignTokens.components.alert.info.textSecondary)}>
-                  Select a common marker or add your own custom lab metric. The AI will track trends and alert you to significant changes.
+                  Select from common lab metrics or add your own custom one. The AI will track trends and alert you to significant changes.
                 </p>
               </div>
             </div>
