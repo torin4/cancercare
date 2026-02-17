@@ -5,9 +5,10 @@ import {
   CheckCircle2,
   Cloud,
   Download,
-  FileDown,
   Loader2,
-  Search
+  Search,
+  Share,
+  X
 } from 'lucide-react';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
@@ -145,6 +146,7 @@ export default function ExportTab({ onTabChange }) {
   const [loadingAction, setLoadingAction] = useState(null);
   const [error, setError] = useState(null);
   const [previewPayload, setPreviewPayload] = useState(null);
+  const [showShareOptions, setShowShareOptions] = useState(false);
   const [availableLabs, setAvailableLabs] = useState([]);
   const [availableVitals, setAvailableVitals] = useState([]);
   const [selectedVitalIds, setSelectedVitalIds] = useState([]);
@@ -354,6 +356,42 @@ export default function ExportTab({ onTabChange }) {
     }
   };
 
+  const handleSharePdf = async () => {
+    setError(null);
+    setLoadingAction('share');
+    try {
+      const payload = await loadPayload();
+      const blob = generateDoctorSummaryPdf(payload, {});
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const filename = `CancerCare-doctor-summary-${dateStr}.pdf`;
+
+      const file = new File([blob], filename, { type: 'application/pdf' });
+      const shareData = {
+        title: 'CancerCare Summary',
+        text: 'Doctor-ready summary from CancerCare',
+        files: [file],
+      };
+
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        const canShareFiles = typeof navigator.canShare !== 'function' || navigator.canShare(shareData);
+        if (canShareFiles) {
+          await navigator.share(shareData);
+          return;
+        }
+      }
+
+      setShowShareOptions(true);
+    } catch (shareError) {
+      // User cancelled share sheet
+      if (shareError?.name === 'AbortError') return;
+      const message = shareError?.message || 'Failed to share PDF.';
+      setError(message);
+      showError(message);
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
   const handleDownloadPdf = async () => {
     setError(null);
     setLoadingAction('download');
@@ -482,10 +520,10 @@ export default function ExportTab({ onTabChange }) {
         <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className={combineClasses('rounded-xl p-2.5 sm:p-3', DesignTokens.colors.app[100], DesignTokens.colors.app.text[700])}>
-              <FileDown className="w-5 h-5 sm:w-6 sm:h-6" />
+              <Share className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div>
-              <h1 className={combineClasses(DesignTokens.components.header.title, 'mb-1')}>Export PDF Summary</h1>
+              <h1 className={combineClasses(DesignTokens.components.header.title, 'mb-1')}>Share PDF Summary</h1>
               <p className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.app.text[600], 'max-w-2xl')}>
                 Build a clean doctor-ready report with the exact metrics, date range, and sections you want to share.
               </p>
@@ -882,6 +920,18 @@ export default function ExportTab({ onTabChange }) {
               </button>
               <button
                 type="button"
+                onClick={handleSharePdf}
+                disabled={isBusy}
+                className={combineClasses(
+                  'w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium min-h-[46px] disabled:opacity-50',
+                  DesignTokens.components.button.secondary
+                )}
+              >
+                {loadingAction === 'share' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share className="w-4 h-4" />}
+                Share PDF
+              </button>
+              <button
+                type="button"
                 onClick={handleDownloadPdf}
                 disabled={isBusy}
                 className={combineClasses(
@@ -987,6 +1037,85 @@ export default function ExportTab({ onTabChange }) {
           )}
         </div>
       </div>
+
+      {/* Share options fallback modal (for browsers without file sharing) */}
+      {showShareOptions && (
+        <>
+          <div
+            className="fixed inset-0 z-[70] backdrop-blur-sm bg-black/20"
+            onClick={() => setShowShareOptions(false)}
+            aria-hidden
+          />
+          <div
+            role="dialog"
+            aria-label="Share options"
+            className={combineClasses(
+              'fixed z-[71] rounded-xl shadow-2xl border max-w-sm w-[90vw] sm:w-96 p-5 animate-fade-scale bg-white',
+              DesignTokens.colors.neutral.border[200]
+            )}
+            style={{
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              maxHeight: '80vh',
+              overflowY: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={combineClasses('flex items-start justify-between', DesignTokens.spacing.gap.md)}>
+              <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm)}>
+                <div className={combineClasses(DesignTokens.colors.app[100], DesignTokens.borders.radius.sm, DesignTokens.spacing.iconContainer.mobile)}>
+                  <Share className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.app.text[700])} />
+                </div>
+                <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, DesignTokens.colors.neutral.text[900])}>
+                  Share options
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowShareOptions(false)}
+                className={combineClasses('p-2 -mr-2', DesignTokens.transitions.default, 'flex-shrink-0', DesignTokens.spacing.touchTarget, 'flex items-center justify-center', DesignTokens.components.modal.closeButton)}
+                aria-label="Close"
+              >
+                <X className={DesignTokens.icons.button.size.full} />
+              </button>
+            </div>
+
+            <p className={combineClasses(DesignTokens.typography.body.sm, 'leading-relaxed mt-2', DesignTokens.colors.neutral.text[700])}>
+              Choose how you want to share your summary.
+            </p>
+
+            <div className="mt-4 space-y-2">
+              <button
+                type="button"
+                onClick={() => { setShowShareOptions(false); handleDownloadPdf(); }}
+                disabled={isBusy}
+                className={combineClasses(
+                  'w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium min-h-[46px] disabled:opacity-50',
+                  DesignTokens.components.button.primary
+                )}
+              >
+                <Download className="w-4 h-4" />
+                Download PDF
+              </button>
+              {isGoogleDriveConfigured() ? (
+                <button
+                  type="button"
+                  onClick={() => { setShowShareOptions(false); handleSaveToDrive(); }}
+                  disabled={isBusy}
+                  className={combineClasses(
+                    'w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium min-h-[46px] disabled:opacity-50',
+                    DesignTokens.components.button.outline.primary
+                  )}
+                >
+                  <Cloud className="w-4 h-4" />
+                  Save to Google Drive
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

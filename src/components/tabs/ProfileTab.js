@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { Camera, User, Calendar, MapPin, TrendingUp, Activity, Edit2, Dna, Upload, AlertCircle, Users, Phone, Plus, Settings, Link2, Loader2, Unlink, LogOut, Trash2, Sliders, Shield, HeartHandshake, Copy, MoreVertical, HardDrive, Download, Cloud, FileText } from 'lucide-react';
+import { Camera, User, Calendar, MapPin, TrendingUp, Activity, Edit2, Dna, Upload, AlertCircle, Users, Phone, Plus, Settings, Link2, Loader2, Unlink, LogOut, Trash2, Sliders, Shield, HeartHandshake, Copy, MoreVertical, HardDrive, Download, Cloud, FileText, Share } from 'lucide-react';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { signOut, linkWithPopup, unlink, GoogleAuthProvider, deleteUser, EmailAuthProvider, linkWithCredential, reauthenticateWithCredential, reauthenticateWithPopup, updatePassword } from 'firebase/auth';
 import { auth } from '../../firebase/config';
@@ -1653,8 +1653,8 @@ export default function ProfileTab({ onTabChange }) {
                   onClick={() => onTabChange('export')}
                   className={combineClasses('flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] bg-white border rounded-lg text-sm font-medium transition touch-manipulation', DesignTokens.colors.app.border[200], DesignTokens.colors.app.text[800], 'hover:bg-medical-neutral-50', 'active:bg-medical-neutral-100')}
                 >
-                  <FileText className="w-4 h-4" />
-                  Open export page
+                  <Share className="w-4 h-4" />
+                  Open share page
                 </button>
               </div>
             </div>
