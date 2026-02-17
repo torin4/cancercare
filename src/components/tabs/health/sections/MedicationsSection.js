@@ -11,7 +11,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  Pill, Edit2, Plus, MessageSquare, AlertCircle, Check, Trash2, MoreVertical, PauseCircle, PlayCircle, Square
+  Pill, Edit2, Plus, MessageSquare, AlertCircle, Check, Trash2, MoreVertical, PauseCircle, PlayCircle, Square, Calendar
 } from 'lucide-react';
 import { DesignTokens, combineClasses } from '../../../../design/designTokens';
 import { useAuth } from '../../../../contexts/AuthContext';
@@ -19,6 +19,7 @@ import { useBanner } from '../../../../contexts/BannerContext';
 import { medicationActivityService, medicationService, medicationLogService, journalNoteService } from '../../../../firebase/services';
 import AddMedicationModal from '../../../modals/AddMedicationModal';
 import DeletionConfirmationModal from '../../../modals/DeletionConfirmationModal';
+import UpdateDosageModal from '../../../modals/UpdateDosageModal';
 
 function MedicationsSection({ onTabChange }) {
   const { user } = useAuth();
@@ -40,6 +41,11 @@ function MedicationsSection({ onTabChange }) {
     itemName: '', 
     confirmText: 'Yes, Delete Permanently' 
   });
+  const [logRange, setLogRange] = useState('7'); // '7' | '30' | '90' | 'all'
+  const [historyExpanded, setHistoryExpanded] = useState(false);
+  const [removeLogConfirm, setRemoveLogConfirm] = useState({ show: false, log: null });
+  const [markingTakenFor, setMarkingTakenFor] = useState(null); // { dateKey, medId, scheduledTime }
+  const [updateDosageMedication, setUpdateDosageMedication] = useState(null);
 
   // Load medications
   useEffect(() => {
@@ -90,6 +96,27 @@ function MedicationsSection({ onTabChange }) {
     }) || null;
   };
 
+  // Filter logs by selected range (7 days, 1 month, 3 months, all)
+  const getLogsInRange = () => {
+    if (!medicationLog.length) return [];
+    const now = Date.now();
+    let cutoffMs = 0;
+    if (logRange === '7') cutoffMs = now - 7 * 24 * 60 * 60 * 1000;
+    else if (logRange === '30') cutoffMs = now - 30 * 24 * 60 * 60 * 1000;
+    else if (logRange === '90') cutoffMs = now - 90 * 24 * 60 * 60 * 1000;
+    return medicationLog.filter((log) => {
+      const t = log.takenAt instanceof Date ? log.takenAt.getTime() : new Date(log.takenAt).getTime();
+      return t >= cutoffMs;
+    });
+  };
+
+  // Flat list of filtered logs, newest first. Cap at 50 for "All".
+  const getLogsFlat = () => {
+    const logs = getLogsInRange();
+    const sorted = [...logs].sort((a, b) => (new Date(b.takenAt).getTime() - new Date(a.takenAt).getTime()));
+    return logRange === 'all' ? sorted.slice(0, 50) : sorted;
+  };
+
   // Parse a "8:00 AM" / "14:00" style time into minutes since midnight (local)
   const timeToMinutes = (timeStr) => {
     const m = String(timeStr || '').trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
@@ -126,6 +153,75 @@ function MedicationsSection({ onTabChange }) {
   };
 
   const hasTimedSchedule = (med) => typeof med?.schedule === 'string' && med.schedule.includes(':');
+
+  // All dates in the selected range (for showing taken + missed per day).
+  const getDatesInRange = () => {
+    const now = new Date();
+    const today = now.toDateString();
+    let numDays = 7;
+    if (logRange === '30') numDays = 30;
+    else if (logRange === '90') numDays = 90;
+    else if (logRange === 'all') numDays = 90;
+    const dates = [];
+    for (let i = 0; i < numDays; i++) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const key = d.toDateString();
+      const label = key === today ? 'Today' : i === 1 ? 'Yesterday' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
+      dates.push({ dateKey: key, label });
+    }
+    return dates;
+  };
+
+  // For a given date, slots that were scheduled but not logged (missed).
+  const getMissedSlotsForDate = (dateKey) => {
+    const activeWithSchedule = medications.filter((m) => m.active && (m.status || 'active') !== 'stopped' && hasTimedSchedule(m));
+    const takenSet = new Set();
+    medicationLog.forEach((log) => {
+      const logDate = log.takenAt instanceof Date ? log.takenAt : new Date(log.takenAt);
+      if (logDate.toDateString() === dateKey && log.scheduledTime) {
+        takenSet.add(log.medId + '|' + log.scheduledTime);
+      }
+    });
+    const missed = [];
+    activeWithSchedule.forEach((med) => {
+      const times = med.schedule.split(',').map((t) => t.trim()).filter((t) => t.includes(':'));
+      times.forEach((scheduledTime) => {
+        if (!takenSet.has(med.id + '|' + scheduledTime)) {
+          missed.push({ medId: med.id, medName: med.name, scheduledTime });
+        }
+      });
+    });
+    return missed.sort((a, b) => {
+      const aMin = timeToMinutes(a.scheduledTime) ?? 0;
+      const bMin = timeToMinutes(b.scheduledTime) ?? 0;
+      return aMin - bMin;
+    });
+  };
+
+  // Group by date: each day in range has logs (taken) and missedSlots. Only include days that have logs or missed.
+  const getLogsGroupedByDate = () => {
+    const dates = getDatesInRange();
+    const logsByDate = {};
+    getLogsFlat().forEach((log) => {
+      const d = log.takenAt instanceof Date ? log.takenAt : new Date(log.takenAt);
+      const key = d.toDateString();
+      if (!logsByDate[key]) logsByDate[key] = [];
+      logsByDate[key].push(log);
+    });
+    return dates
+      .map(({ dateKey, label }) => {
+        const logs = (logsByDate[dateKey] || []).sort((a, b) => new Date(b.takenAt).getTime() - new Date(a.takenAt).getTime());
+        const missedSlots = getMissedSlotsForDate(dateKey);
+        return { dateKey, label, logs, missedSlots };
+      })
+      .filter((g) => g.logs.length > 0 || g.missedSlots.length > 0);
+  };
+
+  const logRangeLabel = logRange === '7' ? '7 days' : logRange === '30' ? '1 month' : logRange === '90' ? '3 months' : 'All';
+  const groupedLogs = getLogsGroupedByDate();
+  const totalInRange = getLogsInRange().length;
+  const showingCap = logRange === 'all' && totalInRange > 50;
 
   // Mark medication as taken
   const markMedicationTaken = async (medId, scheduledTime) => {
@@ -250,6 +346,45 @@ function MedicationsSection({ onTabChange }) {
         }
       }
     });
+  };
+
+  const handleRemoveLogFromHistory = async () => {
+    const { log } = removeLogConfirm;
+    if (!log || !user?.uid) return;
+    try {
+      await medicationLogService.deleteMedicationLog(log.id);
+      setMedicationLog((prev) => prev.filter((l) => l.id !== log.id));
+      setRemoveLogConfirm({ show: false, log: null });
+      showSuccess('Dose removed from history.');
+    } catch (e) {
+      showError('Failed to remove dose. Please try again.');
+    }
+  };
+
+  // Mark a missed slot as taken (for a past date).
+  const markMedicationTakenForDate = async (dateKey, medId, scheduledTime) => {
+    if (!user?.uid) return;
+    setMarkingTakenFor({ dateKey, medId, scheduledTime });
+    try {
+      const minutes = timeToMinutes(scheduledTime);
+      const d = new Date(dateKey);
+      const y = d.getFullYear(), mo = d.getMonth(), day = d.getDate();
+      const hours = minutes != null ? Math.floor(minutes / 60) : 8;
+      const mins = minutes != null ? minutes % 60 : 0;
+      const takenAt = new Date(y, mo, day, hours, mins, 0, 0);
+      const logId = await medicationLogService.addMedicationLog({
+        patientId: user.uid,
+        medId,
+        scheduledTime,
+        takenAt,
+      });
+      setMedicationLog((prev) => [{ id: logId, medId, scheduledTime, takenAt: takenAt.toISOString() }, ...prev]);
+      showSuccess('Marked as taken.');
+    } catch (e) {
+      showError('Failed to save. Please try again.');
+    } finally {
+      setMarkingTakenFor(null);
+    }
   };
 
   const toggleMedicationActive = async (med, nextActive) => {
@@ -604,6 +739,119 @@ function MedicationsSection({ onTabChange }) {
             </div>
           </div>
 
+          {/* Adherence history: collapsible, compact list */}
+          <div className={DesignTokens.components.card.nestedWithShadow}>
+            <button
+              type="button"
+              onClick={() => setHistoryExpanded((e) => !e)}
+              className={combineClasses(
+                'w-full flex items-center justify-between gap-2 py-2 pr-1 -ml-1 rounded-lg touch-manipulation',
+                DesignTokens.colors.neutral.text[700],
+                'hover:bg-gray-50 active:bg-gray-100'
+              )}
+              aria-expanded={historyExpanded}
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <Calendar className="w-4 h-4 flex-shrink-0" />
+                <span className="text-sm font-medium truncate">Adherence history</span>
+                <span className={combineClasses('text-xs flex-shrink-0', DesignTokens.colors.neutral.text[500])}>
+                  ({logRangeLabel} · {totalInRange})
+                </span>
+              </span>
+              <span className={combineClasses('flex-shrink-0 transition-transform', historyExpanded && 'rotate-180')}>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </span>
+            </button>
+            {historyExpanded && (
+              <div className="pt-1 border-t border-gray-100">
+                <div className="flex flex-wrap items-center gap-2 py-1.5">
+                  <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Range</span>
+                  <select
+                    value={logRange}
+                    onChange={(e) => setLogRange(e.target.value)}
+                    className={combineClasses(
+                      'text-xs rounded border py-1 px-2 min-h-[32px] touch-manipulation',
+                      DesignTokens.colors.neutral.border[300],
+                      DesignTokens.colors.neutral.text[800]
+                    )}
+                  >
+                    <option value="7">7 days</option>
+                    <option value="30">1 month</option>
+                    <option value="90">3 months</option>
+                    <option value="all">All</option>
+                  </select>
+                </div>
+                <div className="max-h-[180px] overflow-y-auto -mx-1 px-1">
+                  {groupedLogs.length === 0 ? (
+                    <p className={combineClasses('text-xs py-3', DesignTokens.colors.neutral.text[500])}>No doses in this period.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {groupedLogs.map(({ dateKey, label, logs, missedSlots }) => (
+                        <div key={dateKey}>
+                          <p className={combineClasses('text-[11px] font-semibold uppercase tracking-wide py-1 sticky top-0 bg-white/95 backdrop-blur', DesignTokens.colors.neutral.text[500])}>
+                            {label}
+                          </p>
+                          <ul className="divide-y divide-gray-50">
+                            {logs.map((log) => {
+                              const med = medications.find((m) => m.id === log.medId);
+                              const d = log.takenAt instanceof Date ? log.takenAt : new Date(log.takenAt);
+                              const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                              return (
+                                <li key={log.id} className="flex items-center gap-2 py-1.5 text-xs min-w-0 pl-0 group">
+                                  <span className={combineClasses('w-12 flex-shrink-0', DesignTokens.colors.neutral.text[600])}>{timeStr}</span>
+                                  <span className={combineClasses('truncate flex-1 min-w-0', DesignTokens.colors.neutral.text[800])}>{med?.name ?? '—'}</span>
+                                  <Check className={combineClasses('w-3.5 h-3.5 flex-shrink-0', DesignTokens.components.status.normal.text)} />
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setRemoveLogConfirm({ show: true, log }); }}
+                                    className={combineClasses(
+                                      'p-1 rounded touch-manipulation opacity-60 group-hover:opacity-100 hover:bg-red-50 text-gray-500 hover:text-red-600 transition'
+                                    )}
+                                    aria-label="Remove dose from history"
+                                    title="Remove from history"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </li>
+                              );
+                            })}
+                            {missedSlots.map((slot) => {
+                              const isMarking = markingTakenFor?.dateKey === dateKey && markingTakenFor?.medId === slot.medId && markingTakenFor?.scheduledTime === slot.scheduledTime;
+                              return (
+                                <li key={slot.medId + '|' + slot.scheduledTime} className="flex items-center gap-2 py-1.5 text-xs min-w-0 pl-0">
+                                  <span className={combineClasses('w-12 flex-shrink-0', DesignTokens.colors.neutral.text[500])}>{slot.scheduledTime}</span>
+                                  <span className={combineClasses('truncate flex-1 min-w-0', DesignTokens.colors.neutral.text[600])}>{slot.medName}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => markMedicationTakenForDate(dateKey, slot.medId, slot.scheduledTime)}
+                                    disabled={isMarking}
+                                    className={combineClasses(
+                                      'text-[11px] font-medium px-2 py-1 rounded border min-h-[28px] touch-manipulation',
+                                      DesignTokens.components.status.normal.border,
+                                      DesignTokens.components.status.normal.text,
+                                      'hover:bg-green-50 disabled:opacity-50'
+                                    )}
+                                  >
+                                    {isMarking ? '…' : 'Mark taken'}
+                                  </button>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {showingCap && (
+                  <p className={combineClasses('text-[11px] pt-1.5', DesignTokens.colors.neutral.text[500])}>
+                    Showing latest 50 of {totalInRange}.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Active Medications */}
           <div className={DesignTokens.components.card.nestedWithShadow}>
             <h3 className={combineClasses('text-sm sm:text-base font-semibold mb-3', DesignTokens.colors.neutral.text[900])}>Active Medications</h3>
@@ -616,6 +864,13 @@ function MedicationsSection({ onTabChange }) {
                   orange: 'bg-orange-100 border-orange-300 text-orange-800',
                   teal: 'bg-teal-100 border-teal-300 text-teal-800',
                 };
+                const purposeToColor = {
+                  'Chemotherapy': 'purple', 'Targeted therapy': 'blue', 'Immunotherapy': 'green', 'Hormone therapy': 'orange',
+                  'Anti-nausea': 'teal', 'Pain management': 'blue', 'Anti-inflammatory': 'green', 'Antibiotic': 'blue',
+                  'Stomach protection': 'teal', 'Vitamin/Supplement': 'green', 'Other': 'blue',
+                };
+                const purposes = (med.purpose || '').split(',').map(s => s.trim()).filter(Boolean);
+                if (purposes.length === 0) purposes.push(med.purpose || 'Other');
 
                 return (
                   <div
@@ -669,6 +924,23 @@ function MedicationsSection({ onTabChange }) {
                               >
                                 <Edit2 className="w-4 h-4" />
                                 Edit
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  setOpenMedicationMenu(null);
+                                  setUpdateDosageMedication(med);
+                                }}
+                                className={combineClasses(
+                                  'w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 min-h-[44px] touch-manipulation active:opacity-70',
+                                  DesignTokens.colors.neutral.text[700],
+                                  'hover:bg-medical-neutral-100'
+                                )}
+                                type="button"
+                              >
+                                <Pill className="w-4 h-4" />
+                                Update dosage & frequency
                               </button>
                               <button
                                 onClick={(e) => {
@@ -731,11 +1003,13 @@ function MedicationsSection({ onTabChange }) {
 
                     <div className="mb-2">
                       <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
-                        <div className="flex-1 flex items-center gap-2 pr-20 sm:pr-0">
+                        <div className="flex-1 flex items-center gap-2 pr-20 sm:pr-0 flex-wrap">
                           <h4 className={combineClasses('text-sm sm:text-base font-semibold', DesignTokens.colors.neutral.text[900])}>{med.name}</h4>
-                          <span className={`text-xs px-2 py-0.5 rounded-full border ${colorClasses[med.color]} w-fit`}>
-                            {med.purpose}
-                          </span>
+                          {purposes.map((p) => (
+                            <span key={p} className={combineClasses('text-xs px-2 py-0.5 rounded-full border w-fit', colorClasses[purposeToColor[p]] || colorClasses[med.color] || colorClasses.blue)}>
+                              {p}
+                            </span>
+                          ))}
                         </div>
                         {/* Desktop/tablet: actions inline */}
                         <div className="hidden sm:flex items-center gap-1">
@@ -750,6 +1024,15 @@ function MedicationsSection({ onTabChange }) {
                             type="button"
                           >
                             <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setUpdateDosageMedication(med)}
+                            className={combineClasses('p-1.5 rounded-lg transition min-w-[32px] min-h-[32px] flex items-center justify-center touch-manipulation', DesignTokens.colors.app.text[600], 'hover:' + DesignTokens.colors.app[50])}
+                            aria-label="Update dosage & frequency"
+                            title="Update dosage & frequency (keeps history)"
+                            type="button"
+                          >
+                            <Pill className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => toggleMedicationActive(med, false)}
@@ -1132,6 +1415,32 @@ function MedicationsSection({ onTabChange }) {
         isDeleting={isDeletingMedication}
         onConfirm={deleteConfirm.onConfirm}
         onClose={() => !isDeletingMedication && setDeleteConfirm({ ...deleteConfirm, show: false })}
+      />
+
+<DeletionConfirmationModal
+        show={removeLogConfirm.show}
+        title="Remove dose from history?"
+        message="This logged dose will be removed. You can add it back later with Log missed dose."
+        confirmText="Remove"
+        isDeleting={false}
+        onConfirm={handleRemoveLogFromHistory}
+        onClose={() => setRemoveLogConfirm({ show: false, log: null })}
+      />
+
+      <UpdateDosageModal
+        show={!!updateDosageMedication}
+        onClose={() => setUpdateDosageMedication(null)}
+        medication={updateDosageMedication}
+        onSaved={async () => {
+          if (user) {
+            try {
+              const meds = await medicationService.getMedications(user.uid);
+              setMedications(meds);
+            } catch (e) {
+              console.error('Error reloading medications:', e);
+            }
+          }
+        }}
       />
     </div>
   );

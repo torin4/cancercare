@@ -102,6 +102,35 @@ export const medicationService = {
     await updateDoc(docRef, { active: true, status: 'active', stoppedAt: null, updatedAt: serverTimestamp() });
   },
 
+  /**
+   * Update dosage, frequency, and/or schedule going forward while keeping history.
+   * Pushes current dosage/frequency to history, then sets new values. Schedule is updated in place (no history).
+   * @param {string} medId
+   * @param {string} newDosage
+   * @param {string} newFrequency
+   * @param {Date|import('firebase/firestore').Timestamp} effectiveDate - date from which the new values apply (default: now)
+   * @param {string} [newSchedule] - optional new schedule string (e.g. '8:00 AM, 8:00 PM')
+   */
+  async updateMedicationDosageAndFrequency(medId, newDosage, newFrequency, effectiveDate = new Date(), newSchedule = undefined) {
+    const med = await this.getMedication(medId);
+    if (!med) return;
+    const docRef = doc(db, COLLECTIONS.MEDICATIONS, medId);
+    const effectiveTimestamp = effectiveDate && (effectiveDate.toDate ? effectiveDate.toDate() : effectiveDate);
+
+    const dosageHistory = [...(Array.isArray(med.dosageHistory) ? med.dosageHistory : []), { effectiveDate: effectiveTimestamp, dosage: med.dosage || '' }];
+    const frequencyHistory = [...(Array.isArray(med.frequencyHistory) ? med.frequencyHistory : []), { effectiveDate: effectiveTimestamp, frequency: med.frequency || '' }];
+
+    const payload = {
+      dosage: String(newDosage ?? med.dosage ?? '').trim(),
+      frequency: String(newFrequency ?? med.frequency ?? '').trim(),
+      dosageHistory,
+      frequencyHistory,
+      updatedAt: serverTimestamp(),
+    };
+    if (newSchedule !== undefined) payload.schedule = String(newSchedule).trim();
+    await updateDoc(docRef, payload);
+  },
+
   // Delete medication
   async deleteMedication(medId) {
     await deleteDoc(doc(db, COLLECTIONS.MEDICATIONS, medId));

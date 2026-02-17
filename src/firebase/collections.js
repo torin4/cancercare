@@ -125,8 +125,10 @@ export const MedicationSchema = {
   id: 'string',
   patientId: 'string',
   name: 'string', // e.g., 'Paclitaxel'
-  dosage: 'string', // e.g., '175 mg/m²'
-  frequency: 'string', // e.g., 'Every 3 weeks'
+  dosage: 'string', // e.g., '175 mg/m²' — current dosage (used for future doses)
+  dosageHistory: 'array', // optional: [{ effectiveDate: timestamp, dosage: string }] — past dosages for history
+  frequency: 'string', // e.g., 'Every 3 weeks' — current (used for future)
+  frequencyHistory: 'array', // optional: [{ effectiveDate: timestamp, frequency: string }] — past frequencies for history
   schedule: 'string', // e.g., 'IV infusion' or '8:00 AM, 8:00 PM'
   purpose: 'string', // e.g., 'Chemotherapy'
   nextDose: 'timestamp',

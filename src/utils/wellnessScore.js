@@ -376,34 +376,41 @@ function scoreMedications(medications, medicationLogs) {
   const active = medications.filter((m) => m.active !== false && m.status !== 'stopped');
   if (active.length === 0) return null;
 
+  // Only meds with a timed schedule appear in adherence logs; don't expect doses from "as needed" or non-scheduled meds
+  const hasTimedSchedule = (m) => typeof m?.schedule === 'string' && m.schedule.includes(':');
+  const activeWithSchedule = active.filter(hasTimedSchedule);
+  if (activeWithSchedule.length === 0) return null;
+
   // No logs at all → unknown adherence
   if (!Array.isArray(medicationLogs) || medicationLogs.length === 0) {
     return {
       score: 50,
-      details: { activeMedCount: active.length, recentLogCount: 0, adherenceRatio: 0 },
+      details: { activeMedCount: activeWithSchedule.length, recentLogCount: 0, adherenceRatio: 0 },
     };
   }
 
-  // Count logs in last 7 days
-  const oneWeekAgo = new Date();
-  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  // Count logs in last 7 full days (excluding today), so the window matches expected weekly dose count
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const startOfSevenDaysAgo = new Date(startOfToday);
+  startOfSevenDaysAgo.setDate(startOfSevenDaysAgo.getDate() - 7);
 
   const recentLogs = medicationLogs.filter((log) => {
     const d = log.takenAt instanceof Date ? log.takenAt : new Date(log.takenAt);
-    return !isNaN(d.getTime()) && d >= oneWeekAgo;
+    return !isNaN(d.getTime()) && d >= startOfSevenDaysAgo && d < startOfToday;
   });
 
-  // Sum expected doses based on each medication's frequency
-  const expectedDoses = active.reduce((sum, m) => sum + parseDosesPerWeek(m.frequency), 0);
-  const adherenceRatio = Math.min(1, recentLogs.length / Math.max(1, expectedDoses));
+  // Expected doses for that same 7-day window (only for meds that have scheduled times and get logged)
+  const expectedDosesPerWeek = activeWithSchedule.reduce((sum, m) => sum + parseDosesPerWeek(m.frequency), 0);
+  const adherenceRatio = Math.min(1, recentLogs.length / Math.max(1, expectedDosesPerWeek));
   const score = Math.round(adherenceRatio * 100);
 
   return {
     score,
     details: {
-      activeMedCount: active.length,
+      activeMedCount: activeWithSchedule.length,
       recentLogCount: recentLogs.length,
-      expectedDoses: Math.round(expectedDoses * 10) / 10,
+      expectedDoses: Math.round(expectedDosesPerWeek * 10) / 10,
       adherenceRatio: Math.round(adherenceRatio * 100) / 100,
     },
   };

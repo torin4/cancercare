@@ -6,6 +6,17 @@ import { medicationActivityService, medicationService, journalNoteService } from
 import { getTodayLocalDate, formatDateString } from '../../utils/helpers';
 import DatePicker from '../DatePicker';
 
+const PURPOSE_OPTIONS = ['Chemotherapy', 'Targeted therapy', 'Immunotherapy', 'Hormone therapy', 'Anti-nausea', 'Pain management', 'Anti-inflammatory', 'Antibiotic', 'Stomach protection', 'Vitamin/Supplement', 'Other'];
+const PURPOSE_COLOR_MAP = {
+  'Chemotherapy': 'purple', 'Targeted therapy': 'blue', 'Immunotherapy': 'green', 'Hormone therapy': 'orange',
+  'Anti-nausea': 'teal', 'Pain management': 'blue', 'Anti-inflammatory': 'green', 'Antibiotic': 'blue',
+  'Stomach protection': 'teal', 'Vitamin/Supplement': 'green', 'Other': 'blue', 'Custom': 'blue'
+};
+
+function parsePurposes(purposeStr) {
+  return (purposeStr || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+
 export default function AddMedicationModal({ show, onClose, user, onMedicationAdded, editingMedication }) {
   const { showSuccess, showError } = useBanner();
   const [formData, setFormData] = useState({
@@ -15,7 +26,9 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
     quantity: '',
     frequency: '',
     schedule: '',
-    purpose: '',
+    purposes: [],
+    purposeDropdown: '',
+    customPurposeInput: '',
     startDate: getTodayLocalDate(),
     notes: ''
   });
@@ -111,7 +124,9 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
           quantity: quantityValue,
           frequency: editingMedication.frequency || '',
           schedule: scheduleValue,
-          purpose: editingMedication.purpose || '',
+          purposes: parsePurposes(editingMedication.purpose),
+          purposeDropdown: '',
+          customPurposeInput: '',
           startDate: editingMedication.startDate ? formatDateString(editingMedication.startDate) : getTodayLocalDate(),
           notes: editingMedication.notes || editingMedication.instructions || ''
         });
@@ -124,7 +139,9 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
           quantity: '',
           frequency: '',
           schedule: '',
-          purpose: '',
+          purposes: [],
+          purposeDropdown: '',
+          customPurposeInput: '',
           startDate: getTodayLocalDate(),
           notes: ''
         });
@@ -195,7 +212,8 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
 
   const handleSave = async () => {
     // Validation
-    if (!formData.name || !formData.dosage || !formData.unit || !formData.frequency || !formData.purpose) {
+    const purposeToSave = formData.purposes.join(', ');
+    if (!formData.name || !formData.dosage || !formData.unit || !formData.frequency || formData.purposes.length === 0) {
       showError('Please fill in all required fields');
       return;
     }
@@ -216,21 +234,6 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
       
       // Calculate next dose
       const nextDose = calculateNextDose(formData.frequency, formData.schedule, formData.startDate);
-
-      // Map purpose to color
-      const colorMap = {
-        'Chemotherapy': 'purple',
-        'Targeted therapy': 'blue',
-        'Immunotherapy': 'green',
-        'Hormone therapy': 'orange',
-        'Anti-nausea': 'teal',
-        'Pain management': 'blue',
-        'Anti-inflammatory': 'green',
-        'Antibiotic': 'blue',
-        'Stomach protection': 'teal',
-        'Vitamin/Supplement': 'green',
-        'Other': 'blue'
-      };
 
       // Build schedule from selected checkboxes
       const times = [];
@@ -253,12 +256,12 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
         quantity: formData.quantity || null,
         frequency: formData.frequency,
         schedule: scheduleValue,
-        purpose: formData.purpose,
+        purpose: purposeToSave,
         startDate: new Date(formData.startDate),
         notes: formData.notes || '',
         active: editingMedication?.active !== undefined ? editingMedication.active : true,
         nextDose: nextDose,
-        color: colorMap[formData.purpose] || 'blue'
+        color: PURPOSE_COLOR_MAP[formData.purposes[0]] || 'blue'
       };
 
       const savedId = await medicationService.saveMedication(medicationData);
@@ -274,7 +277,7 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
             frequency: medicationData.frequency,
             schedule: medicationData.schedule,
             dosage: medicationData.dosage,
-            purpose: medicationData.purpose
+            purpose: purposeToSave
           }
         });
       } catch (e) {
@@ -490,24 +493,88 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
               <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-2', DesignTokens.colors.neutral.text[700])}>
                 Purpose/Type <span className={combineClasses(DesignTokens.components.alert.text.error)}>*</span>
               </label>
-              <select 
-                value={formData.purpose}
-                onChange={(e) => setFormData({...formData, purpose: e.target.value})}
-                className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm)}
-              >
-                <option value="">Select purpose...</option>
-                <option value="Chemotherapy">Chemotherapy</option>
-                <option value="Targeted therapy">Targeted therapy</option>
-                <option value="Immunotherapy">Immunotherapy</option>
-                <option value="Hormone therapy">Hormone therapy</option>
-                <option value="Anti-nausea">Anti-nausea</option>
-                <option value="Pain management">Pain management</option>
-                <option value="Anti-inflammatory">Anti-inflammatory</option>
-                <option value="Antibiotic">Antibiotic</option>
-                <option value="Stomach protection">Stomach protection</option>
-                <option value="Vitamin/Supplement">Vitamin/Supplement</option>
-                <option value="Other">Other</option>
-              </select>
+              {formData.purposes.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {formData.purposes.map((p) => (
+                    <span
+                      key={p}
+                      className={combineClasses('inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium', 'bg-gray-100 border-gray-200 text-gray-800')}
+                    >
+                      {p}
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, purposes: formData.purposes.filter(x => x !== p) })}
+                        className="rounded hover:bg-gray-200 p-0.5"
+                        aria-label={`Remove ${p}`}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={formData.purposeDropdown}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setFormData((prev) => {
+                      if (!v || v === 'Custom') return { ...prev, purposeDropdown: v };
+                      const added = prev.purposes.includes(v) ? prev.purposes : [...prev.purposes, v];
+                      return { ...prev, purposes: added, purposeDropdown: '' };
+                    });
+                  }}
+                  className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'flex-1 min-w-0 max-w-[200px]')}
+                >
+                  <option value="">Add purpose...</option>
+                  {PURPOSE_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                  <option value="Custom">Custom</option>
+                </select>
+                {formData.purposeDropdown === 'Custom' && (
+                  <>
+                    <input
+                      type="text"
+                      value={formData.customPurposeInput}
+                      onChange={(e) => setFormData({ ...formData, customPurposeInput: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const parts = formData.customPurposeInput.split(',').map(s => s.trim()).filter(Boolean);
+                          if (parts.length) {
+                            setFormData((prev) => ({
+                              ...prev,
+                              purposes: [...new Set([...prev.purposes, ...parts])],
+                              customPurposeInput: '',
+                              purposeDropdown: ''
+                            }));
+                          }
+                        }
+                      }}
+                      placeholder="e.g. Pain relief, Other (comma for multiple)"
+                      className={combineClasses(DesignTokens.components.input.base, DesignTokens.borders.radius.sm, 'flex-1 min-w-[140px]')}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const parts = formData.customPurposeInput.split(',').map(s => s.trim()).filter(Boolean);
+                        if (parts.length) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            purposes: [...new Set([...prev.purposes, ...parts])],
+                            customPurposeInput: '',
+                            purposeDropdown: ''
+                          }));
+                        }
+                      }}
+                      className={combineClasses(DesignTokens.components.button.outline.primary, 'text-xs py-1.5 px-2')}
+                    >
+                      Add
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
             <div>
@@ -545,7 +612,7 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
             </button>
             <button
               onClick={handleSave}
-              disabled={isSaving || !formData.name?.trim() || !formData.dosage?.trim() || !formData.unit || !formData.frequency || !formData.purpose}
+              disabled={isSaving || !formData.name?.trim() || !formData.dosage?.trim() || !formData.unit || !formData.frequency || formData.purposes.length === 0}
               className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed')}
             >
               {isSaving ? (
