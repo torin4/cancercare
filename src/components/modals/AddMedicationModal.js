@@ -40,6 +40,28 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
   });
   const [isSaving, setIsSaving] = useState(false);
 
+  // Auto-select checkboxes when frequency changes
+  useEffect(() => {
+    if (!show || editingMedication) return; // Don't auto-select when editing
+
+    const freq = formData.frequency;
+    if (!freq) return;
+
+    // Auto-select checkboxes based on frequency
+    if (freq === 'Once daily') {
+      setSelectedTimes({ morning: true, afternoon: false, evening: false, night: false });
+    } else if (freq === 'Twice daily') {
+      setSelectedTimes({ morning: true, afternoon: false, evening: true, night: false });
+    } else if (freq === 'Three times daily') {
+      setSelectedTimes({ morning: true, afternoon: true, evening: true, night: false });
+    } else if (freq === 'Four times daily') {
+      setSelectedTimes({ morning: true, afternoon: true, evening: true, night: true });
+    } else {
+      // For other frequencies (weekly, monthly, as needed, etc), clear all checkboxes
+      setSelectedTimes({ morning: false, afternoon: false, evening: false, night: false });
+    }
+  }, [formData.frequency, show, editingMedication]);
+
   // Reset form when modal opens or editing medication changes
   useEffect(() => {
     if (show) {
@@ -487,6 +509,25 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
                   <span className={combineClasses(DesignTokens.typography.body.sm, DesignTokens.colors.neutral.text[700])}>Night</span>
                 </label>
               </div>
+              {(() => {
+                const checkedCount = Object.values(selectedTimes).filter(Boolean).length;
+                const freq = formData.frequency;
+                let expectedCount = 0;
+
+                if (freq === 'Once daily') expectedCount = 1;
+                else if (freq === 'Twice daily') expectedCount = 2;
+                else if (freq === 'Three times daily') expectedCount = 3;
+                else if (freq === 'Four times daily') expectedCount = 4;
+
+                if (expectedCount > 0 && checkedCount > 0 && checkedCount !== expectedCount) {
+                  return (
+                    <p className={combineClasses(DesignTokens.typography.body.xs, 'mt-2', DesignTokens.components.alert.text.warning)}>
+                      Note: {freq} selected but {checkedCount} time{checkedCount !== 1 ? 's' : ''} checked. Consider selecting {expectedCount} time{expectedCount !== 1 ? 's' : ''}.
+                    </p>
+                  );
+                }
+                return null;
+              })()}
             </div>
 
             <div>
