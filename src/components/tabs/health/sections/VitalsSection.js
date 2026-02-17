@@ -34,6 +34,8 @@ import DeletionConfirmationModal from '../../../modals/DeletionConfirmationModal
 import { getTodayLocalDate, formatDateString, getCurrentDateTimeLocal } from '../../../../utils/helpers';
 import { calculateYAxisBounds, calculateYAxisBoundsForBloodPressure, SCROLL_THRESHOLD } from '../utils/chartUtils';
 import HealthChart from '../components/HealthChart';
+import { detectCondition } from '../../../../utils/conditionDetection';
+import ConditionBadge from '../components/ConditionBadge';
 
 function VitalsSection({ 
   onTabChange,
@@ -750,6 +752,9 @@ function VitalsSection({
       </p>
       );
       })()}
+      <div className="mt-1">
+        <ConditionBadge condition={detectCondition('vital', key, vital.current, normalRange)} />
+      </div>
       {normalRange && (
       <p className="text-xs text-medical-neutral-500 mt-1">Normal: {normalRange}</p>
       )}

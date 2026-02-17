@@ -37,6 +37,8 @@ import EditLabModal from '../../../modals/EditLabModal';
 import DeletionConfirmationModal from '../../../modals/DeletionConfirmationModal';
 import LabTooltipModal from '../../../modals/LabTooltipModal';
 import { isLabEmpty, filterLabsBySearch } from '../utils/labFilters';
+import { detectCondition, detectCategoryConditions } from '../../../../utils/conditionDetection';
+import ConditionBadge from '../components/ConditionBadge';
 import { calculateYAxisBounds, SCROLL_THRESHOLD } from '../utils/chartUtils';
 import HealthChart from '../components/HealthChart';
 import { getTodayLocalDate, formatDateString } from '../../../../utils/helpers';
@@ -898,6 +900,9 @@ function LabsSection({
                           <p className="text-xs text-medical-neutral-500">{lab.unit}</p>
                         </div>
                         <p className={`text-xs ${colors.text} font-medium mt-1`}>{labStatus.label}</p>
+                        <div className="mt-1">
+                          <ConditionBadge condition={detectCondition('lab', canonicalKey, lab.current, effectiveRange)} />
+                        </div>
                         {lab.normalRange && (
                           <p className="text-xs text-medical-neutral-500 mt-1">Normal: {lab.normalRange}</p>
                         )}
@@ -1762,6 +1767,15 @@ function LabsSection({
                             </div>
                             <p className="text-xs sm:text-sm text-medical-neutral-600 mt-1">{description}</p>
                             <p className="text-xs text-medical-neutral-500 mt-1">{labsInCategory.length} value{labsInCategory.length !== 1 ? 's' : ''} tracked</p>
+                            {(() => {
+                              const conditions = detectCategoryConditions(labsInCategory);
+                              if (conditions.length === 0) return null;
+                              return (
+                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                  {conditions.map(c => <ConditionBadge key={c.name} condition={c} />)}
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                         <div className="ml-4 flex-shrink-0">

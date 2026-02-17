@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Activity, ChevronRight, FlaskConical, HeartPulse, Thermometer, TrendingDown, Pill, Info, Clock } from 'lucide-react';
+import { Activity, ChevronRight, FlaskConical, HeartPulse, Thermometer, TrendingDown, Pill, Info, Clock, Gauge } from 'lucide-react';
 import { DesignTokens, combineClasses } from '../../../design/designTokens';
 import { calculateWellnessScore } from '../../../utils/wellnessScore';
 
@@ -178,64 +178,70 @@ export default function WellnessScoreCard({
         'relative overflow-hidden'
       )}
     >
-      {/* Header row */}
-      <div className="flex items-center gap-2 mb-3">
-        <div className="p-1.5 rounded-lg bg-gray-100">
-          <Activity className="w-4 h-4 text-gray-700" />
+      {/* Header row — icon style matches other dashboard cards, unique wellness (amber) accent */}
+      <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'mb-3')}>
+        <div className={combineClasses(DesignTokens.moduleAccent.wellness.bg, DesignTokens.spacing.iconContainer.mobile, DesignTokens.borders.radius.sm)}>
+          <Gauge className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.moduleAccent.wellness.text)} />
         </div>
-        <h3 className={combineClasses('text-sm font-semibold', 'text-gray-800')}>
+        <h3 className={combineClasses('text-sm font-semibold', DesignTokens.colors.app.text[900])}>
           Treatment Wellness Score
         </h3>
       </div>
 
       {hasScore ? (
         <>
-          {/* Score + label row */}
-          <div className="flex items-center gap-4">
-            <ScoreArc score={overall.score} color={overall.color} size={110} />
-            <div className="flex-1 min-w-0">
-              <span className={combineClasses('inline-block px-2.5 py-1 rounded-full text-xs font-semibold', colors.bg, colors.text)}>
-                {overall.label}
-              </span>
-              <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-                Based on {Math.round(dataCompleteness * 5)} of 5 health pillars.
-                {dataCompleteness < 1 && ' Add more data to improve accuracy.'}
+          {/* Desktop: score left (centered vertically), breakdown right. Mobile: stacked with expand toggle. */}
+          <div className="flex flex-col sm:flex-row sm:items-stretch sm:gap-6">
+            {/* Left: score arc + label — vertically centered on desktop to avoid white space */}
+            <div className="flex items-center gap-4 sm:flex-shrink-0 sm:items-center sm:pr-4 sm:border-r sm:border-gray-100 sm:self-stretch">
+              <ScoreArc score={overall.score} color={overall.color} size={110} />
+              <div className="flex-1 min-w-0 sm:flex-initial sm:min-w-0">
+                <span className={combineClasses('inline-block px-2.5 py-1 rounded-full text-xs font-semibold', colors.bg, colors.text)}>
+                  {overall.label}
+                </span>
+                <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                  Based on {Math.round(dataCompleteness * 5)} of 5 health pillars.
+                  {dataCompleteness < 1 && ' Add more data to improve accuracy.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Right (desktop): breakdown always visible. Mobile: below toggle when expanded. */}
+            <div className={combineClasses(expanded ? 'block' : 'hidden sm:block', 'sm:flex-1 sm:min-w-0 mt-3 sm:mt-0 sm:pt-0 sm:border-t-0 border-t border-gray-100 pt-3')}>
+              <p className={combineClasses('text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-2', 'sm:mb-2')}>
+                Breakdown
               </p>
+              <div className="space-y-2">
+                {Object.entries(pillars).map(([key, pillar]) => (
+                  <PillarBar
+                    key={key}
+                    pillarKey={key}
+                    pillar={pillar}
+                    isTooltipOpen={openTooltip === key}
+                    onToggleTooltip={() => setOpenTooltip((prev) => (prev === key ? null : key))}
+                  />
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Expand toggle */}
+          {/* Expand toggle: mobile only */}
           <button
             onClick={() => setExpanded((v) => !v)}
             className={combineClasses(
-              'w-full flex items-center justify-between mt-3 pt-3 border-t border-gray-100',
+              'w-full flex items-center justify-between mt-3 pt-3 border-t border-gray-100 sm:hidden',
               'text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors'
             )}
           >
             <span>{expanded ? 'Hide breakdown' : 'View breakdown'}</span>
             <ChevronRight className={combineClasses('w-3.5 h-3.5 transition-transform', expanded && 'rotate-90')} />
           </button>
-
-          {/* Pillar breakdown */}
-          {expanded && (
-            <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
-              {Object.entries(pillars).map(([key, pillar]) => (
-                <PillarBar
-                  key={key}
-                  pillarKey={key}
-                  pillar={pillar}
-                  isTooltipOpen={openTooltip === key}
-                  onToggleTooltip={() => setOpenTooltip((prev) => (prev === key ? null : key))}
-                />
-              ))}
-            </div>
-          )}
         </>
       ) : (
         /* Insufficient data state */
         <div className="text-center py-4">
-          <div className="w-16 h-16 mx-auto rounded-full bg-gray-100 flex items-center justify-center mb-3">
-            <Activity className="w-7 h-7 text-gray-400" />
+          <div className={combineClasses('w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-3', DesignTokens.moduleAccent.wellness.bg)}>
+            <Gauge className={combineClasses('w-7 h-7', DesignTokens.moduleAccent.wellness.text)} />
           </div>
           <p className="text-sm font-medium text-gray-600">Insufficient Data</p>
           <p className="text-xs text-gray-400 mt-1">

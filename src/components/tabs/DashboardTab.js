@@ -13,7 +13,9 @@ import { formatLabel } from '../../utils/formatters';
 import { documentService, symptomService, medicationService, medicationLogService } from '../../firebase/services';
 import WellnessScoreCard from './dashboard/WellnessScoreCard';
 import { getNotebookEntries } from '../../services/notebookService';
-import { getLabDisplayName, labValueDescriptions, normalizeVitalName, getVitalDisplayName, vitalDescriptions, labKeyMap } from '../../utils/normalizationUtils';
+import { getLabDisplayName, labValueDescriptions, normalizeVitalName, getVitalDisplayName, vitalDescriptions, labKeyMap, normalizeLabName, labDefaultNormalRanges } from '../../utils/normalizationUtils';
+import { detectCondition } from '../../utils/conditionDetection';
+import ConditionBadge from './health/components/ConditionBadge';
 import { getLabStatus, getVitalStatus } from '../../utils/healthUtils';
 import { processDocument, generateChatSummary } from '../../services/documentProcessor';
 import { uploadDocument } from '../../firebase/storage';
@@ -732,6 +734,15 @@ setIsUploading(false);
                     <p className={combineClasses(DesignTokens.typography.body.sm, 'font-bold', DesignTokens.colors.app.text[900])}>
                       {latestValue}{data.unit ? ` ${data.unit}` : ''}
                     </p>
+                    <div className="mt-1">
+                      {(() => {
+                        const condKey = itemType === 'lab'
+                          ? (normalizeLabName(data.name || item.key) || item.key)
+                          : (normalizeVitalName(item.key) || item.key);
+                        const range = data.normalRange || (itemType === 'lab' ? labDefaultNormalRanges[condKey] : null);
+                        return <ConditionBadge condition={detectCondition(itemType, condKey, latestValue, range)} />;
+                      })()}
+                    </div>
                       </div>
                 );
               };

@@ -275,6 +275,11 @@ export const DesignTokens = {
       text: 'text-medical-secondary-600',
       border: 'border-medical-secondary-600',
     },
+    wellness: {
+      bg: 'bg-amber-50',
+      text: 'text-amber-600',
+      border: 'border-amber-600',
+    },
   },
 
   // ============================================

@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "HOST=127.0.0.1 react-app-rewired start",
+    "dev": "PORT=3001 HOST=127.0.0.1 react-app-rewired start",
     "build": "react-app-rewired build",
-    "start": "HOST=127.0.0.1 react-app-rewired start",
+    "start": "PORT=3001 HOST=127.0.0.1 react-app-rewired start",
     "start:proxy": "HOST=127.0.0.1 node server/proxy.js",
     "start:all": "concurrently \"npm run start:proxy\" \"npm start\" --names \"PROXY,REACT\" --prefix-colors \"cyan,green\""
   },
