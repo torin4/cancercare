@@ -490,10 +490,11 @@ function LabsSection({
             )}>
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
                 <h2 className={combineClasses('text-base sm:text-lg font-semibold', DesignTokens.colors.neutral.text[900])}>Lab Trends</h2>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                 <select
                   value={selectedLab}
                   onChange={(e) => setSelectedLab(e.target.value)}
-                  className={combineClasses(DesignTokens.components.select.base, 'min-h-[44px] w-full sm:w-auto touch-manipulation focus:ring-green-500', DesignTokens.colors.neutral.border[300])}
+                  className={combineClasses(DesignTokens.components.select.base, 'min-h-[44px] w-full sm:w-auto sm:min-w-[240px] touch-manipulation focus:ring-green-500', DesignTokens.colors.neutral.border[300])}
                 >
                   {(() => {
                     // Organize labs by category for dropdown
@@ -600,6 +601,19 @@ function LabsSection({
                       ));
                   })()}
                 </select>
+                <button
+                  onClick={() => toggleFavorite(selectedLab, 'labs')}
+                  className={combineClasses("transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center", DesignTokens.colors.accent.text[500], DesignTokens.colors.accent.text[600])}
+                  title={favoriteMetrics.labs?.includes(selectedLab) ? "Unpin from key metrics" : "Pin to key metrics"}
+                >
+                  <Star className={combineClasses(
+                    DesignTokens.icons.button.size.full,
+                    favoriteMetrics.labs?.includes(selectedLab)
+                      ? DesignTokens.components.favorite.filled
+                      : DesignTokens.components.favorite.unfilled
+                  )} />
+                </button>
+                </div>
               </div>
 
               {currentLab && currentLab.isNumeric ? (
@@ -609,29 +623,7 @@ function LabsSection({
                     const detailEffectiveRange = currentLab.normalRange || (detailCanonicalKey && labDefaultNormalRanges[detailCanonicalKey]);
                     return (
                   <>
-                  <div className="mb-4">
-                    <div className="flex items-baseline gap-2 mb-1">
-                      <span className={combineClasses('text-2xl sm:text-3xl font-bold', DesignTokens.colors.neutral.text[900])}>{currentLab.current}</span>
-                      <span className={combineClasses('text-sm', DesignTokens.colors.neutral.text[600])}>{currentLab.unit}</span>
-                      {(() => {
-                        const labStatus = getLabStatus(currentLab.current, detailEffectiveRange);
-                        const statusColors = {
-                          green: combineClasses(DesignTokens.components.status.normal.bg, DesignTokens.components.status.normal.text),
-                          yellow: combineClasses(DesignTokens.components.status.low.bg, DesignTokens.components.alert.text.warning),
-                          red: combineClasses(DesignTokens.components.status.high.bg, DesignTokens.components.alert.text.error),
-                          gray: combineClasses(DesignTokens.colors.neutral[100], DesignTokens.colors.neutral.text[700])
-                        };
-                        return (
-                          <span className={`ml-auto text-xs px-2 py-1 rounded-full ${statusColors[labStatus.color] || statusColors.gray}`}>
-                            {labStatus.label}
-                          </span>
-                        );
-                      })()}
-                    </div>
-                    <p className={combineClasses('text-xs sm:text-sm', DesignTokens.colors.neutral.text[600])}>Normal range: {detailEffectiveRange || '--'} {currentLab.unit}</p>
-                  </div>
-
-                  {/* Chart time range filter */}
+                  {/* Chart time range filter - above metric value, same as Vitals */}
                   {currentLab?.data?.length > 0 && (
                     <div className="flex items-center gap-2 mb-3 flex-wrap">
                       <span className={combineClasses("text-xs font-medium", DesignTokens.colors.neutral.text[600])}>Show:</span>
@@ -659,6 +651,28 @@ function LabsSection({
                       )}
                     </div>
                   )}
+
+                  <div className="mb-4">
+                    <div className="flex items-baseline gap-2 mb-1">
+                      <span className={combineClasses('text-2xl sm:text-3xl font-bold', DesignTokens.colors.neutral.text[900])}>{currentLab.current}</span>
+                      <span className={combineClasses('text-sm', DesignTokens.colors.neutral.text[600])}>{currentLab.unit}</span>
+                      {(() => {
+                        const labStatus = getLabStatus(currentLab.current, detailEffectiveRange);
+                        const statusColors = {
+                          green: combineClasses(DesignTokens.components.status.normal.bg, DesignTokens.components.status.normal.text),
+                          yellow: combineClasses(DesignTokens.components.status.low.bg, DesignTokens.components.alert.text.warning),
+                          red: combineClasses(DesignTokens.components.status.high.bg, DesignTokens.components.alert.text.error),
+                          gray: combineClasses(DesignTokens.colors.neutral[100], DesignTokens.colors.neutral.text[700])
+                        };
+                        return (
+                          <span className={`ml-auto text-xs px-2 py-1 rounded-full ${statusColors[labStatus.color] || statusColors.gray}`}>
+                            {labStatus.label}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                    <p className={combineClasses('text-xs sm:text-sm', DesignTokens.colors.neutral.text[600])}>Normal range: {detailEffectiveRange || '--'} {currentLab.unit}</p>
+                  </div>
 
                   {/* Chart - Recharts HealthChart */}
                   {labChartData.bounds && labChartData.data.length > 0 ? (
@@ -1331,8 +1345,8 @@ function LabsSection({
 
             return (
               <div className="space-y-4 mt-6">
-                {/* Search Bar and 3-dot Menu */}
-                <div className="mb-4 space-y-3">
+                {/* Search Bar and 3-dot Menu - in its own card */}
+                <div className={combineClasses('bg-white rounded-xl shadow-sm border border-medical-neutral-200 p-3 sm:p-4')}>
                   <div className="flex gap-2 items-center">
                     <div className="relative flex-1">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -1631,7 +1645,8 @@ function LabsSection({
                   </div>
                 )}
 
-                {/* Total metrics count */}
+                {/* Metrics count + Key Labs - in its own card */}
+                <div className={combineClasses('bg-white rounded-xl shadow-sm border border-medical-neutral-200 p-3 sm:p-5')}>
                 {totalLabCount > 0 && !metricSelectionMode && (
                   <p className="text-sm text-medical-neutral-600 mb-2 text-left">
                     {labSearchQuery
@@ -1654,7 +1669,7 @@ function LabsSection({
                         .slice(0, 6);
                   if (keyLabKeys.length === 0) return null;
                   return (
-                    <div className="mb-4">
+                    <div className="mb-0">
                       <div className="flex items-center gap-2 mb-2">
                         <Star className={combineClasses(
                           DesignTokens.icons.button.size.full,
@@ -1705,6 +1720,12 @@ function LabsSection({
                     </div>
                   );
                 })()}
+                </div>
+
+                {/* All Labs (Latest) header */}
+                {totalLabCount > 0 && (
+                  <h3 className={combineClasses("text-base sm:text-lg font-semibold", DesignTokens.colors.neutral.text[900])}>All Labs (Latest)</h3>
+                )}
 
                 {/* Category Cards */}
                 {categoryOrder.map(category => {

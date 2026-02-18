@@ -62,5 +62,14 @@ export const patientService = {
       hiddenLabs,
       updatedAt: serverTimestamp()
     });
+  },
+
+  // Update hidden vitals
+  async updateHiddenVitals(patientId, hiddenVitals) {
+    const docRef = doc(db, COLLECTIONS.PATIENTS, patientId);
+    await updateDoc(docRef, {
+      hiddenVitals,
+      updatedAt: serverTimestamp()
+    });
   }
 };

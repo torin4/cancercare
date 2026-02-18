@@ -15,6 +15,7 @@ import {
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Eye, EyeOff, Star,
   MessageSquare
 } from 'lucide-react';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { DesignTokens, combineClasses } from '../../../../design/designTokens';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { usePatientContext } from '../../../../contexts/PatientContext';
@@ -86,8 +87,31 @@ function VitalsSection({
   const [editingVitalKey, setEditingVitalKey] = useState(null);
   const [favoriteMetrics, setFavoriteMetrics] = useState({ labs: [], vitals: [] });
   const [chartTimeRange, setChartTimeRange] = useState('90d'); // '7d' | '30d' | '90d' | 'all' - default 3 months
+  const [vitalSearchQuery, setVitalSearchQuery] = useState('');
+  const debouncedVitalSearch = useDebouncedValue(vitalSearchQuery, 300);
+  const [openVitalsOptionsMenu, setOpenVitalsOptionsMenu] = useState(false);
+  const [metricSelectionMode, setMetricSelectionMode] = useState(false);
+  const [selectedVitalMetrics, setSelectedVitalMetrics] = useState(new Set());
+  const [hiddenVitals, setHiddenVitals] = useState([]);
+  const [showHiddenVitals, setShowHiddenVitals] = useState(false);
 
   const allVitalsData = vitalsData;
+
+  // Filter vitals by search (for list and key strip)
+  const filteredVitalKeys = useMemo(() => {
+    const keys = Object.keys(allVitalsData);
+    if (!debouncedVitalSearch.trim()) return keys;
+    const q = debouncedVitalSearch.trim().toLowerCase();
+    return keys.filter(key => {
+      const displayName = getVitalDisplayName(allVitalsData[key]?.name || key);
+      return displayName.toLowerCase().includes(q);
+    });
+  }, [allVitalsData, debouncedVitalSearch]);
+
+  // Visible keys = pass search, and either not hidden or showHiddenVitals is true
+  const visibleVitalKeys = useMemo(() => {
+    return filteredVitalKeys.filter(key => showHiddenVitals || !hiddenVitals.includes(key));
+  }, [filteredVitalKeys, hiddenVitals, showHiddenVitals]);
 
   // Filter vital data by selected time range
   const filterDataByTimeRange = (data) => {
@@ -101,12 +125,48 @@ function VitalsSection({
     });
   };
 
-  // Load favorites from patient profile
+  // Load favorites and hidden vitals from patient profile
   useEffect(() => {
     if (patientProfile) {
       setFavoriteMetrics(patientProfile.favoriteMetrics || { labs: [], vitals: [] });
+      setHiddenVitals(patientProfile.hiddenVitals || []);
     }
   }, [patientProfile]);
+
+  // Hide selected vitals
+  const hideSelectedVitals = async () => {
+    if (!user?.uid) return;
+    if (selectedVitalMetrics.size === 0) {
+      showError('Please select at least one metric to hide');
+      return;
+    }
+    const selectedKeys = Array.from(selectedVitalMetrics);
+    const newHidden = [...new Set([...hiddenVitals, ...selectedKeys])];
+    setHiddenVitals(newHidden);
+    try {
+      await patientService.updateHiddenVitals(user.uid, newHidden);
+      setMetricSelectionMode(false);
+      setSelectedVitalMetrics(new Set());
+      showSuccess(`Hidden ${selectedKeys.length} metric${selectedKeys.length !== 1 ? 's' : ''}`);
+    } catch (error) {
+      showError('Failed to hide metrics. Please try again.');
+      setHiddenVitals(hiddenVitals);
+    }
+  };
+
+  // Unhide vitals
+  const unhideVitals = async (vitalKeys) => {
+    if (!user?.uid) return;
+    const newHidden = hiddenVitals.filter(key => !vitalKeys.includes(key));
+    setHiddenVitals(newHidden);
+    try {
+      await patientService.updateHiddenVitals(user.uid, newHidden);
+      showSuccess(`Unhidden ${vitalKeys.length} metric${vitalKeys.length !== 1 ? 's' : ''}`);
+    } catch (error) {
+      showError('Failed to unhide metrics. Please try again.');
+      setHiddenVitals(hiddenVitals);
+    }
+  };
 
 
   // Toggle favorite metric
@@ -250,7 +310,7 @@ function VitalsSection({
       <select
       value={selectedVital}
       onChange={(e) => setSelectedVital(e.target.value)}
-      className={combineClasses("text-sm border rounded-lg px-2 sm:px-3 py-2 sm:py-1.5 focus:ring-2 focus:ring-green-500 min-h-[44px] w-full sm:w-auto touch-manipulation", DesignTokens.colors.neutral.border[300])}
+      className={combineClasses(DesignTokens.components.select.base, "min-h-[44px] w-full sm:w-auto sm:min-w-[240px] touch-manipulation focus:ring-green-500", DesignTokens.colors.neutral.border[300])}
       >
       {(() => {
       // Organize vitals by category
@@ -642,35 +702,136 @@ function VitalsSection({
         isBloodPressure={selectedVital === 'bp' || selectedVital === 'bloodpressure' || selectedVital === 'blood_pressure'}
         chartId={selectedVital}
       />
-
-      {/* Add Vital Metric Button */}
-      <div className="flex justify-end mb-2">
-      <button
-      onClick={() => setShowAddVital(true)}
-      className={combineClasses("flex items-center gap-2 transition-colors min-h-[44px] touch-manipulation active:opacity-70 px-2 py-1", DesignTokens.components.status.normal.text, 'hover:text-green-700')}
-      >
-      <Plus className="w-4 h-4" />
-      <span className="text-sm font-medium">Add Vital Metric</span>
-      </button>
+      </>
+      );
+      })()}
       </div>
 
-      {/* Total metrics count - aligned left above first card */}
+      {/* Below chart: search, key strip, list (same break-up as Labs - each in its own card) */}
+      <div className="space-y-4">
+      {/* Search vitals + three-dot menu - in its own card */}
+      <div className={combineClasses('bg-white rounded-xl shadow-sm border border-medical-neutral-200 p-3 sm:p-4')}>
+        <div className="flex gap-2 items-center">
+          <div className="relative flex-1">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className={combineClasses("h-5 w-5", DesignTokens.colors.neutral.text[300])} />
+            </div>
+            <input
+              type="text"
+              value={vitalSearchQuery}
+              onChange={(e) => setVitalSearchQuery(e.target.value)}
+              placeholder="Search vitals by name..."
+              className={combineClasses(DesignTokens.components.input.base, "block w-full pl-10 pr-3 py-2.5 rounded-lg leading-5 text-sm", DesignTokens.colors.neutral.text[500], 'focus:placeholder-gray-400')}
+            />
+            {vitalSearchQuery && (
+              <button
+                onClick={() => setVitalSearchQuery('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+              >
+                <X className={combineClasses("h-5 w-5 hover:text-medical-neutral-600", DesignTokens.colors.neutral.text[300])} />
+              </button>
+            )}
+          </div>
+          <div className="relative">
+            <button
+              onClick={() => setOpenVitalsOptionsMenu(!openVitalsOptionsMenu)}
+              className={combineClasses("p-2 rounded-lg transition-colors hover:text-medical-neutral-700 hover:bg-medical-neutral-100", DesignTokens.colors.neutral.text[500])}
+              aria-label="Vital options"
+            >
+              <MoreVertical className="w-5 h-5" />
+            </button>
+            {openVitalsOptionsMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setOpenVitalsOptionsMenu(false)} />
+                <div className={combineClasses("absolute right-0 top-10 z-[100] bg-white rounded-lg shadow-lg border py-2 min-w-[240px]", DesignTokens.colors.neutral.border[200])}>
+                  <button
+                    onClick={() => {
+                      setOpenVitalsOptionsMenu(false);
+                      setShowAddVital(true);
+                    }}
+                    className={combineClasses("w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 transition-colors min-h-[44px] touch-manipulation active:opacity-70 hover:bg-medical-neutral-50", DesignTokens.colors.neutral.text[700])}
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Vital Metric
+                  </button>
+                  <div className={combineClasses("border-t my-1", DesignTokens.colors.neutral.border[200])} />
+                  <button
+                    onClick={() => {
+                      setOpenVitalsOptionsMenu(false);
+                      setMetricSelectionMode(true);
+                      setSelectedVitalMetrics(new Set());
+                    }}
+                    className={combineClasses("w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 transition-colors min-h-[44px] touch-manipulation active:opacity-70 hover:bg-medical-neutral-50", DesignTokens.colors.neutral.text[700])}
+                  >
+                    <Check className="w-4 h-4" />
+                    Select metrics to hide/delete
+                  </button>
+                  {hiddenVitals.length > 0 && (
+                    <>
+                      <div className={combineClasses("border-t my-1", DesignTokens.colors.neutral.border[200])} />
+                      <label className={combineClasses("flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors hover:bg-medical-neutral-50")}>
+                        <input
+                          type="checkbox"
+                          checked={showHiddenVitals}
+                          onChange={(e) => {
+                            setShowHiddenVitals(e.target.checked);
+                            setOpenVitalsOptionsMenu(false);
+                          }}
+                          className={combineClasses("w-4 h-4 rounded focus:ring-anchor-900 focus:ring-2 cursor-pointer", DesignTokens.colors.app.text[600], DesignTokens.colors.neutral.border[300])}
+                        />
+                        <div className="flex items-center gap-2 flex-1">
+                          {showHiddenVitals ? (
+                            <Eye className={combineClasses("w-4 h-4", DesignTokens.colors.neutral.text[600])} />
+                          ) : (
+                            <EyeOff className={combineClasses("w-4 h-4", DesignTokens.colors.neutral.text[300])} />
+                          )}
+                          <span className={combineClasses("text-sm", DesignTokens.colors.neutral.text[700])}>
+                            Show hidden metrics ({hiddenVitals.length})
+                          </span>
+                        </div>
+                      </label>
+                      {showHiddenVitals && (
+                        <button
+                          onClick={async () => {
+                            setOpenVitalsOptionsMenu(false);
+                            if (hiddenVitals.length === 0) return;
+                            await unhideVitals(hiddenVitals);
+                          }}
+                          className={combineClasses("w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 transition-colors min-h-[44px] touch-manipulation active:opacity-70 hover:bg-medical-neutral-50", DesignTokens.colors.neutral.text[700])}
+                        >
+                          <Eye className="w-4 h-4" />
+                          Unhide all ({hiddenVitals.length})
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Metrics count + Key Vitals - in its own card */}
+      <div className={combineClasses('bg-white rounded-xl shadow-sm border border-medical-neutral-200 p-3 sm:p-5')}>
       {Object.keys(allVitalsData).length > 0 && (
       <p className="text-sm text-medical-neutral-600 mb-2 text-left">
-      {Object.keys(allVitalsData).length} metric{Object.keys(allVitalsData).length !== 1 ? 's' : ''} tracked
+      {vitalSearchQuery.trim()
+        ? `${visibleVitalKeys.length} metric${visibleVitalKeys.length !== 1 ? 's' : ''} found`
+        : `${visibleVitalKeys.length} metric${visibleVitalKeys.length !== 1 ? 's' : ''} tracked`}
       </p>
       )}
 
       {/* Key metrics - small cards (favorites or first vitals with data), like Labs tab */}
-      {Object.keys(allVitalsData).length > 0 && (() => {
+      {visibleVitalKeys.length > 0 && (() => {
         const keyVitalKeys = favoriteMetrics.vitals?.length > 0
-          ? favoriteMetrics.vitals.filter(key => allVitalsData[key] && (allVitalsData[key].data?.length > 0 || allVitalsData[key].current))
-          : Object.keys(allVitalsData)
+          ? favoriteMetrics.vitals.filter(key => allVitalsData[key] && (allVitalsData[key].data?.length > 0 || allVitalsData[key].current) && visibleVitalKeys.includes(key))
+          : visibleVitalKeys
               .filter(key => (allVitalsData[key].data?.length > 0 || allVitalsData[key].current))
               .slice(0, 6);
         if (keyVitalKeys.length === 0) return null;
         return (
-          <div className="mb-4">
+          <div className="mb-0">
             <div className="flex items-center gap-2 mb-2">
               <Star className={combineClasses(
                 DesignTokens.icons.button.size.full,
@@ -730,14 +891,88 @@ function VitalsSection({
           </div>
         );
       })()}
+      </div>
 
-      {/* Quick Vital Stats */}
-      <div className={combineClasses(
-      DesignTokens.components.card.nestedWithShadow
-      )}>
-      <h3 className={combineClasses("font-semibold mb-3", DesignTokens.colors.neutral.text[900])}>All Vitals (Latest)</h3>
+      {/* Selection mode banner */}
+      {metricSelectionMode && (
+        <div className={combineClasses("border rounded-lg p-4 mb-4", DesignTokens.components.alert.info.bg, DesignTokens.components.alert.info.border)}>
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className={combineClasses("text-sm font-semibold", DesignTokens.colors.neutral.text[900])}>
+                Select metrics ({selectedVitalMetrics.size} selected)
+              </h4>
+              <p className={combineClasses("text-xs mt-1", DesignTokens.colors.neutral.text[600])}>Click on metric cards to select them</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setMetricSelectionMode(false);
+                  setSelectedVitalMetrics(new Set());
+                }}
+                className={combineClasses("px-3 py-1.5 text-sm bg-white border rounded hover:bg-medical-neutral-50", DesignTokens.colors.neutral.text[700], DesignTokens.colors.neutral.border[300])}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={hideSelectedVitals}
+                disabled={selectedVitalMetrics.size === 0}
+                className={combineClasses("px-3 py-1.5 text-sm bg-white border rounded hover:bg-medical-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed", DesignTokens.colors.neutral.text[700], DesignTokens.colors.neutral.border[300])}
+              >
+                <EyeOff className="w-4 h-4 inline mr-1" />
+                Hide ({selectedVitalMetrics.size})
+              </button>
+              <button
+                onClick={() => {
+                  if (selectedVitalMetrics.size === 0) {
+                    showError('Please select at least one metric to delete');
+                    return;
+                  }
+                  const selectedKeys = Array.from(selectedVitalMetrics);
+                  const selectedNames = selectedKeys.map(k => getVitalDisplayName(allVitalsData[k]?.name || k));
+                  setDeleteConfirm({
+                    show: true,
+                    title: `Delete ${selectedVitalMetrics.size} Selected Metric${selectedVitalMetrics.size !== 1 ? 's' : ''}?`,
+                    message: `This will permanently delete: ${selectedNames.slice(0, 3).join(', ')}${selectedVitalMetrics.size > 3 ? ` and ${selectedVitalMetrics.size - 3} more` : ''}.`,
+                    itemName: `${selectedVitalMetrics.size} metric${selectedVitalMetrics.size !== 1 ? 's' : ''}`,
+                    confirmText: 'Yes, Delete',
+                    onConfirm: async () => {
+                      try {
+                        for (const vitalType of selectedKeys) {
+                          await vitalService.deleteAllVitalsByType(user.uid, vitalType);
+                        }
+                        await reloadHealthData();
+                        setMetricSelectionMode(false);
+                        setSelectedVitalMetrics(new Set());
+                        showSuccess(`Deleted ${selectedKeys.length} metric${selectedKeys.length !== 1 ? 's' : ''}`);
+                      } catch (error) {
+                        showError('Failed to delete selected metrics');
+                      }
+                      setDeleteConfirm(prev => ({ ...prev, show: false }));
+                    }
+                  });
+                }}
+                disabled={selectedVitalMetrics.size === 0}
+                className={combineClasses("px-3 py-1.5 text-sm text-white rounded disabled:opacity-50 disabled:cursor-not-allowed", 'bg-red-600', 'hover:bg-red-700')}
+              >
+                Delete ({selectedVitalMetrics.size})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* All Vitals (Latest) - no wrapper background; title + grid only, like Labs category section */}
+      <div>
+      <h3 className={combineClasses("text-base sm:text-lg font-semibold mb-3", DesignTokens.colors.neutral.text[900])}>All Vitals (Latest)</h3>
+      {vitalSearchQuery.trim() && visibleVitalKeys.length === 0 ? (
+        <p className={combineClasses("text-sm mb-2 text-left", DesignTokens.colors.neutral.text[500])}>
+          No vitals found matching &quot;{vitalSearchQuery}&quot;
+        </p>
+      ) : null}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-      {Object.entries(allVitalsData).map(([key, vital]) => {
+      {visibleVitalKeys.map((key) => {
+      const vital = allVitalsData[key];
+      const isHidden = hiddenVitals.includes(key);
       const displayName = getVitalDisplayName(vital.name || key);
       // Get normal range for display
       const normalRange = vital.normalRange || (() => {
@@ -782,17 +1017,47 @@ function VitalsSection({
       }
       })();
 
+      const isSelected = selectedVitalMetrics.has(key);
       return (
       <div
       key={key}
       className={combineClasses(
       'relative cursor-pointer',
       DesignTokens.transitions.all,
-      combineClasses(DesignTokens.components.card.nestedWithShadow, 'hover:border-medical-neutral-300', DesignTokens.shadows.hover)
+      metricSelectionMode && isSelected && !isHidden && 'ring-2 ring-anchor-900',
+      combineClasses(DesignTokens.components.card.nestedWithShadow, 'hover:border-medical-neutral-300', DesignTokens.shadows.hover),
+      metricSelectionMode && isHidden && 'opacity-50 border-2 border-dashed border-medical-neutral-300'
       )}
-      onClick={() => setSelectedVital(key)}
+      onClick={() => {
+        if (metricSelectionMode) {
+          if (isHidden) {
+            unhideVitals([key]);
+            return;
+          }
+          setSelectedVitalMetrics(prev => {
+            const next = new Set(prev);
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
+            return next;
+          });
+        } else {
+          setSelectedVital(key);
+        }
+      }}
       >
-      <div className="flex items-start justify-between mb-2">
+      {metricSelectionMode && !isHidden && (
+        <div className="absolute top-3 left-3">
+          <div className={combineClasses("w-5 h-5 rounded border-2 flex items-center justify-center", isSelected ? 'bg-anchor-900 border-anchor-900' : DesignTokens.colors.neutral.border[300])}>
+            {isSelected && <Check className="w-3 h-3 text-white" />}
+          </div>
+        </div>
+      )}
+      {metricSelectionMode && isHidden && (
+        <div className="absolute top-3 left-3">
+          <EyeOff className={combineClasses("w-5 h-5", DesignTokens.colors.neutral.text[500])} />
+        </div>
+      )}
+      <div className={combineClasses("flex items-start justify-between mb-2", metricSelectionMode ? 'ml-8' : '')}>
       <div className="flex-1 min-w-0">
       <div className="flex items-center gap-2 mb-1">
       <p className="text-sm font-semibold text-medical-neutral-900">
@@ -1007,9 +1272,6 @@ function VitalsSection({
       })}
       </div>
       </div>
-      </>
-      );
-      })()}
       </div>
       </>
       )}
