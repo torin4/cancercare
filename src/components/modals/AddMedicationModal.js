@@ -89,46 +89,19 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
           }
         }
         
-        // Parse schedule times and set checkboxes
-        let morningChecked = false;
-        let afternoonChecked = false;
-        let eveningChecked = false;
-        let nightChecked = false;
-        
-        if (editingMedication.schedule && 
+        // Parse schedule times and set checkboxes by matching exact canonical times
+        // Canonical times: Morning=8:00 AM, Afternoon=2:00 PM, Evening=8:00 PM, Night=10:00 PM
+        const savedTimes = (editingMedication.schedule &&
             editingMedication.schedule !== editingMedication.frequency &&
-            editingMedication.schedule.includes(':')) {
-          const scheduleStr = editingMedication.schedule.toLowerCase();
-          
-          // Check for morning times (before 12 PM)
-          if (scheduleStr.match(/\b(?:12|1|2|3|4|5|6|7|8|9|10|11):\d+\s*am/i) || 
-              scheduleStr.match(/\b(?:8|9|10|11):\d+/i) && !scheduleStr.includes('pm')) {
-            morningChecked = true;
-          }
-          
-          // Check for afternoon times (12 PM - 4 PM)
-          if (scheduleStr.match(/\b(?:12|1|2|3|4):\d+\s*pm/i) ||
-              scheduleStr.match(/\b(?:12|1|2|3):\d+/i) && scheduleStr.includes('pm')) {
-            afternoonChecked = true;
-          }
-          
-          // Check for evening times (after 5 PM)
-          if (scheduleStr.match(/\b(?:5|6|7|8|9|10|11|12):\d+\s*pm/i) ||
-              scheduleStr.match(/\b(?:5|6|7|8|9|10|11|12):\d+/i) && scheduleStr.includes('pm')) {
-            eveningChecked = true;
-          }
+            editingMedication.schedule.includes(':'))
+          ? editingMedication.schedule.split(',').map(t => t.trim().toLowerCase())
+          : [];
 
-          // Check for "night/bedtime" (commonly 10 PM / 22:00)
-          if (scheduleStr.includes('10:00 pm') || scheduleStr.includes('22:00')) {
-            nightChecked = true;
-          }
-        }
-        
         setSelectedTimes({
-          morning: morningChecked,
-          afternoon: afternoonChecked,
-          evening: eveningChecked,
-          night: nightChecked
+          morning:   savedTimes.some(t => t === '8:00 am'),
+          afternoon: savedTimes.some(t => t === '2:00 pm'),
+          evening:   savedTimes.some(t => t === '8:00 pm'),
+          night:     savedTimes.some(t => t === '10:00 pm'),
         });
         
         // If schedule equals frequency, treat it as empty (no specific times entered)
