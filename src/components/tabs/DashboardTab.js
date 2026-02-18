@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { Activity, TrendingUp, Upload, AlertCircle, ClipboardList, Info, Dna, Bookmark, ChevronRight, Search, MessageSquare, X, Heart, Loader2, BarChart, Home, FileText, Plus, FolderOpen, User, Calendar } from 'lucide-react';
+import { Activity, TrendingUp, FilePlus, AlertCircle, ClipboardList, Info, Dna, Bookmark, ChevronRight, Search, MessageSquare, X, Heart, Loader2, BarChart, Home, FileText, Plus, FolderOpen, User, Calendar, Thermometer, Pill } from 'lucide-react';
+
+const IRIS_ICON_SRC = '/icons/iris_logo.svg';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePatientContext } from '../../contexts/PatientContext';
@@ -31,8 +33,9 @@ import DocumentUploadOnboarding from '../modals/DocumentUploadOnboarding';
 import DicomImportFlow from '../modals/DicomImportFlow';
 import UploadProgressOverlay from '../UploadProgressOverlay';
 import LabTooltipModal from '../modals/LabTooltipModal';
+import MedicationLogModal from '../modals/MedicationLogModal';
 
-export default function DashboardTab({ onTabChange }) {
+export default function DashboardTab({ onTabChange, onOpenMobileChat }) {
   const { user } = useAuth();
   const { hasUploadedDocument, patientProfile } = usePatientContext();
   const { labsData, vitalsData, hasRealLabData, hasRealVitalData, genomicProfile, reloadHealthData, loading: healthLoading } = useHealthContext();
@@ -46,6 +49,7 @@ export default function DashboardTab({ onTabChange }) {
   const [showAddLabModal, setShowAddLabModal] = useState(false);
   const [showAddVitalModal, setShowAddVitalModal] = useState(false);
   const [showAddJournalNoteModal, setShowAddJournalNoteModal] = useState(false);
+  const [showMedicationLogModal, setShowMedicationLogModal] = useState(false);
   const [showAddVitalValueModal, setShowAddVitalValueModal] = useState(false);
   const [showAddLabValueModal, setShowAddLabValueModal] = useState(false);
   const [selectedVitalForValue, setSelectedVitalForValue] = useState(null);
@@ -396,7 +400,7 @@ setIsUploading(false);
         DesignTokens.spacing.container.mobile,
         'sm:px-4 md:px-6',
         'py-2 sm:py-3',
-        'flex items-center'
+        'flex items-center justify-between'
       )}>
         <div className={combineClasses('flex items-center', DesignTokens.spacing.gap.sm, 'sm:gap-3')}>
           <div className={combineClasses('p-2 sm:p-2.5 rounded-lg', 'bg-gray-100')}>
@@ -406,8 +410,144 @@ setIsUploading(false);
             <h1 className={combineClasses(DesignTokens.components.header.title, 'mb-0')}>Dashboard</h1>
           </div>
         </div>
+        {onOpenMobileChat && (
+          <button
+            type="button"
+            onClick={onOpenMobileChat}
+            className="lg:hidden text-medical-neutral-600 hover:text-medical-neutral-900 min-h-[44px] min-w-[44px] px-2 touch-manipulation active:opacity-70 flex items-center justify-center transition-colors"
+            title="Open chat"
+            aria-label="Open chat"
+          >
+            <img src={IRIS_ICON_SRC} alt="" className="w-6 h-6" />
+          </button>
+        )}
       </div>
       <div className={combineClasses(Layouts.container, 'flex flex-col', DesignTokens.spacing.gap.md)}>
+
+        {/* Quick actions - 2-col grid on mobile for easier tapping, flex wrap on larger screens */}
+        <div className={combineClasses('grid grid-cols-3 sm:flex sm:flex-wrap gap-2')}>
+          <button
+            type="button"
+            onClick={() => {
+              const availableVitals = Object.keys(vitalsData || {}).filter(key => {
+                const vital = vitalsData[key];
+                return vital && vital.id && (vital.data?.length > 0 || vital.current);
+              }).map(key => ({
+                id: vitalsData[key].id,
+                key,
+                name: getVitalDisplayName(key),
+                vitalType: key === 'bp' ? 'bp' : 'single',
+                unit: vitalsData[key]?.unit || '',
+                normalRange: vitalsData[key]?.normalRange || ''
+              }));
+              if (availableVitals.length === 0) {
+                showError('No vitals available. Please add a vital first.');
+                return;
+              }
+              setAvailableVitalsForModal(availableVitals);
+              setSelectedVitalForValue(availableVitals[0]);
+              setShowAddVitalValueModal(true);
+            }}
+            className={combineClasses(
+              'inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors min-h-[44px] sm:min-h-[36px] w-full sm:w-auto touch-manipulation',
+              DesignTokens.colors.app[50],
+              DesignTokens.colors.app.text[700],
+              DesignTokens.colors.app.border[200],
+              'border hover:bg-anchor-100 hover:border-anchor-300'
+            )}
+          >
+            <Heart className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>Add vital</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const availableLabs = Object.keys(labsData || {}).filter(key => {
+                const lab = labsData[key];
+                return lab && lab.id && (lab.data?.length > 0 || lab.current);
+              }).map(key => ({
+                id: labsData[key].id,
+                key,
+                name: getLabDisplayName(key),
+                unit: labsData[key]?.unit || '',
+                normalRange: labsData[key]?.normalRange || ''
+              }));
+              if (availableLabs.length === 0) {
+                showError('No labs available. Please add a lab first.');
+                return;
+              }
+              setAvailableLabsForModal(availableLabs);
+              setSelectedLabForValue(availableLabs[0]);
+              setShowAddLabValueModal(true);
+            }}
+            className={combineClasses(
+              'inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors min-h-[44px] sm:min-h-[36px] w-full sm:w-auto touch-manipulation',
+              DesignTokens.colors.app[50],
+              DesignTokens.colors.app.text[700],
+              DesignTokens.colors.app.border[200],
+              'border hover:bg-anchor-100 hover:border-anchor-300'
+            )}
+          >
+            <BarChart className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>Add lab</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowAddSymptomModal(true)}
+            className={combineClasses(
+              'inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors min-h-[44px] sm:min-h-[36px] w-full sm:w-auto touch-manipulation',
+              DesignTokens.colors.app[50],
+              DesignTokens.colors.app.text[700],
+              DesignTokens.colors.app.border[200],
+              'border hover:bg-anchor-100 hover:border-anchor-300'
+            )}
+          >
+            <Thermometer className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>Log symptom</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowMedicationLogModal(true)}
+            className={combineClasses(
+              'inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors min-h-[44px] sm:min-h-[36px] w-full sm:w-auto touch-manipulation',
+              DesignTokens.colors.app[50],
+              DesignTokens.colors.app.text[700],
+              DesignTokens.colors.app.border[200],
+              'border hover:bg-anchor-100 hover:border-anchor-300'
+            )}
+          >
+            <Pill className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>Log meds</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowAddJournalNoteModal(true)}
+            className={combineClasses(
+              'inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors min-h-[44px] sm:min-h-[36px] w-full sm:w-auto touch-manipulation',
+              DesignTokens.colors.app[50],
+              DesignTokens.colors.app.text[700],
+              DesignTokens.colors.app.border[200],
+              'border hover:bg-anchor-100 hover:border-anchor-300'
+            )}
+          >
+            <FileText className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>Add note</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => openDocumentOnboarding(null, 'picker')}
+            className={combineClasses(
+              'inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors min-h-[44px] sm:min-h-[36px] w-full sm:w-auto touch-manipulation',
+              DesignTokens.colors.app[50],
+              DesignTokens.colors.app.text[700],
+              DesignTokens.colors.app.border[200],
+              'border hover:bg-anchor-100 hover:border-anchor-300'
+            )}
+          >
+            <FilePlus className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>Upload</span>
+          </button>
+        </div>
 
         {/* Wellness Score */}
         <WellnessScoreCard
@@ -768,79 +908,6 @@ setIsUploading(false);
               </p>
             )}
 
-            {/* Quick Actions - responsive: icon-first grid on mobile, inline row on desktop */}
-            <div className={combineClasses('pt-3 border-t', DesignTokens.colors.app.border[200], 'grid grid-cols-3 sm:flex sm:flex-wrap gap-3 sm:gap-2')}>
-              <button
-                onClick={() => {
-                  const availableVitals = Object.keys(vitalsData || {}).filter(key => {
-                    const vital = vitalsData[key];
-                    return vital && vital.id && (vital.data?.length > 0 || vital.current);
-                  }).map(key => ({
-                    id: vitalsData[key].id,
-                    key,
-                    name: getVitalDisplayName(key),
-                    vitalType: key === 'bp' ? 'bp' : 'single',
-                    unit: vitalsData[key]?.unit || '',
-                    normalRange: vitalsData[key]?.normalRange || ''
-                  }));
-                  if (availableVitals.length === 0) {
-                    showError('No vitals available. Please add a vital first.');
-                    return;
-                  }
-                  setAvailableVitalsForModal(availableVitals);
-                  setSelectedVitalForValue(availableVitals[0]);
-                  setShowAddVitalValueModal(true);
-                }}
-                className={combineClasses(
-                  'flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 min-h-[44px] sm:min-h-0 py-3 sm:py-2 sm:px-3 rounded-xl sm:rounded-lg text-xs sm:text-sm font-medium transition-all duration-200',
-                  DesignTokens.components.button.outline.primary,
-                  'hover:bg-medical-primary-50 hover:border-medical-primary-400 hover:text-medical-primary-700'
-                )}
-              >
-                <Heart className="w-6 h-6 sm:w-4 sm:h-4 flex-shrink-0" />
-                <span>Add Vital</span>
-              </button>
-              <button
-                onClick={() => {
-                  const availableLabs = Object.keys(labsData || {}).filter(key => {
-                    const lab = labsData[key];
-                    return lab && lab.id && (lab.data?.length > 0 || lab.current);
-                  }).map(key => ({
-                    id: labsData[key].id,
-                    key,
-                    name: getLabDisplayName(key),
-                    unit: labsData[key]?.unit || '',
-                    normalRange: labsData[key]?.normalRange || ''
-                  }));
-                  if (availableLabs.length === 0) {
-                    showError('No labs available. Please add a lab first.');
-                    return;
-                  }
-                  setAvailableLabsForModal(availableLabs);
-                  setSelectedLabForValue(availableLabs[0]);
-                  setShowAddLabValueModal(true);
-                }}
-                className={combineClasses(
-                  'flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 min-h-[44px] sm:min-h-0 py-3 sm:py-2 sm:px-3 rounded-xl sm:rounded-lg text-xs sm:text-sm font-medium transition-all duration-200',
-                  DesignTokens.components.button.outline.primary,
-                  'hover:bg-medical-primary-50 hover:border-medical-primary-400 hover:text-medical-primary-700'
-                )}
-              >
-                <ClipboardList className="w-6 h-6 sm:w-4 sm:h-4 flex-shrink-0" />
-                <span>Add Lab</span>
-              </button>
-              <button
-                onClick={() => setShowAddSymptomModal(true)}
-                className={combineClasses(
-                  'flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 min-h-[44px] sm:min-h-0 py-3 sm:py-2 sm:px-3 rounded-xl sm:rounded-lg text-xs sm:text-sm font-medium transition-all duration-200',
-                  DesignTokens.components.button.outline.primary,
-                  'hover:bg-medical-primary-50 hover:border-medical-primary-400 hover:text-medical-primary-700'
-                )}
-              >
-                <Activity className="w-6 h-6 sm:w-4 sm:h-4 flex-shrink-0" />
-                <span>Log Symptom</span>
-              </button>
-            </div>
           </div>
 
           {/* Trials Tab Summary */}
@@ -1070,7 +1137,7 @@ setIsUploading(false);
                   'hover:bg-medical-secondary-50 hover:border-medical-secondary-400 hover:text-medical-secondary-700'
                 )}
               >
-                <Upload className="w-6 h-6 sm:w-4 sm:h-4 flex-shrink-0" />
+                <FilePlus className="w-6 h-6 sm:w-4 sm:h-4 flex-shrink-0" />
                 <span>Upload File</span>
               </button>
               <button
@@ -1095,6 +1162,10 @@ setIsUploading(false);
         show={!!labTooltip}
         labTooltip={labTooltip}
         onClose={() => setLabTooltip(null)}
+      />
+      <MedicationLogModal
+        show={showMedicationLogModal}
+        onClose={() => setShowMedicationLogModal(false)}
       />
 
       {/* Modals */}
@@ -1371,5 +1442,6 @@ setIsUploading(false);
 
 
 DashboardTab.propTypes = {
-  onTabChange: PropTypes.func.isRequired
+  onTabChange: PropTypes.func.isRequired,
+  onOpenMobileChat: PropTypes.func
 };

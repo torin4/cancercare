@@ -130,7 +130,7 @@ function VitalsSection({
       }
 
       if (validFavoritesCount >= 6) {
-        showError('Maximum 6 favorite metrics allowed. Please remove one first.');
+        showError('You can pin up to 6 metrics. Please unpin one first.');
         return;
       }
 
@@ -143,12 +143,12 @@ function VitalsSection({
     try {
       await patientService.updateFavoriteMetrics(user.uid, newFavorites);
       if (newFavorites[type].includes(metricKey)) {
-        showSuccess('Added to favorites');
+        showSuccess('Added to key metrics');
       } else {
-        showSuccess('Removed from favorites');
+        showSuccess('Removed from key metrics');
       }
     } catch (error) {
-      showError('Failed to update favorites. Please try again.');
+      showError('Failed to update key metrics. Please try again.');
       setFavoriteMetrics(favoriteMetrics);
     }
   };
@@ -166,6 +166,21 @@ function VitalsSection({
       }
     }
   }, [allVitalsData, selectedVital]);
+
+  // Open graph for vital when coming from dashboard key metric click (no scroll)
+  useEffect(() => {
+    const expandVitalKey = sessionStorage.getItem('expandVitalKey');
+    if (!expandVitalKey || !allVitalsData || Object.keys(allVitalsData).length === 0) return;
+    const normalizedKey = normalizeVitalName(expandVitalKey);
+    const actualKey = Object.keys(allVitalsData).find(key => {
+      const n = normalizeVitalName(key) || key.toLowerCase();
+      return n === normalizedKey || key === expandVitalKey;
+    });
+    if (actualKey) {
+      setSelectedVital(actualKey);
+    }
+    sessionStorage.removeItem('expandVitalKey');
+  }, [allVitalsData]);
 
   // Get current vital
   const currentVital = allVitalsData[selectedVital] || {
@@ -286,7 +301,7 @@ function VitalsSection({
       <button
       onClick={() => toggleFavorite(selectedVital, 'vitals')}
       className={combineClasses("transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center", DesignTokens.colors.accent.text[500], DesignTokens.colors.accent.text[600])}
-      title={favoriteMetrics.vitals?.includes(selectedVital) ? "Remove from favorites" : "Add to favorites"}
+      title={favoriteMetrics.vitals?.includes(selectedVital) ? "Unpin from key metrics" : "Pin to key metrics"}
       >
       <Star className={combineClasses(
       DesignTokens.icons.button.size.full,
@@ -646,6 +661,76 @@ function VitalsSection({
       </p>
       )}
 
+      {/* Key metrics - small cards (favorites or first vitals with data), like Labs tab */}
+      {Object.keys(allVitalsData).length > 0 && (() => {
+        const keyVitalKeys = favoriteMetrics.vitals?.length > 0
+          ? favoriteMetrics.vitals.filter(key => allVitalsData[key] && (allVitalsData[key].data?.length > 0 || allVitalsData[key].current))
+          : Object.keys(allVitalsData)
+              .filter(key => (allVitalsData[key].data?.length > 0 || allVitalsData[key].current))
+              .slice(0, 6);
+        if (keyVitalKeys.length === 0) return null;
+        return (
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Star className={combineClasses(
+                DesignTokens.icons.button.size.full,
+                keyVitalKeys.length && favoriteMetrics.vitals?.length > 0 ? DesignTokens.components.favorite.filled : DesignTokens.colors.neutral.text[500]
+              )} />
+              <h3 className="text-sm font-semibold text-medical-neutral-700">
+                {favoriteMetrics.vitals?.length > 0 ? 'Key Vitals' : 'Key Metrics'}
+              </h3>
+            </div>
+            <div className={combineClasses('flex flex-nowrap overflow-x-auto gap-2 pb-1', DesignTokens.spacing.gap.sm)}>
+              {keyVitalKeys.map((key) => {
+                const vital = allVitalsData[key];
+                const displayName = getVitalDisplayName(vital?.name || key);
+                const currentVal = vital?.current;
+                const unit = vital?.unit || '';
+                const normalRange = vital?.normalRange || (() => {
+                  const age = patientProfile?.age ?? (patientProfile?.dateOfBirth ? Math.floor((new Date() - new Date(patientProfile.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000)) : null);
+                  const n = normalizeVitalName(key) || key.toLowerCase();
+                  if (n === 'bp' || n === 'blood_pressure') return age && age < 18 ? '<120/80' : '<140/90';
+                  if (n === 'hr' || n === 'heart_rate') return age ? (age < 18 ? '60-100' : '60-100') : '60-100';
+                  if (n === 'temp' || n === 'temperature') return '97.5-99.5';
+                  if (n === 'weight' && patientProfile?.height) return getWeightNormalRange(patientProfile.height, patientProfile.gender);
+                  if (n === 'o2sat' || n === 'oxygen_saturation') return '>95';
+                  if (n === 'rr' || n === 'respiratory_rate') return '12-20';
+                  return null;
+                })();
+                const vitalStatus = getVitalStatus(currentVal, normalRange, key);
+                const statusColorClass =
+                  vitalStatus.color === 'red' ? DesignTokens.components.status.high.icon :
+                  vitalStatus.color === 'yellow' ? DesignTokens.components.status.low.icon :
+                  DesignTokens.components.status.normal.icon;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSelectedVital(key)}
+                    className={combineClasses(
+                      'flex-shrink-0 min-w-[140px] p-2 rounded-lg text-left border transition-all duration-200 min-h-[44px] touch-manipulation active:opacity-90',
+                      DesignTokens.colors.app[50],
+                      DesignTokens.colors.app.border[200],
+                      'hover:bg-gray-50 hover:shadow-md hover:-translate-y-0.5'
+                    )}
+                  >
+                    <div className={combineClasses('flex items-center justify-between mb-1')}>
+                      <span className={combineClasses(DesignTokens.typography.body.xs, 'font-medium', DesignTokens.colors.app.text[700])}>
+                        {displayName}
+                      </span>
+                      <Activity className={combineClasses(DesignTokens.icons.small.size.full, statusColorClass)} />
+                    </div>
+                    <p className={combineClasses(DesignTokens.typography.body.sm, 'font-bold', DesignTokens.colors.app.text[900])}>
+                      {currentVal != null && currentVal !== '' ? `${currentVal}${unit ? ` ${unit}` : ''}` : '—'}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Quick Vital Stats */}
       <div className={combineClasses(
       DesignTokens.components.card.nestedWithShadow
@@ -724,7 +809,7 @@ function VitalsSection({
       toggleFavorite(key, 'vitals');
       }}
       className={combineClasses("transition-colors", DesignTokens.colors.accent.text[500], DesignTokens.colors.accent.text[600])}
-      title={favoriteMetrics.vitals?.includes(key) ? "Remove from favorites" : "Add to favorites"}
+      title={favoriteMetrics.vitals?.includes(key) ? "Unpin from key metrics" : "Pin to key metrics"}
       >
       <Star className={combineClasses(
       DesignTokens.icons.small.size.full,

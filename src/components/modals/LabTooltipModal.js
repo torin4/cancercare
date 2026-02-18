@@ -12,18 +12,14 @@ export default function LabTooltipModal({ show, labTooltip, onClose }) {
         className={combineClasses("fixed inset-0 z-[70] backdrop-blur-sm", DesignTokens.components.modal.backdrop.replace('/60', '/20'))}
         onClick={onClose}
       />
-      {/* Tooltip */}
+      {/* Tooltip - wrapper preserves center position while inner animates up */}
       <div
-        className={combineClasses("fixed z-[71] rounded-xl shadow-2xl border max-w-sm w-[90vw] sm:w-96 p-5 animate-fade-scale", DesignTokens.components.modal.container, DesignTokens.colors.neutral.border[200])}
-        style={{
-          left: '50%',
-          top: '50%',
-          transform: 'translate(-50%, -50%)',
-          maxHeight: '80vh',
-          overflowY: 'auto'
-        }}
+        className="fixed z-[71] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center w-[90vw] sm:w-96 max-w-sm max-h-[80vh]"
         onClick={(e) => e.stopPropagation()}
       >
+        <div
+          className={combineClasses("w-full rounded-xl shadow-2xl border p-5 bg-white animate-slide-up overflow-y-auto max-h-[80vh]", DesignTokens.colors.neutral.border[200])}
+        >
         <div className={combineClasses('flex items-start justify-between', DesignTokens.spacing.gap.md)}>
           <h3 className={combineClasses(DesignTokens.typography.h2.full, DesignTokens.typography.h2.weight, 'pr-2', DesignTokens.colors.neutral.text[900])}>{labTooltip.labName}</h3>
           <button
@@ -40,6 +36,7 @@ export default function LabTooltipModal({ show, labTooltip, onClose }) {
           </button>
         </div>
         <p className={combineClasses(DesignTokens.typography.body.sm, 'leading-relaxed', DesignTokens.colors.neutral.text[700])}>{labTooltip.description}</p>
+        </div>
       </div>
     </>
   );

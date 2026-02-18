@@ -32,6 +32,7 @@ function SymptomsSection({ onTabChange }) {
   const [symptomCalendarDate, setSymptomCalendarDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [showAddSymptomModal, setShowAddSymptomModal] = useState(false);
+  const [editingSymptom, setEditingSymptom] = useState(null);
   const [symptomForm, setSymptomForm] = useState({
     name: '',
     severity: '',
@@ -308,8 +309,8 @@ function SymptomsSection({ onTabChange }) {
                           {symptomsByDate[selectedDate].map((symptom, idx) => (
                             <div
                               key={symptom.id || idx}
-                              className={combineClasses("border-l-3 pl-2 py-1.5 pr-2 rounded-r", symptom.severity === 'Severe' ? combineClasses(DesignTokens.components.status.high.border.replace('200', '400'), DesignTokens.components.status.high.bg) :
-                                symptom.severity === 'Moderate' ? combineClasses(DesignTokens.components.status.low.border.replace('200', '400'), DesignTokens.components.status.low.bg) :
+                              className={combineClasses("border-l-3 pl-2 py-1.5 pr-2 rounded-r", (symptom.severity || '').toLowerCase() === 'severe' ? combineClasses(DesignTokens.components.status.high.border.replace('200', '400'), DesignTokens.components.status.high.bg) :
+                                (symptom.severity || '').toLowerCase() === 'moderate' ? combineClasses(DesignTokens.components.status.low.border.replace('200', '400'), DesignTokens.components.status.low.bg) :
                                   combineClasses(DesignTokens.components.status.normal.border.replace('200', '400'), DesignTokens.components.status.normal.bg)
                                 )}
                             >
@@ -317,8 +318,8 @@ function SymptomsSection({ onTabChange }) {
                                 <div className="flex items-center gap-1.5 flex-1 min-w-0">
                                   <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${getSymptomColor(symptom.type)}`}></div>
                                   <p className={combineClasses('text-xs font-medium truncate', DesignTokens.colors.neutral.text[900])}>{symptom.type}</p>
-                                  <p className={combineClasses('text-[10px] font-medium', symptom.severity === 'Severe' ? DesignTokens.components.alert.text.error :
-                                    symptom.severity === 'Moderate' ? DesignTokens.components.alert.text.warning :
+                                  <p className={combineClasses('text-[10px] font-medium', (symptom.severity || '').toLowerCase() === 'severe' ? DesignTokens.components.alert.text.error :
+                                    (symptom.severity || '').toLowerCase() === 'moderate' ? DesignTokens.components.alert.text.warning :
                                       DesignTokens.components.status.normal.text
                                   )}>
                                     {symptom.severity}
@@ -328,6 +329,34 @@ function SymptomsSection({ onTabChange }) {
                                   {symptom.time && symptom.time !== '00:00' && (
                                     <span className={combineClasses('text-[10px]', DesignTokens.colors.neutral.text[600])}>{symptom.time}</span>
                                   )}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const full = symptoms.find(s => s.id === symptom.id);
+                                      if (!full) return;
+                                      const d = full.date instanceof Date ? full.date : new Date(full.date?.toDate?.() ?? full.date);
+                                      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                                      const timeStr = d.toTimeString().slice(0, 5);
+                                      const symptomTypes = ['Fatigue', 'Pain', 'Nausea', 'Headache', 'Dizziness', 'Fever', 'Shortness of Breath', 'Loss of Appetite', 'Sleep Issues'];
+                                      const name = symptomTypes.includes(full.name) ? full.name : 'Other';
+                                      const customSymptomName = name === 'Other' ? (full.name || '') : '';
+                                      setSymptomForm({
+                                        name,
+                                        severity: (full.severity || '').toLowerCase(),
+                                        date: dateStr,
+                                        time: timeStr,
+                                        notes: full.notes || '',
+                                        customSymptomName,
+                                        tags: full.tags || []
+                                      });
+                                      setEditingSymptom(full);
+                                      setShowAddSymptomModal(true);
+                                    }}
+                                    className={combineClasses('transition-colors p-0.5 rounded', DesignTokens.colors.app.text[600], 'hover:bg-anchor-50')}
+                                    title="Edit symptom"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -419,7 +448,7 @@ function SymptomsSection({ onTabChange }) {
         show={showAddSymptomModal}
         onClose={() => {
           setShowAddSymptomModal(false);
-          // Reset form when closing
+          setEditingSymptom(null);
           setSymptomForm({
             name: '',
             severity: '',
@@ -433,6 +462,7 @@ function SymptomsSection({ onTabChange }) {
         symptomForm={symptomForm}
         setSymptomForm={setSymptomForm}
         user={user}
+        editingSymptom={editingSymptom}
       />
 
       <DeletionConfirmationModal

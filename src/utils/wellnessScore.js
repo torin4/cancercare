@@ -196,8 +196,13 @@ function scoreVitals(vitalsData) {
   };
 }
 
+// Severity order for trend comparison (lower index = better)
+const SEVERITY_ORDER = { mild: 0, moderate: 1, severe: 2, 'very severe': 3 };
+
 /**
- * Symptom Burden: penalty per recent symptom based on severity.
+ * Symptom Burden: penalty per recent symptom based on severity, with strong
+ * recency weighting (most recent days matter most) and an improvement bonus
+ * when current period is better than the previous period.
  * No symptoms = 100 (positive signal).
  */
 function scoreSymptoms(symptoms) {
@@ -237,7 +242,21 @@ function scoreSymptoms(symptoms) {
   }
 
   const now = Date.now();
+  const oneDayMs = 1000 * 60 * 60 * 24;
+
+  // Recency weight: last 1 day = 1.0, 2 days = 0.6, 3–4 = 0.35, 5–7 = 0.2, 8–14 = 0.08
+  // So current state (today) dominates; backfilled past symptoms don’t drag score as much
+  function recencyWeight(daysAgo) {
+    if (daysAgo <= 1) return 1;
+    if (daysAgo <= 2) return 0.6;
+    if (daysAgo <= 4) return 0.35;
+    if (daysAgo <= 7) return 0.2;
+    return 0.08;
+  }
+
   let penalty = 0;
+  const severityByDay = []; // { daysAgo, severityOrder } for improvement check
+
   for (const s of recent) {
     const sev = (s.severity || 'moderate').toLowerCase();
     let basePenalty = SEVERITY_PENALTY[sev] ?? SEVERITY_PENALTY.moderate;
@@ -248,19 +267,42 @@ function scoreSymptoms(symptoms) {
       basePenalty = Math.round(basePenalty * maxMultiplier);
     }
 
-    // Time-decay: today = full penalty, 14 days ago = 25% penalty
     const symDate = s.date instanceof Date ? s.date : new Date(s.date);
-    const daysAgo = (now - symDate.getTime()) / (1000 * 60 * 60 * 24);
-    const decayFactor = Math.max(0.25, 1 - (daysAgo / 14) * 0.75);
-    basePenalty = Math.round(basePenalty * decayFactor);
-
+    const daysAgo = (now - symDate.getTime()) / oneDayMs;
+    const weight = recencyWeight(daysAgo);
+    basePenalty = Math.round(basePenalty * weight);
     penalty += basePenalty;
+
+    severityByDay.push({ daysAgo, sev, order: SEVERITY_ORDER[sev] ?? 1 });
   }
 
-  const score = Math.max(0, 100 - penalty);
+  // Improvement bonus: if worst severity in the most recent 1–2 days is better
+  // than worst severity in the previous window (3–7 days ago), reward improvement
+  let improvementBonus = 0;
+  const currentWindow = severityByDay.filter((s) => s.daysAgo <= 2);
+  const previousWindow = severityByDay.filter((s) => s.daysAgo > 2 && s.daysAgo <= 7);
+  if (currentWindow.length > 0 && previousWindow.length > 0) {
+    const currentWorst = Math.max(...currentWindow.map((s) => s.order));
+    const previousWorst = Math.max(...previousWindow.map((s) => s.order));
+    if (currentWorst < previousWorst) {
+      improvementBonus = 15; // improvement = higher score
+    }
+  }
+  // Also: if the single most recent day is better than the day(s) before it, count as improvement
+  const last24h = severityByDay.filter((s) => s.daysAgo <= 1);
+  const day2to3 = severityByDay.filter((s) => s.daysAgo > 1 && s.daysAgo <= 3);
+  if (last24h.length > 0 && day2to3.length > 0) {
+    const worstLast24h = Math.max(...last24h.map((s) => s.order));
+    const worstDay2to3 = Math.max(...day2to3.map((s) => s.order));
+    if (worstLast24h < worstDay2to3 && improvementBonus === 0) {
+      improvementBonus = 15;
+    }
+  }
+
+  const score = Math.min(100, Math.max(0, 100 - penalty + improvementBonus));
   return {
     score,
-    details: { recentCount: recent.length, penaltyTotal: penalty },
+    details: { recentCount: recent.length, penaltyTotal: penalty, improvementBonus },
   };
 }
 

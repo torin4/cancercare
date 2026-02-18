@@ -1,8 +1,8 @@
 /**
  * useFavoriteMetrics Hook
- * 
- * Custom hook for managing favorite metrics (labs/vitals).
- * Centralizes favorite metrics logic for use across LabsSection and VitalsSection.
+ *
+ * Manages key metrics (pinned labs/vitals). Internal state/API still use favoriteMetrics.
+ * Used by LabsSection and VitalsSection.
  */
 
 import { useState, useEffect } from 'react';
@@ -45,7 +45,7 @@ export function useFavoriteMetrics() {
       // Check limit (default 6, can be overridden)
       if (validFavoritesCount >= 6) {
         const typeLabel = type === 'labs' ? 'labs' : 'vitals';
-        showError(`Maximum 6 favorite ${typeLabel} allowed. Please remove one first.`);
+        showError(`You can pin up to 6 ${typeLabel}. Please unpin one first.`);
         return;
       }
 
@@ -58,16 +58,16 @@ export function useFavoriteMetrics() {
     try {
       await patientService.updateFavoriteMetrics(user.uid, newFavorites);
       if (newFavorites[type].includes(metricKey)) {
-        showSuccess('Added to favorites');
+        showSuccess('Added to key metrics');
       } else {
-        showSuccess('Removed from favorites');
+        showSuccess('Removed from key metrics');
       }
       // Refresh patient profile to ensure context is updated
       await refreshPatient();
     } catch (error) {
       // Revert on error
       setFavoriteMetrics(favoriteMetrics);
-      showError('Failed to update favorites');
+      showError('Failed to update key metrics');
     }
   };
 

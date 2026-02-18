@@ -83,29 +83,9 @@ function LabsSection({
           return normalized === normalizedKey || key === expandLabKey;
         }) || expandLabKey;
         
-        // Find the category for this lab and expand it
-        const lab = labsData[actualKey];
-        if (lab) {
-          const categories = categorizeLabs({ [actualKey]: lab });
-          const category = Object.keys(categories)[0]; // Get the first category
-          if (category) {
-            setExpandedCategories(prev => ({
-              ...prev,
-              [category]: true
-            }));
-          }
-        }
-        
+        // Only switch the chart to this metric; do not expand category or scroll
         setSelectedLab(actualKey);
         sessionStorage.removeItem('expandLabKey');
-        
-        // Scroll to the lab card after a short delay
-        setTimeout(() => {
-          const labElement = document.querySelector(`[data-lab-key="${actualKey}"]`);
-          if (labElement) {
-            labElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }, 200);
       } else {
         // Lab not found, clear the sessionStorage
         sessionStorage.removeItem('expandLabKey');
@@ -207,7 +187,7 @@ function LabsSection({
       }
 
       if (validFavoritesCount >= 6) {
-        showError('Maximum 6 favorite metrics allowed. Please remove one first.');
+        showError('You can pin up to 6 metrics. Please unpin one first.');
         return;
       }
 
@@ -220,12 +200,12 @@ function LabsSection({
     try {
       await patientService.updateFavoriteMetrics(user.uid, newFavorites);
       if (newFavorites[type].includes(metricKey)) {
-        showSuccess('Added to favorites');
+        showSuccess('Added to key metrics');
       } else {
-        showSuccess('Removed from favorites');
+        showSuccess('Removed from key metrics');
       }
     } catch (error) {
-      showError('Failed to update favorites. Please try again.');
+      showError('Failed to update key metrics. Please try again.');
       // Revert on error
       setFavoriteMetrics(favoriteMetrics);
     }
@@ -861,7 +841,7 @@ function LabsSection({
                               toggleFavorite(key, 'labs');
                             }}
                             className={combineClasses("transition-colors", DesignTokens.colors.accent.text[500], DesignTokens.colors.accent.text[600])}
-                            title={favoriteMetrics.labs?.includes(key) ? "Remove from favorites" : "Add to favorites"}
+                            title={favoriteMetrics.labs?.includes(key) ? "Unpin from key metrics" : "Pin to key metrics"}
                           >
                             <Star className={combineClasses(
                               DesignTokens.icons.small.size.full,
@@ -1138,7 +1118,7 @@ function LabsSection({
                               toggleFavorite(key, 'labs');
                             }}
                             className={combineClasses("transition-colors", DesignTokens.colors.accent.text[500], DesignTokens.colors.accent.text[600])}
-                            title={favoriteMetrics.labs?.includes(key) ? "Remove from favorites" : "Add to favorites"}
+                            title={favoriteMetrics.labs?.includes(key) ? "Unpin from key metrics" : "Pin to key metrics"}
                           >
                             <Star className={combineClasses(
                               DesignTokens.icons.small.size.full,
@@ -1665,61 +1645,62 @@ function LabsSection({
                   </p>
                 )}
 
-                {/* Favorite Labs Section */}
-                {!labSearchQuery && favoriteMetrics.labs && favoriteMetrics.labs.length > 0 && (() => {
-                  const favoriteLabItems = favoriteMetrics.labs
-                    .filter(key => allLabData[key] && !isLabEmptyHelper(allLabData[key]))
-                    .map(key => ({
-                      key,
-                      lab: allLabData[key],
-                      category: getLabCategory(key),
-                      displayName: getLabDisplayName(allLabData[key]?.name || key)
-                    }))
-                    .filter(item => item.category);
-
-                  if (favoriteLabItems.length === 0) return null;
-
+                {/* Key metrics - small cards (pinned or first labs with data), same style/behavior as Vitals */}
+                {!labSearchQuery && totalLabCount > 0 && (() => {
+                  const keyLabKeys = favoriteMetrics.labs?.length > 0
+                    ? favoriteMetrics.labs.filter(key => allLabData[key] && !isLabEmptyHelper(allLabData[key]))
+                    : Object.keys(allLabData)
+                        .filter(key => !isLabEmptyHelper(allLabData[key]))
+                        .slice(0, 6);
+                  if (keyLabKeys.length === 0) return null;
                   return (
                     <div className="mb-4">
                       <div className="flex items-center gap-2 mb-2">
                         <Star className={combineClasses(
                           DesignTokens.icons.button.size.full,
-                          DesignTokens.components.favorite.filled
+                          keyLabKeys.length && favoriteMetrics.labs?.length > 0 ? DesignTokens.components.favorite.filled : DesignTokens.colors.neutral.text[500]
                         )} />
-                        <h3 className="text-sm font-semibold text-medical-neutral-700">Favorite Labs</h3>
+                        <h3 className="text-sm font-semibold text-medical-neutral-700">
+                          {favoriteMetrics.labs?.length > 0 ? 'Key Labs' : 'Key Metrics'}
+                        </h3>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        {favoriteLabItems.map(({ key, category, displayName }) => (
-                          <button
-                            key={key}
-                            onClick={() => {
-                              setExpandedCategories(prev => {
-                                const allClosed = Object.keys(prev).reduce((acc, cat) => {
-                                  acc[cat] = false;
-                                  return acc;
-                                }, {});
-                                return {
-                                  ...allClosed,
-                                  [category]: true
-                                };
-                              });
-                              setTimeout(() => {
-                                const categoryElement = document.querySelector(`[data-category="${category}"]`);
-                                if (categoryElement) {
-                                  categoryElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                }
-                              }, 100);
-                            }}
-                            className={combineClasses("px-3 py-1.5 border rounded-lg transition-colors text-sm font-medium flex items-center gap-1.5 min-h-[44px] touch-manipulation active:opacity-70", DesignTokens.colors.primary.text[600], DesignTokens.colors.primary[50], DesignTokens.colors.primary.border[200], `hover:${DesignTokens.colors.primary[100]}`, `hover:${DesignTokens.colors.primary.border[300]}`)}
-                          >
-                            <Star className={combineClasses(
-                              DesignTokens.icons.small.size.full,
-                              DesignTokens.components.favorite.filled
-                            )} />
-                            <span>{displayName}</span>
-                            <ChevronRight className="w-3 h-3 text-medical-neutral-400" />
-                          </button>
-                        ))}
+                      <div className={combineClasses('flex flex-nowrap overflow-x-auto gap-2 pb-1', DesignTokens.spacing.gap.sm)}>
+                        {keyLabKeys.map((key) => {
+                          const lab = allLabData[key];
+                          const displayName = getLabDisplayName(lab?.name || key);
+                          const currentVal = lab?.current;
+                          const unit = lab?.unit || '';
+                          const canonicalKey = normalizeLabName(lab?.name || key);
+                          const normalRange = lab?.normalRange || (canonicalKey && labDefaultNormalRanges[canonicalKey]);
+                          const labStatus = getLabStatus(currentVal, normalRange);
+                          const statusColorClass =
+                            labStatus.color === 'red' ? DesignTokens.components.status.high.icon :
+                            labStatus.color === 'yellow' ? DesignTokens.components.status.low.icon :
+                            DesignTokens.components.status.normal.icon;
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => setSelectedLab(key)}
+                              className={combineClasses(
+                                'flex-shrink-0 min-w-[140px] p-2 rounded-lg text-left border transition-all duration-200 min-h-[44px] touch-manipulation active:opacity-90',
+                                DesignTokens.colors.app[50],
+                                DesignTokens.colors.app.border[200],
+                                'hover:bg-gray-50 hover:shadow-md hover:-translate-y-0.5'
+                              )}
+                            >
+                              <div className={combineClasses('flex items-center justify-between mb-1')}>
+                                <span className={combineClasses(DesignTokens.typography.body.xs, 'font-medium', DesignTokens.colors.app.text[700])}>
+                                  {displayName}
+                                </span>
+                                <Activity className={combineClasses(DesignTokens.icons.small.size.full, statusColorClass)} />
+                              </div>
+                              <p className={combineClasses(DesignTokens.typography.body.sm, 'font-bold', DesignTokens.colors.app.text[900])}>
+                                {currentVal != null && currentVal !== '' ? `${currentVal}${unit ? ` ${unit}` : ''}` : '—'}
+                              </p>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   );

@@ -1,7 +1,7 @@
 /**
  * FavoriteButton Component
- * 
- * Reusable button component for toggling favorite metrics (labs/vitals).
+ *
+ * Reusable button for pinning/unpinning key metrics (labs/vitals).
  * Used across LabsSection and VitalsSection to reduce code duplication.
  */
 
@@ -12,7 +12,7 @@ import { DesignTokens, combineClasses } from '../../../../design/designTokens';
 export default function FavoriteButton({ 
   isFavorite, 
   onToggle, 
-  title = "Toggle favorite",
+  title = "Pin to key metrics",
   size = "small"
 }) {
   const iconSize = size === "small" 
@@ -30,7 +30,7 @@ export default function FavoriteButton({
         DesignTokens.colors.accent.text[500], 
         DesignTokens.colors.accent.text[600]
       )}
-      title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+      title={isFavorite ? "Unpin from key metrics" : "Pin to key metrics"}
     >
       <Star 
         className={combineClasses(

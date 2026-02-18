@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { Upload, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical, Loader2, BookOpen, FileText, MessageSquare, Search, Trash2, Eye, FileImage } from 'lucide-react';
+import { Upload, FilePlus, FolderOpen, X, Edit2, RefreshCw, Info, Plus, MoreVertical, Loader2, BookOpen, FileText, MessageSquare, Search, Trash2, Eye, FileImage } from 'lucide-react';
 
 const IRIS_ICON_SRC = '/icons/iris_logo.svg';
 import { DesignTokens, Layouts, combineClasses } from '../../design/designTokens';
@@ -1300,7 +1300,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
                   'hover:bg-medical-secondary-50 hover:border-medical-secondary-400 hover:text-medical-secondary-700'
                 )}
               >
-                <Upload className="w-4 h-4 flex-shrink-0" />
+                <FilePlus className="w-4 h-4 flex-shrink-0" />
                 <span>Add File</span>
               </button>
               <button
@@ -1333,7 +1333,7 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
                   'py-2.5 sm:py-3 font-medium min-h-[44px] touch-manipulation active:opacity-70'
                 )}
               >
-                <Upload className={DesignTokens.icons.button.size.full} />
+                <FilePlus className={DesignTokens.icons.button.size.full} />
                 Upload Your First Document
               </button>
               <button
@@ -2303,7 +2303,16 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
               <div className={combineClasses(DesignTokens.spacing.iconContainer.full, DesignTokens.borders.radius.sm, DesignTokens.colors.neutral[100])}>
                 <BookOpen className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.neutral.text[500])} />
               </div>
-              Medical Notebook
+              <span>Medical Notebook</span>
+              {notebookEntries.length > 0 && (
+                <span className={combineClasses(
+                  'px-2 py-0.5 rounded-full text-xs font-medium',
+                  DesignTokens.colors.neutral[200],
+                  DesignTokens.colors.neutral.text[600]
+                )}>
+                  {notebookEntries.length}
+                </span>
+              )}
             </div>
             <div className={combineClasses('flex flex-row justify-start gap-2')}>
               <button
@@ -2347,7 +2356,16 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
               <div className={combineClasses(DesignTokens.spacing.iconContainer.full, DesignTokens.borders.radius.sm, DesignTokens.colors.neutral[100])}>
                 <BookOpen className={combineClasses(DesignTokens.icons.standard.size.full, DesignTokens.colors.neutral.text[500])} />
               </div>
-              Medical Journal
+              <span>Medical Journal</span>
+              {notebookEntries.length > 0 && (
+                <span className={combineClasses(
+                  'px-2 py-0.5 rounded-full text-xs font-medium',
+                  DesignTokens.colors.neutral[200],
+                  DesignTokens.colors.neutral.text[600]
+                )}>
+                  {notebookEntries.length}
+                </span>
+              )}
             </div>
             <div className={combineClasses('flex flex-row justify-start gap-2')}>
               <button

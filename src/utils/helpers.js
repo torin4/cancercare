@@ -170,3 +170,23 @@ export const getPostalPlaceholder = (country) => {
   return '';
 };
 
+/**
+ * Split text by search query (case-insensitive) for highlight rendering.
+ * Returns array of { type: 'text'|'match', value: string }.
+ * Use with: parts.map((part, i) => part.type === 'match' ? <mark key={i}>{part.value}</mark> : part.value)
+ */
+export function highlightSearchMatches(text, query) {
+  if (!text || typeof text !== 'string') return [{ type: 'text', value: text || '' }];
+  if (!query || !String(query).trim()) return [{ type: 'text', value: text }];
+  const q = String(query).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`(${q})`, 'gi');
+  const parts = text.split(re);
+  const result = [];
+  for (let i = 0; i < parts.length; i++) {
+    result.push({
+      type: i % 2 === 1 ? 'match' : 'text',
+      value: parts[i],
+    });
+  }
+  return result;
+}

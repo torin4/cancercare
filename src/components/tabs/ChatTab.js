@@ -13,6 +13,7 @@ import { useBanner } from '../../contexts/BannerContext';
 import { messageService, labService, vitalService, symptomService } from '../../firebase/services';
 import { getSavedTrials } from '../../services/clinicalTrials/clinicalTrialsService';
 import { getNotebookEntries } from '../../services/notebookService';
+import { highlightSearchMatches } from '../../utils/helpers';
 import { processChatMessage, generateChatExtractionSummary } from '../../services/chatProcessor';
 import { processDocument, generateExtractionSummary } from '../../services/documentProcessor';
 import { uploadDocument } from '../../firebase/storage';
@@ -1289,7 +1290,7 @@ export default function ChatTab({ onTabChange }) {
             DesignTokens.borders.color.default,
             'bg-white'
           )}>
-            <div className={combineClasses('flex items-center', 'w-full px-3 py-1.5 border border-medical-neutral-200 rounded-xl focus-within:ring-2 focus-within:ring-offset-0 focus-within:ring-gray-800 focus-within:border-gray-800 transition-all duration-200')}>
+            <div className={combineClasses('flex items-center', 'w-full px-3 py-1.5 border border-medical-neutral-200 rounded-xl focus-within:border-gray-800 transition-colors duration-200')}>
               <Search className="w-5 h-5 text-medical-neutral-400 flex-shrink-0" />
               <input
                 ref={searchInputRef}
@@ -1297,7 +1298,7 @@ export default function ChatTab({ onTabChange }) {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search chats..."
-                className="flex-1 bg-transparent border-0 outline-0 text-sm px-2"
+                className="flex-1 bg-transparent border-0 outline-none focus:ring-0 focus:outline-none text-sm px-2"
                 autoFocus
               />
               <button
@@ -1363,7 +1364,17 @@ export default function ChatTab({ onTabChange }) {
                         className="max-h-40 w-auto rounded-lg mb-2"
                       />
                     )}
-                    <p className="text-sm sm:text-base whitespace-pre-wrap">{msg.text}</p>
+                    <p className="text-sm sm:text-base whitespace-pre-wrap">
+                      {searchQuery.trim()
+                        ? highlightSearchMatches(msg.text, searchQuery).map((part, i) =>
+                            part.type === 'match' ? (
+                              <mark key={i} className="bg-amber-200/80 dark:bg-amber-600/40 rounded px-0.5">{part.value}</mark>
+                            ) : (
+                              part.value
+                            )
+                          )
+                        : msg.text}
+                    </p>
                   </div>
                 ) : (
                   <div className="text-sm sm:text-base prose prose-sm max-w-none break-words">
@@ -1494,24 +1505,36 @@ export default function ChatTab({ onTabChange }) {
                          </div>
                        );
                      })()}
-                    <ReactMarkdown
-                      components={{
-                        p: ({node, ...props}) => <p className="mb-2 last:mb-0 break-words" {...props} />,
-                        ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 space-y-1 break-words" {...props} />,
-                        ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2 space-y-1 break-words" {...props} />,
-                        li: ({node, ...props}) => <li className="ml-2 break-words" {...props} />,
-                        strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
-                        em: ({node, ...props}) => <em className="italic" {...props} />,
-                        code: ({node, ...props}) => <code className="bg-medical-neutral-100 px-1.5 py-0.5 rounded text-xs font-mono break-all" {...props} />,
-                        h1: ({node, ...props}) => <h1 className="text-lg font-bold mb-2 mt-3 first:mt-0 break-words" {...props} />,
-                        h2: ({node, ...props}) => <h2 className="text-base font-bold mb-2 mt-3 first:mt-0 break-words" {...props} />,
-                        h3: ({node, ...props}) => <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0 break-words" {...props} />,
-                        blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-medical-neutral-300 pl-3 italic my-2 break-words" {...props} />,
-                        a: ({node, ...props}) => <a className="text-gray-800 underline hover:text-gray-900 break-all" {...props} target="_blank" rel="noopener noreferrer" />,
-                      }}
+                    {searchQuery.trim() ? (
+                        <p className="mb-2 last:mb-0 break-words whitespace-pre-wrap">
+                          {highlightSearchMatches(removeQuestionsFromText(msg.text), searchQuery).map((part, i) =>
+                            part.type === 'match' ? (
+                              <mark key={i} className="bg-amber-200/80 dark:bg-amber-600/40 rounded px-0.5">{part.value}</mark>
+                            ) : (
+                              part.value
+                            )
+                          )}
+                        </p>
+                      ) : (
+                        <ReactMarkdown
+                          components={{
+                            p: ({node, ...props}) => <p className="mb-2 last:mb-0 break-words" {...props} />,
+                            ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 space-y-1 break-words" {...props} />,
+                            ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2 space-y-1 break-words" {...props} />,
+                            li: ({node, ...props}) => <li className="ml-2 break-words" {...props} />,
+                            strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
+                            em: ({node, ...props}) => <em className="italic" {...props} />,
+                            code: ({node, ...props}) => <code className="bg-medical-neutral-100 px-1.5 py-0.5 rounded text-xs font-mono break-all" {...props} />,
+                            h1: ({node, ...props}) => <h1 className="text-lg font-bold mb-2 mt-3 first:mt-0 break-words" {...props} />,
+                            h2: ({node, ...props}) => <h2 className="text-base font-bold mb-2 mt-3 first:mt-0 break-words" {...props} />,
+                            h3: ({node, ...props}) => <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0 break-words" {...props} />,
+                            blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-medical-neutral-300 pl-3 italic my-2 break-words" {...props} />,
+                            a: ({node, ...props}) => <a className="text-gray-800 underline hover:text-gray-900 break-all" {...props} target="_blank" rel="noopener noreferrer" />,
+                          }}
                         >
                           {removeQuestionsFromText(msg.text)}
                         </ReactMarkdown>
+                      )}
                         <QuestionCards text={msg.text} />
                         {msg.source === 'tool-backed' && (
                           <div className="mt-2 flex flex-wrap items-center gap-1.5">

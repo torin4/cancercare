@@ -11,10 +11,12 @@ export default function AddSymptomModal({
   onClose, 
   symptomForm, 
   setSymptomForm, 
-  user 
+  user,
+  editingSymptom = null
 }) {
   const { showSuccess, showError } = useBanner();
   const [isAllDay, setIsAllDay] = useState(false);
+  const isEditing = Boolean(editingSymptom?.id);
   
   if (!show) return null;
 
@@ -39,15 +41,24 @@ export default function AddSymptomModal({
       // For all-day entries, use midnight (00:00)
       const timeValue = isAllDay ? '00:00' : symptomForm.time;
       const dateTime = new Date(`${symptomForm.date}T${timeValue}`);
-      
-      await symptomService.addSymptom({
-        patientId: user.uid,
+      const payload = {
         name: symptomName,
         severity: symptomForm.severity,
         date: dateTime,
         notes: symptomForm.notes || '',
         tags: symptomForm.tags || []
-      });
+      };
+
+      if (isEditing) {
+        await symptomService.updateSymptom(editingSymptom.id, payload);
+        showSuccess('Symptom updated successfully!');
+      } else {
+        await symptomService.addSymptom({
+          patientId: user.uid,
+          ...payload
+        });
+        showSuccess('Symptom logged successfully!');
+      }
 
       // Reset form and close modal
       setSymptomForm({
@@ -60,7 +71,6 @@ export default function AddSymptomModal({
         tags: []
       });
       setIsAllDay(false);
-      showSuccess('Symptom logged successfully!');
       onClose();
       
       // Symptoms will automatically update via the subscription
@@ -87,7 +97,7 @@ export default function AddSymptomModal({
         <div className={DesignTokens.components.modal.header}>
           <h3 className={combineClasses(DesignTokens.components.modal.title, 'flex items-center gap-2')}>
             <Activity className={combineClasses('w-5 h-5', DesignTokens.moduleAccent.health.text)} />
-            Log Symptom
+            {isEditing ? 'Edit Symptom' : 'Log Symptom'}
           </h3>
           <button
             onClick={(e) => {
@@ -296,7 +306,7 @@ export default function AddSymptomModal({
               className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed')}
             >
               <Activity className={DesignTokens.icons.standard.size.full} />
-              Log Symptom
+              {isEditing ? 'Save' : 'Log Symptom'}
             </button>
           </div>
         </div>
