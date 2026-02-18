@@ -52,7 +52,15 @@ CancerCare is a multi-domain companion app for cancer patients.
 
 ---
 
-## 5. Gemini-Specific Instructions
+## 5. Available Skills
+The following specialized skills are available in `.agents/skills/`. Use them for complex design or architectural tasks:
+- **ui-ux-pro-max**: Comprehensive UI/UX design intelligence.
+- **web-design-guidelines**: Core web design and accessibility standards.
+- **vercel-react-best-practices**: Optimization and patterns for React.
+- **vercel-composition-patterns**: Component architecture and reuse patterns.
+- **vercel-react-native-skills**: Mobile-specific development guidelines.
+
+## 6. Gemini-Specific Instructions
 
 1. **Research First**: Check KIs and existing files before proposing changes.
 2. **Implementation Plans**: For complex tasks, create a plan and link to file paths in markdown format.
