@@ -4,7 +4,7 @@ export const parseMutation = (mutation) => {
   const raw = (mutation.variant || '') + ' ' + (mutation.alteration || '') + ' ' + (mutation.type || '') + ' ' + (mutation.note || '');
   const dnaMatch = raw.match(/c\.[^\s,;)]*/i);
   const proteinMatch = raw.match(/p\.[^\s,;)]*/i);
-  
+
   // Check alteration field first if it contains DNA notation
   let dna = mutation.dna || mutation.dnaChange;
   if (!dna && mutation.alteration) {
@@ -19,7 +19,7 @@ export const parseMutation = (mutation) => {
   if (!dna && dnaMatch) {
     dna = dnaMatch[0];
   }
-  
+
   let protein = mutation.protein || mutation.aminoAcidChange;
   if (!protein && mutation.alteration) {
     const altProteinMatch = mutation.alteration.match(/p\.[^\s,;)]*/i);
@@ -30,7 +30,7 @@ export const parseMutation = (mutation) => {
   if (!protein && proteinMatch) {
     protein = proteinMatch[0];
   }
-  
+
   const kind = mutation.type || (mutation.germline ? 'Germline' : mutation.somatic ? 'Somatic' : null);
   return { dna, protein, kind };
 };
@@ -63,24 +63,24 @@ export const getCurrentDateTimeLocal = () => {
  */
 export const parseLocalDate = (dateString) => {
   if (!dateString) return new Date();
-  
+
   // If already a Date object, return it
   if (dateString instanceof Date) return dateString;
-  
+
   // Parse YYYY-MM-DD format as local date
   const parts = dateString.split('-');
   if (parts.length === 3) {
     const year = parseInt(parts[0], 10);
     const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
     const day = parseInt(parts[2], 10);
-    
+
     // Create date in local timezone (not UTC)
     const localDate = new Date(year, month, day);
     if (!isNaN(localDate.getTime())) {
       return localDate;
     }
   }
-  
+
   // Fallback to standard Date parsing
   return new Date(dateString);
 };
@@ -95,7 +95,7 @@ export const formatDateString = (date) => {
   if (!date) return null;
   try {
     let d;
-    
+
     // Handle Firestore Timestamp
     if (date.toDate) {
       d = date.toDate();
@@ -120,11 +120,11 @@ export const formatDateString = (date) => {
     else {
       return null;
     }
-    
+
     if (!d || isNaN(d.getTime())) {
       return null;
     }
-    
+
     // Format as YYYY-MM-DD using local date components (not UTC)
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');

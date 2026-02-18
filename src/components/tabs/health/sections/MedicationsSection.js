@@ -10,7 +10,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   Pill, Edit2, Plus, MessageSquare, AlertCircle, Check, Trash2, MoreVertical, PauseCircle, PlayCircle, Square, Calendar
 } from 'lucide-react';
 import { DesignTokens, combineClasses } from '../../../../design/designTokens';
@@ -33,13 +33,13 @@ function MedicationsSection({ onTabChange }) {
   const [isDeletingMedication, setIsDeletingMedication] = useState(false);
   const [isTogglingMedication, setIsTogglingMedication] = useState(false);
   const [openMedicationMenu, setOpenMedicationMenu] = useState(null);
-  const [deleteConfirm, setDeleteConfirm] = useState({ 
-    show: false, 
-    title: '', 
-    message: '', 
-    onConfirm: null, 
-    itemName: '', 
-    confirmText: 'Yes, Delete Permanently' 
+  const [deleteConfirm, setDeleteConfirm] = useState({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+    itemName: '',
+    confirmText: 'Yes, Delete Permanently'
   });
   const [logRange, setLogRange] = useState('7'); // '7' | '30' | '90' | 'all'
   const [historyExpanded, setHistoryExpanded] = useState(false);
@@ -154,6 +154,52 @@ function MedicationsSection({ onTabChange }) {
 
   const hasTimedSchedule = (med) => typeof med?.schedule === 'string' && med.schedule.includes(':');
 
+  /**
+   * Returns true if the medication is due on the given date, based on its frequency and startDate.
+   * Defaults to true for unknown/daily frequencies so they always appear.
+   */
+  const isMedicationDueOnDate = (med, date) => {
+    const freq = med?.frequency;
+    if (!freq) return true;
+
+    // Daily or more frequent — always due
+    if (['Once daily', 'Twice daily', 'Three times daily', 'Four times daily', 'As needed', 'Custom'].includes(freq)) {
+      return true;
+    }
+
+    // For interval-based frequencies we need a reference start date
+    const rawStart = med?.startDate;
+    if (!rawStart) return true; // no start date stored — show it (safe default)
+
+    // Normalise both dates to midnight local time for whole-day arithmetic
+    const startMidnight = new Date(rawStart instanceof Date ? rawStart : new Date(rawStart));
+    startMidnight.setHours(0, 0, 0, 0);
+    const targetMidnight = new Date(date);
+    targetMidnight.setHours(0, 0, 0, 0);
+
+    const daysDiff = Math.round((targetMidnight - startMidnight) / (1000 * 60 * 60 * 24));
+
+    if (freq === 'Every other day') {
+      // Due on day 0, 2, 4, … from start
+      return daysDiff >= 0 && daysDiff % 2 === 0;
+    }
+    if (freq === 'Weekly') {
+      return daysDiff >= 0 && daysDiff % 7 === 0;
+    }
+    if (freq === 'Every 2 weeks') {
+      return daysDiff >= 0 && daysDiff % 14 === 0;
+    }
+    if (freq === 'Every 3 weeks') {
+      return daysDiff >= 0 && daysDiff % 21 === 0;
+    }
+    if (freq === 'Monthly') {
+      // Due on the same day-of-month as startDate
+      return targetMidnight.getDate() === startMidnight.getDate() && daysDiff >= 0;
+    }
+
+    return true; // unknown frequency — show it
+  };
+
   // All dates in the selected range (for showing taken + missed per day).
   const getDatesInRange = () => {
     const now = new Date();
@@ -175,7 +221,8 @@ function MedicationsSection({ onTabChange }) {
 
   // For a given date, slots that were scheduled but not logged (missed).
   const getMissedSlotsForDate = (dateKey) => {
-    const activeWithSchedule = medications.filter((m) => m.active && (m.status || 'active') !== 'stopped' && hasTimedSchedule(m));
+    const dateObj = new Date(dateKey);
+    const activeWithSchedule = medications.filter((m) => m.active && (m.status || 'active') !== 'stopped' && hasTimedSchedule(m) && isMedicationDueOnDate(m, dateObj));
     const takenSet = new Set();
     medicationLog.forEach((log) => {
       const logDate = log.takenAt instanceof Date ? log.takenAt : new Date(log.takenAt);
@@ -229,7 +276,7 @@ function MedicationsSection({ onTabChange }) {
       showError('You must be logged in to mark medications as taken.');
       return;
     }
-    
+
     try {
       // Toggle off if already taken today
       if (isMedicationTaken(medId, scheduledTime)) {
@@ -265,10 +312,10 @@ function MedicationsSection({ onTabChange }) {
         scheduledTime: scheduledTime,
         takenAt: now
       };
-      
+
       // Persist to Firebase
       const logId = await medicationLogService.addMedicationLog(logEntry);
-      
+
       // Update local state immediately for instant UI feedback
       setMedicationLog([...medicationLog, {
         id: logId,
@@ -276,7 +323,7 @@ function MedicationsSection({ onTabChange }) {
         scheduledTime: scheduledTime,
         takenAt: now.toISOString()
       }]);
-      
+
       showSuccess('Medication marked as taken');
     } catch (error) {
       showError('Failed to save medication log. Please try again.');
@@ -416,7 +463,7 @@ function MedicationsSection({ onTabChange }) {
         await journalNoteService.addJournalNote({
           patientId: user.uid,
           date: new Date(),
-          content: nextActive 
+          content: nextActive
             ? `Resumed medication: ${med.name} (${med.dosage}, ${med.frequency}).`
             : `Paused medication: ${med.name} (${med.dosage}, ${med.frequency}).`
         });
@@ -453,7 +500,7 @@ function MedicationsSection({ onTabChange }) {
           medName: med.name,
           details: { status: 'stopped' }
         });
-      } catch (e) {}
+      } catch (e) { }
 
       // Add journal note
       try {
@@ -495,7 +542,7 @@ function MedicationsSection({ onTabChange }) {
           medName: med.name,
           details: { status: 'active' }
         });
-      } catch (e) {}
+      } catch (e) { }
 
       // Add journal note
       try {
@@ -556,12 +603,12 @@ function MedicationsSection({ onTabChange }) {
             const activeMeds = medications.filter(med => med.active);
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            
-            const medsWithSchedule = activeMeds.filter((med) => hasTimedSchedule(med));
-            
+
+            const medsWithSchedule = activeMeds.filter((med) => hasTimedSchedule(med) && isMedicationDueOnDate(med, new Date()));
+
             let takenCount = 0;
             let totalDueToday = 0;
-            
+
             medsWithSchedule.forEach(med => {
               const times = med.schedule.split(',').map(t => t.trim());
               times.forEach(time => {
@@ -573,10 +620,10 @@ function MedicationsSection({ onTabChange }) {
                 }
               });
             });
-            
+
             let nextDose = null;
             let nextDoseMed = null;
-            
+
             activeMeds.forEach(med => {
               if (med.nextDose) {
                 const doseDate = new Date(med.nextDose);
@@ -588,10 +635,10 @@ function MedicationsSection({ onTabChange }) {
                 }
               }
             });
-            
+
             let adherenceMessage = '';
             let messageType = 'info';
-            
+
             if (totalDueToday > 0) {
               const adherencePercent = Math.round((takenCount / totalDueToday) * 100);
               if (adherencePercent === 100) {
@@ -608,12 +655,12 @@ function MedicationsSection({ onTabChange }) {
               adherenceMessage = 'No scheduled doses today.';
               messageType = 'info';
             }
-            
+
             if (nextDose && nextDoseMed) {
               const nextDoseDate = new Date(nextDose);
               const daysUntil = Math.ceil((nextDoseDate - today) / (1000 * 60 * 60 * 24));
               let nextDoseText = '';
-              
+
               if (daysUntil === 0) {
                 nextDoseText = `Next dose: ${nextDoseMed.name} today`;
               } else if (daysUntil === 1) {
@@ -625,38 +672,38 @@ function MedicationsSection({ onTabChange }) {
                 const day = nextDoseDate.getDate();
                 nextDoseText = `Next dose: ${nextDoseMed.name} on ${month} ${day}`;
               }
-              
+
               if (adherenceMessage) {
                 adherenceMessage += ` ${nextDoseText}.`;
               } else {
                 adherenceMessage = nextDoseText + '.';
               }
             }
-            
+
             const alertClasses = {
               success: DesignTokens.components.alert.success,
               info: DesignTokens.components.alert.info,
               warning: DesignTokens.components.alert.warning
             };
-            
+
             const textClasses = {
               success: DesignTokens.components.alert.text.success,
               info: DesignTokens.components.alert.text.info,
               warning: DesignTokens.components.alert.text.warning
             };
-            
+
             const textSecondaryClasses = {
               success: DesignTokens.components.status.normal.text,
               info: DesignTokens.colors.primary.text[700],
               warning: DesignTokens.components.alert.text.warning.replace('800', '700')
             };
-            
+
             const iconClasses = {
               success: DesignTokens.components.status.normal.text,
               info: DesignTokens.components.alert.text.info.replace('800', '600'),
               warning: DesignTokens.components.alert.text.warning.replace('800', '600')
             };
-            
+
             return (
               <div className={`${alertClasses[messageType]} border rounded-lg p-3 sm:p-4`}>
                 <div className="flex items-start gap-2">
@@ -692,7 +739,7 @@ function MedicationsSection({ onTabChange }) {
             <h3 className={combineClasses("text-sm sm:text-base font-semibold mb-3", DesignTokens.colors.neutral.text[900])}>Today's Schedule</h3>
             <div className="space-y-2">
               {medications
-                .filter((med) => med.active && (med.status || 'active') !== 'stopped' && hasTimedSchedule(med))
+                .filter((med) => med.active && (med.status || 'active') !== 'stopped' && hasTimedSchedule(med) && isMedicationDueOnDate(med, new Date()))
                 .flatMap(med =>
                   med.schedule.split(',').map(time => ({
                     ...med,
@@ -717,7 +764,7 @@ function MedicationsSection({ onTabChange }) {
                       className={combineClasses("w-full flex items-center gap-2 sm:gap-3 p-3 border-2 rounded-lg transition min-h-[60px] touch-manipulation active:opacity-70", taken
                         ? combineClasses(DesignTokens.components.status.normal.border.replace('200', '300'), DesignTokens.components.status.normal.bg, 'cursor-default')
                         : combineClasses(DesignTokens.colors.neutral.border[200], DesignTokens.components.status.normal.border.replace('200', '500').replace('border-', 'hover:border-'), DesignTokens.components.status.normal.bg.replace('bg-', 'hover:bg-'))
-                        )}
+                      )}
                     >
                       <div className={combineClasses("text-xs sm:text-sm font-semibold w-16 sm:w-20 flex-shrink-0", DesignTokens.colors.neutral.text[700])}>
                         {med.specificTime}
@@ -1417,7 +1464,7 @@ function MedicationsSection({ onTabChange }) {
         onClose={() => !isDeletingMedication && setDeleteConfirm({ ...deleteConfirm, show: false })}
       />
 
-<DeletionConfirmationModal
+      <DeletionConfirmationModal
         show={removeLogConfirm.show}
         title="Remove dose from history?"
         message="This logged dose will be removed. You can add it back later with Log missed dose."
