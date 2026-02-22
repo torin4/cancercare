@@ -923,8 +923,9 @@ function MedicationsSection({ onTabChange }) {
                   <div
                     key={med.id}
                     className={combineClasses(
-                      'border rounded-lg p-3 hover:shadow-md transition relative isolate',
-                      DesignTokens.colors.neutral.border[200]
+                      'border rounded-lg p-3 hover:shadow-md transition relative',
+                      DesignTokens.colors.neutral.border[200],
+                      openMedicationMenu === med.id ? 'z-[100]' : 'z-0'
                     )}
                   >
                     {/* Mobile: three-dot menu in top-right */}
@@ -1196,8 +1197,9 @@ function MedicationsSection({ onTabChange }) {
                   <div
                     key={med.id}
                     className={combineClasses(
-                      'border rounded-lg p-3 transition relative isolate opacity-90',
-                      DesignTokens.colors.neutral.border[200]
+                      'border rounded-lg p-3 transition relative opacity-90',
+                      DesignTokens.colors.neutral.border[200],
+                      openMedicationMenu === `paused:${med.id}` ? 'z-[100]' : 'z-0'
                     )}
                   >
                     {/* Mobile: three-dot menu in top-right */}
