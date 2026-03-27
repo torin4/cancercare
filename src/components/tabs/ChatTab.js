@@ -1880,30 +1880,6 @@ export default function ChatTab({ onTabChange }) {
                 </div>
               </div>
 
-              {/* Deep Thinking Toggle */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Brain className="w-4 h-4 text-medical-neutral-500" />
-                  <label className="text-xs font-medium text-medical-neutral-700">Deep Thinking</label>
-                </div>
-                <button
-                  onClick={() => setDeepThinking(prev => !prev)}
-                  className={combineClasses(
-                    'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none',
-                    deepThinking ? 'bg-purple-600' : 'bg-medical-neutral-300'
-                  )}
-                  role="switch"
-                  aria-checked={deepThinking}
-                  title={deepThinking ? 'Deep thinking on' : 'Deep thinking off'}
-                >
-                  <span
-                    className={combineClasses(
-                      'pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition duration-200',
-                      deepThinking ? 'translate-x-4' : 'translate-x-0'
-                    )}
-                  />
-                </button>
-              </div>
             </div>
           )}
         </div>
@@ -2009,6 +1985,21 @@ export default function ChatTab({ onTabChange }) {
             >
               <Paperclip className="w-3.5 h-3.5" />
               <span className="hidden md:inline">Image</span>
+            </button>
+
+            {/* Deep Thinking toggle */}
+            <button
+              onClick={() => setDeepThinking(prev => !prev)}
+              title={deepThinking ? 'Deep thinking on — click to disable' : 'Enable deep thinking'}
+              className={combineClasses(
+                'px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 flex items-center gap-1.5 touch-manipulation',
+                deepThinking
+                  ? 'border-2 border-purple-500 bg-purple-50 text-purple-700'
+                  : 'border-2 border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400'
+              )}
+            >
+              <Brain className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Deep Think</span>
             </button>
           </div>
 
