@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
+import { Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, HelpCircle, Brain } from 'lucide-react';
 
 const IRIS_ICON_SRC = '/icons/iris_logo.svg';
 import ExtractionSummary from './ExtractionSummary';
@@ -244,6 +244,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
   const messagesContainerRef = useRef(null);
   const searchInputRef = useRef(null);
   const [inputText, setInputText] = useState('');
+  const [deepThinking, setDeepThinking] = useState(false);
   const [currentTrialContext, setCurrentTrialContext] = useState(null);
   const [currentHealthContext, setCurrentHealthContext] = useState(null);
   const [currentNotebookContext, setCurrentNotebookContext] = useState(null);
@@ -731,7 +732,8 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
         patientProfile,
         abortControllerRef.current?.signal, // Pass abort signal
         null, // dicomContext
-        imageToSend // imageAttachment
+        imageToSend, // imageAttachment
+        deepThinking ? 'high' : null // thinkingLevel
       );
       
       // Check if request was aborted after processing
@@ -1558,6 +1560,20 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
             )}
           >
             <Paperclip className="w-4 h-4" />
+          </button>
+
+          {/* Deep Thinking toggle */}
+          <button
+            onClick={() => setDeepThinking(prev => !prev)}
+            title={deepThinking ? 'Deep thinking on — click to disable' : 'Enable deep thinking'}
+            className={combineClasses(
+              'w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center min-h-[44px] min-w-[44px] touch-manipulation transition',
+              deepThinking
+                ? 'border-2 border-purple-500 bg-purple-50 text-purple-700'
+                : 'border border-medical-neutral-200 text-gray-500 hover:bg-gray-50'
+            )}
+          >
+            <Brain className="w-4 h-4" />
           </button>
 
           <div className="relative flex-1">
