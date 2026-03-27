@@ -1887,6 +1887,49 @@ export default function ChatTab({ onTabChange }) {
         {/* Input Area with Suggestions */}
         <div className="bg-white">
           <div className="px-3 sm:px-4 py-2 flex items-center gap-2">
+            {/* Hidden file input for simple image upload */}
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageFileSelect}
+              className="hidden"
+            />
+
+            {/* Image button */}
+            <button
+              onClick={handleSimpleImageUpload}
+              title="Attach image"
+              className={combineClasses(
+                'px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 flex items-center gap-1.5 touch-manipulation',
+                'border-2 border-gray-300',
+                'text-gray-600',
+                'hover:bg-gray-50',
+                'hover:border-gray-400'
+              )}
+            >
+              <Paperclip className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Image</span>
+            </button>
+
+            {/* Deep Thinking toggle */}
+            <button
+              onClick={() => setDeepThinking(prev => !prev)}
+              title={deepThinking ? 'Deep thinking on — click to disable' : 'Enable deep thinking'}
+              className={combineClasses(
+                'px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 flex items-center gap-1.5 touch-manipulation',
+                deepThinking
+                  ? 'border-2 border-purple-500 bg-purple-50 text-purple-700'
+                  : 'border-2 border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400'
+              )}
+            >
+              <Brain className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Deep Think</span>
+            </button>
+
+            {/* Vertical Divider */}
+            <div className="h-6 w-px bg-medical-neutral-300 flex-shrink-0" />
+
             {/* Suggestions - Show on all screens */}
             <div className="flex flex-1 gap-2 overflow-x-auto scrollbar-hide items-center min-w-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {(() => {
@@ -1959,48 +2002,6 @@ export default function ChatTab({ onTabChange }) {
                 });
               })()}
             </div>
-            
-            {/* Vertical Divider - Before Upload (desktop only) */}
-            <div className="h-6 w-px bg-medical-neutral-300 flex-shrink-0 hidden md:block" />
-
-            {/* Hidden file input for simple image upload */}
-            <input
-              ref={imageInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleImageFileSelect}
-              className="hidden"
-            />
-
-            <button
-              onClick={handleSimpleImageUpload}
-              title="Attach image"
-              className={combineClasses(
-                'px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 flex items-center gap-1.5 touch-manipulation',
-                'border-2 border-gray-300',
-                'text-gray-600',
-                'hover:bg-gray-50',
-                'hover:border-gray-400'
-              )}
-            >
-              <Paperclip className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Image</span>
-            </button>
-
-            {/* Deep Thinking toggle */}
-            <button
-              onClick={() => setDeepThinking(prev => !prev)}
-              title={deepThinking ? 'Deep thinking on — click to disable' : 'Enable deep thinking'}
-              className={combineClasses(
-                'px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 flex items-center gap-1.5 touch-manipulation',
-                deepThinking
-                  ? 'border-2 border-purple-500 bg-purple-50 text-purple-700'
-                  : 'border-2 border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400'
-              )}
-            >
-              <Brain className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Deep Think</span>
-            </button>
           </div>
 
           {/* Image attachment preview */}
