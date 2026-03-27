@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, HelpCircle, FileSearch } from 'lucide-react';
+import { Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, HelpCircle, Brain } from 'lucide-react';
 
 const IRIS_ICON_SRC = '/icons/iris_logo.svg';
 import ExtractionSummary from './ExtractionSummary';
@@ -1573,7 +1573,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                 : 'border border-medical-neutral-200 text-gray-500 hover:bg-gray-50'
             )}
           >
-            <FileSearch className="w-4 h-4" />
+            <Brain className="w-4 h-4" />
           </button>
 
           <div className="relative flex-1">
