@@ -1,5 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, HelpCircle, Sparkles } from 'lucide-react';
+import { Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
+
+const DeepThinkIcon = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    {/* Head profile outline */}
+    <path d="M9 21v-1.5c0-.8-.5-1.5-1.2-2C6 16.4 5 14.3 5 12c0-4 3-7 7-7s7 3 7 7c0 2.3-1 4.4-2.8 5.5-.7.5-1.2 1.2-1.2 2V21" />
+    <line x1="9" y1="21" x2="15" y2="21" />
+    {/* Equalizer bars */}
+    <line x1="10" y1="9" x2="10" y2="13" />
+    <line x1="12" y1="7.5" x2="12" y2="13" />
+    <line x1="14" y1="9" x2="14" y2="13" />
+  </svg>
+);
 
 const IRIS_ICON_SRC = '/icons/iris_logo.svg';
 import ExtractionSummary from './ExtractionSummary';
@@ -1573,7 +1585,7 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
                 : 'border border-medical-neutral-200 text-gray-500 hover:bg-gray-50'
             )}
           >
-            <Sparkles className="w-4 h-4" />
+            <DeepThinkIcon className="w-4 h-4" />
           </button>
 
           <div className="relative flex-1">
