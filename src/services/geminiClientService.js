@@ -197,7 +197,7 @@ export async function generateGeminiText({ model, content, abortSignal = null })
  * Call the tool-backed chat endpoint for health data read/analysis queries.
  * Returns the full compatibility envelope { response, extractedData, insight, insights, source }.
  */
-export async function callToolChat({ message, conversationHistory, patientProfile, trialContext, notebookContext, abortSignal }) {
+export async function callToolChat({ message, conversationHistory, patientProfile, trialContext, notebookContext, abortSignal, thinkingLevel = null }) {
   const traceContext = createTraceContext('tool-read');
   const startedAt = Date.now();
   const featureFlag = process.env.REACT_APP_IRIS_TOOL_CHAT_ENABLED === 'true' ? 'enabled' : 'unknown';
@@ -207,7 +207,8 @@ export async function callToolChat({ message, conversationHistory, patientProfil
     conversationHistory: sanitizeConversationHistory(conversationHistory),
     patientProfile: sanitizePatientProfile(patientProfile),
     trialContext: sanitizeTrialContext(trialContext),
-    notebookContext: summarizeNotebookContext(notebookContext)
+    notebookContext: summarizeNotebookContext(notebookContext),
+    ...(thinkingLevel ? { thinkingLevel } : {})
   };
 
   trackProductEvent('chat_message_sent', {

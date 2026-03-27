@@ -404,7 +404,7 @@ async function fileToBase64(file) {
  * @param {string|null} documentType - Optional document type (if provided, skips classification and uses type-specific prompt)
  */
 async function analyzeDocument(base64Data, mimeType, patientProfile = null, documentDate = null, onProgress = null, documentType = null, customInstructions = null) {
-  const modelName = 'gemini-2.5-flash';
+  const modelName = 'gemini-3.1-flash-image-preview';
 
   // Determine document type - use provided type or classify
   let docType = 'unknown';

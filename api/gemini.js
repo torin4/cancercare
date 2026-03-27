@@ -8,7 +8,7 @@ const {
   hashUserId
 } = require('./lib/telemetry');
 
-const DEFAULT_MODEL = 'gemini-3-flash-preview';
+const DEFAULT_MODEL = 'gemini-3.1-pro-preview';
 
 function buildLegacyContext(message, conversationHistory) {
   return `You are CancerCare's AI health assistant. You're helping track Mary's health. Mary has Stage IIIC ovarian cancer and is undergoing treatment.

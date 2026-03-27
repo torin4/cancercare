@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square, HelpCircle, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react';
+import { Trash2, Send, Paperclip, Activity, Dna, Zap, Loader2, BarChart, FlaskConical, BookOpen, MessageSquare, Search, X, Filter, Sliders, Lightbulb, Square, HelpCircle, ChevronDown, ChevronUp, ChevronLeft, Brain } from 'lucide-react';
 
 const IRIS_ICON_SRC = '/icons/iris_logo.svg';
 import ReactMarkdown from 'react-markdown';
@@ -303,6 +303,7 @@ export default function ChatTab({ onTabChange }) {
   const [suggestionsKey, setSuggestionsKey] = useState(0); // Force re-render when role changes
   const [isBotProcessing, setIsBotProcessing] = useState(false);
   const [showComplexityControl, setShowComplexityControl] = useState(false);
+  const [deepThinking, setDeepThinking] = useState(false);
   const abortControllerRef = useRef(null);
 
   // Document upload state
@@ -818,7 +819,8 @@ export default function ChatTab({ onTabChange }) {
         patientProfile, // Pass patient profile for demographic-based normal ranges
         abortControllerRef.current?.signal, // Pass abort signal
         null, // dicomContext
-        imageToSend // imageAttachment
+        imageToSend, // imageAttachment
+        deepThinking ? 'high' : null // thinkingLevel
       );
       
       // Check if request was aborted after processing
@@ -1876,6 +1878,34 @@ export default function ChatTab({ onTabChange }) {
                     }`}>Advanced</span>
                   </div>
                 </div>
+              </div>
+
+              {/* Deep Thinking Toggle */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Brain className="w-4 h-4 text-medical-neutral-500" />
+                  <div>
+                    <label className="text-xs font-medium text-medical-neutral-700">Deep Thinking</label>
+                    <p className="text-xs text-medical-neutral-500">Maximizes reasoning depth for complex questions</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setDeepThinking(prev => !prev)}
+                  className={combineClasses(
+                    'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none',
+                    deepThinking ? 'bg-purple-600' : 'bg-medical-neutral-300'
+                  )}
+                  role="switch"
+                  aria-checked={deepThinking}
+                  title={deepThinking ? 'Deep thinking on' : 'Deep thinking off'}
+                >
+                  <span
+                    className={combineClasses(
+                      'pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition duration-200',
+                      deepThinking ? 'translate-x-4' : 'translate-x-0'
+                    )}
+                  />
+                </button>
               </div>
             </div>
           )}

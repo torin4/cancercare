@@ -1331,11 +1331,11 @@ function buildChatPrompt({
  * @param {Object} dicomContext - Optional DICOM context (metadata, viewer state) for medical imaging chat
  * @param {Object} imageAttachment - Optional simple image attachment { base64: string, mimeType: string, fileName: string }
  */
-export async function processChatMessage(message, userId, conversationHistory = [], trialContext = null, healthContext = null, notebookContext = null, patientProfile = null, abortSignal = null, dicomContext = null, imageAttachment = null) {
+export async function processChatMessage(message, userId, conversationHistory = [], trialContext = null, healthContext = null, notebookContext = null, patientProfile = null, abortSignal = null, dicomContext = null, imageAttachment = null, thinkingLevel = null) {
   try {
     // Determine if we need vision model (if DICOM image data or simple image attachment is provided)
     const hasImage = dicomContext?.imageData?.imageData || (dicomContext?.images && dicomContext.images.length > 0) || imageAttachment?.base64;
-    const modelName = 'gemini-3-flash-preview'; // Same model for text and image; request format differs by hasImage
+    const modelName = 'gemini-3.1-pro-preview'; // Same model for text and image; request format differs by hasImage
 
     // Detect intent from message
     const { 
@@ -1374,7 +1374,8 @@ export async function processChatMessage(message, userId, conversationHistory = 
           patientProfile,
           trialContext,
           notebookContext,
-          abortSignal
+          abortSignal,
+          thinkingLevel
         });
 
         return {

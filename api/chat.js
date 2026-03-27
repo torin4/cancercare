@@ -9,7 +9,7 @@ const {
   hashUserId
 } = require('./lib/telemetry');
 
-const DEFAULT_MODEL = 'gemini-3-flash-preview';
+const DEFAULT_MODEL = 'gemini-3.1-pro-preview';
 const MAX_LOOP_ITERATIONS = 4;
 const MAX_TOTAL_TOOL_CALLS = 8;
 
@@ -274,7 +274,7 @@ module.exports = async (req, res) => {
     }, telemetryContext);
     return res.status(400).json({ error: 'Invalid JSON body' });
   }
-  const { message, conversationHistory, patientProfile, trialContext, notebookContext } = body;
+  const { message, conversationHistory, patientProfile, trialContext, notebookContext, thinkingLevel } = body;
 
   if (!message || typeof message !== 'string') {
     emitTelemetryEvent('chat_request_rejected', {
@@ -340,7 +340,10 @@ module.exports = async (req, res) => {
     const toolResponseCache = new Map();
 
     for (let i = 0; i < MAX_LOOP_ITERATIONS; i++) {
-      const result = await model.generateContent({ contents });
+      const generateConfig = thinkingLevel
+        ? { contents, generationConfig: { thinkingConfig: { thinkingLevel } } }
+        : { contents };
+      const result = await model.generateContent(generateConfig);
       const response = result.response;
       const candidate = response.candidates?.[0];
       if (!candidate) {

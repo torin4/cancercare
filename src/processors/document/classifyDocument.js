@@ -71,7 +71,7 @@ export function classifyDocumentHeuristic(filename = '', mimetype = '', firstPag
  * @returns {Promise<'lab' | 'genomic' | 'imaging'>}
  */
 export async function classifyDocumentWithAI(firstPageText, genAI) {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-image-preview' });
   
   const prompt = `Classify this medical document type based on the content below.
 Return ONLY one word: LAB, GENOMIC, or IMAGING
