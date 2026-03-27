@@ -1764,7 +1764,7 @@ export default function ChatTab({ onTabChange }) {
               <ChevronDown className="w-4 h-4 text-medical-neutral-400" />
             </button>
           ) : (
-            <div className="px-3 pt-3 pb-3 space-y-4">
+            <div className="px-3 pt-3 pb-3 space-y-3 max-h-48 overflow-y-auto">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <Sliders className="w-4 h-4 text-medical-neutral-500" />
@@ -1884,10 +1884,7 @@ export default function ChatTab({ onTabChange }) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Brain className="w-4 h-4 text-medical-neutral-500" />
-                  <div>
-                    <label className="text-xs font-medium text-medical-neutral-700">Deep Thinking</label>
-                    <p className="text-xs text-medical-neutral-500">Maximizes reasoning depth for complex questions</p>
-                  </div>
+                  <label className="text-xs font-medium text-medical-neutral-700">Deep Thinking</label>
                 </div>
                 <button
                   onClick={() => setDeepThinking(prev => !prev)}
