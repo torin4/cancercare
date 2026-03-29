@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { auth } from '../firebase/config';
 import logger from '../utils/logger';
 import { createTraceContext, latencyBucket, trackProductEvent } from './telemetryClientService';
@@ -162,13 +162,11 @@ async function callGeminiBrowser({ model, content }) {
     throw new Error('Gemini API key is not configured for browser fallback');
   }
   if (!browserGenAI) {
-    browserGenAI = new GoogleGenerativeAI(BROWSER_API_KEY);
+    browserGenAI = new GoogleGenAI({ apiKey: BROWSER_API_KEY });
   }
 
-  const browserModel = browserGenAI.getGenerativeModel({ model });
-  const result = await browserModel.generateContent(content);
-  const response = await result.response;
-  return response.text();
+  const result = await browserGenAI.models.generateContent({ model, contents: content });
+  return result.text;
 }
 
 /**

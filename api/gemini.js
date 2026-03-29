@@ -1,4 +1,4 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenAI } = require('@google/genai');
 const { setCors, getBearerToken, verifyFirebaseIdToken } = require('./lib/auth');
 const {
   createServerTelemetryContext,
@@ -100,11 +100,12 @@ module.exports = async (req, res) => {
       return res.status(500).json({ error: 'GEMINI_API_KEY is not configured' });
     }
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: modelName });
-    const result = await model.generateContent(content);
-    const response = await result.response;
-    const text = response.text();
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const result = await ai.models.generateContent({
+      model: modelName,
+      contents: typeof content === 'string' ? content : content,
+    });
+    const text = result.text;
     const latencyMs = Date.now() - startedAt;
 
     emitTelemetryEvent('chat_response_received', {

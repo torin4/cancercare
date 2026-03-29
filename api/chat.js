@@ -1,4 +1,4 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenAI } = require('@google/genai');
 const { setCors, getBearerToken, verifyFirebaseIdToken } = require('./lib/auth');
 const { TOOL_DECLARATIONS, TOOL_ALLOWLIST, executeTool } = require('./lib/healthTools');
 const {
@@ -313,13 +313,14 @@ module.exports = async (req, res) => {
       ...(requestedDateRange ? { reason: 'date_window_requested' } : {})
     }, telemetryContext);
 
-    // Configure Gemini with tools
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({
-      model: DEFAULT_MODEL,
+    // Configure Gemini client
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const systemInstruction = buildSystemInstruction(patientProfile, trialContext, notebookContext, requestedDateRange);
+    const modelConfig = {
       tools: [{ functionDeclarations: TOOL_DECLARATIONS }],
-      systemInstruction: buildSystemInstruction(patientProfile, trialContext, notebookContext, requestedDateRange)
-    });
+      systemInstruction,
+      ...(thinkingLevel ? { thinkingConfig: { thinkingLevel } } : {})
+    };
 
     // Build contents from conversation history + current message
     const contents = [];
@@ -340,11 +341,11 @@ module.exports = async (req, res) => {
     const toolResponseCache = new Map();
 
     for (let i = 0; i < MAX_LOOP_ITERATIONS; i++) {
-      const generateConfig = thinkingLevel
-        ? { contents, generationConfig: { thinkingConfig: { thinkingLevel } } }
-        : { contents };
-      const result = await model.generateContent(generateConfig);
-      const response = result.response;
+      const response = await ai.models.generateContent({
+        model: DEFAULT_MODEL,
+        contents,
+        config: modelConfig
+      });
       const candidate = response.candidates?.[0];
       if (!candidate) {
         finalText = 'I was unable to generate a response. Please try rephrasing your question.';
@@ -356,8 +357,8 @@ module.exports = async (req, res) => {
       // Check for function calls
       const functionCalls = modelParts.filter(p => p.functionCall);
       if (functionCalls.length === 0) {
-        // Final text response
-        finalText = modelParts.map(p => p.text || '').join('');
+        // Final text response — exclude thought parts (thought: true) from output
+        finalText = modelParts.filter(p => p.text && !p.thought).map(p => p.text).join('');
         break;
       }
 
@@ -446,9 +447,11 @@ module.exports = async (req, res) => {
         }
       }
 
-      // Append model response + tool results to contents for next iteration
-      contents.push({ role: 'model', parts: modelParts });
-      contents.push({ role: 'function', parts: functionResponses });
+      // Append model response + tool results to contents for next iteration.
+      // Push the full candidate.content (preserves thought signatures for Gemini 3.x).
+      // Function responses use role: 'user' as required by the new Gemini API.
+      contents.push(candidate.content);
+      contents.push({ role: 'user', parts: functionResponses });
     }
 
     if (finalText === null) {
