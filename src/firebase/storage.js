@@ -436,20 +436,18 @@ export const downloadFileAsBlob = async (storagePath, existingUrl = null, userId
   }
 
   // Try proxy (for production, or as fallback when getBytes() fails)
-  // Get download URL (use existing or get fresh one) - needed for proxy
-  let downloadUrl = existingUrl;
-  if (!downloadUrl) {
-    try {
-      downloadUrl = await getDownloadURL(storageRef);
-    } catch (urlError) {
-      console.error('getDownloadURL error:', {
-        storagePath,
-        userId,
-        error: urlError.message,
-        code: urlError.code
-      });
-      throw urlError;
-    }
+  // Always get a fresh download URL — stored URLs may lack a token and will be rejected by Firebase.
+  let downloadUrl;
+  try {
+    downloadUrl = await getDownloadURL(storageRef);
+  } catch (urlError) {
+    console.error('getDownloadURL error:', {
+      storagePath,
+      userId,
+      error: urlError.message,
+      code: urlError.code
+    });
+    throw urlError;
   }
 
   const isProduction = process.env.NODE_ENV === 'production' || window.location.hostname !== 'localhost';
@@ -512,36 +510,19 @@ export const downloadFileAsBlob = async (storagePath, existingUrl = null, userId
       throw new Error(`Failed to download file: Both methods failed. getBytes() error: ${getBytesError?.message || 'Unknown'}. Proxy error: ${proxyError.message}. ${proxyInfo}`);
     }
     
-    // If proxy fails and we haven't tried getBytes() yet (useDirectDownload was false), try it as fallback
-    // But only for non-DICOM files (DICOM files will always fail with CORS)
-    if (!isDicomFile) {
-      try {
-        const bytes = await getBytes(storageRef);
-        return new Blob([bytes]);
-      } catch (sdkError) {
-        // Both methods failed
-        const proxyInfo = isProduction
-          ? 'The Vercel serverless function (/api/storage-proxy) may not be deployed or is not responding. Check your Vercel deployment.'
-          : 'Cannot connect to proxy server. For local development: Run "npm run start:proxy" in a separate terminal to start the proxy server on port 4000, or use "npm run start:all" to start both the proxy and React app together.';
+    // getBytes() is not a viable fallback in a browser context — it always hits CORS.
+    // If the proxy fails, surface a clear error.
+    const proxyInfo = isProduction
+      ? 'The Vercel serverless function (/api/storage-proxy) may not be deployed or is not responding. Check your Vercel deployment.'
+      : 'Cannot connect to proxy server. For local development: Run "npm run start:proxy" in a separate terminal, or use "npm run start:all".';
 
-        if (proxyError.name === 'AbortError' || proxyError.message.includes('timeout') || proxyError.message.includes('504')) {
-          throw new Error(`Download failed: Proxy request timed out after 240 seconds. The file may be too large or the proxy server is slow. ${proxyInfo}`);
-        }
-
-        if (proxyError.message.includes('Failed to fetch') || proxyError.message.includes('NetworkError') || proxyError.message.includes('ECONNREFUSED')) {
-          throw new Error(`Failed to download file. ${proxyInfo} SDK fallback also failed: ${sdkError.message}`);
-        }
-
-        throw new Error(`Failed to download file via proxy: ${proxyError.message}. SDK fallback also failed: ${sdkError.message}`);
-      }
-    } else {
-      // DICOM file and proxy failed - don't try getBytes() (will fail with CORS)
-      const proxyInfo = isProduction
-        ? 'The Vercel serverless function (/api/storage-proxy) may not be deployed or is not responding. Check your Vercel deployment.'
-        : 'Cannot connect to proxy server. DICOM files require the proxy server to download. For local development: Run "npm run start:proxy" in a separate terminal to start the proxy server on port 4000, or use "npm run start:all" to start both the proxy and React app together.';
-      
-      throw new Error(`Failed to download DICOM file via proxy: ${proxyError.message}. ${proxyInfo}`);
+    if (proxyError.name === 'AbortError' || proxyError.message.includes('timeout') || proxyError.message.includes('504')) {
+      throw new Error(`Download timed out after 240 seconds. The file may be too large. ${proxyInfo}`);
     }
+    if (proxyError.message.includes('Failed to fetch') || proxyError.message.includes('NetworkError') || proxyError.message.includes('ECONNREFUSED')) {
+      throw new Error(`Failed to reach the download proxy. ${proxyInfo}`);
+    }
+    throw new Error(`Proxy download failed: ${proxyError.message}. ${proxyInfo}`);
   }
 };
 /**
