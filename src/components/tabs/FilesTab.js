@@ -1950,8 +1950,8 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
                               Edit Name, Date & Note
                             </button>
                             
-                            {/* Rescan option - show for processable document types */}
-                            {(doc.documentType === 'Lab' || doc.type === 'Lab' || doc.documentType === 'Vitals' || doc.type === 'Vitals' || doc.documentType === 'Genomic' || doc.type === 'Genomic' || doc.documentType === 'blood-test') && (
+                            {/* Rescan option - show for any document with a storage path */}
+                            {doc.storagePath && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -2146,8 +2146,8 @@ export default function FilesTab({ onTabChange, onOpenMobileChat, onOpenDicomVie
                         )}
                       </div>
 
-                      {/* Rescan button - show for processable document types */}
-                      {(doc.documentType === 'Lab' || doc.type === 'Lab' || doc.documentType === 'Vitals' || doc.type === 'Vitals' || doc.documentType === 'Genomic' || doc.type === 'Genomic' || doc.documentType === 'blood-test') && (
+                      {/* Rescan button - show for any document with a storage path */}
+                      {doc.storagePath && (
                         <div className="relative">
                           <button
                             onClick={(e) => {

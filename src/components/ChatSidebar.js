@@ -611,9 +611,9 @@ export default function ChatSidebar({ activeTab, onTabChange, isMobileOverlay = 
       abortControllerRef.current = new AbortController();
     }
 
+    let healthContextToUse = null;
     try {
       // ALWAYS refresh health context to get latest data - don't use stale cached context
-      let healthContextToUse = null;
 
       // Detect if question would benefit from health data - expanded patterns to catch more health-related questions
       const requiresHealthData = /(explain|analyze|what does|how is|why is|why are|why does|why do|trend|progress|mean|interpret|tell me about|what about|what are|what is|look at|check|show|my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications|data|results|values|numbers|test|tests|marker|markers|metric|metrics|function)|her (lab|labs|vital|vitals|marker|markers|metric|metrics)|ca-125|hemoglobin|blood pressure|heart rate|temperature|weight|tired|fatigue|energy|feeling|feels|symptom|pain|nausea|dizzy|weak|weakness|anemia|blood|cbc|wbc|rbc|platelet|anxiety|depression|sleep|appetite|nauseous|bilirubin|albumin|alb|liver|kidney|renal|function|ast|alt|creatinine|egfr|bun|ldh|crp|glucose|a1c|cholesterol|triglyceride|hdl|ldl|sodium|potassium|calcium|magnesium|phosphorus|protein|globulin|inr|pt|ptt|esr|ferritin|iron|b12|folate|vitamin d|d3|tsh|t3|t4|psa|afp|cea|tumor marker)/i.test(userMessage);
