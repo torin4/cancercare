@@ -46,11 +46,11 @@ const TOOL_DECLARATIONS = [
   },
   {
     name: 'get_medications',
-    description: 'Retrieve the patient\'s medications with dosage, frequency, and active status.',
+    description: 'Retrieve the patient\'s medications with dosage, frequency, schedule, and status (active = currently taking, paused = temporarily on hold, stopped = discontinued). Use this for any question about which meds the patient is taking, was taking, or has paused/stopped.',
     parameters: {
       type: 'object',
       properties: {
-        activeOnly: { type: 'boolean', description: 'If true (default), only return active medications. Set false to include stopped medications.' },
+        status: { type: 'string', description: 'Filter by status: "active" (default — currently taking), "paused", "stopped", or "all" to include current, paused, and past medications.' },
         limit: { type: 'integer', description: 'Max number of medications. Default 20, max 50.' }
       }
     }
@@ -465,26 +465,40 @@ async function handleGetSymptoms(args, ctx) {
 async function handleGetMedications(args, ctx) {
   const { idToken, uid } = ctx;
   const limit = clampLimit(args.limit, 20, 50);
-  const activeOnly = args.activeOnly !== false; // default true
+  // Back-compat: honor the legacy activeOnly arg; otherwise filter by status ("active" default)
+  const statusFilter = typeof args.status === 'string' && args.status.trim()
+    ? args.status.trim().toLowerCase()
+    : (args.activeOnly === false ? 'all' : 'active');
 
-  const extra = [];
-  if (activeOnly) {
-    extra.push({ fieldFilter: { field: { fieldPath: 'active' }, op: 'EQUAL', value: { booleanValue: true } } });
-  }
-
+  // Status lives in a mix of `status` and the legacy `active` boolean, and older docs
+  // may lack `status` entirely — fetch then filter in JS rather than in Firestore.
+  const scanLimit = statusFilter === 'all' ? limit : Math.min(Math.max(limit * 3, 60), 150);
   const docs = await runQuery(idToken, {
     from: [{ collectionId: 'medications' }],
-    where: buildWhereFilter(uid, extra.length ? extra : null),
-    limit
+    where: buildWhereFilter(uid, null),
+    limit: scanLimit
   });
 
+  // Backwards compatible: docs without `status` derive it from `active` (false = paused)
+  const withStatus = docs.map(d => ({
+    ...d,
+    derivedStatus: d.status || (d.active === false ? 'paused' : 'active')
+  }));
+
+  const filtered = statusFilter === 'all'
+    ? withStatus
+    : withStatus.filter(d => d.derivedStatus === statusFilter);
+
   return {
-    medications: docs.map(d => ({
+    medications: filtered.slice(0, limit).map(d => ({
       name: d.name,
       dosage: d.dosage || null,
       frequency: d.frequency || null,
+      schedule: d.schedule || null,
       purpose: d.purpose || null,
-      active: d.active
+      status: d.derivedStatus,
+      startDate: d.startDate || null,
+      stoppedAt: d.stoppedAt || null
     }))
   };
 }
@@ -535,7 +549,7 @@ async function handleGetHealthSummary(args, ctx) {
   if (include.includes('labs')) promises.push(handleGetLabs({ ...dateArgs, limit: 4 }, ctx).then(r => { result.labs = r.labs; }));
   if (include.includes('vitals')) promises.push(handleGetVitals({ ...dateArgs, limit: 4 }, ctx).then(r => { result.vitals = r.vitals; }));
   if (include.includes('symptoms')) promises.push(handleGetSymptoms({ ...dateArgs, limit: 8 }, ctx).then(r => { result.symptoms = r.symptoms; }));
-  if (include.includes('medications')) promises.push(handleGetMedications({ activeOnly: true, limit: 8 }, ctx).then(r => { result.medications = r.medications; }));
+  if (include.includes('medications')) promises.push(handleGetMedications({ status: 'active', limit: 8 }, ctx).then(r => { result.medications = r.medications; }));
   if (include.includes('journalNotes')) promises.push(handleGetJournalNotes({ ...dateArgs, limit: 8 }, ctx).then(r => { result.journalNotes = r.journalNotes; }));
 
   await Promise.all(promises);

@@ -831,18 +831,24 @@ async function buildHealthContextSection(healthContext, userId, patientProfile =
     // Continue without medications/notes if loading fails
   }
 
-  // Format medications data - show active medications with details
-  const activeMedications = medications.filter(med => med.active && (med.status || 'active') !== 'stopped');
+  // Format medications data - active first, then paused and stopped so Iris can
+  // answer questions about current, paused, and past medications
+  const medStatus = (med) => med.status || (med.active === false ? 'paused' : 'active');
+  const formatMed = (med) => {
+    const scheduleText = med.schedule && med.schedule !== med.frequency && med.schedule.includes(':')
+      ? ` (Schedule: ${med.schedule})`
+      : '';
+    const status = medStatus(med);
+    const statusText = status === 'paused' ? ' [PAUSED]' : status === 'stopped' ? ' [STOPPED]' : '';
+    return `${med.name}: ${med.dosage}, ${med.frequency}${scheduleText}${statusText}`;
+  };
+  const activeMedications = medications.filter(med => medStatus(med) === 'active');
+  const inactiveMedications = medications.filter(med => medStatus(med) !== 'active');
   const medicationsCount = activeMedications.length;
-  const medicationsSummary = activeMedications.length > 0
-    ? activeMedications.map(med => {
-        const scheduleText = med.schedule && med.schedule !== med.frequency && med.schedule.includes(':')
-          ? ` (Schedule: ${med.schedule})`
-          : '';
-        const statusText = med.status === 'paused' ? ' [PAUSED]' : '';
-        return `${med.name}: ${med.dosage}, ${med.frequency}${scheduleText}${statusText}`;
-      }).join('\n')
-    : 'No active medications';
+  const medicationsSummary = [
+    activeMedications.length > 0 ? activeMedications.map(formatMed).join('\n') : 'No active medications',
+    inactiveMedications.length > 0 ? inactiveMedications.map(formatMed).join('\n') : null
+  ].filter(Boolean).join('\n');
 
   // Note: Insights are now only generated when patterns are specifically requested
   // Build DICOM scans context section
@@ -983,7 +989,7 @@ ${vitalsSummary}
 
 SYMPTOMS (${symptomsCount} total, recent: ${recentSymptoms})
 
-MEDICATIONS (${medicationsCount} active):
+MEDICATIONS (${medicationsCount} active${inactiveMedications.length > 0 ? `, ${inactiveMedications.length} paused/stopped` : ''}):
 ${medicationsSummary}
 ${dicomContextSection}
 ${getHealthContextInstructions()}
@@ -1115,7 +1121,7 @@ function detectChatIntent(message, trialContext) {
     // Questions about "my" data, trends in user's data, or analysis of user's specific values require health data
     // Also detect comparison/retrieval queries and edit queries that need health data
     // Support both "my" and "her" for patient data queries, and specific lab/marker names
-    const hasUserDataReference = /(my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications|data|results|values|numbers|test|tests|current|recent|trends|progress|marker|markers|metric|metrics)|her (lab|labs|vital|vitals|marker|markers|metric|metrics|bilirubin|albumin|alb|liver|function|reading|readings|latest|current)|what do my|how are my|how's my|tell me about my|explain my|analyze my|my ca-125|my hemoglobin|my blood|my tests|my results|what's her|what is her|whats her|look at (her|the|my)|check (her|the|my)|show (her|the|my))/i.test(message);
+    const hasUserDataReference = /(my (lab|labs|vital|vitals|symptom|symptoms|health|treatment|medication|medications|med|meds|data|results|values|numbers|test|tests|current|recent|trends|progress|marker|markers|metric|metrics)|her (lab|labs|vital|vitals|marker|markers|metric|metrics|medication|medications|med|meds|bilirubin|albumin|alb|liver|function|reading|readings|latest|current)|(which|what) (medication|medications|med|meds|prescription|prescriptions)|(medication|medications|med|meds) (is she|am i|she's|i'm|she is) (taking|on)|(paused|stopped|past|previous|current) (medication|medications|med|meds)|what do my|how are my|how's my|tell me about my|explain my|analyze my|my ca-125|my hemoglobin|my blood|my tests|my results|what's her|what is her|whats her|look at (her|the|my)|check (her|the|my)|show (her|the|my))/i.test(message);
     const isComparisonOrRetrievalQuery = /(compare|comparison|how does|how did|versus|vs|difference|change from|compared to|last (measurement|value|result|test|date|two|three|few)|previous|before that|one before|earlier|prior|historical|retrieve|show me|tell me about|what (was|were)|the (last|previous|earlier)|and the (one|next)|yes please|yes|yep|yeah|yup|sure|ok|okay)/i.test(message);
     const isEditQuery = /(edit|update|change|correct|fix|modify|replace|set to|change (my|the) (.*) (to|from)|update (my|the) (.*) (to|from)|correct (my|the) (.*)|fix (my|the) (.*))/i.test(message);
     const isDeleteQuery = /(delete|remove|clean up|remove duplicate|remove duplicates|delete duplicate|delete duplicates|clean|deduplicate|dedupe)/i.test(message);

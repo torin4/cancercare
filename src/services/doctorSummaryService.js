@@ -103,6 +103,7 @@ const DEFAULT_SECTIONS = {
  * @param {string} [options.customEnd] - ISO date for custom range end (when dateRange === 'custom')
  * @param {string[]} [options.selectedLabIds] - If non-empty, only include these lab ids
  * @param {string[]} [options.selectedVitalIds] - If non-empty, only include these vital ids
+ * @param {{ currentList?: boolean, takenLog?: boolean }} [options.medicationParts] - Which medication parts to include (default: both)
  * @returns {Promise<Object>} Summary payload: { exportedAt, dateRange, sectionsIncluded, data: { ... } }
  */
 export async function exportDoctorSummary(userId, options = {}) {
@@ -196,8 +197,9 @@ export async function exportDoctorSummary(userId, options = {}) {
     data.vitals = vitalsToInclude;
   }
   if (sections.medications) {
-    data.medications = medications;
-    data.medicationLogs = filteredMedicationLogs;
+    const medParts = { currentList: true, takenLog: true, ...(options.medicationParts || {}) };
+    data.medications = medParts.currentList ? medications : [];
+    data.medicationLogs = medParts.takenLog ? filteredMedicationLogs : [];
   }
   if (sections.symptoms) {
     data.symptoms = filteredSymptoms;

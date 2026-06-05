@@ -499,23 +499,52 @@ export function generateDoctorSummaryPdf(summaryPayload, options = {}) {
     y += SECTION_GAP;
   }
 
-  // Medications
-  if (data.medications && data.medications.length > 0) {
+  // Medications — list and taken-dose log are independently includable
+  const medsList = data.medications || [];
+  const medLogs = data.medicationLogs || [];
+  if (medsList.length > 0 || medLogs.length > 0) {
     y = addSectionHeading(doc, 'Medications', x, y);
-    for (const med of data.medications) {
-      y = addWrappedText(doc, `• ${med.name}${med.dosage ? ` — ${med.dosage}` : ''}`, x, y, CONTENT_WIDTH);
+
+    if (medsList.length > 0) {
+      const medStatus = (m) => m.status || (m.active === false ? 'paused' : 'active');
+      const medLine = (m) => {
+        const details = [m.dosage, m.frequency].filter(Boolean).join(', ');
+        const status = medStatus(m);
+        const tag = status === 'paused' ? ' [paused]' : status === 'stopped' ? ' [stopped]' : '';
+        return `• ${m.name}${details ? ` — ${details}` : ''}${tag}`;
+      };
+      const currentMeds = medsList.filter((m) => medStatus(m) === 'active');
+      const inactiveMeds = medsList.filter((m) => medStatus(m) !== 'active');
+      if (currentMeds.length > 0) {
+        doc.setFont(undefined, 'bold');
+        y = addWrappedText(doc, 'Current medications', x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
+        doc.setFont(undefined, 'normal');
+        for (const med of currentMeds) {
+          y = addWrappedText(doc, medLine(med), x, y, CONTENT_WIDTH);
+        }
+      }
+      if (inactiveMeds.length > 0) {
+        y += 2;
+        doc.setFont(undefined, 'bold');
+        y = addWrappedText(doc, 'Paused / stopped medications', x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
+        doc.setFont(undefined, 'normal');
+        for (const med of inactiveMeds) {
+          y = addWrappedText(doc, medLine(med), x, y, CONTENT_WIDTH);
+        }
+      }
     }
-    if (data.medicationLogs && data.medicationLogs.length > 0) {
+
+    if (medLogs.length > 0) {
       y += 2;
       doc.setFont(undefined, 'bold');
       y = addWrappedText(doc, 'Recent logs (taken)', x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
       doc.setFont(undefined, 'normal');
-      for (const log of data.medicationLogs.slice(0, 15)) {
+      for (const log of medLogs.slice(0, 15)) {
         const d = formatDateStr(log.takenAt || log.createdAt);
         y = addWrappedText(doc, `${d} — ${log.medicationName || 'Medication'}`, x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
       }
-      if (data.medicationLogs.length > 15) {
-        y = addWrappedText(doc, `... and ${data.medicationLogs.length - 15} more`, x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
+      if (medLogs.length > 15) {
+        y = addWrappedText(doc, `... and ${medLogs.length - 15} more`, x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
       }
     }
     y += SECTION_GAP;

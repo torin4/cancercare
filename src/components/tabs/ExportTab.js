@@ -138,6 +138,7 @@ export default function ExportTab({ onTabChange }) {
   const hiddenLabs = patientProfile?.hiddenLabs || [];
 
   const [sections, setSections] = useState(DEFAULT_SECTIONS);
+  const [medicationParts, setMedicationParts] = useState({ currentList: true, takenLog: true });
   const [dateRange, setDateRange] = useState('6m');
   const [customStart, setCustomStart] = useState(toLocalDateString(new Date(Date.now() - 180 * 24 * 60 * 60 * 1000)));
   const [customEnd, setCustomEnd] = useState(toLocalDateString(new Date()));
@@ -291,6 +292,11 @@ export default function ExportTab({ onTabChange }) {
     clearOutputState();
   };
 
+  const toggleMedicationPart = (key) => {
+    setMedicationParts((prev) => ({ ...prev, [key]: !prev[key] }));
+    clearOutputState();
+  };
+
   const getOptions = () => {
     const opts = {
       sections: { ...sections },
@@ -306,6 +312,9 @@ export default function ExportTab({ onTabChange }) {
     }
     if (availableVitals.length > 0) {
       opts.selectedVitalIds = keyMetricsOnly ? keyVitalIds : selectedVitalIds;
+    }
+    if (sections.medications) {
+      opts.medicationParts = { ...medicationParts };
     }
     return opts;
   };
@@ -814,6 +823,61 @@ export default function ExportTab({ onTabChange }) {
                   ));
                 })()}
               </div>
+            </section>
+          )}
+
+          {sections.medications && (
+            <section className={combineClasses(DesignTokens.components.card.containerLarge, DesignTokens.components.card.withColoredBorder(DesignTokens.colors.app.border[200]))}>
+              <h2 className={combineClasses('text-base sm:text-lg font-semibold mb-3', DesignTokens.colors.app.text[900])}>Medications</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <label
+                  className={combineClasses(
+                    'flex items-start gap-2 rounded-lg border px-3 py-2.5 min-h-[44px] cursor-pointer touch-manipulation',
+                    medicationParts.currentList ? 'border-anchor-300 bg-anchor-50' : DesignTokens.colors.app.border[200]
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={medicationParts.currentList}
+                    onChange={() => toggleMedicationPart('currentList')}
+                    className="rounded w-4 h-4 mt-0.5 shrink-0"
+                  />
+                  <span>
+                    <span className={combineClasses('block text-sm font-medium', DesignTokens.colors.app.text[800])}>
+                      Medication list
+                    </span>
+                    <span className={combineClasses('block text-xs', DesignTokens.colors.app.text[600])}>
+                      Current medications with dose and frequency, plus paused/stopped meds.
+                    </span>
+                  </span>
+                </label>
+                <label
+                  className={combineClasses(
+                    'flex items-start gap-2 rounded-lg border px-3 py-2.5 min-h-[44px] cursor-pointer touch-manipulation',
+                    medicationParts.takenLog ? 'border-anchor-300 bg-anchor-50' : DesignTokens.colors.app.border[200]
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={medicationParts.takenLog}
+                    onChange={() => toggleMedicationPart('takenLog')}
+                    className="rounded w-4 h-4 mt-0.5 shrink-0"
+                  />
+                  <span>
+                    <span className={combineClasses('block text-sm font-medium', DesignTokens.colors.app.text[800])}>
+                      Taken-dose history
+                    </span>
+                    <span className={combineClasses('block text-xs', DesignTokens.colors.app.text[600])}>
+                      Log of doses marked taken within the selected date range.
+                    </span>
+                  </span>
+                </label>
+              </div>
+              {!medicationParts.currentList && !medicationParts.takenLog && (
+                <p className={combineClasses('text-xs mt-2', DesignTokens.colors.app.text[500])}>
+                  Both options are off — the Medications section will be empty in the export.
+                </p>
+              )}
             </section>
           )}
 
