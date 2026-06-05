@@ -135,6 +135,59 @@ export const formatDateString = (date) => {
   }
 };
 
+// ---------------------------------------------------------------------------
+// Day-of-week helpers for "specific days" medication frequency (e.g. "Mon, Wed, Fri")
+// ---------------------------------------------------------------------------
+
+/** Weekday options in display order (Mon-first). dayIndex matches Date.getDay() (0 = Sun). */
+export const WEEKDAY_OPTIONS = [
+  { key: 'mon', label: 'Mon', dayIndex: 1 },
+  { key: 'tue', label: 'Tue', dayIndex: 2 },
+  { key: 'wed', label: 'Wed', dayIndex: 3 },
+  { key: 'thu', label: 'Thu', dayIndex: 4 },
+  { key: 'fri', label: 'Fri', dayIndex: 5 },
+  { key: 'sat', label: 'Sat', dayIndex: 6 },
+  { key: 'sun', label: 'Sun', dayIndex: 0 }
+];
+
+const DAY_NAME_TO_INDEX = {
+  sun: 0, sunday: 0,
+  mon: 1, monday: 1,
+  tue: 2, tues: 2, tuesday: 2,
+  wed: 3, weds: 3, wednesday: 3,
+  thu: 4, thur: 4, thurs: 4, thursday: 4,
+  fri: 5, friday: 5,
+  sat: 6, saturday: 6
+};
+
+/**
+ * Parse a "specific days" frequency string like "Mon, Wed, Fri" (also accepts
+ * full day names and "/" or "&" separators) into sorted Date.getDay() indices.
+ * Returns null unless EVERY token is a weekday name, so frequencies like
+ * "Monthly" or "Once daily" never match.
+ * @param {string} freq - Frequency string to parse
+ * @returns {number[]|null} - Sorted day indices (0 = Sun) or null
+ */
+export const parseDaysOfWeekFrequency = (freq) => {
+  if (!freq || typeof freq !== 'string') return null;
+  const tokens = freq.split(/[,/&+]|\band\b/i).map((t) => t.trim().toLowerCase()).filter(Boolean);
+  if (tokens.length === 0) return null;
+  const indices = tokens.map((t) => (DAY_NAME_TO_INDEX[t] !== undefined ? DAY_NAME_TO_INDEX[t] : -1));
+  if (indices.some((i) => i === -1)) return null;
+  return [...new Set(indices)].sort((a, b) => a - b);
+};
+
+/**
+ * Format selected weekday keys (e.g. ['mon','wed','fri']) into a frequency
+ * string like "Mon, Wed, Fri" in Mon-first display order.
+ * @param {string[]} dayKeys - Selected day keys from WEEKDAY_OPTIONS
+ * @returns {string} - Frequency string
+ */
+export const formatDaysOfWeekFrequency = (dayKeys) => {
+  const keys = Array.isArray(dayKeys) ? dayKeys : [];
+  return WEEKDAY_OPTIONS.filter((d) => keys.includes(d.key)).map((d) => d.label).join(', ');
+};
+
 // Helpers for country-specific address labels/placeholders
 export const getStateLabel = (country) => {
   if (!country) return 'State/Region';

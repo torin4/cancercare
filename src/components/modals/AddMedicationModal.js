@@ -3,7 +3,7 @@ import { X, AlertCircle, Plus, Edit2 } from 'lucide-react';
 import { DesignTokens, combineClasses } from '../../design/designTokens';
 import { useBanner } from '../../contexts/BannerContext';
 import { medicationActivityService, medicationService, journalNoteService } from '../../firebase/services';
-import { getTodayLocalDate, formatDateString } from '../../utils/helpers';
+import { getTodayLocalDate, formatDateString, WEEKDAY_OPTIONS, parseDaysOfWeekFrequency, formatDaysOfWeekFrequency } from '../../utils/helpers';
 import DatePicker from '../DatePicker';
 
 const PURPOSE_OPTIONS = ['Chemotherapy', 'Targeted therapy', 'Immunotherapy', 'Hormone therapy', 'Anti-nausea', 'Pain management', 'Anti-inflammatory', 'Antibiotic', 'Stomach protection', 'Vitamin/Supplement', 'Other'];
@@ -38,7 +38,10 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
     evening: false,
     night: false
   });
+  const [selectedDays, setSelectedDays] = useState([]); // weekday keys for 'Specific days' frequency
   const [isSaving, setIsSaving] = useState(false);
+
+  const isSpecificDays = formData.frequency === 'Specific days';
 
   // Auto-select checkboxes when frequency changes
   useEffect(() => {
@@ -112,12 +115,21 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
           ? editingMedication.schedule 
           : '';
         
+        // A frequency that is a pure list of weekday names (e.g. "Mon, Wed, Fri")
+        // maps back to the 'Specific days' option with those days checked
+        const savedDayIndices = parseDaysOfWeekFrequency(editingMedication.frequency);
+        setSelectedDays(
+          savedDayIndices
+            ? WEEKDAY_OPTIONS.filter((d) => savedDayIndices.includes(d.dayIndex)).map((d) => d.key)
+            : []
+        );
+
         setFormData({
           name: editingMedication.name || '',
           dosage: dosageValue,
           unit: unitValue,
           quantity: quantityValue,
-          frequency: editingMedication.frequency || '',
+          frequency: savedDayIndices ? 'Specific days' : (editingMedication.frequency || ''),
           schedule: scheduleValue,
           purposes: parsePurposes(editingMedication.purpose),
           purposeDropdown: '',
@@ -146,6 +158,7 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
           evening: false,
           night: false
         });
+        setSelectedDays([]);
       }
       setIsSaving(false);
     }
@@ -213,6 +226,11 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
       return;
     }
 
+    if (isSpecificDays && selectedDays.length === 0) {
+      showError('Please select at least one day of the week');
+      return;
+    }
+
     if (!user) {
       showError('Please log in to save medications');
       return;
@@ -227,8 +245,14 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
         dosage = `${formData.quantity} × ${dosage}`;
       }
       
+      // 'Specific days' is stored as the literal day list (e.g. "Mon, Wed, Fri") so
+      // every surface (med cards, schedule, Iris, PDF export) shows it as-is
+      const frequencyToSave = isSpecificDays
+        ? formatDaysOfWeekFrequency(selectedDays)
+        : formData.frequency;
+
       // Calculate next dose
-      const nextDose = calculateNextDose(formData.frequency, formData.schedule, formData.startDate);
+      const nextDose = calculateNextDose(frequencyToSave, formData.schedule, formData.startDate);
 
       // Build schedule from selected checkboxes
       const times = [];
@@ -237,11 +261,11 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
       if (selectedTimes.afternoon) times.push('2:00 PM');
       if (selectedTimes.evening) times.push('8:00 PM');
       if (selectedTimes.night) times.push('10:00 PM');
-      
+
       // Determine schedule: if times are selected, use them; otherwise use frequency as fallback
-      const scheduleValue = times.length > 0 
-        ? times.join(', ') 
-        : formData.frequency;
+      const scheduleValue = times.length > 0
+        ? times.join(', ')
+        : frequencyToSave;
 
       const medicationData = {
         ...(editingMedication?.id && { id: editingMedication.id }),
@@ -249,7 +273,7 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
         name: formData.name,
         dosage: dosage,
         quantity: formData.quantity || null,
-        frequency: formData.frequency,
+        frequency: frequencyToSave,
         schedule: scheduleValue,
         purpose: purposeToSave,
         startDate: new Date(formData.startDate),
@@ -431,6 +455,7 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
                 <option value="Three times daily">Three times daily</option>
                 <option value="Four times daily">Four times daily</option>
                 <option value="Every other day">Every other day</option>
+                <option value="Specific days">Specific days of the week</option>
                 <option value="Weekly">Weekly</option>
                 <option value="Every 2 weeks">Every 2 weeks</option>
                 <option value="Every 3 weeks">Every 3 weeks</option>
@@ -439,6 +464,42 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
                 <option value="Custom">Custom</option>
               </select>
             </div>
+
+            {isSpecificDays && (
+              <div>
+                <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-2', DesignTokens.colors.neutral.text[700])}>
+                  Days of the Week <span className={combineClasses(DesignTokens.components.alert.text.error)}>*</span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {WEEKDAY_OPTIONS.map((day) => {
+                    const checked = selectedDays.includes(day.key);
+                    return (
+                      <button
+                        key={day.key}
+                        type="button"
+                        onClick={() => setSelectedDays((prev) => (
+                          prev.includes(day.key) ? prev.filter((k) => k !== day.key) : [...prev, day.key]
+                        ))}
+                        className={combineClasses(
+                          'px-3 py-2 rounded-lg border text-sm font-medium min-h-[40px] touch-manipulation transition',
+                          checked
+                            ? 'border-anchor-300 bg-anchor-50 ' + DesignTokens.colors.neutral.text[900]
+                            : combineClasses(DesignTokens.colors.neutral.border[300], DesignTokens.colors.neutral.text[600], 'hover:bg-gray-50')
+                        )}
+                        aria-pressed={checked}
+                      >
+                        {day.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedDays.length === 0 && (
+                  <p className={combineClasses(DesignTokens.typography.body.xs, 'mt-2', DesignTokens.components.alert.text.warning)}>
+                    Select at least one day (e.g. Mon, Wed, Fri).
+                  </p>
+                )}
+              </div>
+            )}
 
             <div>
               <label className={combineClasses('block', DesignTokens.typography.body.sm, DesignTokens.typography.h3.weight, 'mb-2', DesignTokens.colors.neutral.text[700])}>
@@ -626,7 +687,7 @@ export default function AddMedicationModal({ show, onClose, user, onMedicationAd
             </button>
             <button
               onClick={handleSave}
-              disabled={isSaving || !formData.name?.trim() || !formData.dosage?.trim() || !formData.unit || !formData.frequency || formData.purposes.length === 0}
+              disabled={isSaving || !formData.name?.trim() || !formData.dosage?.trim() || !formData.unit || !formData.frequency || formData.purposes.length === 0 || (isSpecificDays && selectedDays.length === 0)}
               className={combineClasses(DesignTokens.components.button.primary, DesignTokens.spacing.button.full, 'py-2.5 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed')}
             >
               {isSaving ? (

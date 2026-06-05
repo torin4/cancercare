@@ -14,6 +14,7 @@ import {
   Pill, Edit2, Plus, MessageSquare, AlertCircle, Check, Trash2, MoreVertical, PauseCircle, PlayCircle, Square, Calendar
 } from 'lucide-react';
 import { DesignTokens, combineClasses } from '../../../../design/designTokens';
+import { parseDaysOfWeekFrequency } from '../../../../utils/helpers';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { useBanner } from '../../../../contexts/BannerContext';
 import { medicationActivityService, medicationService, medicationLogService, journalNoteService } from '../../../../firebase/services';
@@ -205,6 +206,12 @@ function MedicationsSection({ onTabChange }) {
   const isMedicationDueOnDate = (med, date) => {
     const freq = med?.frequency;
     if (!freq) return true;
+
+    // Specific weekdays (e.g. "Mon, Wed, Fri") — due only on those days
+    const specificDays = parseDaysOfWeekFrequency(freq);
+    if (specificDays) {
+      return specificDays.includes(new Date(date).getDay());
+    }
 
     // Daily or more frequent — always due
     if (['Once daily', 'Twice daily', 'Three times daily', 'Four times daily', 'As needed', 'Custom'].includes(freq)) {
