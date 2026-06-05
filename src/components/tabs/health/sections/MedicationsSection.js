@@ -154,6 +154,50 @@ function MedicationsSection({ onTabChange }) {
 
   const hasTimedSchedule = (med) => typeof med?.schedule === 'string' && med.schedule.includes(':');
 
+  // Time-of-day buckets matching the medication tracker (Morning / Afternoon / Evening / Night)
+  const TIME_OF_DAY_PERIODS = [
+    { key: 'morning', label: 'Morning' },
+    { key: 'afternoon', label: 'Afternoon' },
+    { key: 'evening', label: 'Evening' },
+    { key: 'night', label: 'Night' }
+  ];
+
+  const getTimeOfDayPeriod = (timeStr) => {
+    const minutes = timeToMinutes(timeStr);
+    if (minutes === null) return 'night'; // unparseable times sort last
+    if (minutes < 12 * 60) return 'morning';   // before 12:00 PM
+    if (minutes < 17 * 60) return 'afternoon'; // 12:00 PM – 4:59 PM
+    if (minutes < 21 * 60) return 'evening';   // 5:00 PM – 8:59 PM
+    return 'night';                            // 9:00 PM onward
+  };
+
+  // Today's scheduled doses, sorted by time and grouped into time-of-day sections
+  const getTodaysScheduleSections = () => {
+    const items = medications
+      .filter((med) => med.active && (med.status || 'active') !== 'stopped' && hasTimedSchedule(med) && isMedicationDueOnDate(med, new Date()))
+      .flatMap(med =>
+        med.schedule.split(',').map(time => ({
+          ...med,
+          specificTime: time.trim()
+        }))
+      )
+      .sort((a, b) => {
+        const aMin = timeToMinutes(a.specificTime);
+        const bMin = timeToMinutes(b.specificTime);
+        if (aMin === null && bMin === null) return a.specificTime.localeCompare(b.specificTime);
+        if (aMin === null) return 1;
+        if (bMin === null) return -1;
+        return aMin - bMin;
+      });
+
+    return TIME_OF_DAY_PERIODS
+      .map((period) => ({
+        ...period,
+        items: items.filter((item) => getTimeOfDayPeriod(item.specificTime) === period.key)
+      }))
+      .filter((section) => section.items.length > 0);
+  };
+
   /**
    * Returns true if the medication is due on the given date, based on its frequency and startDate.
    * Defaults to true for unknown/daily frequencies so they always appear.
@@ -737,52 +781,45 @@ function MedicationsSection({ onTabChange }) {
           {/* Today's Schedule */}
           <div className={DesignTokens.components.card.nestedWithShadow}>
             <h3 className={combineClasses("text-sm sm:text-base font-semibold mb-3", DesignTokens.colors.neutral.text[900])}>Today's Schedule</h3>
-            <div className="space-y-2">
-              {medications
-                .filter((med) => med.active && (med.status || 'active') !== 'stopped' && hasTimedSchedule(med) && isMedicationDueOnDate(med, new Date()))
-                .flatMap(med =>
-                  med.schedule.split(',').map(time => ({
-                    ...med,
-                    specificTime: time.trim()
-                  }))
-                )
-                .sort((a, b) => {
-                  const aMin = timeToMinutes(a.specificTime);
-                  const bMin = timeToMinutes(b.specificTime);
-                  if (aMin === null && bMin === null) return a.specificTime.localeCompare(b.specificTime);
-                  if (aMin === null) return 1;
-                  if (bMin === null) return -1;
-                  return aMin - bMin;
-                })
-                .map((med, idx) => {
-                  const taken = isMedicationTaken(med.id, med.specificTime);
+            <div className="space-y-4">
+              {getTodaysScheduleSections().map((section) => (
+                <div key={section.key}>
+                  <h4 className={combineClasses("text-xs font-semibold uppercase tracking-wide mb-2", DesignTokens.colors.neutral.text[500])}>
+                    {section.label}
+                  </h4>
+                  <div className="space-y-2">
+                    {section.items.map((med, idx) => {
+                      const taken = isMedicationTaken(med.id, med.specificTime);
 
-                  return (
-                    <button
-                      key={`schedule-${med.id}-${idx}`}
-                      onClick={() => markMedicationTaken(med.id, med.specificTime)}
-                      className={combineClasses("w-full flex items-center gap-2 sm:gap-3 p-3 border-2 rounded-lg transition min-h-[60px] touch-manipulation active:opacity-70", taken
-                        ? combineClasses(DesignTokens.components.status.normal.border.replace('200', '300'), DesignTokens.components.status.normal.bg, 'cursor-default')
-                        : combineClasses(DesignTokens.colors.neutral.border[200], DesignTokens.components.status.normal.border.replace('200', '500').replace('border-', 'hover:border-'), DesignTokens.components.status.normal.bg.replace('bg-', 'hover:bg-'))
-                      )}
-                    >
-                      <div className={combineClasses("text-xs sm:text-sm font-semibold w-16 sm:w-20 flex-shrink-0", DesignTokens.colors.neutral.text[700])}>
-                        {med.specificTime}
-                      </div>
-                      <div className="flex-1 text-left min-w-0">
-                        <p className={combineClasses("text-sm font-medium truncate", DesignTokens.colors.neutral.text[900])}>{med.name}</p>
-                        <p className={combineClasses("text-xs", DesignTokens.colors.neutral.text[600])}>{med.dosage}</p>
-                      </div>
-                      <div className={combineClasses("w-6 h-6 flex-shrink-0 rounded-full border-2 flex items-center justify-center", taken ? 'border-green-500 bg-green-500' : DesignTokens.colors.neutral.border[300])}>
-                        {taken && (
-                          <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
+                      return (
+                        <button
+                          key={`schedule-${section.key}-${med.id}-${idx}`}
+                          onClick={() => markMedicationTaken(med.id, med.specificTime)}
+                          className={combineClasses("w-full flex items-center gap-2 sm:gap-3 p-3 border-2 rounded-lg transition min-h-[60px] touch-manipulation active:opacity-70", taken
+                            ? combineClasses(DesignTokens.components.status.normal.border.replace('200', '300'), DesignTokens.components.status.normal.bg, 'cursor-default')
+                            : combineClasses(DesignTokens.colors.neutral.border[200], DesignTokens.components.status.normal.border.replace('200', '500').replace('border-', 'hover:border-'), DesignTokens.components.status.normal.bg.replace('bg-', 'hover:bg-'))
+                          )}
+                        >
+                          <div className={combineClasses("text-xs sm:text-sm font-semibold w-16 sm:w-20 flex-shrink-0", DesignTokens.colors.neutral.text[700])}>
+                            {med.specificTime}
+                          </div>
+                          <div className="flex-1 text-left min-w-0">
+                            <p className={combineClasses("text-sm font-medium truncate", DesignTokens.colors.neutral.text[900])}>{med.name}</p>
+                            <p className={combineClasses("text-xs", DesignTokens.colors.neutral.text[600])}>{med.dosage}</p>
+                          </div>
+                          <div className={combineClasses("w-6 h-6 flex-shrink-0 rounded-full border-2 flex items-center justify-center", taken ? 'border-green-500 bg-green-500' : DesignTokens.colors.neutral.border[300])}>
+                            {taken && (
+                              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
