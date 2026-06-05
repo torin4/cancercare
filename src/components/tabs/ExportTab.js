@@ -46,6 +46,11 @@ const DATE_RANGE_OPTIONS = [
   { value: 'custom', label: 'Custom range' }
 ];
 
+const PDF_LANGUAGE_OPTIONS = [
+  { value: 'en', label: 'English' },
+  { value: 'ja', label: '日本語 (Japanese)' }
+];
+
 const CURATED_KEY_LAB_SET = new Set([
   'ca125',
   'ca199',
@@ -143,6 +148,7 @@ export default function ExportTab({ onTabChange }) {
   const [customStart, setCustomStart] = useState(toLocalDateString(new Date(Date.now() - 180 * 24 * 60 * 60 * 1000)));
   const [customEnd, setCustomEnd] = useState(toLocalDateString(new Date()));
   const [keyMetricsOnly, setKeyMetricsOnly] = useState(false);
+  const [pdfLanguage, setPdfLanguage] = useState('en');
   const [alsoDownloadJson, setAlsoDownloadJson] = useState(false);
   const [loadingAction, setLoadingAction] = useState(null);
   const [error, setError] = useState(null);
@@ -370,7 +376,7 @@ export default function ExportTab({ onTabChange }) {
     setLoadingAction('share');
     try {
       const payload = await loadPayload();
-      const blob = await generateDoctorSummaryPdf(payload, {});
+      const blob = await generateDoctorSummaryPdf(payload, { language: pdfLanguage });
       const dateStr = new Date().toISOString().slice(0, 10);
       const filename = `CancerCare-doctor-summary-${dateStr}.pdf`;
 
@@ -406,7 +412,7 @@ export default function ExportTab({ onTabChange }) {
     setLoadingAction('download');
     try {
       const payload = await loadPayload();
-      const blob = await generateDoctorSummaryPdf(payload, {});
+      const blob = await generateDoctorSummaryPdf(payload, { language: pdfLanguage });
       const dateStr = new Date().toISOString().slice(0, 10);
       triggerDownload(blob, `CancerCare-doctor-summary-${dateStr}.pdf`);
       if (alsoDownloadJson) {
@@ -428,7 +434,7 @@ export default function ExportTab({ onTabChange }) {
     setLoadingAction('drive');
     try {
       const payload = await loadPayload();
-      const blob = await generateDoctorSummaryPdf(payload, {});
+      const blob = await generateDoctorSummaryPdf(payload, { language: pdfLanguage });
       const dateStr = new Date().toISOString().slice(0, 10);
       const filename = `CancerCare-doctor-summary-${dateStr}.pdf`;
       const result = await uploadFileToDrive(blob, filename);
@@ -956,6 +962,25 @@ export default function ExportTab({ onTabChange }) {
               <div className={combineClasses('rounded-lg p-3 border', DesignTokens.colors.app.border[200], 'bg-anchor-50')}>
                 <p className={combineClasses('text-xs', DesignTokens.colors.app.text[500])}>Range</p>
                 <p className={combineClasses('text-lg font-semibold uppercase', DesignTokens.colors.app.text[900])}>{dateRange}</p>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <p className={combineClasses('text-xs font-semibold mb-1', DesignTokens.colors.app.text[600])}>Report language</p>
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                {PDF_LANGUAGE_OPTIONS.map((opt) => (
+                  <label key={opt.value} className="flex items-center gap-2 cursor-pointer min-h-[40px]">
+                    <input
+                      type="radio"
+                      name="pdfLanguage"
+                      value={opt.value}
+                      checked={pdfLanguage === opt.value}
+                      onChange={() => setPdfLanguage(opt.value)}
+                      className="w-4 h-4 shrink-0"
+                    />
+                    <span className={combineClasses('text-sm', DesignTokens.colors.app.text[800])}>{opt.label}</span>
+                  </label>
+                ))}
               </div>
             </div>
 

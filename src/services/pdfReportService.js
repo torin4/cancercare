@@ -7,6 +7,7 @@
 
 import { jsPDF } from 'jspdf';
 import { categorizeLabs, normalizeVitalName, getLabDisplayName, getVitalDisplayName } from '../utils/normalizationUtils';
+import { parseDaysOfWeekFrequency } from '../utils/helpers';
 import logger from '../utils/logger';
 
 const MARGIN = 20;
@@ -18,6 +19,144 @@ const SECTION_GAP = 8;
 const FONT_SIZE_NORMAL = 10;
 const FONT_SIZE_SMALL = 9;
 const FONT_SIZE_HEADING = 12;
+
+// ---------------------------------------------------------------------------
+// Report language — all static labels in English and Japanese.
+// Patient-entered data (med names, notes, etc.) is rendered as stored.
+// ---------------------------------------------------------------------------
+const PDF_STRINGS = {
+  en: {
+    lang: 'en',
+    locale: 'en-US',
+    title: 'CancerCare — Summary for Your Care Team',
+    patient: 'Patient',
+    dob: 'DOB',
+    exportDate: 'Export date',
+    disclaimer: 'Patient-generated summary from CancerCare. Not a substitute for official medical records.',
+    demographics: 'Demographics & Care Team',
+    oncologist: 'Oncologist',
+    hospital: 'Hospital/Clinic',
+    trialCoordinator: 'Trial Coordinator',
+    caregiver: 'Caregiver',
+    diagnosis: 'Diagnosis',
+    stage: 'Stage',
+    currentRegimen: 'Current regimen',
+    noDemographics: 'No demographics recorded.',
+    labs: 'Labs',
+    vitals: 'Vital Signs',
+    medications: 'Medications',
+    medsScheduleHeading: 'Current medications — daily schedule',
+    medsCurrentHeading: 'Current medications',
+    medsOtherHeading: 'Other current medications (no fixed time)',
+    medsInactiveHeading: 'Paused / stopped medications',
+    medsLogsHeading: 'Recent logs (taken)',
+    medicationCol: 'Medication',
+    morning: 'Morning',
+    afternoon: 'Afternoon',
+    evening: 'Evening',
+    night: 'Night',
+    pausedTag: ' [paused]',
+    stoppedTag: ' [stopped]',
+    medicationFallback: 'Medication',
+    symptoms: 'Symptoms',
+    symptomFallback: 'Symptom',
+    journalNotes: 'Journal Notes',
+    genomic: 'Genomic Summary',
+    genomicTest: 'Test',
+    genomicMutations: 'Mutations:',
+    genomicFdaOptions: 'FDA-approved options',
+    genomicGermline: 'Germline',
+    genomicCounseling: 'genetic counseling recommended',
+    noGenomic: 'No genomic data in this export.',
+    documents: 'Documents',
+    documentFallback: 'Document',
+    ref: 'ref',
+    andMore: (n) => `... and ${n} more`,
+    andMoreValues: (n) => `... and ${n} more values`,
+    andMoreEntries: (n) => `... and ${n} more entries`
+  },
+  ja: {
+    lang: 'ja',
+    locale: 'ja-JP',
+    title: 'CancerCare — 医療チーム向けサマリー',
+    patient: '患者',
+    dob: '生年月日',
+    exportDate: '出力日',
+    disclaimer: 'CancerCareで患者が作成したサマリーです。正式な医療記録の代わりとなるものではありません。',
+    demographics: '患者情報・医療チーム',
+    oncologist: '担当医（腫瘍科）',
+    hospital: '病院・クリニック',
+    trialCoordinator: '治験コーディネーター',
+    caregiver: '介護者',
+    diagnosis: '診断',
+    stage: '病期',
+    currentRegimen: '現在の治療レジメン',
+    noDemographics: '患者情報の記録がありません。',
+    labs: '検査値',
+    vitals: 'バイタルサイン',
+    medications: 'お薬',
+    medsScheduleHeading: '現在服用中の薬 — 1日のスケジュール',
+    medsCurrentHeading: '現在服用中の薬',
+    medsOtherHeading: 'その他の服用中の薬（時間指定なし）',
+    medsInactiveHeading: '休薬中・中止した薬',
+    medsLogsHeading: '服薬記録（服用済み）',
+    medicationCol: '薬剤名',
+    morning: '朝',
+    afternoon: '昼',
+    evening: '夕',
+    night: '就寝前',
+    pausedTag: '【休薬中】',
+    stoppedTag: '【中止】',
+    medicationFallback: '薬剤',
+    symptoms: '症状',
+    symptomFallback: '症状',
+    journalNotes: '記録ノート',
+    genomic: '遺伝子検査サマリー',
+    genomicTest: '検査名',
+    genomicMutations: '遺伝子変異:',
+    genomicFdaOptions: 'FDA承認の治療選択肢',
+    genomicGermline: '生殖細胞系列',
+    genomicCounseling: '遺伝カウンセリング推奨',
+    noGenomic: 'この出力に遺伝子データはありません。',
+    documents: '書類',
+    documentFallback: '書類',
+    ref: '基準値',
+    andMore: (n) => `…ほか${n}件`,
+    andMoreValues: (n) => `…ほか${n}件`,
+    andMoreEntries: (n) => `…ほか${n}件`
+  }
+};
+
+/** Known frequency strings → Japanese */
+const FREQUENCY_JA = {
+  'Once daily': '1日1回',
+  'Twice daily': '1日2回',
+  'Three times daily': '1日3回',
+  'Four times daily': '1日4回',
+  'Every other day': '隔日',
+  'Weekly': '週1回',
+  'Every 2 weeks': '2週間ごと',
+  'Every 3 weeks': '3週間ごと',
+  'Monthly': '月1回',
+  'As needed': '頓用',
+  'Custom': 'カスタム'
+};
+
+const JA_DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'];
+
+/** Translate a stored frequency string for display (no-op for English) */
+function translateFrequency(freq, L) {
+  if (!freq || L.lang !== 'ja') return freq;
+  const days = parseDaysOfWeekFrequency(freq);
+  if (days) {
+    // Mon-first display order, e.g. 月・水・金
+    return [1, 2, 3, 4, 5, 6, 0].filter((i) => days.includes(i)).map((i) => JA_DAY_NAMES[i]).join('・');
+  }
+  return FREQUENCY_JA[freq] || freq;
+}
+
+// Locale used by formatDateStr; set per-export from the selected language
+let currentDateLocale = 'en-US';
 
 // Unicode font (CJK support) — jsPDF's built-in fonts only cover Latin-1, so
 // Japanese medication names etc. render as garbage without an embedded font.
@@ -134,7 +273,7 @@ function medSlotKey(timeStr) {
  * rows = medications, columns = Morning/Afternoon/Evening/Night,
  * cells = dose + exact time. Returns new y.
  */
-function drawMedicationScheduleTable(doc, meds, x, y) {
+function drawMedicationScheduleTable(doc, meds, x, y, L) {
   const medColWidth = 62;
   const slotColWidth = (CONTENT_WIDTH - medColWidth) / MED_TIME_SLOTS.length;
   const pad = 1.6;
@@ -151,9 +290,9 @@ function drawMedicationScheduleTable(doc, meds, x, y) {
     });
     doc.setFontSize(8);
     doc.setFont(undefined, 'bold');
-    doc.text('Medication', x + pad, yy + headerHeight - 2.4);
+    doc.text(L.medicationCol, x + pad, yy + headerHeight - 2.4);
     MED_TIME_SLOTS.forEach((slot, i) => {
-      doc.text(slot.label, x + medColWidth + i * slotColWidth + slotColWidth / 2, yy + headerHeight - 2.4, { align: 'center' });
+      doc.text(L[slot.key], x + medColWidth + i * slotColWidth + slotColWidth / 2, yy + headerHeight - 2.4, { align: 'center' });
     });
     doc.setFont(undefined, 'normal');
     return yy + headerHeight;
@@ -193,7 +332,8 @@ function drawMedicationScheduleTable(doc, meds, x, y) {
     });
 
     const nameLines = doc.splitTextToSize(String(med.name || ''), medColWidth - pad * 2);
-    const freqLines = med.frequency ? doc.splitTextToSize(String(med.frequency), medColWidth - pad * 2) : [];
+    const displayFrequency = translateFrequency(med.frequency, L);
+    const freqLines = displayFrequency ? doc.splitTextToSize(String(displayFrequency), medColWidth - pad * 2) : [];
     const maxLines = Math.max(nameLines.length + freqLines.length, ...slotEntries.map((e) => e.length || 1));
     const rowHeight = maxLines * cellLineHeight + pad * 2;
 
@@ -254,7 +394,7 @@ function drawMedicationScheduleTable(doc, meds, x, y) {
 function formatDateStr(isoOrDate) {
   if (!isoOrDate) return '';
   const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
-  return isNaN(d.getTime()) ? String(isoOrDate) : d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  return isNaN(d.getTime()) ? String(isoOrDate) : d.toLocaleDateString(currentDateLocale, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 /**
@@ -501,11 +641,13 @@ function drawMultiSeriesChart(doc, x, y, width, height, seriesArray, title) {
 /**
  * Generate PDF from doctor summary payload
  * @param {Object} summaryPayload - Result from exportDoctorSummary
- * @param {Object} [options] - { displayMode: 'list'|'graph' }
+ * @param {Object} [options] - { displayMode: 'list'|'graph', language: 'en'|'ja' }
  * @returns {Promise<Blob>} PDF blob
  */
 export async function generateDoctorSummaryPdf(summaryPayload, options = {}) {
   const displayMode = options.displayMode || 'list';
+  const L = PDF_STRINGS[options.language === 'ja' ? 'ja' : 'en'];
+  currentDateLocale = L.locale;
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   await applyUnicodeFont(doc);
   const data = summaryPayload.data || {};
@@ -517,7 +659,7 @@ export async function generateDoctorSummaryPdf(summaryPayload, options = {}) {
   // Title and disclaimer
   doc.setFontSize(14);
   doc.setFont(undefined, 'bold');
-  doc.text('CancerCare — Summary for Your Care Team', x, y);
+  doc.text(L.title, x, y);
   y += LINE_HEIGHT + 4;
   doc.setFont(undefined, 'normal');
   doc.setFontSize(FONT_SIZE_SMALL);
@@ -526,13 +668,13 @@ export async function generateDoctorSummaryPdf(summaryPayload, options = {}) {
     data.patientProfile &&
     [data.patientProfile.firstName, data.patientProfile.lastName].filter(Boolean).join(' ');
   const dob = data.patientProfile?.dateOfBirth ? formatDateStr(data.patientProfile.dateOfBirth) : '';
-  doc.text(`Patient: ${patientName || '—'}${dob ? `  |  DOB: ${dob}` : ''}`, x, y);
+  doc.text(`${L.patient}: ${patientName || '—'}${dob ? `  |  ${L.dob}: ${dob}` : ''}`, x, y);
   y += LINE_HEIGHT;
-  doc.text(`Export date: ${formatDateStr(summaryPayload.exportedAt)}`, x, y);
+  doc.text(`${L.exportDate}: ${formatDateStr(summaryPayload.exportedAt)}`, x, y);
   y += LINE_HEIGHT + 2;
   y = addWrappedText(
     doc,
-    'Patient-generated summary from CancerCare. Not a substitute for official medical records.',
+    L.disclaimer,
     x,
     y,
     CONTENT_WIDTH,
@@ -542,17 +684,17 @@ export async function generateDoctorSummaryPdf(summaryPayload, options = {}) {
 
   // Demographics & care team
   if (data.patientProfile) {
-    y = addSectionHeading(doc, 'Demographics & Care Team', x, y);
+    y = addSectionHeading(doc, L.demographics, x, y);
     const p = data.patientProfile;
     const lines = [];
-    if (p.oncologist) lines.push(`Oncologist: ${p.oncologist}${p.oncologistPhone ? ` (${p.oncologistPhone})` : ''}`);
-    if (p.hospital) lines.push(`Hospital/Clinic: ${p.hospital}`);
-    if (p.clinicalTrialCoordinator) lines.push(`Trial Coordinator: ${p.clinicalTrialCoordinator}`);
-    if (p.caregiverName) lines.push(`Caregiver: ${p.caregiverName}`);
-    if (p.diagnosis || p.cancerType) lines.push(`Diagnosis: ${p.diagnosis || p.cancerType || '—'}`);
-    if (p.stage) lines.push(`Stage: ${p.stage}`);
-    if (p.currentRegimen) lines.push(`Current regimen: ${p.currentRegimen}`);
-    if (lines.length === 0) lines.push('No demographics recorded.');
+    if (p.oncologist) lines.push(`${L.oncologist}: ${p.oncologist}${p.oncologistPhone ? ` (${p.oncologistPhone})` : ''}`);
+    if (p.hospital) lines.push(`${L.hospital}: ${p.hospital}`);
+    if (p.clinicalTrialCoordinator) lines.push(`${L.trialCoordinator}: ${p.clinicalTrialCoordinator}`);
+    if (p.caregiverName) lines.push(`${L.caregiver}: ${p.caregiverName}`);
+    if (p.diagnosis || p.cancerType) lines.push(`${L.diagnosis}: ${p.diagnosis || p.cancerType || '—'}`);
+    if (p.stage) lines.push(`${L.stage}: ${p.stage}`);
+    if (p.currentRegimen) lines.push(`${L.currentRegimen}: ${p.currentRegimen}`);
+    if (lines.length === 0) lines.push(L.noDemographics);
     for (const line of lines) {
       y = addWrappedText(doc, line, x, y, CONTENT_WIDTH);
     }
@@ -561,7 +703,7 @@ export async function generateDoctorSummaryPdf(summaryPayload, options = {}) {
 
   // Labs — always graph + list together: for each marker, header → graph → list
   if (data.labs && data.labs.length > 0) {
-    y = addSectionHeading(doc, 'Labs', x, y);
+    y = addSectionHeading(doc, L.labs, x, y);
     const labsObj = {};
     data.labs.forEach((lab) => {
       let key = lab.labType || lab.name || lab.id;
@@ -587,7 +729,7 @@ export async function generateDoctorSummaryPdf(summaryPayload, options = {}) {
       for (const [, lab] of entries) {
         const name = getLabDisplayName(lab.name || lab.labType || lab.id) || 'Lab';
         const unit = lab.unit || '';
-        const ref = lab.normalRange ? ` (ref: ${lab.normalRange})` : '';
+        const ref = lab.normalRange ? ` (${L.ref}: ${lab.normalRange})` : '';
         const values = lab.values || [];
         const points = values.slice(0, 100).map((v) => ({
           date: v.date,
@@ -622,7 +764,7 @@ export async function generateDoctorSummaryPdf(summaryPayload, options = {}) {
           y = addWrappedText(doc, `${date} — ${val} ${unit}${ref}${status}`, x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
         }
         if (values.length > 20) {
-          y = addWrappedText(doc, `... and ${values.length - 20} more values`, x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
+          y = addWrappedText(doc, L.andMoreValues(values.length - 20), x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
         }
         y += 2;
       }
@@ -632,7 +774,7 @@ export async function generateDoctorSummaryPdf(summaryPayload, options = {}) {
 
   // Vitals — always graph + list together: for each marker, header → graph → list
   if (data.vitals && data.vitals.length > 0) {
-    y = addSectionHeading(doc, 'Vital Signs', x, y);
+    y = addSectionHeading(doc, L.vitals, x, y);
     const vitalsByCategory = {};
     data.vitals.forEach((vital) => {
       const canonicalKey = normalizeVitalName(vital.vitalType || vital.name || vital.id) || (vital.vitalType || vital.name || vital.id || '').toString().toLowerCase();
@@ -690,7 +832,7 @@ export async function generateDoctorSummaryPdf(summaryPayload, options = {}) {
           y = addWrappedText(doc, `${date} — ${val} ${unit}`, x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
         }
         if (values.length > 20) {
-          y = addWrappedText(doc, `... and ${values.length - 20} more values`, x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
+          y = addWrappedText(doc, L.andMoreValues(values.length - 20), x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
         }
         y += 2;
       }
@@ -702,14 +844,14 @@ export async function generateDoctorSummaryPdf(summaryPayload, options = {}) {
   const medsList = data.medications || [];
   const medLogs = data.medicationLogs || [];
   if (medsList.length > 0 || medLogs.length > 0) {
-    y = addSectionHeading(doc, 'Medications', x, y);
+    y = addSectionHeading(doc, L.medications, x, y);
 
     if (medsList.length > 0) {
       const medStatus = (m) => m.status || (m.active === false ? 'paused' : 'active');
       const medLine = (m) => {
-        const details = [m.dosage, m.frequency].filter(Boolean).join(', ');
+        const details = [m.dosage, translateFrequency(m.frequency, L)].filter(Boolean).join(', ');
         const status = medStatus(m);
-        const tag = status === 'paused' ? ' [paused]' : status === 'stopped' ? ' [stopped]' : '';
+        const tag = status === 'paused' ? L.pausedTag : status === 'stopped' ? L.stoppedTag : '';
         return `• ${m.name}${details ? ` — ${details}` : ''}${tag}`;
       };
       const currentMeds = medsList.filter((m) => medStatus(m) === 'active');
@@ -719,15 +861,15 @@ export async function generateDoctorSummaryPdf(summaryPayload, options = {}) {
       const unscheduledMeds = currentMeds.filter((m) => !hasTimedSchedule(m));
       if (scheduledMeds.length > 0) {
         doc.setFont(undefined, 'bold');
-        y = addWrappedText(doc, 'Current medications — daily schedule', x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
+        y = addWrappedText(doc, L.medsScheduleHeading, x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
         doc.setFont(undefined, 'normal');
-        y = drawMedicationScheduleTable(doc, scheduledMeds, x, y);
+        y = drawMedicationScheduleTable(doc, scheduledMeds, x, y, L);
       }
       if (unscheduledMeds.length > 0) {
         doc.setFont(undefined, 'bold');
         y = addWrappedText(
           doc,
-          scheduledMeds.length > 0 ? 'Other current medications (no fixed time)' : 'Current medications',
+          scheduledMeds.length > 0 ? L.medsOtherHeading : L.medsCurrentHeading,
           x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL }
         );
         doc.setFont(undefined, 'normal');
@@ -738,7 +880,7 @@ export async function generateDoctorSummaryPdf(summaryPayload, options = {}) {
       if (inactiveMeds.length > 0) {
         y += 2;
         doc.setFont(undefined, 'bold');
-        y = addWrappedText(doc, 'Paused / stopped medications', x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
+        y = addWrappedText(doc, L.medsInactiveHeading, x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
         doc.setFont(undefined, 'normal');
         for (const med of inactiveMeds) {
           y = addWrappedText(doc, medLine(med), x, y, CONTENT_WIDTH);
@@ -749,14 +891,14 @@ export async function generateDoctorSummaryPdf(summaryPayload, options = {}) {
     if (medLogs.length > 0) {
       y += 2;
       doc.setFont(undefined, 'bold');
-      y = addWrappedText(doc, 'Recent logs (taken)', x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
+      y = addWrappedText(doc, L.medsLogsHeading, x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
       doc.setFont(undefined, 'normal');
       for (const log of medLogs.slice(0, 15)) {
         const d = formatDateStr(log.takenAt || log.createdAt);
-        y = addWrappedText(doc, `${d} — ${log.medicationName || 'Medication'}`, x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
+        y = addWrappedText(doc, `${d} — ${log.medicationName || L.medicationFallback}`, x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
       }
       if (medLogs.length > 15) {
-        y = addWrappedText(doc, `... and ${medLogs.length - 15} more`, x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
+        y = addWrappedText(doc, L.andMore(medLogs.length - 15), x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
       }
     }
     y += SECTION_GAP;
@@ -764,44 +906,44 @@ export async function generateDoctorSummaryPdf(summaryPayload, options = {}) {
 
   // Symptoms
   if (data.symptoms && data.symptoms.length > 0) {
-    y = addSectionHeading(doc, 'Symptoms', x, y);
+    y = addSectionHeading(doc, L.symptoms, x, y);
     for (const s of data.symptoms.slice(0, 50)) {
       const date = formatDateStr(s.date);
       const sev = s.severity ? ` (${s.severity})` : '';
-      y = addWrappedText(doc, `${date} — ${s.name || s.symptomName || 'Symptom'}${sev}${s.notes ? `: ${s.notes}` : ''}`, x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
+      y = addWrappedText(doc, `${date} — ${s.name || s.symptomName || L.symptomFallback}${sev}${s.notes ? `: ${s.notes}` : ''}`, x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
     }
     if (data.symptoms.length > 50) {
-      y = addWrappedText(doc, `... and ${data.symptoms.length - 50} more entries`, x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
+      y = addWrappedText(doc, L.andMoreEntries(data.symptoms.length - 50), x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
     }
     y += SECTION_GAP;
   }
 
   // Journal notes (if included)
   if (data.journalNotes && data.journalNotes.length > 0) {
-    y = addSectionHeading(doc, 'Journal Notes', x, y);
+    y = addSectionHeading(doc, L.journalNotes, x, y);
     for (const n of data.journalNotes.slice(0, 20)) {
       const date = formatDateStr(n.date);
       const content = (n.content || n.text || '').slice(0, 200);
       y = addWrappedText(doc, `${date}: ${content}${(n.content || n.text || '').length > 200 ? '...' : ''}`, x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
     }
     if (data.journalNotes.length > 20) {
-      y = addWrappedText(doc, `... and ${data.journalNotes.length - 20} more`, x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
+      y = addWrappedText(doc, L.andMore(data.journalNotes.length - 20), x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
     }
     y += SECTION_GAP;
   }
 
   // Genomic summary
   if (data.genomicProfile) {
-    y = addSectionHeading(doc, 'Genomic Summary', x, y);
+    y = addSectionHeading(doc, L.genomic, x, y);
     const g = data.genomicProfile;
     const glines = [];
-    if (g.testInfo?.testName) glines.push(`Test: ${g.testInfo.testName}`);
+    if (g.testInfo?.testName) glines.push(`${L.genomicTest}: ${g.testInfo.testName}`);
     if (g.mutations && g.mutations.length > 0) {
-      glines.push('Mutations:');
+      glines.push(L.genomicMutations);
       g.mutations.slice(0, 15).forEach((m) => {
         glines.push(`  • ${m.gene}: ${m.alteration || m.significance || ''}${m.fdaApprovedTherapy ? ` → ${m.fdaApprovedTherapy}` : ''}`);
       });
-      if (g.mutations.length > 15) glines.push(`  ... and ${g.mutations.length - 15} more`);
+      if (g.mutations.length > 15) glines.push(`  ${L.andMore(g.mutations.length - 15)}`);
     }
     if (g.biomarkers) {
       const b = g.biomarkers;
@@ -810,12 +952,12 @@ export async function generateDoctorSummaryPdf(summaryPayload, options = {}) {
       if (b.hrdScore) glines.push(`HRD: ${b.hrdScore.value} (${b.hrdScore.interpretation || ''})`);
     }
     if (g.fdaApprovedTherapies && g.fdaApprovedTherapies.length > 0) {
-      glines.push(`FDA-approved options: ${g.fdaApprovedTherapies.join(', ')}`);
+      glines.push(`${L.genomicFdaOptions}: ${g.fdaApprovedTherapies.join(', ')}`);
     }
     if (g.germlineFindings && g.germlineFindings.length > 0) {
-      glines.push(`Germline: ${g.germlineFindings.map((f) => f.gene).join(', ')} (genetic counseling recommended)`);
+      glines.push(`${L.genomicGermline}: ${g.germlineFindings.map((f) => f.gene).join(', ')} (${L.genomicCounseling})`);
     }
-    if (glines.length === 0) glines.push('No genomic data in this export.');
+    if (glines.length === 0) glines.push(L.noGenomic);
     for (const line of glines) {
       y = addWrappedText(doc, line, x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
     }
@@ -824,10 +966,10 @@ export async function generateDoctorSummaryPdf(summaryPayload, options = {}) {
 
   // Documents list
   if (data.documents && data.documents.length > 0) {
-    y = addSectionHeading(doc, 'Documents', x, y);
+    y = addSectionHeading(doc, L.documents, x, y);
     for (const d of data.documents) {
       const date = formatDateStr(d.date);
-      const name = d.name || d.fileName || d.id || 'Document';
+      const name = d.name || d.fileName || d.id || L.documentFallback;
       y = addWrappedText(doc, `• ${date} — ${name}`, x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
       if (d.extractionSummary && typeof d.extractionSummary === 'string') {
         y = addWrappedText(doc, d.extractionSummary.slice(0, 150) + (d.extractionSummary.length > 150 ? '...' : ''), x + 5, y, CONTENT_WIDTH - 5, { fontSize: FONT_SIZE_SMALL });
