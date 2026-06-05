@@ -100,6 +100,157 @@ function addSectionHeading(doc, title, x, y) {
   return y;
 }
 
+/** Time-of-day slots for the medication schedule table (matches the app's tracker) */
+const MED_TIME_SLOTS = [
+  { key: 'morning', label: 'Morning' },     // before 12:00 PM
+  { key: 'afternoon', label: 'Afternoon' }, // 12:00 PM – 4:59 PM
+  { key: 'evening', label: 'Evening' },     // 5:00 PM – 8:59 PM
+  { key: 'night', label: 'Night' }          // 9:00 PM onward
+];
+
+/** Parse a "8:00 AM" / "14:00" style time into minutes since midnight */
+function medTimeToMinutes(timeStr) {
+  const m = String(timeStr || '').trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (!m) return null;
+  let hour = parseInt(m[1], 10);
+  const minute = parseInt(m[2], 10);
+  const period = m[3] ? m[3].toUpperCase() : null;
+  if (period === 'PM' && hour !== 12) hour += 12;
+  if (period === 'AM' && hour === 12) hour = 0;
+  return hour * 60 + minute;
+}
+
+function medSlotKey(timeStr) {
+  const minutes = medTimeToMinutes(timeStr);
+  if (minutes === null) return null;
+  if (minutes < 12 * 60) return 'morning';
+  if (minutes < 17 * 60) return 'afternoon';
+  if (minutes < 21 * 60) return 'evening';
+  return 'night';
+}
+
+/**
+ * Draw the current medications as a daily schedule grid:
+ * rows = medications, columns = Morning/Afternoon/Evening/Night,
+ * cells = dose + exact time. Returns new y.
+ */
+function drawMedicationScheduleTable(doc, meds, x, y) {
+  const medColWidth = 62;
+  const slotColWidth = (CONTENT_WIDTH - medColWidth) / MED_TIME_SLOTS.length;
+  const pad = 1.6;
+  const cellLineHeight = 3.6;
+  const headerHeight = 7;
+  const textTopOffset = pad + 2.6;
+
+  const drawHeader = (yy) => {
+    doc.setFillColor(243, 244, 246);
+    doc.rect(x, yy, CONTENT_WIDTH, headerHeight, 'F');
+    doc.rect(x, yy, medColWidth, headerHeight);
+    MED_TIME_SLOTS.forEach((slot, i) => {
+      doc.rect(x + medColWidth + i * slotColWidth, yy, slotColWidth, headerHeight);
+    });
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'bold');
+    doc.text('Medication', x + pad, yy + headerHeight - 2.4);
+    MED_TIME_SLOTS.forEach((slot, i) => {
+      doc.text(slot.label, x + medColWidth + i * slotColWidth + slotColWidth / 2, yy + headerHeight - 2.4, { align: 'center' });
+    });
+    doc.setFont(undefined, 'normal');
+    return yy + headerHeight;
+  };
+
+  doc.setDrawColor(180, 180, 180);
+  if (y + headerHeight + 14 > PAGE_HEIGHT - MARGIN) {
+    doc.addPage();
+    y = MARGIN;
+  }
+  y = drawHeader(y);
+  doc.setFontSize(8);
+
+  for (const med of meds) {
+    const times = String(med.schedule || '')
+      .split(',')
+      .map((t) => t.trim())
+      .filter((t) => t.includes(':'));
+
+    // Cell entries per slot: dose (dark) + exact time (gray) for each scheduled dose
+    const slotEntries = MED_TIME_SLOTS.map((slot) => {
+      const inSlot = times
+        .filter((t) => medSlotKey(t) === slot.key)
+        .sort((a, b) => (medTimeToMinutes(a) || 0) - (medTimeToMinutes(b) || 0));
+      const entries = [];
+      for (const t of inSlot) {
+        if (med.dosage) {
+          for (const line of doc.splitTextToSize(String(med.dosage), slotColWidth - pad * 2)) {
+            entries.push({ text: line, gray: false });
+          }
+          entries.push({ text: t, gray: true });
+        } else {
+          entries.push({ text: t, gray: false });
+        }
+      }
+      return entries;
+    });
+
+    const nameLines = doc.splitTextToSize(String(med.name || ''), medColWidth - pad * 2);
+    const freqLines = med.frequency ? doc.splitTextToSize(String(med.frequency), medColWidth - pad * 2) : [];
+    const maxLines = Math.max(nameLines.length + freqLines.length, ...slotEntries.map((e) => e.length || 1));
+    const rowHeight = maxLines * cellLineHeight + pad * 2;
+
+    if (y + rowHeight > PAGE_HEIGHT - MARGIN - 5) {
+      doc.addPage();
+      y = MARGIN;
+      y = drawHeader(y);
+      doc.setFontSize(8);
+    }
+
+    // Cell borders
+    doc.rect(x, y, medColWidth, rowHeight);
+    MED_TIME_SLOTS.forEach((slot, i) => {
+      doc.rect(x + medColWidth + i * slotColWidth, y, slotColWidth, rowHeight);
+    });
+
+    // Medication cell: name, then frequency in gray
+    let ty = y + textTopOffset;
+    for (const line of nameLines) {
+      doc.text(line, x + pad, ty);
+      ty += cellLineHeight;
+    }
+    if (freqLines.length > 0) {
+      doc.setTextColor(120, 120, 120);
+      for (const line of freqLines) {
+        doc.text(line, x + pad, ty);
+        ty += cellLineHeight;
+      }
+      doc.setTextColor(0, 0, 0);
+    }
+
+    // Time slot cells
+    MED_TIME_SLOTS.forEach((slot, i) => {
+      const cx = x + medColWidth + i * slotColWidth + slotColWidth / 2;
+      const entries = slotEntries[i];
+      let cy = y + textTopOffset;
+      if (entries.length === 0) {
+        doc.setTextColor(190, 190, 190);
+        doc.text('—', cx, cy, { align: 'center' });
+        doc.setTextColor(0, 0, 0);
+      } else {
+        for (const entry of entries) {
+          if (entry.gray) doc.setTextColor(120, 120, 120);
+          doc.text(entry.text, cx, cy, { align: 'center' });
+          if (entry.gray) doc.setTextColor(0, 0, 0);
+          cy += cellLineHeight;
+        }
+      }
+    });
+
+    y += rowHeight;
+  }
+
+  doc.setFontSize(FONT_SIZE_NORMAL);
+  return y + 4;
+}
+
 function formatDateStr(isoOrDate) {
   if (!isoOrDate) return '';
   const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
@@ -563,11 +714,24 @@ export async function generateDoctorSummaryPdf(summaryPayload, options = {}) {
       };
       const currentMeds = medsList.filter((m) => medStatus(m) === 'active');
       const inactiveMeds = medsList.filter((m) => medStatus(m) !== 'active');
-      if (currentMeds.length > 0) {
+      const hasTimedSchedule = (m) => typeof m.schedule === 'string' && m.schedule.includes(':');
+      const scheduledMeds = currentMeds.filter(hasTimedSchedule);
+      const unscheduledMeds = currentMeds.filter((m) => !hasTimedSchedule(m));
+      if (scheduledMeds.length > 0) {
         doc.setFont(undefined, 'bold');
-        y = addWrappedText(doc, 'Current medications', x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
+        y = addWrappedText(doc, 'Current medications — daily schedule', x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL });
         doc.setFont(undefined, 'normal');
-        for (const med of currentMeds) {
+        y = drawMedicationScheduleTable(doc, scheduledMeds, x, y);
+      }
+      if (unscheduledMeds.length > 0) {
+        doc.setFont(undefined, 'bold');
+        y = addWrappedText(
+          doc,
+          scheduledMeds.length > 0 ? 'Other current medications (no fixed time)' : 'Current medications',
+          x, y, CONTENT_WIDTH, { fontSize: FONT_SIZE_SMALL }
+        );
+        doc.setFont(undefined, 'normal');
+        for (const med of unscheduledMeds) {
           y = addWrappedText(doc, medLine(med), x, y, CONTENT_WIDTH);
         }
       }
