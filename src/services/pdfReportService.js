@@ -7,6 +7,7 @@
 
 import { jsPDF } from 'jspdf';
 import { categorizeLabs, normalizeVitalName, getLabDisplayName, getVitalDisplayName } from '../utils/normalizationUtils';
+import logger from '../utils/logger';
 
 const MARGIN = 20;
 const PAGE_WIDTH = 210;
@@ -17,6 +18,52 @@ const SECTION_GAP = 8;
 const FONT_SIZE_NORMAL = 10;
 const FONT_SIZE_SMALL = 9;
 const FONT_SIZE_HEADING = 12;
+
+// Unicode font (CJK support) — jsPDF's built-in fonts only cover Latin-1, so
+// Japanese medication names etc. render as garbage without an embedded font.
+const PDF_FONT = 'NotoSansJP';
+let jpFontsPromise = null;
+
+async function fetchFontBase64(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Font fetch failed (${res.status}): ${url}`);
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+/** Load Noto Sans JP (regular + bold) once and cache; returns null on failure */
+function loadUnicodeFonts() {
+  if (!jpFontsPromise) {
+    const base = process.env.PUBLIC_URL || '';
+    jpFontsPromise = Promise.all([
+      fetchFontBase64(`${base}/fonts/NotoSansJP-Regular.ttf`),
+      fetchFontBase64(`${base}/fonts/NotoSansJP-Bold.ttf`)
+    ])
+      .then(([regular, bold]) => ({ regular, bold }))
+      .catch((err) => {
+        logger.error('PDF font load failed; falling back to built-in fonts (non-Latin text may garble)', err);
+        jpFontsPromise = null; // allow retry on next export
+        return null;
+      });
+  }
+  return jpFontsPromise;
+}
+
+/** Register the Unicode font on a jsPDF doc and make it the active font */
+async function applyUnicodeFont(doc) {
+  const fonts = await loadUnicodeFonts();
+  if (!fonts) return;
+  doc.addFileToVFS('NotoSansJP-Regular.ttf', fonts.regular);
+  doc.addFont('NotoSansJP-Regular.ttf', PDF_FONT, 'normal');
+  doc.addFileToVFS('NotoSansJP-Bold.ttf', fonts.bold);
+  doc.addFont('NotoSansJP-Bold.ttf', PDF_FONT, 'bold');
+  doc.setFont(PDF_FONT, 'normal');
+}
 
 /**
  * Add text with wrapping and optional new page; returns new y position
@@ -304,11 +351,12 @@ function drawMultiSeriesChart(doc, x, y, width, height, seriesArray, title) {
  * Generate PDF from doctor summary payload
  * @param {Object} summaryPayload - Result from exportDoctorSummary
  * @param {Object} [options] - { displayMode: 'list'|'graph' }
- * @returns {Blob} PDF blob
+ * @returns {Promise<Blob>} PDF blob
  */
-export function generateDoctorSummaryPdf(summaryPayload, options = {}) {
+export async function generateDoctorSummaryPdf(summaryPayload, options = {}) {
   const displayMode = options.displayMode || 'list';
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  await applyUnicodeFont(doc);
   const data = summaryPayload.data || {};
   let y = MARGIN;
   const x = MARGIN;

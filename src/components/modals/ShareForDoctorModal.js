@@ -210,7 +210,7 @@ export default function ShareForDoctorModal({ show, onClose, user }) {
     setLoading(true);
     try {
       const payload = await loadPayload();
-      const blob = generateDoctorSummaryPdf(payload, {});
+      const blob = await generateDoctorSummaryPdf(payload, {});
       const dateStr = new Date().toISOString().slice(0, 10);
       triggerDownload(blob, `CancerCare-doctor-summary-${dateStr}.pdf`);
       if (alsoDownloadJson) {
@@ -233,7 +233,7 @@ export default function ShareForDoctorModal({ show, onClose, user }) {
     setLoading(true);
     try {
       const payload = await loadPayload();
-      const blob = generateDoctorSummaryPdf(payload, {});
+      const blob = await generateDoctorSummaryPdf(payload, {});
       const dateStr = new Date().toISOString().slice(0, 10);
       const filename = `CancerCare-doctor-summary-${dateStr}.pdf`;
       const result = await uploadFileToDrive(blob, filename);
